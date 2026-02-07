@@ -5,6 +5,12 @@ An AI-orchestrated Arch Linux system installer
 Beautiful GUI installer with Nord theme and i18n support
 """
 
+# ========== DEMO MODE ==========
+# Set to True to run installer in demo mode (no actual disk changes)
+# Set to False for real installation
+DEMO_MODE = False
+# ================================
+
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GLib, Gdk, GdkPixbuf
@@ -13,6 +19,7 @@ import os
 import sys
 import re
 import threading
+import time
 
 # Internationalization
 TRANSLATIONS = {
@@ -391,14 +398,14 @@ NORD_AURORA = {'nord11': '#BF616A', 'nord12': '#D08770', 'nord13': '#EBCB8B', 'n
 
 class MadOSInstaller(Gtk.Window):
     def __init__(self):
-        super().__init__(title="madOS Installer")
+        super().__init__(title="madOS Installer" + (" (DEMO MODE)" if DEMO_MODE else ""))
 
-        # Check root
-        if os.geteuid() != 0:
+        # Check root (skip in demo mode)
+        if not DEMO_MODE and os.geteuid() != 0:
             self.show_error("Root Required", "This installer must be run as root.\n\nPlease use: sudo install-mados-gtk.py")
             sys.exit(1)
 
-        self.set_default_size(950, 480)
+        self.set_default_size(1024, 600)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_resizable(True)
 
@@ -424,7 +431,23 @@ class MadOSInstaller(Gtk.Window):
         self.notebook = Gtk.Notebook()
         self.notebook.set_show_tabs(False)
         self.notebook.set_show_border(False)
-        self.add(self.notebook)
+        
+        # Add demo banner if in demo mode
+        if DEMO_MODE:
+            overlay = Gtk.Overlay()
+            overlay.add(self.notebook)
+            
+            demo_banner = Gtk.Label()
+            demo_banner.set_markup('<span size="small" weight="bold">  DEMO MODE — No Installation Will Occur  </span>')
+            demo_banner.get_style_context().add_class('demo-banner')
+            demo_banner.set_halign(Gtk.Align.CENTER)
+            demo_banner.set_valign(Gtk.Align.START)
+            demo_banner.set_margin_top(5)
+            overlay.add_overlay(demo_banner)
+            
+            self.add(overlay)
+        else:
+            self.add(self.notebook)
 
         # Create pages
         self.create_welcome_page()
@@ -471,74 +494,220 @@ class MadOSInstaller(Gtk.Window):
         self.show_all()
 
     def apply_theme(self):
-        """Apply Nord theme"""
+        """Apply Nord theme - Dark mode"""
         css_provider = Gtk.CssProvider()
         css = f"""
-        window {{ background-color: {NORD_POLAR_NIGHT['nord0']}; }}
-        .title {{ font-size: 24px; font-weight: bold; color: {NORD_SNOW_STORM['nord6']}; }}
-        .subtitle {{ font-size: 13px; color: {NORD_FROST['nord8']}; }}
-        label {{ color: {NORD_SNOW_STORM['nord6']}; }}
-        radio {{ color: {NORD_SNOW_STORM['nord6']}; }}
+        * {{
+            outline-width: 0;
+        }}
+        
+        window {{ 
+            background-color: {NORD_POLAR_NIGHT['nord0']};
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        .demo-banner {{
+            background-color: {NORD_AURORA['nord12']};
+            color: {NORD_POLAR_NIGHT['nord0']};
+            font-weight: bold;
+            padding: 5px;
+        }}
+        
+        .title {{ 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: {NORD_SNOW_STORM['nord6']}; 
+        }}
+        
+        .subtitle {{ 
+            font-size: 13px; 
+            color: {NORD_FROST['nord8']}; 
+        }}
+        
+        label {{ 
+            color: {NORD_SNOW_STORM['nord6']};
+            background-color: transparent;
+        }}
+        
+        radio, checkbutton {{
+            color: {NORD_SNOW_STORM['nord6']};
+            background-color: transparent;
+        }}
+        
+        radio:checked {{
+            color: {NORD_FROST['nord8']};
+        }}
+        
         entry {{
-            background-color: {NORD_POLAR_NIGHT['nord2']};
+            background-color: {NORD_POLAR_NIGHT['nord1']};
             color: {NORD_SNOW_STORM['nord6']};
             border: 1px solid {NORD_POLAR_NIGHT['nord3']};
             border-radius: 5px;
-            padding: 8px;
+            padding: 6px;
+            caret-color: {NORD_FROST['nord8']};
         }}
+        
+        entry:focus {{
+            background-color: {NORD_POLAR_NIGHT['nord2']};
+            border: 1px solid {NORD_FROST['nord9']};
+        }}
+        
+        entry selection {{
+            background-color: {NORD_FROST['nord9']};
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        combobox button {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            background-image: none;
+            color: {NORD_SNOW_STORM['nord6']};
+            border: 1px solid {NORD_POLAR_NIGHT['nord3']};
+            border-radius: 5px;
+            padding: 6px;
+        }}
+        
+        combobox button:hover {{
+            background-color: {NORD_POLAR_NIGHT['nord2']};
+            background-image: none;
+        }}
+        
+        combobox button cellview {{
+            color: {NORD_SNOW_STORM['nord6']};
+            background-color: transparent;
+        }}
+        
+        combobox window.popup {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+        }}
+        
+        combobox window.popup > frame > border {{
+            border-color: {NORD_POLAR_NIGHT['nord3']};
+        }}
+        
+        combobox menu, combobox .menu {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        combobox menu menuitem, combobox .menu menuitem {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            color: {NORD_SNOW_STORM['nord6']};
+            padding: 6px 10px;
+        }}
+        
+        combobox menu menuitem:hover, combobox .menu menuitem:hover {{
+            background-color: {NORD_FROST['nord9']};
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        cellview {{
+            background-color: transparent;
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        menu, .menu, .popup {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        menuitem {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        menuitem:hover {{
+            background-color: {NORD_FROST['nord9']};
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
         button {{
             background-image: linear-gradient(to bottom, {NORD_FROST['nord10']}, #4A6A94);
             color: #FFFFFF;
             border: none;
             border-radius: 5px;
-            padding: 10px 20px;
+            padding: 8px 16px;
             font-weight: bold;
             text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3);
         }}
+        
         button:hover {{
             background-image: linear-gradient(to bottom, {NORD_FROST['nord9']}, {NORD_FROST['nord10']});
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
         }}
+        
+        button:active {{
+            background-image: linear-gradient(to bottom, #4A6A94, {NORD_FROST['nord10']});
+        }}
+        
         .warning-button {{
             background-image: linear-gradient(to bottom, {NORD_AURORA['nord11']}, #9A3B44);
             color: #FFFFFF;
         }}
+        
+        .warning-button:hover {{
+            background-image: linear-gradient(to bottom, #D08080, {NORD_AURORA['nord11']});
+        }}
+        
         .success-button {{
             background-image: linear-gradient(to bottom, {NORD_AURORA['nord14']}, #7A9168);
             color: #FFFFFF;
         }}
-        progressbar {{ background-color: {NORD_POLAR_NIGHT['nord2']}; }}
+        
+        .success-button:hover {{
+            background-image: linear-gradient(to bottom, #B5D49E, {NORD_AURORA['nord14']});
+        }}
+        
+        progressbar {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            border-radius: 5px;
+        }}
+        
+        progressbar trough {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            border-radius: 5px;
+            min-height: 20px;
+        }}
+        
         progressbar progress {{
             background-image: linear-gradient(to right, {NORD_FROST['nord8']}, {NORD_FROST['nord10']});
             border-radius: 5px;
+            min-height: 20px;
         }}
+        
         .warning-box {{
             background-color: {NORD_AURORA['nord11']};
             border-radius: 5px;
             padding: 10px;
             margin: 5px;
         }}
+        
         .warning-box label {{
-            color: {NORD_POLAR_NIGHT['nord0']};
+            color: {NORD_SNOW_STORM['nord6']};
             font-weight: bold;
         }}
+        
         .info-box {{
             background-color: {NORD_FROST['nord10']};
             border-radius: 5px;
             padding: 10px;
             margin: 5px;
         }}
+        
         .info-box label {{
-            color: {NORD_POLAR_NIGHT['nord0']};
+            color: {NORD_SNOW_STORM['nord6']};
         }}
+        
         .success-box {{
             background-color: {NORD_AURORA['nord14']};
             border-radius: 5px;
             padding: 10px;
             margin: 5px;
         }}
+        
         .success-box label {{
             color: {NORD_POLAR_NIGHT['nord0']};
         }}
+        
         .summary-card {{
             background-color: {NORD_POLAR_NIGHT['nord1']};
             border-left: 4px solid {NORD_FROST['nord8']};
@@ -546,10 +715,348 @@ class MadOSInstaller(Gtk.Window):
             padding: 15px;
             margin: 10px;
         }}
+        
         textview {{
             background-color: {NORD_POLAR_NIGHT['nord1']};
             color: {NORD_SNOW_STORM['nord5']};
             padding: 10px;
+        }}
+        
+        textview text {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            color: {NORD_SNOW_STORM['nord5']};
+        }}
+        
+        scrolledwindow {{
+            background-color: {NORD_POLAR_NIGHT['nord0']};
+        }}
+        
+        list, listbox {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        listbox row {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        listbox row:hover {{
+            background-color: {NORD_POLAR_NIGHT['nord2']};
+        }}
+        
+        listbox row:selected {{
+            background-color: {NORD_FROST['nord9']};
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        messagedialog, dialog {{
+            background-color: {NORD_POLAR_NIGHT['nord0']};
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        messagedialog .titlebar, dialog .titlebar {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        messagedialog box, dialog box {{
+            background-color: {NORD_POLAR_NIGHT['nord0']};
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        messagedialog label, dialog label {{
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        messagedialog .dialog-action-area button, dialog .dialog-action-area button {{
+            background-image: linear-gradient(to bottom, {NORD_FROST['nord10']}, #4A6A94);
+            color: #FFFFFF;
+            border: none;
+            border-radius: 5px;
+            padding: 8px 20px;
+        }}
+        
+        messagedialog .dialog-action-area button:hover, dialog .dialog-action-area button:hover {{
+            background-image: linear-gradient(to bottom, {NORD_FROST['nord9']}, {NORD_FROST['nord10']});
+        }}
+        
+        .welcome-container {{
+            background-color: {NORD_POLAR_NIGHT['nord0']};
+        }}
+        
+        .welcome-title {{
+            font-size: 28px;
+            font-weight: bold;
+            color: {NORD_SNOW_STORM['nord6']};
+        }}
+        
+        .welcome-subtitle {{
+            font-size: 13px;
+            color: {NORD_FROST['nord8']};
+            font-style: italic;
+        }}
+        
+        .welcome-divider {{
+            background-color: {NORD_FROST['nord8']};
+            min-height: 2px;
+        }}
+        
+        .feature-card {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            border-radius: 8px;
+            padding: 8px 12px;
+        }}
+        
+        .feature-icon {{
+            color: {NORD_FROST['nord8']};
+            font-size: 16px;
+        }}
+        
+        .feature-text {{
+            color: {NORD_SNOW_STORM['nord4']};
+            font-size: 13px;
+        }}
+        
+        .start-button {{
+            background-image: linear-gradient(to bottom, {NORD_FROST['nord8']}, {NORD_FROST['nord10']});
+            color: {NORD_POLAR_NIGHT['nord0']};
+            border: none;
+            border-radius: 8px;
+            padding: 10px 32px;
+            font-size: 14px;
+            font-weight: bold;
+        }}
+        
+        .start-button:hover {{
+            background-image: linear-gradient(to bottom, {NORD_FROST['nord7']}, {NORD_FROST['nord9']});
+            box-shadow: 0 4px 12px rgba(136, 192, 208, 0.3);
+        }}
+        
+        .exit-button {{
+            background-color: transparent;
+            background-image: none;
+            color: {NORD_POLAR_NIGHT['nord3']};
+            border: 1px solid {NORD_POLAR_NIGHT['nord3']};
+            border-radius: 8px;
+            padding: 10px 24px;
+            font-size: 13px;
+            font-weight: normal;
+        }}
+        
+        .exit-button:hover {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            background-image: none;
+            color: {NORD_SNOW_STORM['nord4']};
+            border-color: {NORD_SNOW_STORM['nord4']};
+        }}
+        
+        .lang-label {{
+            color: {NORD_POLAR_NIGHT['nord3']};
+            font-size: 12px;
+        }}
+        
+        .version-label {{
+            color: {NORD_POLAR_NIGHT['nord3']};
+            font-size: 11px;
+        }}
+        
+        /* ── Page Layout ── */
+        .page-container {{
+            background-color: {NORD_POLAR_NIGHT['nord0']};
+        }}
+        
+        .page-header {{
+            margin-top: 6px;
+            margin-bottom: 2px;
+        }}
+        
+        .page-divider {{
+            background-color: {NORD_POLAR_NIGHT['nord2']};
+            min-height: 1px;
+        }}
+        
+        /* ── Navigation ── */
+        .nav-back-button {{
+            background-color: transparent;
+            background-image: none;
+            color: {NORD_SNOW_STORM['nord4']};
+            border: 1px solid {NORD_POLAR_NIGHT['nord3']};
+            border-radius: 6px;
+            padding: 8px 18px;
+            font-weight: normal;
+        }}
+        
+        .nav-back-button:hover {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            background-image: none;
+            color: {NORD_SNOW_STORM['nord6']};
+            border-color: {NORD_SNOW_STORM['nord4']};
+        }}
+        
+        /* ── Content Cards ── */
+        .content-card {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            border-radius: 10px;
+            padding: 12px 16px;
+        }}
+        
+        /* ── Warning Banner ── */
+        .warning-banner {{
+            background-color: rgba(191, 97, 106, 0.15);
+            border-radius: 8px;
+            padding: 6px 12px;
+        }}
+        
+        /* ── Partition Options ── */
+        .partition-card {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            border-radius: 10px;
+            padding: 10px 14px;
+            border: 2px solid {NORD_POLAR_NIGHT['nord2']};
+        }}
+        
+        /* ── Partition Bar ── */
+        .partition-bar-efi {{
+            background-color: {NORD_AURORA['nord13']};
+            border-radius: 4px 0 0 4px;
+            min-height: 22px;
+            padding: 1px 6px;
+        }}
+        
+        .partition-bar-root {{
+            background-color: {NORD_FROST['nord9']};
+            min-height: 22px;
+            padding: 1px 6px;
+        }}
+        
+        .partition-bar-home {{
+            background-color: {NORD_AURORA['nord14']};
+            border-radius: 0 4px 4px 0;
+            min-height: 22px;
+            padding: 1px 6px;
+        }}
+        
+        .partition-bar-root-only {{
+            background-color: {NORD_FROST['nord9']};
+            border-radius: 0 4px 4px 0;
+            min-height: 22px;
+            padding: 1px 6px;
+        }}
+        
+        /* ── Form Styling ── */
+        .form-card {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            border-radius: 10px;
+            padding: 16px 20px;
+        }}
+        
+        /* ── Summary Cards ── */
+        .summary-card-system {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            border-left: 4px solid {NORD_FROST['nord8']};
+            border-radius: 8px;
+            padding: 10px 14px;
+        }}
+        
+        .summary-card-account {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            border-left: 4px solid {NORD_AURORA['nord15']};
+            border-radius: 8px;
+            padding: 10px 14px;
+        }}
+        
+        .summary-card-partitions {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            border-left: 4px solid {NORD_AURORA['nord13']};
+            border-radius: 8px;
+            padding: 10px 14px;
+        }}
+        
+        .summary-card-software {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            border-left: 4px solid {NORD_AURORA['nord14']};
+            border-radius: 8px;
+            padding: 10px 14px;
+        }}
+        
+        /* ── Completion Page ── */
+        .completion-card {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            border-radius: 10px;
+            padding: 14px 18px;
+            border-left: 4px solid {NORD_AURORA['nord14']};
+        }}
+        
+        /* ── Disk Cards ── */
+        .disk-card {{
+            background-color: {NORD_POLAR_NIGHT['nord1']};
+            background-image: none;
+            border-radius: 10px;
+            padding: 0;
+            border: 2px solid {NORD_POLAR_NIGHT['nord2']};
+            text-shadow: none;
+        }}
+        
+        .disk-card:hover {{
+            background-color: {NORD_POLAR_NIGHT['nord2']};
+            background-image: none;
+            border-color: {NORD_FROST['nord9']};
+        }}
+        
+        .disk-card-selected {{
+            background-color: rgba(136, 192, 208, 0.08);
+            background-image: none;
+            border-radius: 10px;
+            padding: 0;
+            border: 2px solid {NORD_FROST['nord8']};
+            text-shadow: none;
+        }}
+        
+        .disk-card-selected:hover {{
+            background-color: rgba(136, 192, 208, 0.12);
+            background-image: none;
+            border-color: {NORD_FROST['nord8']};
+        }}
+        
+        .disk-type-badge {{
+            background-color: {NORD_POLAR_NIGHT['nord2']};
+            background-image: none;
+            border-radius: 6px;
+            padding: 4px 10px;
+            min-width: 50px;
+        }}
+        
+        .disk-type-nvme {{
+            background-color: rgba(136, 192, 208, 0.2);
+            background-image: none;
+            border-radius: 6px;
+            padding: 4px 10px;
+            min-width: 50px;
+        }}
+        
+        .disk-type-ssd {{
+            background-color: rgba(163, 190, 140, 0.2);
+            background-image: none;
+            border-radius: 6px;
+            padding: 4px 10px;
+            min-width: 50px;
+        }}
+        
+        .disk-type-hdd {{
+            background-color: rgba(216, 222, 233, 0.1);
+            background-image: none;
+            border-radius: 6px;
+            padding: 4px 10px;
+            min-width: 50px;
+        }}
+        
+        .demo-banner {{
+            background-color: rgba(208, 135, 112, 0.9);
+            color: {NORD_POLAR_NIGHT['nord0']};
+            border-radius: 0 0 8px 8px;
+            padding: 4px 16px;
+            font-weight: bold;
         }}
         """
         css_provider.load_from_data(css.encode())
@@ -565,68 +1072,155 @@ class MadOSInstaller(Gtk.Window):
         import string
         return ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
 
-    def create_welcome_page(self):
-        """Welcome page with language selector"""
-        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=20)
-        hbox.set_halign(Gtk.Align.CENTER)
-        hbox.set_valign(Gtk.Align.CENTER)
-        hbox.set_margin_top(15)
-        hbox.set_margin_bottom(15)
-        hbox.set_margin_start(30)
-        hbox.set_margin_end(30)
-
-        # Logo
-        logo_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        logo_box.set_valign(Gtk.Align.CENTER)
-
-        logo_paths = ['/usr/share/pixmaps/mados-logo.svg']
+    def _load_logo(self, size=160):
+        """Load logo from multiple possible paths"""
+        logo_paths = [
+            '/usr/share/pixmaps/mados-logo.png',
+            'airootfs/usr/share/pixmaps/mados-logo.png',
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../share/pixmaps/mados-logo.png')
+        ]
         for logo_path in logo_paths:
             try:
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(logo_path, 100, 100, True)
-                image = Gtk.Image.new_from_pixbuf(pixbuf)
-                logo_box.pack_start(image, False, False, 0)
-                break
-            except:
-                continue
+                if os.path.exists(logo_path):
+                    pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(logo_path, size, size, True)
+                    return Gtk.Image.new_from_pixbuf(pixbuf)
+            except Exception as e:
+                print(f"Could not load logo from {logo_path}: {e}")
+        return None
 
-        hbox.pack_start(logo_box, False, False, 0)
+    def _create_page_header(self, title, step_num, total_steps=6):
+        """Create consistent page header with step indicator"""
+        header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        header.get_style_context().add_class('page-header')
 
-        # Content
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        # Step indicator dots
+        steps_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        steps_box.set_halign(Gtk.Align.CENTER)
+        steps_box.set_margin_bottom(8)
+        steps_box.set_margin_top(2)
 
-        title = Gtk.Label()
-        title.set_markup(f'<span size="large" weight="bold">{self.t("title")}</span>')
-        title.get_style_context().add_class('title')
-        title.set_halign(Gtk.Align.START)
-        box.pack_start(title, False, False, 0)
+        for i in range(1, total_steps + 1):
+            dot = Gtk.Label()
+            if i == step_num:
+                dot.set_markup(f'<span foreground="{NORD_FROST["nord8"]}" size="9000" weight="bold"> ● </span>')
+            elif i < step_num:
+                dot.set_markup(f'<span foreground="{NORD_AURORA["nord14"]}" size="9000"> ● </span>')
+            else:
+                dot.set_markup(f'<span foreground="{NORD_POLAR_NIGHT["nord3"]}" size="9000"> ● </span>')
+            steps_box.pack_start(dot, False, False, 0)
 
-        subtitle = Gtk.Label(label=self.t('subtitle'))
-        subtitle.get_style_context().add_class('subtitle')
-        subtitle.set_halign(Gtk.Align.START)
-        box.pack_start(subtitle, False, False, 0)
+            if i < total_steps:
+                line = Gtk.Label()
+                if i < step_num:
+                    line.set_markup(f'<span foreground="{NORD_AURORA["nord14"]}"> ── </span>')
+                else:
+                    line.set_markup(f'<span foreground="{NORD_POLAR_NIGHT["nord3"]}"> ── </span>')
+                steps_box.pack_start(line, False, False, 0)
 
-        # Features in 2 columns
-        features_grid = Gtk.Grid()
-        features_grid.set_column_spacing(15)
-        features_grid.set_row_spacing(3)
-        features_grid.set_margin_top(8)
+        header.pack_start(steps_box, False, False, 0)
 
-        for row, (f1, f2) in enumerate(self.t('features')):
-            label1 = Gtk.Label(label=f1)
-            label1.set_halign(Gtk.Align.START)
-            features_grid.attach(label1, 0, row, 1, 1)
+        # Title
+        title_label = Gtk.Label()
+        title_label.set_markup(f'<span size="14000" weight="bold" foreground="{NORD_SNOW_STORM["nord6"]}">{title}</span>')
+        title_label.set_halign(Gtk.Align.CENTER)
+        header.pack_start(title_label, False, False, 0)
 
-            label2 = Gtk.Label(label=f2)
-            label2.set_halign(Gtk.Align.START)
-            features_grid.attach(label2, 1, row, 1, 1)
+        # Divider
+        divider = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        divider.get_style_context().add_class('page-divider')
+        divider.set_margin_start(40)
+        divider.set_margin_end(40)
+        divider.set_margin_top(6)
+        header.pack_start(divider, False, False, 0)
 
-        box.pack_start(features_grid, False, False, 0)
+        return header
 
-        # Language selector
-        lang_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        lang_box.set_margin_top(8)
+    def _create_nav_buttons(self, back_callback, next_callback, next_label=None, next_class='success-button'):
+        """Create consistent navigation buttons"""
+        btn_box = Gtk.Box(spacing=12)
+        btn_box.set_halign(Gtk.Align.END)
+        btn_box.set_margin_top(10)
 
-        lang_label = Gtk.Label(label=self.t('language'))
+        back_btn = Gtk.Button(label=self.t('back'))
+        back_btn.get_style_context().add_class('nav-back-button')
+        back_btn.connect('clicked', back_callback)
+        btn_box.pack_start(back_btn, False, False, 0)
+
+        next_btn = Gtk.Button(label=next_label or self.t('next'))
+        next_btn.get_style_context().add_class(next_class)
+        next_btn.connect('clicked', next_callback)
+        btn_box.pack_start(next_btn, False, False, 0)
+
+        return btn_box
+
+    def create_welcome_page(self):
+        """Welcome page with centered design"""
+        # Main vertical container - everything centered
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        page.get_style_context().add_class('welcome-container')
+
+        # Center content vertically
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        content.set_halign(Gtk.Align.CENTER)
+        content.set_valign(Gtk.Align.CENTER)
+
+        # ── Logo ──
+        logo_image = self._load_logo(180)
+        if logo_image:
+            logo_image.set_halign(Gtk.Align.CENTER)
+            logo_image.set_margin_bottom(4)
+            content.pack_start(logo_image, False, False, 0)
+        else:
+            fallback = Gtk.Label()
+            fallback.set_markup(f'<span size="40000" weight="bold" foreground="{NORD_FROST["nord8"]}">madOS</span>')
+            fallback.set_margin_bottom(4)
+            content.pack_start(fallback, False, False, 0)
+
+        # ── Subtitle ──
+        subtitle = Gtk.Label()
+        subtitle.set_markup(f'<span size="10000" foreground="{NORD_FROST["nord8"]}">{self.t("subtitle")}</span>')
+        subtitle.set_halign(Gtk.Align.CENTER)
+        subtitle.set_margin_top(2)
+        subtitle.set_margin_bottom(10)
+        content.pack_start(subtitle, False, False, 0)
+
+        # ── Divider ──
+        divider = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        divider.get_style_context().add_class('welcome-divider')
+        divider.set_margin_start(80)
+        divider.set_margin_end(80)
+        divider.set_margin_bottom(10)
+        content.pack_start(divider, False, False, 0)
+
+        # ── Features grid in cards ──
+        features_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        features_box.set_halign(Gtk.Align.CENTER)
+
+        for f1, f2 in self.t('features'):
+            card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            card.get_style_context().add_class('feature-card')
+
+            lbl1 = Gtk.Label()
+            lbl1.set_markup(f'<span foreground="{NORD_FROST["nord8"]}" weight="bold">{f1}</span>')
+            lbl1.set_halign(Gtk.Align.START)
+            card.pack_start(lbl1, False, False, 0)
+
+            lbl2 = Gtk.Label()
+            lbl2.set_markup(f'<span size="small" foreground="{NORD_SNOW_STORM["nord4"]}">{f2}</span>')
+            lbl2.set_halign(Gtk.Align.START)
+            card.pack_start(lbl2, False, False, 0)
+
+            features_box.pack_start(card, False, False, 0)
+
+        content.pack_start(features_box, False, False, 0)
+
+        # ── Language selector ──
+        lang_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        lang_box.set_halign(Gtk.Align.CENTER)
+        lang_box.set_margin_top(12)
+
+        lang_label = Gtk.Label()
+        lang_label.set_markup(f'<span size="small" foreground="{NORD_POLAR_NIGHT["nord3"]}">{self.t("language")}</span>')
         lang_box.pack_start(lang_label, False, False, 0)
 
         self.lang_combo = Gtk.ComboBoxText()
@@ -640,246 +1234,390 @@ class MadOSInstaller(Gtk.Window):
         self.lang_combo.connect('changed', self.on_language_changed)
         lang_box.pack_start(self.lang_combo, False, False, 0)
 
-        box.pack_start(lang_box, False, False, 0)
+        content.pack_start(lang_box, False, False, 0)
 
-        # Buttons
-        btn_box = Gtk.Box(spacing=10)
-        btn_box.set_halign(Gtk.Align.START)
-        btn_box.set_margin_top(8)
+        # ── Buttons ──
+        btn_box = Gtk.Box(spacing=12)
+        btn_box.set_halign(Gtk.Align.CENTER)
+        btn_box.set_margin_top(14)
 
         start_btn = Gtk.Button(label=self.t('start_install'))
-        start_btn.get_style_context().add_class('success-button')
+        start_btn.get_style_context().add_class('start-button')
         start_btn.connect('clicked', lambda x: self.notebook.next_page())
         btn_box.pack_start(start_btn, False, False, 0)
 
         exit_btn = Gtk.Button(label=self.t('exit'))
+        exit_btn.get_style_context().add_class('exit-button')
         exit_btn.connect('clicked', lambda x: Gtk.main_quit())
         btn_box.pack_start(exit_btn, False, False, 0)
 
-        box.pack_start(btn_box, False, False, 0)
-        hbox.pack_start(box, True, True, 0)
+        content.pack_start(btn_box, False, False, 0)
 
-        self.notebook.append_page(hbox, Gtk.Label(label="Welcome"))
+        # ── Version footer ──
+        version = Gtk.Label()
+        version.set_markup(f'<span size="small" foreground="{NORD_POLAR_NIGHT["nord3"]}">v1.0 • Arch Linux • x86_64</span>')
+        version.set_halign(Gtk.Align.CENTER)
+        version.set_margin_top(10)
+        content.pack_start(version, False, False, 0)
+
+        page.pack_start(content, True, True, 0)
+
+        self.notebook.append_page(page, Gtk.Label(label="Welcome"))
 
     def create_disk_selection_page(self):
-        """Disk selection page"""
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        box.set_margin_start(20)
-        box.set_margin_end(20)
-        box.set_margin_top(10)
-        box.set_margin_bottom(10)
+        """Disk selection page with button cards"""
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        page.get_style_context().add_class('page-container')
 
-        # Title + Warning horizontal
-        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=15)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
 
-        title = Gtk.Label()
-        title.set_markup(f'<span size="large" weight="bold">{self.t("select_disk")}</span>')
-        header_box.pack_start(title, False, False, 0)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        content.set_margin_start(30)
+        content.set_margin_end(30)
+        content.set_margin_bottom(14)
 
-        warning = Gtk.Label()
-        warning.set_markup(f'<span size="small" weight="bold" foreground="#BF616A">{self.t("warning")}</span>')
-        header_box.pack_start(warning, False, False, 0)
+        # Page header with step indicator
+        header = self._create_page_header(self.t('select_disk'), 1)
+        content.pack_start(header, False, False, 0)
 
-        box.pack_start(header_box, False, False, 5)
+        # Warning banner
+        warn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        warn_box.get_style_context().add_class('warning-banner')
+        warn_box.set_margin_top(8)
+        warn_box.set_margin_bottom(8)
 
-        # Disks
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_min_content_height(55)
+        warn_text = Gtk.Label()
+        warn_text.set_markup(
+            f'<span weight="bold" foreground="{NORD_AURORA["nord11"]}">'
+            f'  {self.t("warning")}</span>'
+        )
+        warn_text.set_halign(Gtk.Align.CENTER)
+        warn_box.pack_start(warn_text, True, True, 0)
 
-        self.disk_listbox = Gtk.ListBox()
-        self.disk_listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        scrolled.add(self.disk_listbox)
+        content.pack_start(warn_box, False, False, 0)
 
-        # Populate disks
+        # Disk buttons container
+        self.disk_buttons_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.disk_buttons_box.set_margin_top(4)
+        self.disk_buttons = []
+        self.selected_disk_info = None
+
         self.populate_disks()
 
-        box.pack_start(scrolled, True, True, 0)
+        content.pack_start(self.disk_buttons_box, False, False, 0)
 
-        # Buttons
-        btn_box = Gtk.Box(spacing=10)
-        btn_box.set_halign(Gtk.Align.END)
+        # Navigation buttons
+        nav = self._create_nav_buttons(
+            lambda x: self.notebook.prev_page(),
+            self.on_disk_next
+        )
+        content.pack_start(nav, False, False, 0)
 
-        back_btn = Gtk.Button(label=self.t('back'))
-        back_btn.connect('clicked', lambda x: self.notebook.prev_page())
-        btn_box.pack_start(back_btn, False, False, 0)
+        scroll.add(content)
+        page.pack_start(scroll, True, True, 0)
 
-        next_btn = Gtk.Button(label=self.t('next'))
-        next_btn.get_style_context().add_class('success-button')
-        next_btn.connect('clicked', self.on_disk_next)
-        btn_box.pack_start(next_btn, False, False, 0)
-
-        box.pack_start(btn_box, False, False, 0)
-
-        self.notebook.append_page(box, Gtk.Label(label="Disk"))
+        self.notebook.append_page(page, Gtk.Label(label="Disk"))
 
     def populate_disks(self):
-        """Populate disk list"""
+        """Populate disk list with clickable button cards"""
+        # Clear existing
+        for child in self.disk_buttons_box.get_children():
+            self.disk_buttons_box.remove(child)
+        self.disk_buttons = []
+        self.selected_disk_info = None
+
+        def on_disk_click(button, name, size):
+            """Handle disk card click - update selection state"""
+            for btn in self.disk_buttons:
+                ctx = btn.get_style_context()
+                ctx.remove_class('disk-card-selected')
+                ctx.add_class('disk-card')
+            ctx = button.get_style_context()
+            ctx.remove_class('disk-card')
+            ctx.add_class('disk-card-selected')
+            self.selected_disk_info = {'name': name, 'size': size}
+
+        def get_disk_type(name, model=''):
+            """Determine disk type from name/model"""
+            name_lower = name.lower()
+            model_lower = model.lower()
+            if 'nvme' in name_lower:
+                return 'NVMe'
+            elif 'ssd' in model_lower or 'flash' in model_lower:
+                return 'SSD'
+            else:
+                return 'HDD'
+
         try:
-            result = subprocess.run(['lsblk', '-d', '-n', '-o', 'NAME,SIZE,TYPE'],
-                                  capture_output=True, text=True)
-            disks = [line for line in result.stdout.splitlines() if 'disk' in line]
+            if DEMO_MODE:
+                disk_list = [
+                    ('sda', '256G', 'Samsung SSD 860 EVO'),
+                    ('nvme0n1', '512G', 'WD Black SN750'),
+                    ('sdb', '1T', 'Seagate BarraCuda HDD')
+                ]
+            else:
+                disk_list = []
+                result = subprocess.run(['lsblk', '-d', '-n', '-o', 'NAME,SIZE,TYPE,MODEL'],
+                                      capture_output=True, text=True)
+                for line in result.stdout.splitlines():
+                    if 'disk' in line:
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            name = parts[0]
+                            size = parts[1]
+                            model = ' '.join(parts[3:]) if len(parts) > 3 else 'Unknown disk'
+                            disk_list.append((name, size, model))
 
-            for disk_line in disks:
-                parts = disk_line.split()
-                if len(parts) >= 2:
-                    name = parts[0]
-                    size = parts[1]
+            for name, size, model in disk_list:
+                disk_type = get_disk_type(name, model)
 
-                    row = Gtk.ListBoxRow()
-                    hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-                    hbox.set_margin_start(10)
-                    hbox.set_margin_end(10)
-                    hbox.set_margin_top(5)
-                    hbox.set_margin_bottom(5)
+                btn = Gtk.Button()
+                btn.get_style_context().add_class('disk-card')
+                btn.connect('clicked', on_disk_click, name, size)
 
-                    label = Gtk.Label()
-                    label.set_markup(f'<b>/dev/{name}</b>  ({size})')
-                    label.set_halign(Gtk.Align.START)
-                    hbox.pack_start(label, True, True, 0)
+                hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+                hbox.set_margin_start(12)
+                hbox.set_margin_end(12)
+                hbox.set_margin_top(8)
+                hbox.set_margin_bottom(8)
 
-                    row.add(hbox)
-                    row.disk_name = name
-                    row.disk_size = size
-                    self.disk_listbox.add(row)
+                # Type badge
+                badge = Gtk.Label()
+                badge_class = f'disk-type-{disk_type.lower()}'
+                if disk_type == 'NVMe':
+                    badge.set_markup(f'<span size="9000" weight="bold" foreground="{NORD_FROST["nord8"]}">NVMe</span>')
+                elif disk_type == 'SSD':
+                    badge.set_markup(f'<span size="9000" weight="bold" foreground="{NORD_AURORA["nord14"]}">SSD</span>')
+                else:
+                    badge.set_markup(f'<span size="9000" weight="bold" foreground="{NORD_SNOW_STORM["nord4"]}">HDD</span>')
+                badge.get_style_context().add_class(badge_class)
+                badge.set_size_request(60, -1)
+                hbox.pack_start(badge, False, False, 0)
+
+                # Device info
+                info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+                dev_label = Gtk.Label()
+                dev_label.set_markup(
+                    f'<span weight="bold" size="11000" foreground="{NORD_SNOW_STORM["nord6"]}">'
+                    f'/dev/{name}</span>'
+                )
+                dev_label.set_halign(Gtk.Align.START)
+                info_box.pack_start(dev_label, False, False, 0)
+
+                model_label = Gtk.Label()
+                model_label.set_markup(
+                    f'<span size="9500" foreground="{NORD_SNOW_STORM["nord4"]}">{model}</span>'
+                )
+                model_label.set_halign(Gtk.Align.START)
+                info_box.pack_start(model_label, False, False, 0)
+                hbox.pack_start(info_box, True, True, 0)
+
+                # Size (prominent)
+                size_label = Gtk.Label()
+                size_label.set_markup(
+                    f'<span weight="bold" size="14000" foreground="{NORD_FROST["nord8"]}">{size}</span>'
+                )
+                hbox.pack_start(size_label, False, False, 0)
+
+                btn.add(hbox)
+                self.disk_buttons.append(btn)
+                self.disk_buttons_box.pack_start(btn, False, False, 0)
+
         except Exception as e:
             print(f"Error listing disks: {e}")
 
     def on_disk_next(self, button):
         """Handle disk selection next"""
-        row = self.disk_listbox.get_selected_row()
-        if row is None:
+        if self.selected_disk_info is None:
             self.show_error("No Disk Selected", "Please select a disk to continue.")
             return
 
-        self.install_data['disk'] = f"/dev/{row.disk_name}"
+        name = self.selected_disk_info['name']
+        size_str = self.selected_disk_info['size']
+        self.install_data['disk'] = f"/dev/{name}"
 
         # Parse disk size
-        size_str = row.disk_size
         try:
             if 'G' in size_str:
                 self.install_data['disk_size_gb'] = int(float(size_str.replace('G', '')))
             elif 'T' in size_str:
                 self.install_data['disk_size_gb'] = int(float(size_str.replace('T', '')) * 1024)
             else:
-                self.install_data['disk_size_gb'] = 120  # default
+                self.install_data['disk_size_gb'] = 120
         except:
             self.install_data['disk_size_gb'] = 120
 
         # Show confirmation dialog
-        dialog = Gtk.MessageDialog(
-            transient_for=self,
-            flags=0,
-            message_type=Gtk.MessageType.WARNING,
-            buttons=Gtk.ButtonsType.YES_NO,
-            text="CONFIRM DISK ERASURE"
-        )
-        dialog.format_secondary_text(
-            f"ALL DATA on {self.install_data['disk']} will be PERMANENTLY ERASED!\n\n"
-            "Are you absolutely sure you want to continue?"
-        )
-
-        response = dialog.run()
-        dialog.destroy()
-
-        if response == Gtk.ResponseType.YES:
+        if DEMO_MODE:
+            # Demo mode - just show info
+            dialog = Gtk.MessageDialog(
+                transient_for=self,
+                flags=0,
+                message_type=Gtk.MessageType.INFO,
+                buttons=Gtk.ButtonsType.OK,
+                text="DEMO MODE"
+            )
+            dialog.format_secondary_text(
+                f"Selected disk: {self.install_data['disk']}\n\n"
+                "In real mode, all data would be erased.\n"
+                "Demo mode: No actual changes will be made."
+            )
+            self._style_dialog(dialog)
+            dialog.run()
+            dialog.destroy()
             self.notebook.next_page()
+        else:
+            # Real mode - show warning
+            dialog = Gtk.MessageDialog(
+                transient_for=self,
+                flags=0,
+                message_type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.YES_NO,
+                text="CONFIRM DISK ERASURE"
+            )
+            dialog.format_secondary_text(
+                f"ALL DATA on {self.install_data['disk']} will be PERMANENTLY ERASED!\n\n"
+                "Are you absolutely sure you want to continue?"
+            )
+
+            self._style_dialog(dialog)
+            response = dialog.run()
+            dialog.destroy()
+
+            if response == Gtk.ResponseType.YES:
+                self.notebook.next_page()
 
     def create_partitioning_page(self):
         """Partitioning scheme selection"""
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        box.set_margin_start(30)
-        box.set_margin_end(30)
-        box.set_margin_top(20)
-        box.set_margin_bottom(15)
-        box.set_halign(Gtk.Align.CENTER)
-        box.set_valign(Gtk.Align.CENTER)
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        page.get_style_context().add_class('page-container')
 
-        # Title
-        title = Gtk.Label()
-        title.set_markup(f'<span size="large" weight="bold">{self.t("partitioning")}</span>')
-        box.pack_start(title, False, False, 10)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
 
-        # Disk info
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        content.set_margin_start(30)
+        content.set_margin_end(30)
+        content.set_margin_bottom(14)
+
+        # Page header
+        header = self._create_page_header(self.t('partitioning'), 2)
+        content.pack_start(header, False, False, 0)
+
+        # Selected disk info
         disk_info = Gtk.Label()
-        disk_info.set_markup(f'<span size="small">{self.t("disk_info")} <b>{self.install_data["disk"] or "N/A"}</b> ({self.install_data["disk_size_gb"]} GB)</span>')
-        box.pack_start(disk_info, False, False, 5)
+        disk_info.set_markup(
+            f'<span size="10000" foreground="{NORD_SNOW_STORM["nord4"]}">'
+            f'{self.t("disk_info")} <b>{self.install_data["disk"] or "N/A"}</b> '
+            f'({self.install_data["disk_size_gb"]} GB)</span>'
+        )
+        disk_info.set_halign(Gtk.Align.CENTER)
+        disk_info.set_margin_top(6)
+        disk_info.set_margin_bottom(8)
+        content.pack_start(disk_info, False, False, 0)
 
-        # Radio buttons
-        self.radio_separate = Gtk.RadioButton.new_with_label_from_widget(None, self.t("sep_home_radio"))
+        # Option 1: Separate /home
+        card1 = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        card1.get_style_context().add_class('partition-card')
+        card1.set_margin_bottom(8)
+
+        self.radio_separate = Gtk.RadioButton.new_with_label_from_widget(None, '')
+        radio_box1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        radio_box1.pack_start(self.radio_separate, False, False, 0)
+        title1 = Gtk.Label()
+        title1.set_markup(f'<span weight="bold" size="11000">{GLib.markup_escape_text(self.t("sep_home_radio"))}</span>')
+        radio_box1.pack_start(title1, False, False, 0)
+        card1.pack_start(radio_box1, False, False, 0)
         self.radio_separate.set_active(True)
 
-        # Info box for separate home
-        sep_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        sep_box.get_style_context().add_class('info-box')
-        sep_box.set_margin_start(30)
+        pros1 = Gtk.Label()
+        pros1.set_markup(
+            f'<span size="9000" foreground="{NORD_AURORA["nord14"]}">  ✓ {self.t("sep_home_pro1")}</span>\n'
+            f'<span size="9000" foreground="{NORD_AURORA["nord14"]}">  ✓ {self.t("sep_home_pro2")}</span>\n'
+            f'<span size="9000" foreground="{NORD_AURORA["nord11"]}">  ✗ {self.t("sep_home_con")}</span>'
+        )
+        pros1.set_halign(Gtk.Align.START)
+        pros1.set_margin_start(28)
+        card1.pack_start(pros1, False, False, 0)
 
-        sep_label = Gtk.Label()
-        sep_label.set_markup(f'<b>{self.t("sep_home_title")}</b>')
-        sep_label.set_halign(Gtk.Align.START)
-        sep_box.pack_start(sep_label, False, False, 0)
+        # Partition bar visualization
+        root_size = '50GB' if self.install_data["disk_size_gb"] < 128 else '60GB'
+        bar1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        bar1.set_margin_start(28)
+        bar1.set_margin_end(8)
+        bar1.set_margin_top(4)
 
-        sep_pros = Gtk.Label()
-        sep_pros.set_markup(f'  ✓ {self.t("sep_home_pro1")}\n  ✓ {self.t("sep_home_pro2")}\n  ✗ {self.t("sep_home_con")}')
-        sep_pros.set_halign(Gtk.Align.START)
-        sep_box.pack_start(sep_pros, False, False, 0)
+        efi_bar = Gtk.Label()
+        efi_bar.set_markup(f'<span size="8000" foreground="{NORD_POLAR_NIGHT["nord0"]}"> EFI 1G </span>')
+        efi_bar.get_style_context().add_class('partition-bar-efi')
+        bar1.pack_start(efi_bar, False, False, 0)
 
-        if self.install_data["disk_size_gb"] < 128:
-            sep_scheme = Gtk.Label()
-            sep_scheme.set_markup(f'  <span size="small">{self.t("efi_label")} 1GB | {self.t("root_label")} 50GB | {self.t("home_label")} {self.t("rest_label")}</span>')
-            sep_scheme.set_halign(Gtk.Align.START)
-            sep_box.pack_start(sep_scheme, False, False, 0)
-        else:
-            sep_scheme = Gtk.Label()
-            sep_scheme.set_markup(f'  <span size="small">{self.t("efi_label")} 1GB | {self.t("root_label")} 60GB | {self.t("home_label")} {self.t("rest_label")}</span>')
-            sep_scheme.set_halign(Gtk.Align.START)
-            sep_box.pack_start(sep_scheme, False, False, 0)
+        root_bar = Gtk.Label()
+        root_bar.set_markup(f'<span size="8000" foreground="{NORD_POLAR_NIGHT["nord0"]}"> Root {root_size} </span>')
+        root_bar.get_style_context().add_class('partition-bar-root')
+        bar1.pack_start(root_bar, True, True, 0)
 
-        box.pack_start(self.radio_separate, False, False, 5)
-        box.pack_start(sep_box, False, False, 5)
+        home_bar = Gtk.Label()
+        home_bar.set_markup(f'<span size="8000" foreground="{NORD_POLAR_NIGHT["nord0"]}"> Home {self.t("rest_label")} </span>')
+        home_bar.get_style_context().add_class('partition-bar-home')
+        bar1.pack_start(home_bar, True, True, 0)
 
-        # All in root
-        self.radio_all_root = Gtk.RadioButton.new_with_label_from_widget(self.radio_separate, self.t("all_root_radio"))
+        card1.pack_start(bar1, False, False, 0)
+        content.pack_start(card1, False, False, 0)
 
-        # Info box for all in root
-        all_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        all_box.get_style_context().add_class('success-box')
-        all_box.set_margin_start(30)
+        # Option 2: All in root
+        card2 = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        card2.get_style_context().add_class('partition-card')
+        card2.set_margin_bottom(8)
 
-        all_label = Gtk.Label()
-        all_label.set_markup(f'<b>{self.t("all_root_title")}</b>')
-        all_label.set_halign(Gtk.Align.START)
-        all_box.pack_start(all_label, False, False, 0)
+        self.radio_all_root = Gtk.RadioButton.new_with_label_from_widget(self.radio_separate, '')
+        radio_box2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        radio_box2.pack_start(self.radio_all_root, False, False, 0)
+        title2 = Gtk.Label()
+        title2.set_markup(f'<span weight="bold" size="11000">{GLib.markup_escape_text(self.t("all_root_radio"))}</span>')
+        radio_box2.pack_start(title2, False, False, 0)
+        card2.pack_start(radio_box2, False, False, 0)
 
-        all_pros = Gtk.Label()
-        all_pros.set_markup(f'  ✓ {self.t("all_root_pro1")}\n  ✓ {self.t("all_root_pro2")}\n  ✗ {self.t("all_root_con")}')
-        all_pros.set_halign(Gtk.Align.START)
-        all_box.pack_start(all_pros, False, False, 0)
+        pros2 = Gtk.Label()
+        pros2.set_markup(
+            f'<span size="9000" foreground="{NORD_AURORA["nord14"]}">  ✓ {self.t("all_root_pro1")}</span>\n'
+            f'<span size="9000" foreground="{NORD_AURORA["nord14"]}">  ✓ {self.t("all_root_pro2")}</span>\n'
+            f'<span size="9000" foreground="{NORD_AURORA["nord11"]}">  ✗ {self.t("all_root_con")}</span>'
+        )
+        pros2.set_halign(Gtk.Align.START)
+        pros2.set_margin_start(28)
+        card2.pack_start(pros2, False, False, 0)
 
-        all_scheme = Gtk.Label()
-        all_scheme.set_markup(f'  <span size="small">{self.t("efi_label")} 1GB | {self.t("root_label")} {self.t("all_rest_label")} | {self.t("home_dir_label")}</span>')
-        all_scheme.set_halign(Gtk.Align.START)
-        all_box.pack_start(all_scheme, False, False, 0)
+        bar2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+        bar2.set_margin_start(28)
+        bar2.set_margin_end(8)
+        bar2.set_margin_top(6)
 
-        box.pack_start(self.radio_all_root, False, False, 5)
-        box.pack_start(all_box, False, False, 5)
+        efi_bar2 = Gtk.Label()
+        efi_bar2.set_markup(f'<span size="8000" foreground="{NORD_POLAR_NIGHT["nord0"]}"> EFI 1G </span>')
+        efi_bar2.get_style_context().add_class('partition-bar-efi')
+        bar2.pack_start(efi_bar2, False, False, 0)
 
-        # Buttons
-        btn_box = Gtk.Box(spacing=10)
-        btn_box.set_halign(Gtk.Align.END)
-        btn_box.set_margin_top(15)
+        root_bar2 = Gtk.Label()
+        root_bar2.set_markup(f'<span size="8000" foreground="{NORD_POLAR_NIGHT["nord0"]}"> Root {self.t("all_rest_label")} – {self.t("home_dir_label")} </span>')
+        root_bar2.get_style_context().add_class('partition-bar-root-only')
+        bar2.pack_start(root_bar2, True, True, 0)
 
-        back_btn = Gtk.Button(label=self.t('back'))
-        back_btn.connect('clicked', lambda x: self.notebook.prev_page())
-        btn_box.pack_start(back_btn, False, False, 0)
+        card2.pack_start(bar2, False, False, 0)
+        content.pack_start(card2, False, False, 0)
 
-        next_btn = Gtk.Button(label=self.t('next'))
-        next_btn.get_style_context().add_class('success-button')
-        next_btn.connect('clicked', self.on_partitioning_next)
-        btn_box.pack_start(next_btn, False, False, 0)
+        # Navigation
+        nav = self._create_nav_buttons(
+            lambda x: self.notebook.prev_page(),
+            self.on_partitioning_next
+        )
+        content.pack_start(nav, False, False, 0)
 
-        box.pack_start(btn_box, False, False, 0)
+        scroll.add(content)
+        page.pack_start(scroll, True, True, 0)
 
-        self.notebook.append_page(box, Gtk.Label(label="Partitioning"))
+        self.notebook.append_page(page, Gtk.Label(label="Partitioning"))
 
     def on_partitioning_next(self, button):
         """Save partitioning choice"""
@@ -888,66 +1626,84 @@ class MadOSInstaller(Gtk.Window):
 
     def create_user_page(self):
         """User account page"""
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        box.set_margin_start(20)
-        box.set_margin_end(20)
-        box.set_margin_top(10)
-        box.set_margin_bottom(10)
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        page.get_style_context().add_class('page-container')
 
-        title = Gtk.Label()
-        title.set_markup(f'<span size="large" weight="bold">{self.t("create_user")}</span>')
-        box.pack_start(title, False, False, 5)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        content.set_margin_start(30)
+        content.set_margin_end(30)
+        content.set_margin_bottom(14)
+        content.set_halign(Gtk.Align.CENTER)
+        content.set_valign(Gtk.Align.CENTER)
 
-        grid = Gtk.Grid()
-        grid.set_column_spacing(10)
-        grid.set_row_spacing(10)
-        grid.set_halign(Gtk.Align.CENTER)
-        grid.set_margin_top(15)
+        # Page header
+        header = self._create_page_header(self.t('create_user'), 3)
+        content.pack_start(header, False, False, 0)
 
-        grid.attach(Gtk.Label(label=self.t('username')), 0, 0, 1, 1)
+        # Form card
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        form.get_style_context().add_class('form-card')
+        form.set_margin_top(10)
+        form.set_size_request(380, -1)
+
+        # Username field
+        user_label = Gtk.Label()
+        user_label.set_markup(f'<span size="9000" weight="bold" foreground="{NORD_FROST["nord8"]}">{self.t("username").rstrip(":")}</span>')
+        user_label.set_halign(Gtk.Align.START)
+        form.pack_start(user_label, False, False, 0)
+
         self.username_entry = Gtk.Entry()
-        self.username_entry.set_width_chars(30)
         self.username_entry.set_placeholder_text("lowercase, no spaces")
-        grid.attach(self.username_entry, 1, 0, 1, 1)
+        form.pack_start(self.username_entry, False, False, 0)
 
-        grid.attach(Gtk.Label(label=self.t('password')), 0, 1, 1, 1)
+        # Password field
+        pwd_label = Gtk.Label()
+        pwd_label.set_markup(f'<span size="9000" weight="bold" foreground="{NORD_FROST["nord8"]}">{self.t("password").rstrip(":")}</span>')
+        pwd_label.set_halign(Gtk.Align.START)
+        pwd_label.set_margin_top(4)
+        form.pack_start(pwd_label, False, False, 0)
+
         self.password_entry = Gtk.Entry()
-        self.password_entry.set_width_chars(30)
         self.password_entry.set_visibility(False)
         self.password_entry.set_placeholder_text("enter password")
-        grid.attach(self.password_entry, 1, 1, 1, 1)
+        form.pack_start(self.password_entry, False, False, 0)
 
-        grid.attach(Gtk.Label(label=self.t('confirm_pwd')), 0, 2, 1, 1)
+        # Confirm password
+        pwd2_label = Gtk.Label()
+        pwd2_label.set_markup(f'<span size="9000" weight="bold" foreground="{NORD_FROST["nord8"]}">{self.t("confirm_pwd").rstrip(":")}</span>')
+        pwd2_label.set_halign(Gtk.Align.START)
+        pwd2_label.set_margin_top(4)
+        form.pack_start(pwd2_label, False, False, 0)
+
         self.password2_entry = Gtk.Entry()
-        self.password2_entry.set_width_chars(30)
         self.password2_entry.set_visibility(False)
         self.password2_entry.set_placeholder_text("confirm password")
-        grid.attach(self.password2_entry, 1, 2, 1, 1)
+        form.pack_start(self.password2_entry, False, False, 0)
 
-        grid.attach(Gtk.Label(label=self.t('hostname')), 0, 3, 1, 1)
+        # Hostname
+        host_label = Gtk.Label()
+        host_label.set_markup(f'<span size="9000" weight="bold" foreground="{NORD_FROST["nord8"]}">{self.t("hostname").rstrip(":")}</span>')
+        host_label.set_halign(Gtk.Align.START)
+        host_label.set_margin_top(4)
+        form.pack_start(host_label, False, False, 0)
+
         self.hostname_entry = Gtk.Entry()
-        self.hostname_entry.set_width_chars(30)
         self.hostname_entry.set_text(self.install_data['hostname'])
-        grid.attach(self.hostname_entry, 1, 3, 1, 1)
+        form.pack_start(self.hostname_entry, False, False, 0)
 
-        box.pack_start(grid, True, False, 0)
+        content.pack_start(form, False, False, 0)
 
-        # Buttons
-        btn_box = Gtk.Box(spacing=10)
-        btn_box.set_halign(Gtk.Align.END)
+        # Navigation
+        nav = self._create_nav_buttons(
+            lambda x: self.notebook.prev_page(),
+            self.on_user_next
+        )
+        nav.set_size_request(380, -1)
+        content.pack_start(nav, False, False, 0)
 
-        back_btn = Gtk.Button(label=self.t('back'))
-        back_btn.connect('clicked', lambda x: self.notebook.prev_page())
-        btn_box.pack_start(back_btn, False, False, 0)
+        page.pack_start(content, True, False, 0)
 
-        next_btn = Gtk.Button(label=self.t('next'))
-        next_btn.get_style_context().add_class('success-button')
-        next_btn.connect('clicked', self.on_user_next)
-        btn_box.pack_start(next_btn, False, False, 0)
-
-        box.pack_start(btn_box, False, False, 0)
-
-        self.notebook.append_page(box, Gtk.Label(label="User"))
+        self.notebook.append_page(page, Gtk.Label(label="User"))
 
     def on_user_next(self, button):
         """Validate and save user data"""
@@ -984,57 +1740,84 @@ class MadOSInstaller(Gtk.Window):
 
     def create_locale_page(self):
         """Locale page with timezone only (language already selected)"""
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        box.set_margin_start(20)
-        box.set_margin_end(20)
-        box.set_margin_top(10)
-        box.set_margin_bottom(10)
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        page.get_style_context().add_class('page-container')
 
-        title = Gtk.Label()
-        title.set_markup(f'<span size="large" weight="bold">{self.t("regional")}</span>')
-        box.pack_start(title, False, False, 5)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        content.set_margin_start(30)
+        content.set_margin_end(30)
+        content.set_margin_bottom(14)
+        content.set_halign(Gtk.Align.CENTER)
+        content.set_valign(Gtk.Align.CENTER)
 
-        # Show current language selection
-        lang_info = Gtk.Label()
-        lang_info.set_markup(f'<span size="small"><b>System Language:</b> {self.current_lang} ({self.install_data["locale"]})</span>')
-        lang_info.set_halign(Gtk.Align.START)
-        lang_info.set_margin_start(20)
-        box.pack_start(lang_info, False, False, 5)
+        # Page header
+        header = self._create_page_header(self.t('regional'), 4)
+        content.pack_start(header, False, False, 0)
 
-        grid = Gtk.Grid()
-        grid.set_column_spacing(10)
-        grid.set_row_spacing(10)
-        grid.set_halign(Gtk.Align.CENTER)
-        grid.set_margin_top(15)
+        # Language info card
+        lang_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        lang_card.get_style_context().add_class('content-card')
+        lang_card.set_margin_top(10)
+        lang_card.set_size_request(380, -1)
 
-        # Only timezone selector
-        grid.attach(Gtk.Label(label=self.t('timezone')), 0, 0, 1, 1)
+        lang_icon_label = Gtk.Label()
+        lang_icon_label.set_markup(
+            f'<span size="9000" weight="bold" foreground="{NORD_FROST["nord8"]}">{self.t("locale_label").rstrip(":")}</span>'
+        )
+        lang_icon_label.set_halign(Gtk.Align.START)
+        lang_card.pack_start(lang_icon_label, False, False, 0)
+
+        lang_value = Gtk.Label()
+        lang_value.set_markup(
+            f'<span size="11000" weight="bold">{self.current_lang}</span>  '
+            f'<span size="9000" foreground="{NORD_SNOW_STORM["nord4"]}">({self.install_data["locale"]})</span>'
+        )
+        lang_value.set_halign(Gtk.Align.START)
+        lang_value.set_margin_start(24)
+        lang_card.pack_start(lang_value, False, False, 0)
+
+        hint = Gtk.Label()
+        hint.set_markup(f'<span size="8000" foreground="{NORD_POLAR_NIGHT["nord3"]}">← Configured on welcome page</span>')
+        hint.set_halign(Gtk.Align.START)
+        hint.set_margin_start(24)
+        lang_card.pack_start(hint, False, False, 0)
+
+        content.pack_start(lang_card, False, False, 0)
+
+        # Timezone card
+        tz_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        tz_card.get_style_context().add_class('content-card')
+        tz_card.set_margin_top(8)
+        tz_card.set_size_request(380, -1)
+
+        tz_label = Gtk.Label()
+        tz_label.set_markup(
+            f'<span size="9000" weight="bold" foreground="{NORD_FROST["nord8"]}">{self.t("timezone").rstrip(":")}</span>'
+        )
+        tz_label.set_halign(Gtk.Align.START)
+        tz_card.pack_start(tz_label, False, False, 0)
 
         self.timezone_combo = Gtk.ComboBoxText()
         for tz in TIMEZONES:
             self.timezone_combo.append_text(tz)
         self.timezone_combo.set_active(0)
+        self.timezone_combo.set_margin_start(24)
+        self.timezone_combo.set_margin_end(8)
+        tz_card.pack_start(self.timezone_combo, False, False, 0)
 
-        grid.attach(self.timezone_combo, 1, 0, 1, 1)
+        content.pack_start(tz_card, False, False, 0)
 
-        box.pack_start(grid, True, False, 0)
+        # Navigation
+        nav = self._create_nav_buttons(
+            lambda x: self.notebook.prev_page(),
+            self.on_locale_next
+        )
+        nav.set_size_request(380, -1)
+        content.pack_start(nav, False, False, 0)
 
-        # Buttons
-        btn_box = Gtk.Box(spacing=10)
-        btn_box.set_halign(Gtk.Align.END)
+        page.pack_start(content, True, False, 0)
 
-        back_btn = Gtk.Button(label=self.t('back'))
-        back_btn.connect('clicked', lambda x: self.notebook.prev_page())
-        btn_box.pack_start(back_btn, False, False, 0)
-
-        next_btn = Gtk.Button(label=self.t('next'))
-        next_btn.get_style_context().add_class('success-button')
-        next_btn.connect('clicked', self.on_locale_next)
-        btn_box.pack_start(next_btn, False, False, 0)
-
-        box.pack_start(btn_box, False, False, 0)
-
-        self.notebook.append_page(box, Gtk.Label(label="Locale"))
+        self.notebook.append_page(page, Gtk.Label(label="Locale"))
 
     def on_locale_next(self, button):
         """Save locale data"""
@@ -1043,144 +1826,280 @@ class MadOSInstaller(Gtk.Window):
         self.notebook.next_page()
 
     def create_summary_page(self):
-        """Summary page"""
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        box.set_margin_start(20)
-        box.set_margin_end(20)
-        box.set_margin_top(10)
-        box.set_margin_bottom(10)
+        """Summary page with card-based layout"""
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        page.get_style_context().add_class('page-container')
 
-        title = Gtk.Label()
-        title.set_markup(f'<span size="large" weight="bold">{self.t("summary")}</span>')
-        box.pack_start(title, False, False, 5)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
 
-        # Summary text
-        self.summary_label = Gtk.Label()
-        self.summary_label.set_halign(Gtk.Align.START)
-        self.summary_label.set_margin_start(20)
-        self.summary_label.set_margin_top(10)
-        box.pack_start(self.summary_label, True, False, 0)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        content.set_margin_start(30)
+        content.set_margin_end(30)
+        content.set_margin_bottom(14)
 
-        # Buttons
-        btn_box = Gtk.Box(spacing=10)
-        btn_box.set_halign(Gtk.Align.END)
+        # Page header
+        header = self._create_page_header(self.t('summary'), 5)
+        content.pack_start(header, False, False, 0)
 
-        back_btn = Gtk.Button(label=self.t('back'))
-        back_btn.connect('clicked', lambda x: self.notebook.prev_page())
-        btn_box.pack_start(back_btn, False, False, 0)
+        # Summary container (filled dynamically by update_summary)
+        self.summary_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.summary_container.set_margin_top(10)
+        content.pack_start(self.summary_container, True, False, 0)
 
-        install_btn = Gtk.Button(label=self.t('start_install_btn'))
-        install_btn.get_style_context().add_class('success-button')
-        install_btn.connect('clicked', self.on_start_installation)
-        btn_box.pack_start(install_btn, False, False, 0)
+        # Navigation
+        nav = self._create_nav_buttons(
+            lambda x: self.notebook.prev_page(),
+            self.on_start_installation,
+            next_label=self.t('start_install_btn'),
+            next_class='start-button'
+        )
+        content.pack_start(nav, False, False, 0)
 
-        box.pack_start(btn_box, False, False, 0)
+        scroll.add(content)
+        page.pack_start(scroll, True, True, 0)
 
-        self.notebook.append_page(box, Gtk.Label(label="Summary"))
+        self.notebook.append_page(page, Gtk.Label(label="Summary"))
 
     def update_summary(self):
-        """Update summary text"""
+        """Update summary with card-based layout"""
+        # Clear existing content
+        for child in self.summary_container.get_children():
+            self.summary_container.remove(child)
+
         disk = self.install_data['disk'] or 'N/A'
 
-        # Build partition info
+        # Top row: System + Account side by side
+        top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+
+        # System card
+        sys_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        sys_card.get_style_context().add_class('summary-card-system')
+
+        sys_title = Gtk.Label()
+        sys_title.set_markup(f'<span weight="bold" foreground="{NORD_FROST["nord8"]}">{self.t("sys_config").rstrip(":")}</span>')
+        sys_title.set_halign(Gtk.Align.START)
+        sys_card.pack_start(sys_title, False, False, 0)
+
+        sys_info = Gtk.Label()
+        sys_info.set_markup(
+            f'<span size="9000">'
+            f'  {self.t("disk")}  <b>{disk}</b>\n'
+            f'  {self.t("timezone")}  <b>{self.install_data["timezone"]}</b>\n'
+            f'  Locale:  <b>{self.install_data["locale"]}</b>'
+            f'</span>'
+        )
+        sys_info.set_halign(Gtk.Align.START)
+        sys_card.pack_start(sys_info, False, False, 0)
+
+        top_row.pack_start(sys_card, True, True, 0)
+
+        # Account card
+        acct_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        acct_card.get_style_context().add_class('summary-card-account')
+
+        acct_title = Gtk.Label()
+        acct_title.set_markup(f'<span weight="bold" foreground="{NORD_AURORA["nord15"]}">Account</span>')
+        acct_title.set_halign(Gtk.Align.START)
+        acct_card.pack_start(acct_title, False, False, 0)
+
+        acct_info = Gtk.Label()
+        acct_info.set_markup(
+            f'<span size="9000">'
+            f'  {self.t("username")}  <b>{self.install_data["username"]}</b>\n'
+            f'  {self.t("hostname")}  <b>{self.install_data["hostname"]}</b>\n'
+            f'  Password:  <b>{"●" * min(len(self.install_data["password"]), 8)}</b>'
+            f'</span>'
+        )
+        acct_info.set_halign(Gtk.Align.START)
+        acct_card.pack_start(acct_info, False, False, 0)
+
+        top_row.pack_start(acct_card, True, True, 0)
+
+        self.summary_container.pack_start(top_row, False, False, 0)
+
+        # Partitions card
+        part_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        part_card.get_style_context().add_class('summary-card-partitions')
+
+        part_title = Gtk.Label()
+        part_title.set_markup(f'<span weight="bold" foreground="{NORD_AURORA["nord13"]}">{self.t("partitions")}</span>')
+        part_title.set_halign(Gtk.Align.START)
+        part_card.pack_start(part_title, False, False, 0)
+
         if self.install_data['separate_home']:
             root_size = '50GB' if self.install_data['disk_size_gb'] < 128 else '60GB'
-            part_info = f'{disk}1   1GB      {self.t("efi_label")}\n  {disk}2   {root_size}   {self.t("root_label")} (/)\n  {disk}3   {self.t("rest_label")}     {self.t("home_label")} (/home)'
+            part_text = (
+                f'  {disk}1   <b>1GB</b>      {self.t("efi_label")}  (FAT32)\n'
+                f'  {disk}2   <b>{root_size}</b>   {self.t("root_label")}  (/)  ext4\n'
+                f'  {disk}3   <b>{self.t("rest_label")}</b>     {self.t("home_label")}  (/home)  ext4'
+            )
         else:
-            part_info = f'{disk}1   1GB      {self.t("efi_label")}\n  {disk}2   {self.t("all_rest_label")}   {self.t("root_label")} (/) - {self.t("home_dir_label")}'
+            part_text = (
+                f'  {disk}1   <b>1GB</b>        {self.t("efi_label")}  (FAT32)\n'
+                f'  {disk}2   <b>{self.t("all_rest_label")}</b>   {self.t("root_label")}  (/)  ext4 – {self.t("home_dir_label")}'
+            )
 
-        text = f"""<span size="large">
-<b>{self.t("sys_config")}</b>
+        part_info = Gtk.Label()
+        part_info.set_markup(f'<span size="9000" font_family="monospace">{part_text}</span>')
+        part_info.set_halign(Gtk.Align.START)
+        part_card.pack_start(part_info, False, False, 0)
 
-  {self.t("disk")}       {disk}
-  Username:   {self.install_data['username']}
-  {self.t("hostname")}   {self.install_data['hostname']}
-  {self.t("timezone")}   {self.install_data['timezone']}
-  Locale:     {self.install_data['locale']}
+        self.summary_container.pack_start(part_card, False, False, 0)
 
-<b>{self.t("partitions")}</b>
-  {part_info}
+        # Software card
+        sw_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        sw_card.get_style_context().add_class('summary-card-software')
 
-<b>{self.t("software")}</b>
-  {self.t("software_list")}
-</span>"""
-        self.summary_label.set_markup(text)
+        sw_title = Gtk.Label()
+        sw_title.set_markup(f'<span weight="bold" foreground="{NORD_AURORA["nord14"]}">{self.t("software")}</span>')
+        sw_title.set_halign(Gtk.Align.START)
+        sw_card.pack_start(sw_title, False, False, 0)
+
+        sw_info = Gtk.Label()
+        sw_info.set_markup(f'<span size="9000">{self.t("software_list")}</span>')
+        sw_info.set_halign(Gtk.Align.START)
+        sw_card.pack_start(sw_info, False, False, 0)
+
+        self.summary_container.pack_start(sw_card, False, False, 0)
+
+        self.summary_container.show_all()
 
     def create_installation_page(self):
         """Installation page"""
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=15)
-        box.set_margin_start(30)
-        box.set_margin_end(30)
-        box.set_margin_top(30)
-        box.set_margin_bottom(20)
-        box.set_valign(Gtk.Align.CENTER)
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        page.get_style_context().add_class('page-container')
+        page.set_valign(Gtk.Align.CENTER)
 
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        content.set_margin_start(30)
+        content.set_margin_end(30)
+        content.set_margin_top(10)
+        content.set_margin_bottom(14)
+
+        # Icon
+        icon = Gtk.Label()
+        icon.set_markup(f'<span size="22000" weight="bold" foreground="{NORD_FROST["nord8"]}">&#x2699;</span>')
+        icon.set_halign(Gtk.Align.CENTER)
+        content.pack_start(icon, False, False, 0)
+
+        # Title
         title = Gtk.Label()
-        title.set_markup(f'<span size="x-large" weight="bold">{self.t("installing")}</span>')
-        box.pack_start(title, False, False, 0)
+        title.set_markup(f'<span size="15000" weight="bold">{self.t("installing")}</span>')
+        title.set_halign(Gtk.Align.CENTER)
+        content.pack_start(title, False, False, 0)
 
+        # Status
         self.status_label = Gtk.Label()
-        self.status_label.set_markup(f'<span size="large">{self.t("preparing")}</span>')
-        box.pack_start(self.status_label, False, False, 0)
+        self.status_label.set_markup(f'<span size="10000" foreground="{NORD_FROST["nord8"]}">{self.t("preparing")}</span>')
+        self.status_label.set_halign(Gtk.Align.CENTER)
+        content.pack_start(self.status_label, False, False, 0)
 
+        # Progress bar
         self.progress_bar = Gtk.ProgressBar()
         self.progress_bar.set_show_text(True)
-        box.pack_start(self.progress_bar, False, False, 0)
+        self.progress_bar.set_margin_top(4)
+        self.progress_bar.set_margin_start(16)
+        self.progress_bar.set_margin_end(16)
+        content.pack_start(self.progress_bar, False, False, 0)
 
-        # Log
+        # Log viewer in card
+        log_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        log_card.get_style_context().add_class('content-card')
+        log_card.set_margin_top(8)
+
         scrolled = Gtk.ScrolledWindow()
-        scrolled.set_min_content_height(150)
+        scrolled.set_min_content_height(120)
+        scrolled.set_max_content_height(180)
+
         self.log_buffer = Gtk.TextBuffer()
         log_view = Gtk.TextView(buffer=self.log_buffer)
         log_view.set_editable(False)
         log_view.set_monospace(True)
-        log_view.set_left_margin(15)
-        log_view.set_right_margin(15)
-        log_view.set_top_margin(10)
-        log_view.set_bottom_margin(10)
+        log_view.set_left_margin(12)
+        log_view.set_right_margin(12)
+        log_view.set_top_margin(8)
+        log_view.set_bottom_margin(8)
         scrolled.add(log_view)
-        box.pack_start(scrolled, True, True, 0)
 
-        self.notebook.append_page(box, Gtk.Label(label="Installing"))
+        log_card.pack_start(scrolled, True, True, 0)
+        content.pack_start(log_card, True, True, 0)
+
+        page.pack_start(content, True, True, 0)
+
+        self.notebook.append_page(page, Gtk.Label(label="Installing"))
 
     def create_completion_page(self):
         """Completion page"""
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=15)
-        box.set_halign(Gtk.Align.CENTER)
-        box.set_valign(Gtk.Align.CENTER)
-        box.set_margin_top(30)
-        box.set_margin_bottom(30)
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        page.get_style_context().add_class('page-container')
 
-        # Success box
-        success_box = Gtk.Box()
-        success_box.get_style_context().add_class('success-box')
-        success = Gtk.Label()
-        success.set_markup(f'<span size="xx-large" weight="bold">{self.t("success_title")}</span>')
-        success_box.pack_start(success, True, True, 15)
-        box.pack_start(success_box, False, False, 10)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        content.set_halign(Gtk.Align.CENTER)
+        content.set_valign(Gtk.Align.CENTER)
+        content.set_margin_top(10)
+        content.set_margin_bottom(14)
 
-        # Info
-        info = Gtk.Label(label=self.t('success_msg'))
-        info.set_justify(Gtk.Justification.CENTER)
+        # Big success icon
+        icon = Gtk.Label()
+        icon.set_markup(f'<span size="40000" weight="bold" foreground="{NORD_AURORA["nord14"]}">&#x2713;</span>')
+        icon.set_halign(Gtk.Align.CENTER)
+        icon.set_margin_bottom(8)
+        content.pack_start(icon, False, False, 0)
+
+        # Title
+        title = Gtk.Label()
+        title.set_markup(f'<span size="16000" weight="bold">{self.t("success_title")}</span>')
+        title.set_halign(Gtk.Align.CENTER)
+        title.set_margin_bottom(10)
+        content.pack_start(title, False, False, 0)
+
+        # Info card
+        info_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        info_card.get_style_context().add_class('completion-card')
+        info_card.set_size_request(420, -1)
+
+        if DEMO_MODE:
+            info = Gtk.Label()
+            info.set_markup(
+                '<span size="9000">This was a <b>DEMONSTRATION</b> of the madOS installer.\n\n'
+                'In real mode (DEMO_MODE = False):\n'
+                '  • System would be installed to disk\n'
+                '  • All configurations would be applied\n'
+                '  • System would be ready to boot\n\n'
+                '<b>Edit the file and set DEMO_MODE = False\n'
+                'for real installation.</b></span>'
+            )
+        else:
+            info = Gtk.Label()
+            info.set_markup(f'<span size="9000">{self.t("success_msg")}</span>')
+        info.set_justify(Gtk.Justification.LEFT)
         info.set_line_wrap(True)
-        box.pack_start(info, False, False, 10)
+        info_card.pack_start(info, False, False, 0)
+
+        content.pack_start(info_card, False, False, 0)
 
         # Buttons
-        btn_box = Gtk.Box(spacing=10)
+        btn_box = Gtk.Box(spacing=12)
         btn_box.set_halign(Gtk.Align.CENTER)
+        btn_box.set_margin_top(14)
 
-        reboot_btn = Gtk.Button(label=self.t('reboot_now'))
-        reboot_btn.get_style_context().add_class('success-button')
-        reboot_btn.connect('clicked', lambda x: subprocess.run(['reboot']))
-        btn_box.pack_start(reboot_btn, False, False, 0)
+        if not DEMO_MODE:
+            reboot_btn = Gtk.Button(label=self.t('reboot_now'))
+            reboot_btn.get_style_context().add_class('success-button')
+            reboot_btn.connect('clicked', lambda x: subprocess.run(['reboot']))
+            btn_box.pack_start(reboot_btn, False, False, 0)
 
         exit_btn = Gtk.Button(label=self.t('exit_live'))
+        exit_btn.get_style_context().add_class('nav-back-button')
         exit_btn.connect('clicked', lambda x: Gtk.main_quit())
         btn_box.pack_start(exit_btn, False, False, 0)
 
-        box.pack_start(btn_box, False, False, 0)
+        content.pack_start(btn_box, False, False, 0)
 
-        self.notebook.append_page(box, Gtk.Label(label="Complete"))
+        page.pack_start(content, True, False, 0)
+
+        self.notebook.append_page(page, Gtk.Label(label="Complete"))
 
     def on_start_installation(self, button):
         """Start the installation process"""
@@ -1208,7 +2127,7 @@ class MadOSInstaller(Gtk.Window):
         """Idle callback for progress"""
         self.progress_bar.set_fraction(fraction)
         self.progress_bar.set_text(f"{int(fraction * 100)}%")
-        self.status_label.set_markup(f'<span size="large">{text}</span>')
+        self.status_label.set_markup(f'<span size="10000" foreground="{NORD_FROST["nord8"]}">{text}</span>')
         return False
 
     def run_installation(self):
@@ -1222,25 +2141,53 @@ class MadOSInstaller(Gtk.Window):
             # Step 1: Partition
             self.set_progress(0.05, "Partitioning disk...")
             self.log(f"Partitioning {disk}...")
-            subprocess.run(['wipefs', '-a', disk], check=True)
-            subprocess.run(['parted', '-s', disk, 'mklabel', 'gpt'], check=True)
-            subprocess.run(['parted', '-s', disk, 'mkpart', 'EFI', 'fat32', '1MiB', '1GiB'], check=True)
-            subprocess.run(['parted', '-s', disk, 'set', '1', 'esp', 'on'], check=True)
+            if DEMO_MODE:
+                self.log("[DEMO] Simulating wipefs...")
+                time.sleep(0.5)
+                self.log("[DEMO] Simulating parted mklabel gpt...")
+                time.sleep(0.5)
+                self.log("[DEMO] Simulating parted mkpart EFI...")
+                time.sleep(0.5)
+                self.log("[DEMO] Simulating parted set esp on...")
+                time.sleep(0.5)
+            else:
+                subprocess.run(['wipefs', '-a', disk], check=True)
+                subprocess.run(['parted', '-s', disk, 'mklabel', 'gpt'], check=True)
+                subprocess.run(['parted', '-s', disk, 'mkpart', 'EFI', 'fat32', '1MiB', '1GiB'], check=True)
+                subprocess.run(['parted', '-s', disk, 'set', '1', 'esp', 'on'], check=True)
 
             if separate_home:
                 # Separate /home partition
                 if disk_size_gb < 128:
-                    subprocess.run(['parted', '-s', disk, 'mkpart', 'root', 'ext4', '1GiB', '51GiB'], check=True)
-                    subprocess.run(['parted', '-s', disk, 'mkpart', 'home', 'ext4', '51GiB', '100%'], check=True)
+                    if DEMO_MODE:
+                        self.log("[DEMO] Simulating parted mkpart root 1GiB-51GiB...")
+                        time.sleep(0.5)
+                        self.log("[DEMO] Simulating parted mkpart home 51GiB-100%...")
+                        time.sleep(0.5)
+                    else:
+                        subprocess.run(['parted', '-s', disk, 'mkpart', 'root', 'ext4', '1GiB', '51GiB'], check=True)
+                        subprocess.run(['parted', '-s', disk, 'mkpart', 'home', 'ext4', '51GiB', '100%'], check=True)
                 else:
-                    subprocess.run(['parted', '-s', disk, 'mkpart', 'root', 'ext4', '1GiB', '61GiB'], check=True)
-                    subprocess.run(['parted', '-s', disk, 'mkpart', 'home', 'ext4', '61GiB', '100%'], check=True)
+                    if DEMO_MODE:
+                        self.log("[DEMO] Simulating parted mkpart root 1GiB-61GiB...")
+                        time.sleep(0.5)
+                        self.log("[DEMO] Simulating parted mkpart home 61GiB-100%...")
+                        time.sleep(0.5)
+                    else:
+                        subprocess.run(['parted', '-s', disk, 'mkpart', 'root', 'ext4', '1GiB', '61GiB'], check=True)
+                        subprocess.run(['parted', '-s', disk, 'mkpart', 'home', 'ext4', '61GiB', '100%'], check=True)
             else:
                 # All in root
-                subprocess.run(['parted', '-s', disk, 'mkpart', 'root', 'ext4', '1GiB', '100%'], check=True)
+                if DEMO_MODE:
+                    self.log("[DEMO] Simulating parted mkpart root 1GiB-100%...")
+                    time.sleep(0.5)
+                else:
+                    subprocess.run(['parted', '-s', disk, 'mkpart', 'root', 'ext4', '1GiB', '100%'], check=True)
 
-            import time
-            time.sleep(2)
+            if not DEMO_MODE:
+                time.sleep(2)
+            else:
+                time.sleep(0.5)
 
             boot_part = f"{disk}1"
             root_part = f"{disk}2"
@@ -1249,20 +2196,42 @@ class MadOSInstaller(Gtk.Window):
             # Step 2: Format
             self.set_progress(0.15, "Formatting partitions...")
             self.log("Formatting partitions...")
-            subprocess.run(['mkfs.fat', '-F32', boot_part], check=True)
-            subprocess.run(['mkfs.ext4', '-F', root_part], check=True)
-            if separate_home:
-                subprocess.run(['mkfs.ext4', '-F', home_part], check=True)
+            if DEMO_MODE:
+                self.log(f"[DEMO] Simulating mkfs.fat {boot_part}...")
+                time.sleep(0.5)
+                self.log(f"[DEMO] Simulating mkfs.ext4 {root_part}...")
+                time.sleep(0.5)
+                if separate_home:
+                    self.log(f"[DEMO] Simulating mkfs.ext4 {home_part}...")
+                    time.sleep(0.5)
+            else:
+                subprocess.run(['mkfs.fat', '-F32', boot_part], check=True)
+                subprocess.run(['mkfs.ext4', '-F', root_part], check=True)
+                if separate_home:
+                    subprocess.run(['mkfs.ext4', '-F', home_part], check=True)
 
             # Step 3: Mount
             self.set_progress(0.20, "Mounting filesystems...")
             self.log("Mounting filesystems...")
-            subprocess.run(['mount', root_part, '/mnt'], check=True)
-            subprocess.run(['mkdir', '-p', '/mnt/boot'], check=True)
-            subprocess.run(['mount', boot_part, '/mnt/boot'], check=True)
-            if separate_home:
-                subprocess.run(['mkdir', '-p', '/mnt/home'], check=True)
-                subprocess.run(['mount', home_part, '/mnt/home'], check=True)
+            if DEMO_MODE:
+                self.log(f"[DEMO] Simulating mount {root_part} /mnt...")
+                time.sleep(0.5)
+                self.log("[DEMO] Simulating mkdir /mnt/boot...")
+                time.sleep(0.3)
+                self.log(f"[DEMO] Simulating mount {boot_part} /mnt/boot...")
+                time.sleep(0.5)
+                if separate_home:
+                    self.log("[DEMO] Simulating mkdir /mnt/home...")
+                    time.sleep(0.3)
+                    self.log(f"[DEMO] Simulating mount {home_part} /mnt/home...")
+                    time.sleep(0.5)
+            else:
+                subprocess.run(['mount', root_part, '/mnt'], check=True)
+                subprocess.run(['mkdir', '-p', '/mnt/boot'], check=True)
+                subprocess.run(['mount', boot_part, '/mnt/boot'], check=True)
+                if separate_home:
+                    subprocess.run(['mkdir', '-p', '/mnt/home'], check=True)
+                    subprocess.run(['mount', home_part, '/mnt/home'], check=True)
 
             # Step 4: Install base system
             self.set_progress(0.25, "Installing base system (this may take a while)...")
@@ -1281,14 +2250,28 @@ class MadOSInstaller(Gtk.Window):
                 'nodejs', 'npm', 'python', 'python-gobject', 'gtk3', 'rsync', 'dialog'
             ]
 
-            subprocess.run(['pacstrap', '/mnt'] + packages, check=True)
+            if DEMO_MODE:
+                self.log("[DEMO] Simulating pacstrap with packages:")
+                for i, pkg in enumerate(packages):
+                    if i % 5 == 0:
+                        self.log(f"[DEMO] Installing {pkg}...")
+                        time.sleep(0.3)
+                time.sleep(1)
+            else:
+                subprocess.run(['pacstrap', '/mnt'] + packages, check=True)
 
             # Step 5: Generate fstab
             self.set_progress(0.50, "Generating filesystem table...")
             self.log("Generating fstab...")
-            result = subprocess.run(['genfstab', '-U', '/mnt'], capture_output=True, text=True, check=True)
-            with open('/mnt/etc/fstab', 'a') as f:
-                f.write(result.stdout)
+            if DEMO_MODE:
+                self.log("[DEMO] Simulating genfstab -U /mnt...")
+                time.sleep(0.5)
+                self.log("[DEMO] Would write fstab to /mnt/etc/fstab")
+                time.sleep(0.5)
+            else:
+                result = subprocess.run(['genfstab', '-U', '/mnt'], capture_output=True, text=True, check=True)
+                with open('/mnt/etc/fstab', 'a') as f:
+                    f.write(result.stdout)
 
             # Step 6: Configure system
             self.set_progress(0.55, "Configuring system...")
@@ -1415,31 +2398,70 @@ Welcome to madOS! Type 'claude' to start the AI assistant.
 EOF
 '''
 
-            with open('/mnt/root/configure.sh', 'w') as f:
-                f.write(config_script)
+            if DEMO_MODE:
+                self.log("[DEMO] Would write configuration script to /mnt/root/configure.sh")
+                time.sleep(0.5)
+                self.log("[DEMO] Configuration would include:")
+                self.log("[DEMO]   - Timezone setup")
+                self.log("[DEMO]   - Locale generation")
+                self.log("[DEMO]   - Hostname configuration")
+                self.log("[DEMO]   - User creation")
+                self.log("[DEMO]   - Sudo setup")
+                time.sleep(1)
+            else:
+                with open('/mnt/root/configure.sh', 'w') as f:
+                    f.write(config_script)
 
-            subprocess.run(['chmod', '+x', '/mnt/root/configure.sh'], check=True)
+                subprocess.run(['chmod', '+x', '/mnt/root/configure.sh'], check=True)
 
             self.set_progress(0.70, "Applying configurations...")
             self.log("Running configuration...")
-            subprocess.run(['arch-chroot', '/mnt', '/root/configure.sh'], check=True)
+            if DEMO_MODE:
+                self.log("[DEMO] Simulating arch-chroot configuration...")
+                self.log("[DEMO]   - Installing GRUB bootloader")
+                time.sleep(0.5)
+                self.log("[DEMO]   - Enabling services (earlyoom, iwd)...")
+                time.sleep(0.5)
+                self.log("[DEMO]   - Configuring ZRAM...")
+                time.sleep(0.5)
+                self.log("[DEMO]   - Setting up autologin...")
+                time.sleep(0.5)
+                self.log("[DEMO]   - Installing Claude Code...")
+                time.sleep(1)
+            else:
+                subprocess.run(['arch-chroot', '/mnt', '/root/configure.sh'], check=True)
 
             self.set_progress(0.90, "Cleaning up...")
             self.log("Cleaning up...")
-            subprocess.run(['rm', '/mnt/root/configure.sh'], check=True)
+            if DEMO_MODE:
+                self.log("[DEMO] Would remove configuration script")
+                time.sleep(0.5)
+            else:
+                subprocess.run(['rm', '/mnt/root/configure.sh'], check=True)
 
             self.set_progress(1.0, "Installation complete!")
-            self.log("\n✅ Installation completed successfully!")
+            if DEMO_MODE:
+                self.log("\n[OK] Demo installation completed successfully!")
+                self.log("\n[DEMO] No actual changes were made to your system.")
+                self.log("[DEMO] Set DEMO_MODE = False for real installation.")
+            else:
+                self.log("\n[OK] Installation completed successfully!")
 
             # Move to completion page
             GLib.idle_add(self.notebook.next_page)
 
         except Exception as e:
-            self.log(f"\n❌ ERROR: {str(e)}")
+            self.log(f"\n[ERROR] {str(e)}")
             GLib.idle_add(self.show_error, "Installation Failed", str(e))
 
+    def _style_dialog(self, dialog):
+        """Apply dark theme to a dialog"""
+        dialog.get_content_area().foreach(
+            lambda w: w.get_style_context().add_class('dialog-content') if hasattr(w, 'get_style_context') else None
+        )
+
     def show_error(self, title, message):
-        """Show error dialog"""
+        """Show error dialog with dark theme"""
         dialog = Gtk.MessageDialog(
             transient_for=self,
             flags=0,
@@ -1448,6 +2470,7 @@ EOF
             text=title
         )
         dialog.format_secondary_text(message)
+        self._style_dialog(dialog)
         dialog.run()
         dialog.destroy()
 
