@@ -33,6 +33,9 @@ nodejs
 npm
 git
 openssh
+python
+python-gobject
+gtk3
 
 # Utilidades del sistema
 htop
@@ -68,11 +71,14 @@ wireplumber
 # Fuentes y temas
 ttf-jetbrains-mono-nerd
 papirus-icon-theme
+noto-fonts-emoji
+noto-fonts-cjk
 
 # Herramientas de instalación
 arch-install-scripts
 gptfdisk
 parted
+dialog
 
 # Utilidades de red
 dhcpcd

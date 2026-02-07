@@ -1,0 +1,23 @@
+#!/bin/bash
+# madOS Installer Launcher
+# Tries GTK installer first, falls back to TUI if needed
+
+# Check if running as root
+if [[ $(id -u) != "0" ]]; then
+    echo "ERROR: This installer must be run as root"
+    echo "Please use: sudo install-mados"
+    exit 1
+fi
+
+# Check if we have a display (Wayland/X11)
+if [ -n "$WAYLAND_DISPLAY" ] || [ -n "$DISPLAY" ]; then
+    # Try GTK installer
+    if command -v python3 &>/dev/null && python3 -c "import gi; gi.require_version('Gtk', '3.0')" 2>/dev/null; then
+        echo "Starting madOS GTK installer..."
+        exec /usr/local/bin/install-mados-gtk.py "$@"
+    fi
+fi
+
+# Fallback to TUI installer
+echo "Starting madOS TUI installer..."
+exec /usr/local/bin/install-mados.sh "$@"

@@ -1,0 +1,285 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+This is **madOS** - an AI-orchestrated Arch Linux distribution built using `archiso`. It's optimized for low-RAM systems (1.9GB) with Intel Atom processors and features **Claude Code** as an integrated AI assistant for system management and orchestration.
+
+The project uses archiso to build a custom live/installer ISO with a beautiful TUI installer and pre-configured development environment.
+
+## Building the ISO
+
+### Local Build
+
+```bash
+# Install archiso if not already installed
+sudo pacman -S archiso
+
+# Build the ISO (requires root)
+sudo mkarchiso -v -w work/ -o out/ .
+
+# Output: out/madOS-*.iso
+```
+
+**Notes:**
+- Build requires ~10GB free disk space for the work directory
+- Build artifacts in `work/` (can be deleted after build)
+- Final ISO appears in `out/` directory
+- Use `-w` flag to specify work directory (created if doesn't exist)
+- Build time: ~10-20 minutes depending on internet and CPU
+
+### GitHub Actions Build
+
+The ISO is built automatically on push to main via `.github/workflows/build-iso.yml`:
+1. Uses Docker with `archlinux:latest` image
+2. Installs archiso
+3. Runs mkarchiso in privileged mode
+4. Generates SHA256 checksums
+5. Uploads ISO and checksums as artifacts (90-day retention)
+
+## Repository Structure
+
+### Core archiso Files
+
+- **`profiledef.sh`**: ISO metadata (name: "madOS", publisher, version) and file permissions
+- **`packages.x86_64`**: Package list for the ISO (one per line)
+  - Includes `dialog` for the TUI installer
+  - Node.js, npm for Claude Code
+  - Sway, Waybar, Wofi for desktop
+- **`pacman.conf`**: Pacman configuration for the build
+
+### Boot Configuration
+
+- **`grub/`**: GRUB bootloader config for UEFI boot
+- **`syslinux/`**: Syslinux config for BIOS boot
+- **`efiboot/`**: EFI boot loader configuration
+
+### Root Filesystem (`airootfs/`)
+
+Files copied into the live environment root:
+
+- **`airootfs/etc/`**: System configuration files
+  - `sysctl.d/99-extreme-low-ram.conf`: Kernel parameters for RAM optimization
+  - `systemd/zram-generator.conf`: ZRAM swap configuration (50% RAM, zstd)
+  - `skel/`: Default user files (copied to new user homes)
+    - `.config/sway/`: Sway compositor configuration (Nord theme)
+    - `.config/waybar/`: Status bar configuration
+    - `.config/foot/`, `.config/alacritty/`: Terminal configs
+    - `.config/wofi/`: Application launcher config
+
+- **`airootfs/usr/local/bin/`**: Custom scripts
+  - `install-mados`: **Smart launcher** (auto-selects GTK or TUI)
+  - `install-mados-gtk.py`: **Beautiful GTK installer** (graphical, Python + GTK3)
+  - `install-mados.sh`: **Beautiful TUI installer** (dialog-based, text mode)
+  - `install-arch-optimized.sh`: Original CLI installer (legacy)
+  - `setup-claude-code.sh`: Installs Claude Code via npm
+
+## The Installers
+
+madOS includes **three installers** with a smart launcher that auto-selects the best one:
+
+### Smart Launcher (`install-mados`)
+Automatically chooses:
+- GTK installer if Wayland/X11 is running and Python+GTK3 available
+- TUI installer as fallback
+
+### GTK Installer (`install-mados-gtk.py`)
+Beautiful graphical installer using Python + GTK3 with Nord theme.
+
+**Features:**
+- **Visual design**: madOS logo (SVG), Nord color scheme, modern UI
+- **Mouse navigation**: Click-through wizard interface
+- **Progress visualization**: Animated progress bar with real-time log
+- **Interactive forms**: Text entries, combo boxes, validation
+- **Theme**: CSS-styled with Nord colors (polar night background, frost accents)
+
+**Dependencies**: `python`, `python-gobject`, `gtk3` (~15MB)
+
+**Pages:**
+1. Welcome (logo, features, start button)
+2. Disk selection (visual list with sizes)
+3. User account (form with validation)
+4. Regional settings (timezone/locale dropdowns)
+5. Summary (review all settings)
+6. Installation (progress bar + log viewer)
+7. Completion (success screen with reboot)
+
+### TUI Installer (`install-mados.sh`)
+Beautiful text-based installer using `dialog`.
+
+### Features
+- **ASCII art branding**: madOS logo and visual design
+- **Color-coded dialogs**: Blue/white theme with Nord colors
+- **Progress bars**: Real-time installation progress
+- **Interactive prompts**:
+  - Disk selection with size display
+  - User account creation with validation
+  - Timezone and locale selection
+  - Installation summary review
+- **Error handling**: Clear error messages with exit paths
+- **Automatic configuration**: Sets up all system services and optimizations
+
+### Usage in Live Environment
+```bash
+# User boots from USB → Sway auto-starts → Open terminal
+sudo install-mados        # Smart launcher (recommended)
+sudo install-mados-gtk.py # Force GTK
+sudo install-mados.sh     # Force TUI
+```
+
+### Installer Flow
+1. Welcome screen with madOS branding
+2. Disk selection (with size info)
+3. Confirmation warning (with disk details)
+4. User account creation (username, password)
+5. Regional settings (timezone, locale)
+6. Installation summary review
+7. Automated installation with progress bar
+8. Completion screen with next steps
+9. Auto-reboot option
+
+### Key Installation Steps
+- Partitioning: 1GB EFI, 32GB root, rest home
+- Formatting: FAT32 (EFI), ext4 (root/home)
+- Base system: Full package install via pacstrap
+- Configuration: User, locale, GRUB, services
+- Optimizations: ZRAM, kernel tuning, EarlyOOM
+- Claude Code: Installed globally via npm
+
+## System Optimizations
+
+madOS includes aggressive RAM optimizations for 1.9GB systems:
+
+### Kernel Parameters (99-extreme-low-ram.conf)
+- `vm.vfs_cache_pressure=200`: Aggressive cache reclamation
+- `vm.swappiness=5`: Minimal swap usage (prefer RAM)
+- `vm.dirty_ratio=5`, `vm.dirty_background_ratio=3`: Quick writeback
+- `vm.min_free_kbytes=16384`: Reserve 16MB free RAM
+- TCP/network optimizations: Reduced buffers, faster timeouts
+
+### ZRAM Configuration
+- Size: 50% of physical RAM
+- Algorithm: zstd compression
+- Priority: 100 (highest)
+- Type: swap
+
+### Enabled Services
+- **earlyoom**: Kills processes before OOM
+- **iwd**: Wireless daemon
+- **systemd-timesyncd**: Time synchronization
+
+### Auto-start Features
+- TTY1 autologin (configured user)
+- Sway auto-start from `.bash_profile`
+- Passwordless sudo for Claude Code operations
+
+## Modifying the ISO
+
+### Adding/Removing Packages
+
+Edit `packages.x86_64`:
+```bash
+# Add a line for each package
+vim packages.x86_64
+
+# Don't forget to rebuild ISO after changes
+```
+
+**Important**: Keep `dialog` in the list for the TUI installer to work.
+
+### Changing System Configuration
+
+1. Modify files in `airootfs/etc/`
+2. Update file permissions in `profiledef.sh` if adding executable scripts
+3. Rebuild ISO
+
+### Customizing User Environment
+
+Edit default configs in `airootfs/etc/skel/`:
+- Sway config: `airootfs/etc/skel/.config/sway/config`
+- Waybar: `airootfs/etc/skel/.config/waybar/`
+- Terminal: `airootfs/etc/skel/.config/foot/foot.ini`
+
+### Modifying the TUI Installer
+
+Edit `airootfs/usr/local/bin/install-mados.sh`:
+
+**Key customization points**:
+- **Dialog theme**: Edit the `DIALOGRC` section (colors, styles)
+- **ASCII art**: Modify the welcome screen branding
+- **Partition layout**: Change sizes in `perform_installation()` function
+- **Package list**: Edit the `pacstrap` command
+- **Default values**: Timezone, locale, hostname format
+- **Progress steps**: Adjust progress percentages
+
+**After editing**:
+1. Update `profiledef.sh` if changing script name/location
+2. Rebuild ISO to include changes
+
+## Testing the ISO
+
+```bash
+# After building, test in QEMU
+qemu-system-x86_64 \
+  -enable-kvm \
+  -m 2048 \
+  -cdrom out/madOS-*.iso \
+  -boot d
+
+# Test with lower RAM (target hardware)
+qemu-system-x86_64 \
+  -enable-kvm \
+  -m 1920 \
+  -cdrom out/madOS-*.iso \
+  -boot d
+```
+
+## Branding and Identity
+
+**System Name**: madOS (all lowercase in filenames, styled in display)
+
+**Tagline**: "AI-Orchestrated Arch Linux System - Powered by Claude Code"
+
+**Visual Identity**:
+- ASCII art logo (see README.md and installer)
+- Nord color scheme
+- Blue/white TUI theme
+- GRUB entry shows "madOS" instead of "Arch"
+
+**Files with branding**:
+- `profiledef.sh`: iso_name, iso_publisher, iso_application
+- `install-mados.sh`: Welcome screen, completion screen, /etc/motd
+- `README.md`: Full branding and documentation
+- GRUB config: Distributor name
+
+## Key Features
+
+- **Compositor**: Sway (i3-compatible Wayland compositor, ~67MB RAM)
+- **Terminal**: Foot (default) and Alacritty
+- **Browser**: Chromium
+- **Editor**: VS Code, vim, nano
+- **Development**: Node.js 24.x, npm, git
+- **AI Integration**: Claude Code pre-installed globally
+- **Autologin**: TTY1 autologin to user, auto-starts Sway
+- **Passwordless sudo**: Configured for Claude Code operations
+- **MOTD**: madOS branding displayed on login
+
+## Hardware Target
+
+- **CPU**: Intel Atom or similar low-power processors
+- **RAM**: 1.9GB (optimizations target ~1.5GB usable after kernel/services)
+- **GPU**: Intel integrated (software rendering support via llvmpipe if needed)
+- **Disk**: 32GB+ recommended for installation (1GB EFI + 32GB root + home)
+- **Network**: WiFi support via iwd
+
+## Claude Code Integration
+
+After installation, users can run `claude` to start the AI assistant. The system is designed for Claude Code to help with:
+- System configuration and troubleshooting
+- Package management
+- Service management
+- Code development and debugging
+- Learning and documentation
+
+Claude Code has passwordless sudo access for seamless system orchestration.

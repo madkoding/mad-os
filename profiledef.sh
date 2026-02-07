@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
 
-iso_name="arch-optimized-claude"
-iso_label="ARCH_CLAUDE_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
-iso_publisher="Custom Arch Linux"
-iso_application="Arch Linux with Claude Code"
+iso_name="madOS"
+iso_label="MADOS_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
+iso_publisher="madOS Project"
+iso_application="madOS - AI-Orchestrated Arch Linux"
 iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d)"
 install_dir="arch"
 buildmodes=('iso')
@@ -24,5 +24,8 @@ file_permissions=(
   ["/usr/local/bin/Installation_guide"]="0:0:755"
   ["/usr/local/bin/livecd-sound"]="0:0:755"
   ["/usr/local/bin/install-arch-optimized.sh"]="0:0:755"
+  ["/usr/local/bin/install-mados.sh"]="0:0:755"
+  ["/usr/local/bin/install-mados-gtk.py"]="0:0:755"
+  ["/usr/local/bin/install-mados"]="0:0:755"
   ["/usr/local/bin/setup-claude-code.sh"]="0:0:755"
 )

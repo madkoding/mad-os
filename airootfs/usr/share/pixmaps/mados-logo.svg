@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#5E81AC;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#81A1C1;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#88C0D0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8FBCBB;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="200" cy="200" r="190" fill="url(#bgGradient)" opacity="0.9"/>
+
+  <!-- Outer ring -->
+  <circle cx="200" cy="200" r="170" fill="none" stroke="url(#accentGradient)" stroke-width="3" opacity="0.6"/>
+
+  <!-- Inner decorative elements (representing AI nodes) -->
+  <circle cx="200" cy="80" r="8" fill="#88C0D0"/>
+  <circle cx="280" cy="120" r="8" fill="#88C0D0"/>
+  <circle cx="320" cy="200" r="8" fill="#88C0D0"/>
+  <circle cx="280" cy="280" r="8" fill="#88C0D0"/>
+  <circle cx="200" cy="320" r="8" fill="#88C0D0"/>
+  <circle cx="120" cy="280" r="8" fill="#88C0D0"/>
+  <circle cx="80" cy="200" r="8" fill="#88C0D0"/>
+  <circle cx="120" cy="120" r="8" fill="#88C0D0"/>
+
+  <!-- Connecting lines (neural network style) -->
+  <line x1="200" y1="80" x2="280" y2="120" stroke="#8FBCBB" stroke-width="1.5" opacity="0.4"/>
+  <line x1="280" y1="120" x2="320" y2="200" stroke="#8FBCBB" stroke-width="1.5" opacity="0.4"/>
+  <line x1="320" y1="200" x2="280" y2="280" stroke="#8FBCBB" stroke-width="1.5" opacity="0.4"/>
+  <line x1="280" y1="280" x2="200" y2="320" stroke="#8FBCBB" stroke-width="1.5" opacity="0.4"/>
+  <line x1="200" y1="320" x2="120" y2="280" stroke="#8FBCBB" stroke-width="1.5" opacity="0.4"/>
+  <line x1="120" y1="280" x2="80" y2="200" stroke="#8FBCBB" stroke-width="1.5" opacity="0.4"/>
+  <line x1="80" y1="200" x2="120" y2="120" stroke="#8FBCBB" stroke-width="1.5" opacity="0.4"/>
+  <line x1="120" y1="120" x2="200" y2="80" stroke="#8FBCBB" stroke-width="1.5" opacity="0.4"/>
+
+  <!-- Central logo area -->
+  <rect x="100" y="140" width="200" height="120" rx="15" fill="#2E3440" opacity="0.8"/>
+
+  <!-- madOS text -->
+  <text x="200" y="190" font-family="monospace" font-size="48" font-weight="bold"
+        fill="#ECEFF4" text-anchor="middle">madOS</text>
+
+  <!-- Subtitle -->
+  <text x="200" y="240" font-family="sans-serif" font-size="14"
+        fill="#88C0D0" text-anchor="middle">AI-Orchestrated</text>
+
+  <!-- CPU/AI icon in center top -->
+  <g transform="translate(200, 200)">
+    <!-- Circuit board pattern -->
+    <rect x="-25" y="-65" width="50" height="12" rx="3" fill="#A3BE8C" opacity="0.6"/>
+    <circle cx="0" cy="-59" r="3" fill="#ECEFF4"/>
+    <rect x="-2" y="-62" width="4" height="6" fill="#5E81AC"/>
+  </g>
+
+  <!-- Bottom arch -->
+  <path d="M 140 330 Q 200 345 260 330" stroke="#8FBCBB" stroke-width="2.5" fill="none" opacity="0.7"/>
+
+  <!-- Version dot -->
+  <circle cx="200" cy="355" r="3" fill="#88C0D0" opacity="0.8"/>
+</svg>

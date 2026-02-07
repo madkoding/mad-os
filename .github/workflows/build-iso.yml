@@ -1,4 +1,4 @@
-name: Build Arch Linux Optimized ISO
+name: Build madOS ISO
 
 on:
   push:
@@ -22,17 +22,15 @@ jobs:
             pacman -Syu --noconfirm archiso
             cd /build
             mkarchiso -v -w /tmp/work -o /build/out .
+            cd /build/out
+            sha256sum *.iso > SHA256SUMS
+            chmod -R 777 /build/out
           "
-    
-    - name: Generate checksums
-      run: |
-        cd out
-        sha256sum *.iso > SHA256SUMS
     
     - name: Upload ISO
       uses: actions/upload-artifact@v4
       with:
-        name: arch-optimized-claude-iso
+        name: madOS-iso
         path: |
           out/*.iso
           out/SHA256SUMS
