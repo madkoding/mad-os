@@ -8,6 +8,7 @@ grub
 efibootmgr
 syslinux
 sudo
+zsh
 
 # Compositor y entorno Wayland
 sway
