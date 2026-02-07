@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,11 +30,31 @@ jobs:
             chmod -R 777 /build/out
           "
     
-    - name: Upload ISO
-      uses: actions/upload-artifact@v4
+    - name: Get ISO filename and date
+      id: iso_info
+      run: |
+        ISO_FILE=$(ls out/*.iso | head -1)
+        ISO_NAME=$(basename "$ISO_FILE")
+        BUILD_DATE=$(date +'%Y.%m.%d')
+        echo "iso_file=$ISO_FILE" >> "$GITHUB_OUTPUT"
+        echo "iso_name=$ISO_NAME" >> "$GITHUB_OUTPUT"
+        echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
       with:
-        name: madOS-iso
-        path: |
-          out/*.iso
+        tag_name: v${{ steps.iso_info.outputs.build_date }}
+        name: madOS ${{ steps.iso_info.outputs.build_date }}
+        body: |
+          ## madOS Build ${{ steps.iso_info.outputs.build_date }}
+          
+          **ISO:** `${{ steps.iso_info.outputs.iso_name }}`
+          
+          ### Verificación
+          ```
+          sha256sum -c SHA256SUMS
+          ```
+        files: |
+          ${{ steps.iso_info.outputs.iso_file }}
           out/SHA256SUMS
-        retention-days: 90
+        make_latest: true
