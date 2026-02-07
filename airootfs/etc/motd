@@ -1,0 +1,25 @@
+╔════════════════════════════════════════════════════════╗
+║                                                        ║
+║      Arch Linux Optimized with Claude Code            ║
+║                                                        ║
+║  Hardware: Intel Atom / 1.9GB RAM                     ║
+║  Compositor: Sway (optimized)                         ║
+║  Optimizations: ZRAM, EarlyOOM, Kernel Extreme        ║
+║  Tools: Claude Code, Chromium, VS Code                ║
+║                                                        ║
+║  User: root (no password)                             ║
+║  Autologin: TTY1 → Sway                               ║
+║                                                        ║
+║  Install: sudo /usr/local/bin/install-arch-optimized.sh  ║
+║  Setup Claude: /usr/local/bin/setup-claude-code.sh    ║
+║                                                        ║
+╚════════════════════════════════════════════════════════╝
+
+Welcome to the live system!
+
+To install to disk:
+  1. Connect to internet: iwctl
+  2. Run: sudo /usr/local/bin/install-arch-optimized.sh
+
+To verify Claude Code:
+  claude --version

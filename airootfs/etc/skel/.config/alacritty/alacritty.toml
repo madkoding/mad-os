@@ -1,0 +1,100 @@
+# Alacritty Configuration - Nord Theme
+# Professional & Clean
+
+[general]
+live_config_reload = true
+
+[window]
+padding = { x = 14, y = 12 }
+decorations = "None"
+opacity = 0.95
+blur = false
+dynamic_title = true
+
+[font]
+size = 11.0
+
+[font.normal]
+family = "JetBrainsMono Nerd Font"
+style = "Regular"
+
+[font.bold]
+family = "JetBrainsMono Nerd Font"
+style = "Bold"
+
+[font.italic]
+family = "JetBrainsMono Nerd Font"
+style = "Italic"
+
+[font.bold_italic]
+family = "JetBrainsMono Nerd Font"
+style = "Bold Italic"
+
+# Nord Color Scheme
+[colors.primary]
+background = "#2E3440"
+foreground = "#D8DEE9"
+dim_foreground = "#A5ABB6"
+
+[colors.cursor]
+text = "#2E3440"
+cursor = "#D8DEE9"
+
+[colors.vi_mode_cursor]
+text = "#2E3440"
+cursor = "#88C0D0"
+
+[colors.search.matches]
+foreground = "#2E3440"
+background = "#88C0D0"
+
+[colors.search.focused_match]
+foreground = "#2E3440"
+background = "#EBCB8B"
+
+[colors.selection]
+text = "CellForeground"
+background = "#4C566A"
+
+[colors.normal]
+black   = "#3B4252"
+red     = "#BF616A"
+green   = "#A3BE8C"
+yellow  = "#EBCB8B"
+blue    = "#81A1C1"
+magenta = "#B48EAD"
+cyan    = "#88C0D0"
+white   = "#E5E9F0"
+
+[colors.bright]
+black   = "#4C566A"
+red     = "#BF616A"
+green   = "#A3BE8C"
+yellow  = "#EBCB8B"
+blue    = "#81A1C1"
+magenta = "#B48EAD"
+cyan    = "#8FBCBB"
+white   = "#ECEFF4"
+
+[colors.dim]
+black   = "#373E4C"
+red     = "#94545D"
+green   = "#809575"
+yellow  = "#B29E75"
+blue    = "#68809A"
+magenta = "#8C738C"
+cyan    = "#6D96A5"
+white   = "#AEB3BB"
+
+[cursor]
+style = { shape = "Block", blinking = "On" }
+blink_interval = 750
+vi_mode_style = { shape = "Block", blinking = "Off" }
+
+[scrolling]
+history = 10000
+multiplier = 3
+
+[bell]
+animation = "EaseOutExpo"
+duration = 100

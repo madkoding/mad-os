@@ -1,0 +1,214 @@
+# Sway Configuration - Clean & Professional
+# ==========================================
+
+### Variables
+set $mod Mod4
+
+# DPI y scaling para aplicaciones - Reduce tamaño de fuentes
+set $gnome-schema org.gnome.desktop.interface
+
+# Ejecutar solo al inicio (no en cada reload)
+exec {
+    gsettings set $gnome-schema gtk-theme 'Adwaita'
+    gsettings set $gnome-schema text-scaling-factor 0.75
+    gsettings set $gnome-schema cursor-size 16
+    systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK
+    hash dbus-update-activation-environment 2>/dev/null && \
+         dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY SWAYSOCK
+}
+
+# Vim-style directional keys
+set $left h
+set $down j
+set $up k
+set $right l
+
+# Applications
+set $term foot
+set $menu wofi --show drun
+
+# Color Scheme - Nord-inspired Professional
+set $bg-color            #2E3440
+set $inactive-bg-color   #3B4252
+set $text-color          #ECEFF4
+set $inactive-text-color #D8DEE9
+set $urgent-bg-color     #BF616A
+set $accent-color        #88C0D0
+set $border-color        #4C566A
+set $indicator-color     #81A1C1
+
+### Output Configuration
+output * bg ~/Pictures/Wallpapers/nord-landscape.jpg fill
+
+# Display scaling - adjust scale value to your preference
+# scale 1.0 = 100% (default), 0.8 = 80% (smaller), 0.75 = 75% (even smaller)
+# Fractional scaling can cause issues with some apps, use 1.0 for compatibility
+output LVDS-1 scale 1.0
+
+# Uncomment and adjust for your displays
+# Get display names with: swaymsg -t get_outputs
+# output HDMI-A-1 resolution 1920x1080 position 1920,0
+
+### Input Configuration
+
+# Keyboard - Spanish layout
+input type:keyboard {
+    xkb_layout "es"
+    # Caps Lock as Escape (optional)
+    xkb_options "caps:escape"
+}
+
+# Touchpad configuration (if applicable)
+input type:touchpad {
+    dwt enabled
+    tap enabled
+    natural_scroll enabled
+    middle_emulation enabled
+}
+
+### Window Appearance
+
+# Gaps - Reducidos para mejor rendimiento
+gaps inner 2
+gaps outer 0
+
+# Borders - Reducidos para ahorrar RAM
+default_border pixel 2
+default_floating_border pixel 2
+hide_edge_borders smart
+
+# Window colors          border              background          text                indicator           child_border
+client.focused           $accent-color       $bg-color           $text-color         $indicator-color    $accent-color
+client.focused_inactive  $border-color       $inactive-bg-color  $inactive-text-color $border-color      $border-color
+client.unfocused         $border-color       $inactive-bg-color  $inactive-text-color $border-color      $border-color
+client.urgent            $urgent-bg-color    $urgent-bg-color    $text-color         $urgent-bg-color    $urgent-bg-color
+
+### Key Bindings
+
+# Basics
+bindsym $mod+Return exec $term
+bindsym $mod+Shift+q kill
+bindsym $mod+d exec $menu
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+e exec swaynag -t warning -m 'Salir de Sway?' -B 'Sí, salir' 'swaymsg exit'
+
+# Floating windows
+floating_modifier $mod normal
+
+# Moving around - Vim keys
+bindsym $mod+$left focus left
+bindsym $mod+$down focus down
+bindsym $mod+$up focus up
+bindsym $mod+$right focus right
+
+# Moving around - Arrow keys
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+
+# Move windows - Vim keys
+bindsym $mod+Shift+$left move left
+bindsym $mod+Shift+$down move down
+bindsym $mod+Shift+$up move up
+bindsym $mod+Shift+$right move right
+
+# Move windows - Arrow keys
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+# Workspaces
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+bindsym $mod+6 workspace number 6
+bindsym $mod+7 workspace number 7
+bindsym $mod+8 workspace number 8
+bindsym $mod+9 workspace number 9
+bindsym $mod+0 workspace number 10
+
+# Move to workspaces
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+bindsym $mod+Shift+6 move container to workspace number 6
+bindsym $mod+Shift+7 move container to workspace number 7
+bindsym $mod+Shift+8 move container to workspace number 8
+bindsym $mod+Shift+9 move container to workspace number 9
+bindsym $mod+Shift+0 move container to workspace number 10
+
+# Layout
+bindsym $mod+b splith
+bindsym $mod+v splitv
+bindsym $mod+s layout stacking
+bindsym $mod+w layout tabbed
+bindsym $mod+e exec pcmanfm
+bindsym $mod+f fullscreen
+
+# Floating
+bindsym $mod+Shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+bindsym $mod+a focus parent
+
+# Scratchpad
+bindsym $mod+Shift+minus move scratchpad
+bindsym $mod+minus scratchpad show
+
+# Resize mode
+mode "resize" {
+    bindsym $left resize shrink width 10px
+    bindsym $down resize grow height 10px
+    bindsym $up resize shrink height 10px
+    bindsym $right resize grow width 10px
+
+    bindsym Left resize shrink width 10px
+    bindsym Down resize grow height 10px
+    bindsym Up resize shrink height 10px
+    bindsym Right resize grow width 10px
+
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+bindsym $mod+r mode "resize"
+
+### Utilities
+
+# Audio (PipeWire)
+bindsym --locked XF86AudioMute exec wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+bindsym --locked XF86AudioLowerVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
+bindsym --locked XF86AudioRaiseVolume exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ -l 1.0
+bindsym --locked XF86AudioMicMute exec wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+
+# Brightness
+bindsym --locked XF86MonBrightnessDown exec brightnessctl set 5%-
+bindsym --locked XF86MonBrightnessUp exec brightnessctl set 5%+
+
+# Screenshots - Using grim/slurp (native Wayland, works on Sway)
+# Ensure Pictures/Screenshots directory exists
+exec_always --no-startup-id mkdir -p ~/Pictures/Screenshots
+
+# Screenshot bindings
+bindsym Print exec grim -g "$(slurp)" ~/Pictures/Screenshots/Screenshot-$(date +%Y-%m-%d-%H-%M-%S).png
+bindsym Shift+Print exec grim ~/Pictures/Screenshots/Screenshot-$(date +%Y-%m-%d-%H-%M-%S).png
+bindsym Ctrl+Print exec grim -g "$(swaymsg -t get_tree | jq -r '.. | select(.focused?) | .rect | "\(.x),\(.y) \(.width)x\(.height)"')" ~/Pictures/Screenshots/Screenshot-$(date +%Y-%m-%d-%H-%M-%S).png
+bindsym $mod+Shift+s exec grim -g "$(slurp)" - | wl-copy
+
+### Startup Applications
+
+# Waybar
+exec_always --no-startup-id "pkill waybar || true; sleep 0.3; waybar"
+
+# Xwayland (for maim screenshots)
+exec_always --no-startup-id "pgrep Xwayland || echo 'Xwayland should auto-start'"
+
+# Notification daemon (optional, uncomment if mako is installed)
+# exec_always --no-startup-id mako
+
+### System includes
+include /etc/sway/config.d/*

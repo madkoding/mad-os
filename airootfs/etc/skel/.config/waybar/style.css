@@ -1,0 +1,223 @@
+/* Nord Color Scheme - Professional & Clean */
+* {
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-size: 9px;
+    font-weight: 500;
+}
+
+window#waybar {
+    background: linear-gradient(90deg, #2E3440 0%, #3B4252 50%, #2E3440 100%);
+    color: #ECEFF4;
+    border-bottom: 2px solid rgba(136, 192, 208, 0.3);
+    padding-bottom: 1px;
+}
+
+/* ===== Left: Workspaces ===== */
+
+#workspaces {
+    padding: 0 6px;
+}
+
+#workspaces button {
+    padding: 3px 10px;
+    margin: 3px 2px;
+    color: #D8DEE9;
+    background: transparent;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#workspaces button:hover {
+    background: rgba(136, 192, 208, 0.2);
+    color: #ECEFF4;
+    box-shadow: 0 2px 8px rgba(136, 192, 208, 0.15);
+}
+
+#workspaces button.focused,
+#workspaces button.active {
+    color: #2E3440;
+    background: linear-gradient(135deg, #88C0D0, #81A1C1);
+    font-weight: 700;
+    box-shadow: 0 2px 10px rgba(136, 192, 208, 0.3);
+}
+
+#workspaces button.urgent {
+    background: #BF616A;
+    color: #ECEFF4;
+    animation: urgentPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes urgentPulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* Mode indicator */
+#mode {
+    padding: 3px 12px;
+    margin: 3px 6px;
+    background: linear-gradient(135deg, rgba(191, 97, 106, 0.15), rgba(235, 203, 139, 0.1));
+    color: #BF616A;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+/* ===== Center: Clock ===== */
+
+#clock {
+    padding: 3px 18px;
+    color: #ECEFF4;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    background: linear-gradient(135deg, rgba(136, 192, 208, 0.15), rgba(129, 161, 193, 0.1));
+    border-radius: 8px;
+    margin: 3px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+#clock:hover {
+    background: linear-gradient(135deg, rgba(136, 192, 208, 0.25), rgba(129, 161, 193, 0.15));
+}
+
+/* ===== Right Modules ===== */
+
+#tray,
+#cpu,
+#memory,
+#network,
+#pulseaudio,
+#backlight,
+#battery {
+    padding: 3px 12px;
+    margin: 3px 2px;
+    color: #D8DEE9;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+#tray {
+    padding: 3px 10px;
+    background: rgba(76, 86, 106, 0.3);
+}
+
+#cpu {
+    color: #88C0D0;
+    background: linear-gradient(135deg, rgba(136, 192, 208, 0.12), rgba(129, 161, 193, 0.08));
+}
+
+#cpu:hover {
+    background: linear-gradient(135deg, rgba(136, 192, 208, 0.2), rgba(129, 161, 193, 0.12));
+}
+
+#memory {
+    color: #81A1C1;
+    background: linear-gradient(135deg, rgba(129, 161, 193, 0.12), rgba(94, 129, 172, 0.08));
+}
+
+#memory:hover {
+    background: linear-gradient(135deg, rgba(129, 161, 193, 0.2), rgba(94, 129, 172, 0.12));
+}
+
+#network {
+    color: #A3BE8C;
+    background: linear-gradient(135deg, rgba(163, 190, 140, 0.12), rgba(143, 188, 187, 0.08));
+}
+
+#network:hover {
+    background: linear-gradient(135deg, rgba(163, 190, 140, 0.2), rgba(143, 188, 187, 0.12));
+}
+
+#network.disconnected {
+    color: #4C566A;
+    background: rgba(76, 86, 106, 0.15);
+}
+
+#pulseaudio {
+    color: #5E81AC;
+    background: linear-gradient(135deg, rgba(94, 129, 172, 0.12), rgba(136, 192, 208, 0.08));
+}
+
+#pulseaudio:hover {
+    background: linear-gradient(135deg, rgba(94, 129, 172, 0.2), rgba(136, 192, 208, 0.12));
+}
+
+#pulseaudio.muted {
+    color: #4C566A;
+    background: rgba(76, 86, 106, 0.15);
+}
+
+#backlight {
+    color: #EBCB8B;
+    background: linear-gradient(135deg, rgba(235, 203, 139, 0.12), rgba(208, 135, 112, 0.08));
+}
+
+#backlight:hover {
+    background: linear-gradient(135deg, rgba(235, 203, 139, 0.2), rgba(208, 135, 112, 0.12));
+}
+
+#battery {
+    color: #A3BE8C;
+    background: linear-gradient(135deg, rgba(163, 190, 140, 0.12), rgba(143, 188, 187, 0.08));
+}
+
+#battery:hover {
+    background: linear-gradient(135deg, rgba(163, 190, 140, 0.2), rgba(143, 188, 187, 0.12));
+}
+
+#battery.charging {
+    color: #A3BE8C;
+    background: linear-gradient(135deg, rgba(163, 190, 140, 0.18), rgba(143, 188, 187, 0.12));
+    animation: chargingPulse 2s ease-in-out infinite;
+}
+
+@keyframes chargingPulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.85; }
+    100% { opacity: 1; }
+}
+
+#battery.warning:not(.charging) {
+    color: #D08770;
+    background: linear-gradient(135deg, rgba(208, 135, 112, 0.18), rgba(235, 203, 139, 0.1));
+}
+
+#battery.critical:not(.charging) {
+    color: #BF616A;
+    background: linear-gradient(135deg, rgba(191, 97, 106, 0.18), rgba(208, 135, 112, 0.1));
+    animation: criticalPulse 1s ease-in-out infinite;
+}
+
+@keyframes criticalPulse {
+    0% {
+        background: linear-gradient(135deg, rgba(191, 97, 106, 0.18), rgba(208, 135, 112, 0.1));
+    }
+    50% {
+        background: linear-gradient(135deg, rgba(191, 97, 106, 0.3), rgba(208, 135, 112, 0.15));
+    }
+    100% {
+        background: linear-gradient(135deg, rgba(191, 97, 106, 0.18), rgba(208, 135, 112, 0.1));
+    }
+}
+
+/* ===== Tooltip ===== */
+
+tooltip {
+    background: #2E3440;
+    color: #ECEFF4;
+    border: 2px solid rgba(136, 192, 208, 0.3);
+    border-radius: 10px;
+    padding: 10px 14px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+tooltip label {
+    color: #ECEFF4;
+    font-weight: 500;
+}

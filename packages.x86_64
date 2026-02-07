@@ -1,0 +1,89 @@
+# Sistema base
+base
+base-devel
+linux
+linux-firmware
+intel-ucode
+grub
+efibootmgr
+syslinux
+sudo
+
+# Compositor y entorno Wayland
+sway
+swaybg
+swayidle
+swaylock
+waybar
+wofi
+mako
+xorg-xwayland
+
+# Aplicaciones principales
+foot
+chromium
+code
+vim
+nano
+pcmanfm
+lxappearance
+
+# Herramientas de desarrollo (para Claude Code)
+nodejs
+npm
+git
+openssh
+
+# Utilidades del sistema
+htop
+wget
+jq
+imagemagick
+networkmanager
+iwd
+wireless_tools
+rsync
+
+# Screenshots Wayland
+grim
+slurp
+wl-clipboard
+xdg-desktop-portal-wlr
+
+# Optimizaciones RAM
+earlyoom
+zram-generator
+
+# Drivers Intel Atom
+intel-media-driver
+vulkan-intel
+mesa-utils
+libva-intel-driver
+
+# Audio
+pipewire
+pipewire-pulse
+wireplumber
+
+# Fuentes y temas
+ttf-jetbrains-mono-nerd
+papirus-icon-theme
+
+# Herramientas de instalación
+arch-install-scripts
+gptfdisk
+parted
+
+# Utilidades de red
+dhcpcd
+wpa_supplicant
+
+# Sistema de archivos
+dosfstools
+e2fsprogs
+ntfs-3g
+
+# Otras utilidades útiles
+less
+man-db
+man-pages

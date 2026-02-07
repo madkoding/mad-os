@@ -1,0 +1,39 @@
+name: Build Arch Linux Optimized ISO
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Build ISO in Arch container
+      run: |
+        docker run --privileged --rm \
+          -v ${{ github.workspace }}:/build \
+          archlinux:latest bash -c "
+            pacman-key --init
+            pacman -Syu --noconfirm archiso
+            cd /build
+            mkarchiso -v -w /tmp/work -o /build/out .
+          "
+    
+    - name: Generate checksums
+      run: |
+        cd out
+        sha256sum *.iso > SHA256SUMS
+    
+    - name: Upload ISO
+      uses: actions/upload-artifact@v4
+      with:
+        name: arch-optimized-claude-iso
+        path: |
+          out/*.iso
+          out/SHA256SUMS
+        retention-days: 90
