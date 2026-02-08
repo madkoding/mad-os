@@ -15,6 +15,8 @@ exec {
     systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK
     hash dbus-update-activation-environment 2>/dev/null && \
          dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY SWAYSOCK
+    # Iniciar servicios de audio PipeWire
+    systemctl --user --now enable pipewire pipewire-pulse wireplumber
 }
 
 # Vim-style directional keys
@@ -38,7 +40,7 @@ set $border-color        #4C566A
 set $indicator-color     #81A1C1
 
 ### Output Configuration
-output * bg ~/Pictures/Wallpapers/nord-landscape.jpg fill
+output * bg ~/Pictures/Wallpapers/mad-os-wallpaper.jpg fill
 
 # Display scaling - adjust scale value to your preference
 # scale 1.0 = 100% (default), 0.8 = 80% (smaller), 0.75 = 75% (even smaller)

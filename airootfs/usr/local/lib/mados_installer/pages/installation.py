@@ -292,8 +292,6 @@ def _run_installation(app):
             subprocess.run(['cp', '-a', '/etc/skel/.config', '/mnt/etc/skel/'], check=False)
             subprocess.run(['cp', '-a', '/etc/skel/Pictures', '/mnt/etc/skel/'], check=False)
             subprocess.run(['cp', '-a', '/etc/skel/.bash_profile', '/mnt/etc/skel/'], check=False)
-            if os.path.exists('/etc/skel/toggle-audio.sh'):
-                subprocess.run(['cp', '-a', '/etc/skel/toggle-audio.sh', '/mnt/etc/skel/'], check=False)
 
             # Copy custom fonts (DSEG7 for waybar LED theme)
             if os.path.isdir('/usr/share/fonts/dseg'):
