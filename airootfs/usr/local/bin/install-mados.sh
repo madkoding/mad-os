@@ -245,20 +245,28 @@ show_summary() {
     local disk_size=$(lsblk -b -d -n -o SIZE "$DISK" 2>/dev/null)
     local disk_size_gb=$((disk_size / 1024 / 1024 / 1024))
 
+    # Determine partition naming for display
+    local pp
+    if [[ "$DISK" == *"nvme"* ]] || [[ "$DISK" == *"mmcblk"* ]]; then
+        pp="${DISK}p"
+    else
+        pp="$DISK"
+    fi
+
     local partition_info
     if [ "$SEPARATE_HOME" = "yes" ]; then
         if [ $disk_size_gb -lt 128 ]; then
-            partition_info="  ${DISK}1   1GB     EFI
-  ${DISK}2   50GB    Root (/)
-  ${DISK}3   Rest    Home (/home)"
+            partition_info="  ${pp}1   1GB     EFI
+  ${pp}2   50GB    Root (/)
+  ${pp}3   Rest    Home (/home)"
         else
-            partition_info="  ${DISK}1   1GB     EFI
-  ${DISK}2   60GB    Root (/)
-  ${DISK}3   Rest    Home (/home)"
+            partition_info="  ${pp}1   1GB     EFI
+  ${pp}2   60GB    Root (/)
+  ${pp}3   Rest    Home (/home)"
         fi
     else
-        partition_info="  ${DISK}1   1GB     EFI
-  ${DISK}2   All     Root (/) - /home as directory"
+        partition_info="  ${pp}1   1GB     EFI
+  ${pp}2   All     Root (/) - /home as directory"
     fi
 
     dialog --title "📋 Installation Summary" \
@@ -308,6 +316,13 @@ perform_installation() {
     (
         # Paso 1: Particionado inteligente
         progress 5 "Partitioning disk $DISK..."
+        # Unmount existing partitions and deactivate swap on target disk
+        swapoff ${DISK}* 2>/dev/null || true
+        umount -l ${DISK}* 2>/dev/null || true
+        # For NVMe/MMC disks with 'p' separator
+        swapoff ${DISK}p* 2>/dev/null || true
+        umount -l ${DISK}p* 2>/dev/null || true
+        sleep 1
         wipefs -a "$DISK" >/dev/null 2>&1
         parted -s "$DISK" mklabel gpt >/dev/null 2>&1
         parted -s "$DISK" mkpart "EFI" fat32 1MiB 1GiB >/dev/null 2>&1
@@ -316,6 +331,13 @@ perform_installation() {
         # Calcular tamaño de Root según disco
         local disk_size=$(lsblk -b -d -n -o SIZE "$DISK" 2>/dev/null)
         local disk_size_gb=$((disk_size / 1024 / 1024 / 1024))
+
+        # Determine partition naming (NVMe/MMC use 'p' separator)
+        if [[ "$DISK" == *"nvme"* ]] || [[ "$DISK" == *"mmcblk"* ]]; then
+            PART_PREFIX="${DISK}p"
+        else
+            PART_PREFIX="$DISK"
+        fi
 
         if [ "$SEPARATE_HOME" = "yes" ]; then
             # /home separado
@@ -328,7 +350,7 @@ perform_installation() {
                 parted -s "$DISK" mkpart "root" ext4 1GiB 61GiB >/dev/null 2>&1
                 parted -s "$DISK" mkpart "home" ext4 61GiB 100% >/dev/null 2>&1
             fi
-            HOME_PART="${DISK}3"
+            HOME_PART="${PART_PREFIX}3"
         else
             # Todo en root
             parted -s "$DISK" mkpart "root" ext4 1GiB 100% >/dev/null 2>&1
@@ -337,8 +359,8 @@ perform_installation() {
 
         sleep 2
 
-        BOOT_PART="${DISK}1"
-        ROOT_PART="${DISK}2"
+        BOOT_PART="${PART_PREFIX}1"
+        ROOT_PART="${PART_PREFIX}2"
 
         # Paso 2: Formateo
         progress 15 "Formatting partitions..."
@@ -369,7 +391,7 @@ perform_installation() {
             earlyoom zram-generator iwd pipewire pipewire-pulse wireplumber \
             intel-media-driver vulkan-intel mesa-utils \
             ttf-jetbrains-mono-nerd papirus-icon-theme \
-            pcmanfm lxappearance \
+            pcmanfm lxappearance plymouth \
             grub efibootmgr networkmanager sudo \
             nodejs npm rsync >/dev/null 2>&1
 
@@ -381,11 +403,11 @@ perform_installation() {
 
         cat > /mnt/root/configure.sh <<EOFCHROOT
 #!/bin/bash
-set -e
+# Exit on error for critical commands only
 
 # Timezone
 ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
-hwclock --systohc
+hwclock --systohc 2>/dev/null || true
 
 # Locale
 echo "$LOCALE UTF-8" >> /etc/locale.gen
@@ -422,10 +444,88 @@ else
 fi
 
 # Configure GRUB
-sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="zswap.enabled=0"/' /etc/default/grub
+sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="zswap.enabled=0 splash quiet"/' /etc/default/grub
 sed -i 's/GRUB_DISTRIBUTOR="Arch"/GRUB_DISTRIBUTOR="madOS"/' /etc/default/grub
 sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1
+
+# Plymouth theme
+mkdir -p /usr/share/plymouth/themes/mados
+cat > /usr/share/plymouth/themes/mados/mados.plymouth <<EOFPLY
+[Plymouth Theme]
+Name=madOS
+Description=madOS boot splash with Nord theme
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/mados
+ScriptFile=/usr/share/plymouth/themes/mados/mados.script
+EOFPLY
+
+cat > /usr/share/plymouth/themes/mados/mados.script <<'EOFSCRIPT'
+Window.SetBackgroundTopColor(0.18, 0.20, 0.25);
+Window.SetBackgroundBottomColor(0.13, 0.15, 0.19);
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 50);
+logo.sprite.SetZ(10);
+logo.sprite.SetOpacity(1);
+NUM_DOTS = 8;
+SPINNER_RADIUS = 25;
+spinner_x = Window.GetWidth() / 2;
+spinner_y = Window.GetHeight() / 2 + logo.image.GetHeight() / 2;
+for (i = 0; i < NUM_DOTS; i++) {
+    dot[i].image = Image.Text(".", 0.533, 0.753, 0.816);
+    dot[i].sprite = Sprite(dot[i].image);
+    dot[i].sprite.SetZ(10);
+    angle = i * 2 * 3.14159 / NUM_DOTS;
+    dot[i].sprite.SetX(spinner_x + SPINNER_RADIUS * Math.Sin(angle) - dot[i].image.GetWidth() / 2);
+    dot[i].sprite.SetY(spinner_y - SPINNER_RADIUS * Math.Cos(angle) - dot[i].image.GetHeight() / 2);
+    dot[i].sprite.SetOpacity(0.2);
+}
+frame = 0;
+fun refresh_callback() {
+    frame++;
+    active_dot = Math.Int(frame / 4) % NUM_DOTS;
+    for (i = 0; i < NUM_DOTS; i++) {
+        dist = active_dot - i;
+        if (dist < 0) dist = dist + NUM_DOTS;
+        if (dist == 0) opacity = 1.0;
+        else if (dist == 1) opacity = 0.7;
+        else if (dist == 2) opacity = 0.45;
+        else if (dist == 3) opacity = 0.25;
+        else opacity = 0.12;
+        dot[i].sprite.SetOpacity(opacity);
+    }
+    pulse = Math.Abs(Math.Sin(frame * 0.02)) * 0.08 + 0.92;
+    logo.sprite.SetOpacity(pulse);
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+fun display_normal_callback(text) {}
+fun display_message_callback(text) {}
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+Plymouth.SetMessageFunction(display_message_callback);
+fun quit_callback() {
+    for (i = 0; i < NUM_DOTS; i++) { dot[i].sprite.SetOpacity(0); }
+    logo.sprite.SetOpacity(1);
+}
+Plymouth.SetQuitFunction(quit_callback);
+EOFSCRIPT
+
+# Configure Plymouth
+plymouth-set-default-theme mados 2>/dev/null || true
+mkdir -p /etc/plymouth
+cat > /etc/plymouth/plymouthd.conf <<EOFPLYCONF
+[Daemon]
+Theme=mados
+ShowDelay=0
+DeviceTimeout=8
+EOFPLYCONF
+
+# Rebuild initramfs with plymouth hook
+sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect modconf kms block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
+mkinitcpio -P >/dev/null 2>&1 || true
 
 # Servicios
 systemctl enable earlyoom >/dev/null 2>&1
@@ -482,8 +582,8 @@ EOFBASH
 
 chown $USERNAME:$USERNAME /home/$USERNAME/.bash_profile
 
-# Instalar Claude Code
-npm install -g @anthropic-ai/claude-code >/dev/null 2>&1
+# Instalar Claude Code (non-fatal if no network)
+npm install -g @anthropic-ai/claude-code >/dev/null 2>&1 || echo "Warning: Could not install Claude Code"
 
 # Mensaje de bienvenida
 cat > /etc/motd <<EOFMOTD
@@ -510,6 +610,11 @@ EOFCHROOT
 
         progress 70 "Applying configurations..."
         chmod +x /mnt/root/configure.sh
+
+        # Copy Plymouth logo to installed system before chroot
+        mkdir -p /mnt/usr/share/plymouth/themes/mados
+        cp /usr/share/plymouth/themes/mados/logo.png /mnt/usr/share/plymouth/themes/mados/logo.png 2>/dev/null || true
+
         arch-chroot /mnt /root/configure.sh
 
         progress 90 "Cleaning up..."

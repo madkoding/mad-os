@@ -1058,6 +1058,16 @@ class MadOSInstaller(Gtk.Window):
             padding: 4px 16px;
             font-weight: bold;
         }}
+        
+        /* ── Spinner ── */
+        spinner {{
+            color: {NORD_FROST['nord8']};
+        }}
+        
+        .install-spinner {{
+            min-width: 48px;
+            min-height: 48px;
+        }}
         """
         css_provider.load_from_data(css.encode())
         Gtk.StyleContext.add_provider_for_screen(
@@ -1977,11 +1987,12 @@ class MadOSInstaller(Gtk.Window):
         content.set_margin_top(10)
         content.set_margin_bottom(14)
 
-        # Icon
-        icon = Gtk.Label()
-        icon.set_markup(f'<span size="22000" weight="bold" foreground="{NORD_FROST["nord8"]}">&#x2699;</span>')
-        icon.set_halign(Gtk.Align.CENTER)
-        content.pack_start(icon, False, False, 0)
+        # Spinner (replaces static icon)
+        self.install_spinner = Gtk.Spinner()
+        self.install_spinner.get_style_context().add_class('install-spinner')
+        self.install_spinner.set_halign(Gtk.Align.CENTER)
+        self.install_spinner.set_margin_top(8)
+        content.pack_start(self.install_spinner, False, False, 0)
 
         # Title
         title = Gtk.Label()
@@ -2105,6 +2116,9 @@ class MadOSInstaller(Gtk.Window):
         """Start the installation process"""
         self.notebook.next_page()
 
+        # Start spinner animation
+        self.install_spinner.start()
+
         # Run installation in thread
         thread = threading.Thread(target=self.run_installation)
         thread.daemon = True
@@ -2142,6 +2156,8 @@ class MadOSInstaller(Gtk.Window):
             self.set_progress(0.05, "Partitioning disk...")
             self.log(f"Partitioning {disk}...")
             if DEMO_MODE:
+                self.log("[DEMO] Simulating unmount/swapoff...")
+                time.sleep(0.3)
                 self.log("[DEMO] Simulating wipefs...")
                 time.sleep(0.5)
                 self.log("[DEMO] Simulating parted mklabel gpt...")
@@ -2151,6 +2167,14 @@ class MadOSInstaller(Gtk.Window):
                 self.log("[DEMO] Simulating parted set esp on...")
                 time.sleep(0.5)
             else:
+                # Unmount any existing partitions and deactivate swap on target disk
+                self.log(f"Unmounting existing partitions on {disk}...")
+                subprocess.run(f'swapoff {disk}* 2>/dev/null || true', shell=True)
+                subprocess.run(f'umount -l {disk}* 2>/dev/null || true', shell=True)
+                # For NVMe/MMC disks with 'p' separator
+                subprocess.run(f'swapoff {disk}p* 2>/dev/null || true', shell=True)
+                subprocess.run(f'umount -l {disk}p* 2>/dev/null || true', shell=True)
+                time.sleep(1)
                 subprocess.run(['wipefs', '-a', disk], check=True)
                 subprocess.run(['parted', '-s', disk, 'mklabel', 'gpt'], check=True)
                 subprocess.run(['parted', '-s', disk, 'mkpart', 'EFI', 'fat32', '1MiB', '1GiB'], check=True)
@@ -2189,9 +2213,15 @@ class MadOSInstaller(Gtk.Window):
             else:
                 time.sleep(0.5)
 
-            boot_part = f"{disk}1"
-            root_part = f"{disk}2"
-            home_part = f"{disk}3" if separate_home else None
+            # Determine partition naming (NVMe/MMC use 'p' separator)
+            if 'nvme' in disk or 'mmcblk' in disk:
+                part_prefix = f"{disk}p"
+            else:
+                part_prefix = disk
+
+            boot_part = f"{part_prefix}1"
+            root_part = f"{part_prefix}2"
+            home_part = f"{part_prefix}3" if separate_home else None
 
             # Step 2: Format
             self.set_progress(0.15, "Formatting partitions...")
@@ -2245,7 +2275,7 @@ class MadOSInstaller(Gtk.Window):
                 'earlyoom', 'zram-generator', 'iwd', 'pipewire', 'pipewire-pulse', 'wireplumber',
                 'intel-media-driver', 'vulkan-intel', 'mesa-utils',
                 'ttf-jetbrains-mono-nerd', 'papirus-icon-theme', 'noto-fonts-emoji', 'noto-fonts-cjk',
-                'pcmanfm', 'lxappearance',
+                'pcmanfm', 'lxappearance', 'plymouth',
                 'grub', 'efibootmgr', 'networkmanager', 'sudo',
                 'nodejs', 'npm', 'python', 'python-gobject', 'gtk3', 'rsync', 'dialog'
             ]
@@ -2279,11 +2309,11 @@ class MadOSInstaller(Gtk.Window):
 
             # Create configuration script
             config_script = f'''#!/bin/bash
-set -e
+# Exit on error for critical commands only (handled per-command)
 
 # Timezone
 ln -sf /usr/share/zoneinfo/{data['timezone']} /etc/localtime
-hwclock --systohc
+hwclock --systohc 2>/dev/null || true
 
 # Locale
 echo "{data['locale']} UTF-8" >> /etc/locale.gen
@@ -2317,10 +2347,89 @@ else
 fi
 
 # Configure GRUB
-sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="zswap.enabled=0"/' /etc/default/grub
+sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="zswap.enabled=0 splash quiet"/' /etc/default/grub
 sed -i 's/GRUB_DISTRIBUTOR="Arch"/GRUB_DISTRIBUTOR="madOS"/' /etc/default/grub
 sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
+
+# Plymouth theme
+mkdir -p /usr/share/plymouth/themes/mados
+cp /usr/share/plymouth/themes/mados/logo.png /usr/share/plymouth/themes/mados/logo.png 2>/dev/null || true
+cat > /usr/share/plymouth/themes/mados/mados.plymouth <<EOFPLY
+[Plymouth Theme]
+Name=madOS
+Description=madOS boot splash with Nord theme
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/mados
+ScriptFile=/usr/share/plymouth/themes/mados/mados.script
+EOFPLY
+
+cat > /usr/share/plymouth/themes/mados/mados.script <<'EOFSCRIPT'
+Window.SetBackgroundTopColor(0.18, 0.20, 0.25);
+Window.SetBackgroundBottomColor(0.13, 0.15, 0.19);
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 50);
+logo.sprite.SetZ(10);
+logo.sprite.SetOpacity(1);
+NUM_DOTS = 8;
+SPINNER_RADIUS = 25;
+spinner_x = Window.GetWidth() / 2;
+spinner_y = Window.GetHeight() / 2 + logo.image.GetHeight() / 2;
+for (i = 0; i < NUM_DOTS; i++) {{
+    dot[i].image = Image.Text(".", 0.533, 0.753, 0.816);
+    dot[i].sprite = Sprite(dot[i].image);
+    dot[i].sprite.SetZ(10);
+    angle = i * 2 * 3.14159 / NUM_DOTS;
+    dot[i].sprite.SetX(spinner_x + SPINNER_RADIUS * Math.Sin(angle) - dot[i].image.GetWidth() / 2);
+    dot[i].sprite.SetY(spinner_y - SPINNER_RADIUS * Math.Cos(angle) - dot[i].image.GetHeight() / 2);
+    dot[i].sprite.SetOpacity(0.2);
+}}
+frame = 0;
+fun refresh_callback() {{
+    frame++;
+    active_dot = Math.Int(frame / 4) % NUM_DOTS;
+    for (i = 0; i < NUM_DOTS; i++) {{
+        dist = active_dot - i;
+        if (dist < 0) dist = dist + NUM_DOTS;
+        if (dist == 0) opacity = 1.0;
+        else if (dist == 1) opacity = 0.7;
+        else if (dist == 2) opacity = 0.45;
+        else if (dist == 3) opacity = 0.25;
+        else opacity = 0.12;
+        dot[i].sprite.SetOpacity(opacity);
+    }}
+    pulse = Math.Abs(Math.Sin(frame * 0.02)) * 0.08 + 0.92;
+    logo.sprite.SetOpacity(pulse);
+}}
+Plymouth.SetRefreshFunction(refresh_callback);
+fun display_normal_callback(text) {{}}
+fun display_message_callback(text) {{}}
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+Plymouth.SetMessageFunction(display_message_callback);
+fun quit_callback() {{
+    for (i = 0; i < NUM_DOTS; i++) {{ dot[i].sprite.SetOpacity(0); }}
+    logo.sprite.SetOpacity(1);
+}}
+Plymouth.SetQuitFunction(quit_callback);
+EOFSCRIPT
+
+# Configure Plymouth
+plymouth-set-default-theme mados 2>/dev/null || true
+mkdir -p /etc/plymouth
+cat > /etc/plymouth/plymouthd.conf <<EOFPLYCONF
+[Daemon]
+Theme=mados
+ShowDelay=0
+DeviceTimeout=8
+EOFPLYCONF
+
+# Rebuild initramfs with plymouth hook
+sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect modconf kms block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
+mkinitcpio -P 2>/dev/null || true
 
 # Services
 systemctl enable earlyoom
@@ -2373,8 +2482,8 @@ fi
 EOF
 chown {data['username']}:{data['username']} /home/{data['username']}/.bash_profile
 
-# Install Claude Code
-npm install -g @anthropic-ai/claude-code
+# Install Claude Code (non-fatal if no network)
+npm install -g @anthropic-ai/claude-code 2>/dev/null || echo "Warning: Could not install Claude Code. Install manually later with: npm install -g @anthropic-ai/claude-code"
 
 # MOTD
 cat > /etc/motd <<EOF
@@ -2414,6 +2523,11 @@ EOF
 
                 subprocess.run(['chmod', '+x', '/mnt/root/configure.sh'], check=True)
 
+                # Copy Plymouth logo to installed system before chroot
+                subprocess.run(['mkdir', '-p', '/mnt/usr/share/plymouth/themes/mados'], check=True)
+                subprocess.run(['cp', '/usr/share/plymouth/themes/mados/logo.png',
+                                '/mnt/usr/share/plymouth/themes/mados/logo.png'], check=False)
+
             self.set_progress(0.70, "Applying configurations...")
             self.log("Running configuration...")
             if DEMO_MODE:
@@ -2448,11 +2562,18 @@ EOF
                 self.log("\n[OK] Installation completed successfully!")
 
             # Move to completion page
-            GLib.idle_add(self.notebook.next_page)
+            GLib.idle_add(self._finish_installation)
 
         except Exception as e:
             self.log(f"\n[ERROR] {str(e)}")
+            GLib.idle_add(self.install_spinner.stop)
             GLib.idle_add(self.show_error, "Installation Failed", str(e))
+
+    def _finish_installation(self):
+        """Stop spinner and move to completion page"""
+        self.install_spinner.stop()
+        self.notebook.next_page()
+        return False
 
     def _style_dialog(self, dialog):
         """Apply dark theme to a dialog"""

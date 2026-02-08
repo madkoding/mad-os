@@ -1,5 +1,5 @@
 // madOS Plymouth Theme Script
-// Nord-themed boot splash with logo and spinner
+// Nord-themed boot splash with logo and animated spinner
 
 // ============ Background ============
 Window.SetBackgroundTopColor(0.18, 0.20, 0.25);    // #2E3440 Nord Polar Night
@@ -9,39 +9,83 @@ Window.SetBackgroundBottomColor(0.13, 0.15, 0.19);  // Slightly darker at bottom
 logo.image = Image("logo.png");
 logo.sprite = Sprite(logo.image);
 logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
-logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 40);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 50);
 logo.sprite.SetZ(10);
 logo.sprite.SetOpacity(1);
 
-// ============ Spinner (dots) ============
-// Create a simple dot spinner using Nord accent color (#88C0D0)
-NUM_DOTS = 8;
-DOT_RADIUS = 6;
-SPINNER_RADIUS = 30;
+// ============ Animated Spinner (dots) ============
+// Nord accent colors for spinner dots
+// #88C0D0 = 0.533, 0.753, 0.816
+// #81A1C1 = 0.506, 0.631, 0.757
+// #5E81AC = 0.369, 0.506, 0.675
 
-// We'll draw dots as small images
-// Since we can't draw primitives, we use the bullet image approach
-// Create dots using a simple approach with opacity animation
+NUM_DOTS = 8;
+SPINNER_RADIUS = 25;
 
 spinner_x = Window.GetWidth() / 2;
-spinner_y = Window.GetHeight() / 2 + logo.image.GetHeight() / 2 + 20;
+spinner_y = Window.GetHeight() / 2 + logo.image.GetHeight() / 2;
 
-// Progress text at bottom
-message_sprite = Sprite();
-message_sprite.SetPosition(spinner_x, spinner_y + 60, 10);
+// Pre-create dot sprites using the bullet character "●"
+for (i = 0; i < NUM_DOTS; i++) {
+    dot[i].image = Image.Text("●", 0.533, 0.753, 0.816);  // #88C0D0
+    dot[i].sprite = Sprite(dot[i].image);
+    dot[i].sprite.SetZ(10);
 
-// ============ Progress callback ============
-progress = 0;
+    // Position dots in a circle
+    angle = i * 2 * 3.14159 / NUM_DOTS;
+    dot_x = spinner_x + SPINNER_RADIUS * Math.Sin(angle) - dot[i].image.GetWidth() / 2;
+    dot_y = spinner_y - SPINNER_RADIUS * Math.Cos(angle) - dot[i].image.GetHeight() / 2;
+    dot[i].sprite.SetX(dot_x);
+    dot[i].sprite.SetY(dot_y);
+    dot[i].sprite.SetOpacity(0.2);
+}
+
+// ============ Status text ============
+status_text.sprite = Sprite();
+status_text.sprite.SetZ(10);
+
+// ============ Animation state ============
+frame = 0;
 
 fun refresh_callback() {
-    progress++;
+    frame++;
 
-    // Animate a pulsing effect on the logo
-    pulse = Math.Abs(Math.Sin(progress * 0.03)) * 0.15 + 0.85;
+    // Animate spinner: one dot at a time lights up brightly, trailing dots fade
+    active_dot = Math.Int(frame / 4) % NUM_DOTS;
+
+    for (i = 0; i < NUM_DOTS; i++) {
+        // Calculate distance from active dot (with wrapping)
+        dist = active_dot - i;
+        if (dist < 0) dist = dist + NUM_DOTS;
+
+        // Trailing fade: active=1.0, trail fades out
+        if (dist == 0)
+            opacity = 1.0;
+        else if (dist == 1)
+            opacity = 0.7;
+        else if (dist == 2)
+            opacity = 0.45;
+        else if (dist == 3)
+            opacity = 0.25;
+        else
+            opacity = 0.12;
+
+        dot[i].sprite.SetOpacity(opacity);
+    }
+
+    // Subtle logo pulse
+    pulse = Math.Abs(Math.Sin(frame * 0.02)) * 0.08 + 0.92;
     logo.sprite.SetOpacity(pulse);
 }
 
 Plymouth.SetRefreshFunction(refresh_callback);
+
+// ============ Boot progress callback ============
+fun boot_progress_callback(duration, progress) {
+    // Optional: could adjust spinner speed based on progress
+}
+
+Plymouth.SetBootProgressFunction(boot_progress_callback);
 
 // ============ Message callbacks ============
 fun display_normal_callback(text) {
@@ -49,31 +93,44 @@ fun display_normal_callback(text) {
 }
 
 fun display_message_callback(text) {
-    // Don't display messages to keep it clean
+    // Show important messages below spinner
+    if (text != "") {
+        msg_image = Image.Text(text, 0.85, 0.87, 0.91);  // #D8DEE9
+        status_text.sprite.SetImage(msg_image);
+        status_text.sprite.SetX(Window.GetWidth() / 2 - msg_image.GetWidth() / 2);
+        status_text.sprite.SetY(spinner_y + SPINNER_RADIUS + 30);
+    }
 }
 
 Plymouth.SetDisplayNormalFunction(display_normal_callback);
 Plymouth.SetMessageFunction(display_message_callback);
 
-// ============ Password prompt (if needed) ============
-fun display_password_callback(prompt, bullets) {
-    // Minimal password display for encrypted disks
-    msg = Image.Text(prompt, 0.93, 0.94, 0.96); // #ECEFF4
-    msg_sprite = Sprite(msg);
-    msg_sprite.SetX(Window.GetWidth() / 2 - msg.GetWidth() / 2);
-    msg_sprite.SetY(Window.GetHeight() - 100);
-    msg_sprite.SetZ(12);
+// ============ Password prompt (for encrypted disks) ============
+prompt_sprite = Sprite();
+bullet_sprite = Sprite();
 
+fun display_password_callback(prompt_text, bullets) {
+    // Prompt label
+    msg = Image.Text(prompt_text, 0.93, 0.94, 0.96);  // #ECEFF4
+    prompt_sprite.SetImage(msg);
+    prompt_sprite.SetX(Window.GetWidth() / 2 - msg.GetWidth() / 2);
+    prompt_sprite.SetY(Window.GetHeight() - 120);
+    prompt_sprite.SetZ(12);
+
+    // Bullet dots for password
     bullet_str = "";
     for (i = 0; i < bullets; i++) {
         bullet_str += "● ";
     }
     if (bullet_str != "") {
-        bullet_img = Image.Text(bullet_str, 0.53, 0.75, 0.82); // #88C0D0
-        bullet_sprite = Sprite(bullet_img);
+        bullet_img = Image.Text(bullet_str, 0.53, 0.75, 0.82);  // #88C0D0
+        bullet_sprite.SetImage(bullet_img);
         bullet_sprite.SetX(Window.GetWidth() / 2 - bullet_img.GetWidth() / 2);
-        bullet_sprite.SetY(Window.GetHeight() - 70);
+        bullet_sprite.SetY(Window.GetHeight() - 80);
         bullet_sprite.SetZ(12);
+    } else {
+        // Clear bullets when empty
+        bullet_sprite.SetImage(Image.Text("", 0, 0, 0));
     }
 }
 
@@ -81,6 +138,10 @@ Plymouth.SetDisplayPasswordFunction(display_password_callback);
 
 // ============ Quit callback ============
 fun quit_callback() {
+    // Fade out spinner
+    for (i = 0; i < NUM_DOTS; i++) {
+        dot[i].sprite.SetOpacity(0);
+    }
     logo.sprite.SetOpacity(1);
 }
 
