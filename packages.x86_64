@@ -5,8 +5,10 @@ linux
 linux-firmware
 mkinitcpio-archiso
 intel-ucode
+amd-ucode
 grub
 efibootmgr
+os-prober
 syslinux
 sudo
 zsh
@@ -56,6 +58,7 @@ grim
 slurp
 wl-clipboard
 xdg-desktop-portal-wlr
+brightnessctl
 
 # Optimizaciones RAM
 earlyoom

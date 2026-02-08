@@ -141,7 +141,7 @@ layout: none
                 <div class="feature-card">
                     <div class="feature-icon">🤖</div>
                     <h3 data-i18n="feature.ai.title">Claude Code Integration</h3>
-                    <p data-i18n="feature.ai.desc">Asistente de IA integrado para orquestación inteligente del sistema y asistencia avanzada.</p>
+                    <p data-i18n="feature.ai.desc">Asistente de IA integrado por usuario para orquestación inteligente del sistema y asistencia avanzada.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">💾</div>
@@ -152,6 +152,16 @@ layout: none
                     <div class="feature-icon">🚀</div>
                     <h3 data-i18n="feature.lightweight.title">Escritorio Ligero</h3>
                     <p data-i18n="feature.lightweight.desc">Compositor Sway con tema Nord consume solo ~67MB de RAM para máximo rendimiento.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🌐</div>
+                    <h3 data-i18n="feature.wifi.title">Configuración WiFi Integrada</h3>
+                    <p data-i18n="feature.wifi.desc">Conecta a tu red WiFi directamente desde el instalador. Escaneo automático de redes con soporte WPA2.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🌍</div>
+                    <h3 data-i18n="feature.multilang.title">6 Idiomas</h3>
+                    <p data-i18n="feature.multilang.desc">Instalador disponible en inglés, español, francés, alemán, chino y japonés con layout de teclado automático.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🛠️</div>
@@ -166,7 +176,12 @@ layout: none
                 <div class="feature-card">
                     <div class="feature-icon">🎨</div>
                     <h3 data-i18n="feature.installer.title">Instalador Hermoso</h3>
-                    <p data-i18n="feature.installer.desc">Instalador gráfico GTK con tema Nord, navegación intuitiva y progreso en tiempo real.</p>
+                    <p data-i18n="feature.installer.desc">Instalador gráfico GTK con tema Nord, navegación intuitiva, progreso en tiempo real y boot splash animado.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3 data-i18n="feature.security.title">Seguro por Defecto</h3>
+                    <p data-i18n="feature.security.desc">Root bloqueado, bootloader UEFI dual (NVRAM + fallback), contraseñas seguras y Claude Code aislado por usuario.</p>
                 </div>
             </div>
         </div>
@@ -186,9 +201,11 @@ layout: none
                     <p class="installer-subtitle" data-i18n="installer.gtk.subtitle">Interfaz gráfica hermosa</p>
                     <ul class="installer-features">
                         <li data-i18n="installer.gtk.feat1">✓ Interfaz gráfica con tema Nord</li>
-                        <li data-i18n="installer.gtk.feat2">✓ Logo y diseño visual madOS</li>
-                        <li data-i18n="installer.gtk.feat3">✓ Navegación con mouse</li>
-                        <li data-i18n="installer.gtk.feat4">✓ Progreso visual en tiempo real</li>
+                        <li data-i18n="installer.gtk.feat2">✓ Configuración WiFi integrada</li>
+                        <li data-i18n="installer.gtk.feat3">✓ 6 idiomas (ES, EN, FR, DE, ZH, JA)</li>
+                        <li data-i18n="installer.gtk.feat4">✓ Progreso en tiempo real paquete a paquete</li>
+                        <li data-i18n="installer.gtk.feat5">✓ Soporte Intel + AMD con bootloader UEFI dual</li>
+                        <li data-i18n="installer.gtk.feat6">✓ Boot splash animado con tema Nord</li>
                     </ul>
                     <div class="installer-command">
                         <code>sudo install-mados</code>
@@ -210,7 +227,7 @@ layout: none
                             <span class="spec-icon">🔧</span>
                             <div>
                                 <strong data-i18n="hardware.cpu">CPU</strong>
-                                <p data-i18n="hardware.cpu.desc">Intel Atom o equivalente</p>
+                                <p data-i18n="hardware.cpu.desc">Intel Atom / AMD o equivalente (x86_64)</p>
                             </div>
                         </div>
                         <div class="spec-item">

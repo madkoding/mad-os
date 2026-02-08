@@ -31,6 +31,7 @@ file_permissions=(
   ["/usr/local/bin/livecd-sound"]="0:0:755"
   ["/usr/local/bin/install-mados-gtk.py"]="0:0:755"
   ["/usr/local/bin/install-mados"]="0:0:755"
+  ["/usr/local/lib/mados_installer/"]="0:0:755"
   ["/usr/local/bin/setup-claude-code.sh"]="0:0:755"
   ["/usr/local/bin/toggle-demo-mode.sh"]="0:0:755"
 )

@@ -1,0 +1,628 @@
+"""
+madOS Installer - Installation progress page and install logic
+"""
+
+import os
+import re
+import subprocess
+import time
+import threading
+
+from gi.repository import Gtk, GLib
+
+from ..config import DEMO_MODE, PACKAGES, NORD_FROST, LOCALE_KB_MAP
+from ..utils import log_message, set_progress, show_error
+
+
+def _escape_shell(s):
+    """Escape a string for safe use inside single quotes in shell"""
+    return s.replace("'", "'\\''")
+from .base import create_page_header
+
+
+def create_installation_page(app):
+    """Installation progress page with spinner, progress bar and log"""
+    page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+    page.get_style_context().add_class('page-container')
+    page.set_valign(Gtk.Align.CENTER)
+
+    content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    content.set_margin_start(30)
+    content.set_margin_end(30)
+    content.set_margin_top(10)
+    content.set_margin_bottom(14)
+
+    # Spinner
+    app.install_spinner = Gtk.Spinner()
+    app.install_spinner.get_style_context().add_class('install-spinner')
+    app.install_spinner.set_halign(Gtk.Align.CENTER)
+    app.install_spinner.set_margin_top(8)
+    content.pack_start(app.install_spinner, False, False, 0)
+
+    # Title
+    title = Gtk.Label()
+    title.set_markup(f'<span size="15000" weight="bold">{app.t("installing")}</span>')
+    title.set_halign(Gtk.Align.CENTER)
+    content.pack_start(title, False, False, 0)
+
+    # Status
+    app.status_label = Gtk.Label()
+    app.status_label.set_markup(
+        f'<span size="10000" foreground="{NORD_FROST["nord8"]}">{app.t("preparing")}</span>'
+    )
+    app.status_label.set_halign(Gtk.Align.CENTER)
+    content.pack_start(app.status_label, False, False, 0)
+
+    # Progress bar
+    app.progress_bar = Gtk.ProgressBar()
+    app.progress_bar.set_show_text(True)
+    app.progress_bar.set_margin_top(4)
+    app.progress_bar.set_margin_start(16)
+    app.progress_bar.set_margin_end(16)
+    content.pack_start(app.progress_bar, False, False, 0)
+
+    # Log viewer
+    log_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+    log_card.get_style_context().add_class('content-card')
+    log_card.set_margin_top(8)
+
+    scrolled = Gtk.ScrolledWindow()
+    scrolled.set_min_content_height(120)
+    scrolled.set_max_content_height(180)
+
+    app.log_buffer = Gtk.TextBuffer()
+    log_view = Gtk.TextView(buffer=app.log_buffer)
+    log_view.set_editable(False)
+    log_view.set_monospace(True)
+    log_view.set_left_margin(12)
+    log_view.set_right_margin(12)
+    log_view.set_top_margin(8)
+    log_view.set_bottom_margin(8)
+    scrolled.add(log_view)
+
+    log_card.pack_start(scrolled, True, True, 0)
+    content.pack_start(log_card, True, True, 0)
+
+    page.pack_start(content, True, True, 0)
+    app.notebook.append_page(page, Gtk.Label(label="Installing"))
+
+
+def on_start_installation(app):
+    """Start the installation process"""
+    app.notebook.next_page()
+    app.install_spinner.start()
+
+    thread = threading.Thread(target=_run_installation, args=(app,))
+    thread.daemon = True
+    thread.start()
+
+
+def _run_installation(app):
+    """Perform the actual installation (runs in background thread)"""
+    try:
+        data = app.install_data
+        disk = data['disk']
+        separate_home = data['separate_home']
+        disk_size_gb = data['disk_size_gb']
+
+        # Step 1: Partition
+        set_progress(app, 0.05, "Partitioning disk...")
+        log_message(app, f"Partitioning {disk}...")
+        if DEMO_MODE:
+            log_message(app, "[DEMO] Simulating unmount/swapoff...")
+            time.sleep(0.3)
+            log_message(app, "[DEMO] Simulating wipefs...")
+            time.sleep(0.5)
+            log_message(app, "[DEMO] Simulating parted mklabel gpt...")
+            time.sleep(0.5)
+            log_message(app, "[DEMO] Simulating parted mkpart EFI...")
+            time.sleep(0.5)
+            log_message(app, "[DEMO] Simulating parted set esp on...")
+            time.sleep(0.5)
+        else:
+            log_message(app, f"Unmounting existing partitions on {disk}...")
+            subprocess.run(f'swapoff {disk}* 2>/dev/null || true', shell=True)
+            subprocess.run(f'umount -l {disk}* 2>/dev/null || true', shell=True)
+            subprocess.run(f'swapoff {disk}p* 2>/dev/null || true', shell=True)
+            subprocess.run(f'umount -l {disk}p* 2>/dev/null || true', shell=True)
+            time.sleep(1)
+            subprocess.run(['wipefs', '-a', disk], check=True)
+            subprocess.run(['parted', '-s', disk, 'mklabel', 'gpt'], check=True)
+            subprocess.run(['parted', '-s', disk, 'mkpart', 'EFI', 'fat32', '1MiB', '1GiB'], check=True)
+            subprocess.run(['parted', '-s', disk, 'set', '1', 'esp', 'on'], check=True)
+
+        if separate_home:
+            if disk_size_gb < 128:
+                if DEMO_MODE:
+                    log_message(app, "[DEMO] Simulating parted mkpart root 1GiB-51GiB...")
+                    time.sleep(0.5)
+                    log_message(app, "[DEMO] Simulating parted mkpart home 51GiB-100%...")
+                    time.sleep(0.5)
+                else:
+                    subprocess.run(['parted', '-s', disk, 'mkpart', 'root', 'ext4', '1GiB', '51GiB'], check=True)
+                    subprocess.run(['parted', '-s', disk, 'mkpart', 'home', 'ext4', '51GiB', '100%'], check=True)
+            else:
+                if DEMO_MODE:
+                    log_message(app, "[DEMO] Simulating parted mkpart root 1GiB-61GiB...")
+                    time.sleep(0.5)
+                    log_message(app, "[DEMO] Simulating parted mkpart home 61GiB-100%...")
+                    time.sleep(0.5)
+                else:
+                    subprocess.run(['parted', '-s', disk, 'mkpart', 'root', 'ext4', '1GiB', '61GiB'], check=True)
+                    subprocess.run(['parted', '-s', disk, 'mkpart', 'home', 'ext4', '61GiB', '100%'], check=True)
+        else:
+            if DEMO_MODE:
+                log_message(app, "[DEMO] Simulating parted mkpart root 1GiB-100%...")
+                time.sleep(0.5)
+            else:
+                subprocess.run(['parted', '-s', disk, 'mkpart', 'root', 'ext4', '1GiB', '100%'], check=True)
+
+        if not DEMO_MODE:
+            time.sleep(2)
+        else:
+            time.sleep(0.5)
+
+        # Partition naming (NVMe/MMC use 'p' separator)
+        if 'nvme' in disk or 'mmcblk' in disk:
+            part_prefix = f"{disk}p"
+        else:
+            part_prefix = disk
+
+        boot_part = f"{part_prefix}1"
+        root_part = f"{part_prefix}2"
+        home_part = f"{part_prefix}3" if separate_home else None
+
+        # Step 2: Format
+        set_progress(app, 0.15, "Formatting partitions...")
+        log_message(app, "Formatting partitions...")
+        if DEMO_MODE:
+            log_message(app, f"[DEMO] Simulating mkfs.fat {boot_part}...")
+            time.sleep(0.5)
+            log_message(app, f"[DEMO] Simulating mkfs.ext4 {root_part}...")
+            time.sleep(0.5)
+            if separate_home:
+                log_message(app, f"[DEMO] Simulating mkfs.ext4 {home_part}...")
+                time.sleep(0.5)
+        else:
+            subprocess.run(['mkfs.fat', '-F32', boot_part], check=True)
+            subprocess.run(['mkfs.ext4', '-F', root_part], check=True)
+            if separate_home:
+                subprocess.run(['mkfs.ext4', '-F', home_part], check=True)
+
+        # Step 3: Mount
+        set_progress(app, 0.20, "Mounting filesystems...")
+        log_message(app, "Mounting filesystems...")
+        if DEMO_MODE:
+            log_message(app, f"[DEMO] Simulating mount {root_part} /mnt...")
+            time.sleep(0.5)
+            log_message(app, "[DEMO] Simulating mkdir /mnt/boot...")
+            time.sleep(0.3)
+            log_message(app, f"[DEMO] Simulating mount {boot_part} /mnt/boot...")
+            time.sleep(0.5)
+            if separate_home:
+                log_message(app, "[DEMO] Simulating mkdir /mnt/home...")
+                time.sleep(0.3)
+                log_message(app, f"[DEMO] Simulating mount {home_part} /mnt/home...")
+                time.sleep(0.5)
+        else:
+            subprocess.run(['mount', root_part, '/mnt'], check=True)
+            subprocess.run(['mkdir', '-p', '/mnt/boot'], check=True)
+            subprocess.run(['mount', boot_part, '/mnt/boot'], check=True)
+            if separate_home:
+                subprocess.run(['mkdir', '-p', '/mnt/home'], check=True)
+                subprocess.run(['mount', home_part, '/mnt/home'], check=True)
+
+        # Step 4: Install base system
+        set_progress(app, 0.25, "Installing base system (this may take a while)...")
+        log_message(app, "Installing base system...")
+
+        if DEMO_MODE:
+            log_message(app, "[DEMO] Simulating pacstrap with packages:")
+            for i, pkg in enumerate(PACKAGES):
+                progress = 0.25 + (0.23 * (i + 1) / len(PACKAGES))
+                set_progress(app, progress, f"Installing {pkg}...")
+                log_message(app, f"[DEMO] Installing {pkg}...")
+                time.sleep(0.2)
+            time.sleep(0.5)
+        else:
+            _run_pacstrap_with_progress(app, PACKAGES)
+
+        # Step 5: Generate fstab
+        set_progress(app, 0.50, "Generating filesystem table...")
+        log_message(app, "Generating fstab...")
+        if DEMO_MODE:
+            log_message(app, "[DEMO] Simulating genfstab -U /mnt...")
+            time.sleep(0.5)
+            log_message(app, "[DEMO] Would write fstab to /mnt/etc/fstab")
+            time.sleep(0.5)
+        else:
+            result = subprocess.run(['genfstab', '-U', '/mnt'], capture_output=True, text=True, check=True)
+            with open('/mnt/etc/fstab', 'a') as f:
+                f.write(result.stdout)
+
+        # Step 6: Configure system
+        set_progress(app, 0.55, "Configuring system...")
+        log_message(app, "Configuring system...")
+
+        config_script = _build_config_script(data)
+
+        if DEMO_MODE:
+            log_message(app, "[DEMO] Would write configuration script to /mnt/root/configure.sh")
+            time.sleep(0.5)
+            log_message(app, "[DEMO] Configuration would include:")
+            log_message(app, "[DEMO]   - Timezone setup")
+            log_message(app, "[DEMO]   - Locale generation")
+            log_message(app, "[DEMO]   - Hostname configuration")
+            log_message(app, "[DEMO]   - User creation")
+            log_message(app, "[DEMO]   - Sudo setup")
+            time.sleep(1)
+        else:
+            with open('/mnt/root/configure.sh', 'w') as f:
+                f.write(config_script)
+            subprocess.run(['chmod', '+x', '/mnt/root/configure.sh'], check=True)
+
+            # Copy Plymouth assets
+            subprocess.run(['mkdir', '-p', '/mnt/usr/share/plymouth/themes/mados'], check=True)
+            subprocess.run(['cp', '/usr/share/plymouth/themes/mados/logo.png',
+                            '/mnt/usr/share/plymouth/themes/mados/logo.png'], check=False)
+            subprocess.run(['cp', '/usr/share/plymouth/themes/mados/dot.png',
+                            '/mnt/usr/share/plymouth/themes/mados/dot.png'], check=False)
+
+            # Copy skel configs from live ISO to installed system
+            log_message(app, "Copying desktop configuration files...")
+            subprocess.run(['cp', '-a', '/etc/skel/.config', '/mnt/etc/skel/'], check=False)
+            subprocess.run(['cp', '-a', '/etc/skel/Pictures', '/mnt/etc/skel/'], check=False)
+            subprocess.run(['cp', '-a', '/etc/skel/.bash_profile', '/mnt/etc/skel/'], check=False)
+            if os.path.exists('/etc/skel/toggle-audio.sh'):
+                subprocess.run(['cp', '-a', '/etc/skel/toggle-audio.sh', '/mnt/etc/skel/'], check=False)
+
+        set_progress(app, 0.70, "Applying configurations...")
+        log_message(app, "Running configuration...")
+        if DEMO_MODE:
+            log_message(app, "[DEMO] Simulating arch-chroot configuration...")
+            log_message(app, "[DEMO]   - Installing GRUB bootloader")
+            time.sleep(0.5)
+            log_message(app, "[DEMO]   - Enabling services (NetworkManager, earlyoom)...")
+            time.sleep(0.5)
+            log_message(app, "[DEMO]   - Configuring ZRAM...")
+            time.sleep(0.5)
+            log_message(app, "[DEMO]   - Setting up autologin...")
+            time.sleep(0.5)
+            log_message(app, "[DEMO]   - Installing Claude Code...")
+            time.sleep(1)
+        else:
+            subprocess.run(['arch-chroot', '/mnt', '/root/configure.sh'], check=True)
+
+        set_progress(app, 0.90, "Cleaning up...")
+        log_message(app, "Cleaning up...")
+        if DEMO_MODE:
+            log_message(app, "[DEMO] Would remove configuration script")
+            time.sleep(0.3)
+            log_message(app, "[DEMO] Would unmount filesystems")
+            time.sleep(0.5)
+        else:
+            subprocess.run(['rm', '/mnt/root/configure.sh'], check=True)
+            # Unmount all filesystems cleanly
+            log_message(app, "Unmounting filesystems...")
+            subprocess.run(['umount', '-R', '/mnt'], check=False)
+
+        set_progress(app, 1.0, "Installation complete!")
+        if DEMO_MODE:
+            log_message(app, "\n[OK] Demo installation completed successfully!")
+            log_message(app, "\n[DEMO] No actual changes were made to your system.")
+            log_message(app, "[DEMO] Set DEMO_MODE = False for real installation.")
+        else:
+            log_message(app, "\n[OK] Installation completed successfully!")
+
+        GLib.idle_add(_finish_installation, app)
+
+    except Exception as e:
+        log_message(app, f"\n[ERROR] {str(e)}")
+        GLib.idle_add(app.install_spinner.stop)
+        GLib.idle_add(show_error, app, "Installation Failed", str(e))
+
+
+def _finish_installation(app):
+    """Stop spinner and move to completion page"""
+    app.install_spinner.stop()
+    app.notebook.next_page()
+    return False
+
+
+
+def _run_pacstrap_with_progress(app, packages):
+    """Run pacstrap while parsing output to update progress bar and log"""
+    total_packages = len(packages)
+    installed_count = 0
+    current_pkg = ""
+
+    # Progress range: 0.25 to 0.48 for pacstrap
+    progress_start = 0.25
+    progress_end = 0.48
+
+    proc = subprocess.Popen(
+        ['pacstrap', '/mnt'] + packages,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
+
+    # Patterns to detect package installation progress from pacman output
+    pkg_pattern = re.compile(r'installing\s+(\S+)', re.IGNORECASE)
+    downloading_pattern = re.compile(r'downloading\s+(\S+)', re.IGNORECASE)
+    resolving_pattern = re.compile(r'resolving dependencies|looking for conflicting', re.IGNORECASE)
+    total_pattern = re.compile(r'Packages\s+\((\d+)\)', re.IGNORECASE)
+
+    for line in proc.stdout:
+        line = line.rstrip()
+        if not line:
+            continue
+
+        # Try to detect total package count from pacman
+        total_match = total_pattern.search(line)
+        if total_match:
+            total_packages = int(total_match.group(1))
+            log_message(app, f"Total packages to install: {total_packages}")
+
+        # Detect individual package installations
+        pkg_match = pkg_pattern.search(line)
+        if pkg_match:
+            current_pkg = pkg_match.group(1)
+            installed_count += 1
+            progress = progress_start + (progress_end - progress_start) * (installed_count / total_packages)
+            progress = min(progress, progress_end)
+            set_progress(app, progress, f"Installing {current_pkg} ({installed_count}/{total_packages})...")
+            log_message(app, f"  Installing {current_pkg}...")
+            continue
+
+        # Show download progress
+        dl_match = downloading_pattern.search(line)
+        if dl_match:
+            log_message(app, f"  Downloading {dl_match.group(1)}...")
+            continue
+
+        # Show resolving phase
+        if resolving_pattern.search(line):
+            log_message(app, line.strip())
+            continue
+
+    proc.wait()
+    if proc.returncode != 0:
+        raise subprocess.CalledProcessError(proc.returncode, 'pacstrap')
+
+    set_progress(app, progress_end, "Base system installed")
+    log_message(app, f"Base system installed ({installed_count} packages)")
+
+
+def _build_config_script(data):
+    """Build the chroot configuration shell script"""
+    disk = data['disk']
+    return f'''#!/bin/bash
+# Exit on error for critical commands only (handled per-command)
+
+# Timezone
+ln -sf /usr/share/zoneinfo/{data['timezone']} /etc/localtime
+hwclock --systohc 2>/dev/null || true
+
+# Locale
+echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+echo "{data['locale']} UTF-8" >> /etc/locale.gen
+locale-gen
+echo "LANG={data['locale']}" > /etc/locale.conf
+
+# Hostname
+echo "{data['hostname']}" > /etc/hostname
+cat > /etc/hosts <<EOF
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   {data['hostname']}.localdomain {data['hostname']}
+EOF
+
+# User
+useradd -m -G wheel,audio,video,storage -s /bin/bash {data['username']}
+echo '{data['username']}:{_escape_shell(data['password'])}' | chpasswd
+
+# Sudo
+echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
+echo "{data['username']} ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/claude-nopasswd
+chmod 440 /etc/sudoers.d/claude-nopasswd
+
+# GRUB - Auto-detect UEFI or BIOS
+if [ -d /sys/firmware/efi ]; then
+    # Ensure efivarfs is mounted
+    if ! mount | grep -q efivarfs; then
+        mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null || true
+    fi
+    # Install GRUB with custom bootloader-id (writes NVRAM entry)
+    grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=madOS --recheck 2>&1 || true
+    # Also install to the standard fallback path EFI/BOOT/BOOTX64.EFI for maximum compatibility
+    grub-install --target=x86_64-efi --efi-directory=/boot --removable --recheck 2>&1
+else
+    grub-install --target=i386-pc --recheck {disk}
+fi
+
+# Configure GRUB
+sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="zswap.enabled=0 splash quiet"/' /etc/default/grub
+sed -i 's/GRUB_DISTRIBUTOR="Arch"/GRUB_DISTRIBUTOR="madOS"/' /etc/default/grub
+sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
+grub-mkconfig -o /boot/grub/grub.cfg
+
+# Plymouth theme
+mkdir -p /usr/share/plymouth/themes/mados
+cat > /usr/share/plymouth/themes/mados/mados.plymouth <<EOFPLY
+[Plymouth Theme]
+Name=madOS
+Description=madOS boot splash with Nord theme
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/mados
+ScriptFile=/usr/share/plymouth/themes/mados/mados.script
+EOFPLY
+
+cat > /usr/share/plymouth/themes/mados/mados.script <<'EOFSCRIPT'
+Window.SetBackgroundTopColor(0.18, 0.20, 0.25);
+Window.SetBackgroundBottomColor(0.13, 0.15, 0.19);
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 50);
+logo.sprite.SetZ(10);
+logo.sprite.SetOpacity(1);
+NUM_DOTS = 8;
+SPINNER_RADIUS = 25;
+spinner_x = Window.GetWidth() / 2;
+spinner_y = Window.GetHeight() / 2 + logo.image.GetHeight() / 2;
+dot_image = Image("dot.png");
+for (i = 0; i < NUM_DOTS; i++) {{
+    dot[i].sprite = Sprite(dot_image);
+    dot[i].sprite.SetZ(10);
+    angle = i * 2 * 3.14159 / NUM_DOTS;
+    dot[i].sprite.SetX(spinner_x + SPINNER_RADIUS * Math.Sin(angle) - dot_image.GetWidth() / 2);
+    dot[i].sprite.SetY(spinner_y - SPINNER_RADIUS * Math.Cos(angle) - dot_image.GetHeight() / 2);
+    dot[i].sprite.SetOpacity(0.2);
+}}
+frame = 0;
+fun refresh_callback() {{
+    frame++;
+    active_dot = Math.Int(frame / 4) % NUM_DOTS;
+    for (i = 0; i < NUM_DOTS; i++) {{
+        dist = active_dot - i;
+        if (dist < 0) dist = dist + NUM_DOTS;
+        if (dist == 0) opacity = 1.0;
+        else if (dist == 1) opacity = 0.7;
+        else if (dist == 2) opacity = 0.45;
+        else if (dist == 3) opacity = 0.25;
+        else opacity = 0.12;
+        dot[i].sprite.SetOpacity(opacity);
+    }}
+    pulse = Math.Abs(Math.Sin(frame * 0.02)) * 0.08 + 0.92;
+    logo.sprite.SetOpacity(pulse);
+}}
+Plymouth.SetRefreshFunction(refresh_callback);
+fun display_normal_callback(text) {{}}
+fun display_message_callback(text) {{}}
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+Plymouth.SetMessageFunction(display_message_callback);
+fun quit_callback() {{
+    for (i = 0; i < NUM_DOTS; i++) {{ dot[i].sprite.SetOpacity(0); }}
+    logo.sprite.SetOpacity(1);
+}}
+Plymouth.SetQuitFunction(quit_callback);
+EOFSCRIPT
+
+# Configure Plymouth
+plymouth-set-default-theme mados 2>/dev/null || true
+mkdir -p /etc/plymouth
+cat > /etc/plymouth/plymouthd.conf <<EOFPLYCONF
+[Daemon]
+Theme=mados
+ShowDelay=0
+DeviceTimeout=8
+EOFPLYCONF
+
+# Rebuild initramfs with plymouth hook
+sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect modconf kms block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
+mkinitcpio -P 2>/dev/null || true
+
+# Lock root account (security: users should use sudo)
+passwd -l root
+
+# Services
+systemctl enable NetworkManager
+systemctl enable systemd-resolved
+systemctl enable earlyoom
+systemctl enable systemd-timesyncd
+
+# Configure NetworkManager to use iwd as Wi-Fi backend
+mkdir -p /etc/NetworkManager/conf.d
+cat > /etc/NetworkManager/conf.d/wifi-backend.conf <<EOF
+[device]
+wifi.backend=iwd
+EOF
+
+# Kernel optimizations
+cat > /etc/sysctl.d/99-extreme-low-ram.conf <<EOF
+vm.vfs_cache_pressure = 200
+vm.swappiness = 5
+vm.dirty_ratio = 5
+vm.dirty_background_ratio = 3
+vm.min_free_kbytes = 16384
+net.ipv4.tcp_fin_timeout = 15
+net.ipv4.tcp_tw_reuse = 1
+net.core.rmem_max = 262144
+net.core.wmem_max = 262144
+EOF
+
+# ZRAM
+cat > /etc/systemd/zram-generator.conf <<EOF
+[zram0]
+zram-size = ram / 2
+compression-algorithm = zstd
+swap-priority = 100
+fs-type = swap
+EOF
+
+# Autologin
+mkdir -p /etc/systemd/system/getty@tty1.service.d
+cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf <<EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty -o '-p -f -- \\\\u' --noclear --autologin {data['username']} %I \\$TERM
+EOF
+
+# Copy configs
+su - {data['username']} -c "mkdir -p ~/.config/{{sway,waybar,foot,wofi,alacritty}}"
+su - {data['username']} -c "mkdir -p ~/Pictures/{{Wallpapers,Screenshots}}"
+cp -r /etc/skel/.config/* /home/{data['username']}/.config/ 2>/dev/null || true
+cp -r /etc/skel/Pictures/* /home/{data['username']}/Pictures/ 2>/dev/null || true
+chown -R {data['username']}:{data['username']} /home/{data['username']}
+
+# Set keyboard layout in Sway config based on locale
+KB_LAYOUT="{LOCALE_KB_MAP.get(data['locale'], 'us')}"
+if [ -f /home/{data['username']}/.config/sway/config ]; then
+    sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /home/{data['username']}/.config/sway/config
+elif [ -f /etc/skel/.config/sway/config ]; then
+    sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /etc/skel/.config/sway/config
+fi
+
+# Ensure .bash_profile from skel was copied correctly
+if [ ! -f /home/{data['username']}/.bash_profile ]; then
+    cp /etc/skel/.bash_profile /home/{data['username']}/.bash_profile 2>/dev/null || true
+fi
+chown {data['username']}:{data['username']} /home/{data['username']}/.bash_profile
+
+# Install Claude Code only for the created user (non-fatal if no network)
+su - {data['username']} -c "mkdir -p ~/.local/lib/node_modules ~/.local/bin"
+su - {data['username']} -c "npm install --prefix ~/.local/lib @anthropic-ai/claude-code 2>/dev/null && ln -sf ~/.local/lib/node_modules/.bin/claude ~/.local/bin/claude" || echo "Warning: Could not install Claude Code. Install manually later with: npm install --prefix ~/.local/lib @anthropic-ai/claude-code"
+
+# Ensure ~/.local/bin is in PATH for the user
+cat >> /home/{data['username']}/.bashrc <<'EOFBASHRC'
+
+# Claude Code (local install)
+export PATH="$HOME/.local/bin:$PATH"
+EOFBASHRC
+chown {data['username']}:{data['username']} /home/{data['username']}/.bashrc
+
+# MOTD
+cat > /etc/motd <<EOF
+
+╔═══════════════════════════════════════════════════╗
+║                                                   ║
+║     ███╗   ███╗ █████╗ ██████╗  ██████╗ ███████╗ ║
+║     ████╗ ████║██╔══██╗██╔══██╗██╔═══██╗██╔════╝ ║
+║     ██╔████╔██║███████║██║  ██║██║   ██║███████╗ ║
+║     ██║╚██╔╝██║██╔══██║██║  ██║██║   ██║╚════██║ ║
+║     ██║ ╚═╝ ██║██║  ██║██████╔╝╚██████╔╝███████║ ║
+║     ╚═╝     ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚══════╝ ║
+║                                                   ║
+║         AI-Orchestrated Arch Linux System        ║
+║              Powered by Claude Code              ║
+║                                                   ║
+╚═══════════════════════════════════════════════════╝
+
+Welcome to madOS! Type 'claude' to start the AI assistant.
+
+EOF
+'''
