@@ -1,0 +1,33 @@
+# Excluir archivos innecesarios para GitHub Pages
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock
+  - .gitignore
+
+# Configuración básica
+theme: null
+plugins: []
+
+# Activa las características de GitHub Pages
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+
+# Mejoras de seguridad
+safe: true
+lsi: false
+
+# Configuración del sitio
+title: "madOS - AI-Orchestrated Arch Linux"
+description: "Una distribución Arch Linux optimizada para sistemas con poca RAM, con Claude Code integrado"
+baseurl: "/mad-os"
+url: "https://madkoding.github.io"
+
+# No procesar archivos estáticos
+include:
+  - index.html
+  - styles.css
+  - script.js
+  - README.md

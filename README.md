@@ -1,359 +1,307 @@
-# madOS - AI-Orchestrated Arch Linux
+<div align="center">
 
-```
-╔══════════════════════════════════════════════════════╗
-║                                                      ║
-║     ███╗   ███╗ █████╗ ██████╗  ██████╗ ███████╗     ║
-║     ████╗ ████║██╔══██╗██╔══██╗██╔═══██╗██╔════╝     ║
-║     ██╔████╔██║███████║██║  ██║██║   ██║███████╗     ║
-║     ██║╚██╔╝██║██╔══██║██║  ██║██║   ██║╚════██║     ║
-║     ██║ ╚═╝ ██║██║  ██║██████╔╝╚██████╔╝███████║     ║
-║     ╚═╝     ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚══════╝     ║
-║                                                      ║
-║         AI-Orchestrated Arch Linux System            ║
-║              Powered by Claude Code                  ║
-║                                                      ║
-╚══════════════════════════════════════════════════════╝
-```
+![madOS Logo](docs/mados-logo.png)
 
-**madOS** is a custom Arch Linux distribution optimized for low-RAM systems, featuring **Claude Code** as an AI assistant to orchestrate and manage your operating system intelligently.
+# madOS
 
-## ✨ Features
+**AI-Orchestrated Arch Linux System**
 
-- 🤖 **Claude Code Integration**: AI-powered system orchestration and assistance
-- 💾 **Low-RAM Optimized**: Designed for 1.9GB RAM systems (Intel Atom)
-- 🚀 **Lightweight Desktop**: Sway compositor (~67MB RAM usage)
-- 🛠️ **Developer Ready**: Node.js, npm, Git, VS Code pre-installed
-- ⚡ **Performance Tuned**: ZRAM, EarlyOOM, kernel optimizations
-- 🎨 **Beautiful TUI Installer**: Intuitive installation experience
+[![Build Status](https://img.shields.io/github/actions/workflow/status/madkoding/mad-os/build-iso.yml?branch=main&style=flat-square)](https://github.com/madkoding/mad-os/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+[![Arch Linux](https://img.shields.io/badge/Arch-Linux-blue?style=flat-square)](https://archlinux.org)
 
-## 🎯 Hardware Target
+</div>
 
-- **CPU**: Intel Atom or equivalent
-- **RAM**: 1.9GB minimum (optimized for limited memory)
-- **GPU**: Intel integrated graphics (software rendering support)
-- **Storage**: 32GB+ recommended
-- **Boot**: UEFI and BIOS support
+madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB), featuring integrated Claude Code AI assistance for intelligent system management and orchestration.
 
-## 📦 What's Included
+## Overview
+
+- **Claude Code Integration** - AI-powered system orchestration and assistance
+- **Low-RAM Optimized** - Designed for 1.9GB RAM systems with Intel Atom processors
+- **Lightweight Desktop** - Sway Wayland compositor (~67MB RAM footprint)
+- **Developer Ready** - Node.js, npm, Git, VS Code pre-installed
+- **Performance Tuned** - ZRAM compression, EarlyOOM, kernel optimizations
+- **Dual Installers** - GTK graphical and TUI text-based installers
+
+## Hardware Requirements
+
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| CPU | Intel Atom or equivalent | Any x86_64 |
+| RAM | 1.9GB | 2GB+ |
+| Storage | 32GB | 64GB+ |
+| GPU | Intel integrated | Any with kernel driver |
+| Boot | UEFI or BIOS | UEFI |
+
+## Features
 
 ### Desktop Environment
-- **Sway**: i3-compatible Wayland compositor (Nord theme)
-- **Waybar**: Customizable status bar
-- **Wofi**: Application launcher
-- **Foot**: Fast terminal emulator
-- **Mako**: Notification daemon
+- **Sway** - i3-compatible Wayland compositor with Nord theme
+- **Waybar** - Customizable status bar
+- **Wofi** - Application launcher
+- **Foot** - Fast terminal emulator
+- **Mako** - Notification daemon
 
 ### Applications
-- **Chromium**: Web browser
-- **VS Code**: Code editor
-- **PCManFM**: File manager
-- **LXAppearance**: Theme configurator
+- **Chromium** - Web browser
+- **VS Code** - Code editor
+- **PCManFM** - File manager
+- **LXAppearance** - Theme configuration
 
 ### Developer Tools
-- **Claude Code**: AI assistant for system management
-- **Node.js** (v24.x) & npm
-- **Git**: Version control
-- **htop**: System monitor
-- **Vim & Nano**: Text editors
+- **Claude Code** - AI assistant (`claude` command)
+- **Node.js 24.x** & npm
+- **Git** - Version control
+- **htop** - System monitor
+- **Vim & Nano** - Text editors
 
 ### System Optimizations
-- **ZRAM**: 50% RAM compressed swap (zstd)
-- **EarlyOOM**: Prevents system freezes
-- **Kernel tuning**: `vm.swappiness=5`, `vm.vfs_cache_pressure=200`
-- **Network optimizations**: Reduced TCP buffers
+- **ZRAM** - Compressed swap using 50% RAM with zstd
+- **EarlyOOM** - Out-of-memory killer to prevent freezes
+- **Kernel tuning** - `vm.swappiness=5`, `vm.vfs_cache_pressure=200`
+- **Network stack** - Optimized TCP buffers for low memory
 
-## 🚀 Quick Start
+## Quick Start
 
-### Download madOS
+### Installation
 
-Build the ISO locally or download from GitHub Actions artifacts.
-
-### Boot from USB
-
-1. Create bootable USB:
+1. **Create bootable USB:**
    ```bash
    sudo dd if=madOS-*.iso of=/dev/sdX bs=4M status=progress oflag=sync
    ```
 
-2. Boot from USB and wait for Sway to auto-start
+2. **Boot from USB** - Sway will auto-start in the live environment
 
-### Install madOS
-
-Once in the live environment:
-
-1. **Open terminal** (Super+Enter)
-2. **Run the installer**:
+3. **Run the installer:**
    ```bash
    sudo install-mados
    ```
 
-   This automatically selects the best installer:
-   - **GTK (Graphical)** if you're in Sway/Wayland
-   - **TUI (Text)** as fallback
+   The smart launcher automatically selects:
+   - **GTK Installer** - If running under Wayland/X11
+   - **TUI Installer** - Text-based fallback
 
-3. **Follow the beautiful installer**:
-   - 💾 Select installation disk
-   - 👤 Create user account
-   - 🌍 Choose timezone and language
-   - ✅ Review and confirm
-   - ☕ Wait ~10 minutes
+4. **Follow the installer** (~10 minutes):
+   - Select installation disk
+   - Create user account
+   - Configure timezone and locale
+   - Review and confirm settings
 
-4. **Reboot and enjoy madOS!**
+5. **Reboot** into your new madOS system
 
 ### Installer Options
 
-madOS includes **three installers** to choose from:
+| Installer | Command | Description | Size |
+|-----------|---------|-------------|------|
+| Smart (Auto) | `sudo install-mados` | Auto-detects best option | - |
+| GTK | `sudo install-mados-gtk.py` | Graphical interface | +15MB |
+| TUI | `sudo install-mados.sh` | Text-based, keyboard only | +200KB |
+| CLI | `sudo install-arch-optimized.sh` | Legacy minimal installer | Base |
 
-#### 🎨 **GTK Installer** (Recommended)
-```bash
-sudo install-mados-gtk.py
-```
-- Beautiful graphical interface with Nord theme
-- madOS logo and visual design
-- Mouse-friendly navigation
-- Real-time progress visualization
-- ~15MB extra dependencies (Python + GTK3)
-
-#### 📟 **TUI Installer** (Lightweight)
-```bash
-sudo install-mados.sh
-```
-- Beautiful text-based interface with colors
-- Keyboard-only navigation
-- ASCII art branding
-- Works without graphical environment
-- Uses `dialog` (~200KB)
-
-#### ⌨️ **CLI Installer** (Legacy)
-```bash
-sudo /usr/local/bin/install-arch-optimized.sh
-```
-- Original command-line installer
-- Minimal, fast, no frills
-- For advanced users or automation
-
-## 🛠️ Building the ISO
+## Building the ISO
 
 ### Requirements
 
-- Arch Linux system (or Arch-based)
-- `archiso` package installed
+- Arch Linux or Arch-based system
+- `archiso` package
 - ~10GB free disk space
 - Root access
 
-### Build Locally
+### Local Build
 
 ```bash
 # Install archiso
 sudo pacman -S archiso
 
-# Clone this repository
-git clone https://github.com/yourusername/madOS.git
-cd madOS
-
 # Build the ISO
 sudo mkarchiso -v -w work/ -o out/ .
 
-# Find your ISO in out/
-ls -lh out/
+# Output location
+ls -lh out/madOS-*.iso
 ```
 
-**Build time**: ~10-20 minutes depending on your internet and CPU
+Build time: ~10-20 minutes
 
-### Build with GitHub Actions
+### GitHub Actions
 
-The ISO is automatically built on every push to `main`:
+ISO builds automatically on push to `main`:
 
 1. Push to main branch
-2. Check **Actions** tab on GitHub
-3. Wait for build to complete (~15 minutes)
-4. Download ISO from **Artifacts**
+2. Monitor build in GitHub Actions tab (~15 minutes)
+3. Download ISO from Artifacts
 
-## 🎨 Customization
+## Customization
 
 ### Add/Remove Packages
 
-Edit `packages.x86_64`:
+Edit `packages.x86_64` (one package per line):
+
 ```bash
-# Add packages (one per line)
+# Add package
 echo "firefox" >> packages.x86_64
 
-# Remove packages
+# Remove package
 sed -i '/chromium/d' packages.x86_64
 ```
 
-### Customize Desktop
+### Desktop Configuration
 
-Default configurations in `airootfs/etc/skel/.config/`:
-- Sway: `airootfs/etc/skel/.config/sway/config`
-- Waybar: `airootfs/etc/skel/.config/waybar/`
-- Terminal: `airootfs/etc/skel/.config/foot/foot.ini`
+Default user configurations:
+
+| Component | Location |
+|-----------|----------|
+| Sway | `airootfs/etc/skel/.config/sway/config` |
+| Waybar | `airootfs/etc/skel/.config/waybar/` |
+| Terminal | `airootfs/etc/skel/.config/foot/foot.ini` |
 
 ### Modify Installer
 
-The TUI installer: `airootfs/usr/local/bin/install-mados.sh`
+Edit `airootfs/usr/local/bin/install-mados.sh` to customize:
+- Partition layout and sizes
+- Default packages
+- Installation flow
 
-Change partition sizes, default packages, or installation flow.
+## Using Claude Code
 
-## 🧠 Using Claude Code
-
-After installation, Claude Code is pre-installed. Start it with:
-
-```bash
-claude
-```
-
-### What Can Claude Do?
-
-- 📝 **Code assistance**: Write, debug, and review code
-- 🔧 **System management**: Configure services, troubleshoot issues
-- 📚 **Documentation**: Explain commands and concepts
-- 🚀 **Automation**: Create scripts and workflows
-- 💡 **Problem solving**: Intelligent system orchestration
-
-### Example Commands
+After installation, Claude Code is available globally:
 
 ```bash
-# Start Claude Code CLI
+# Start interactive session
 claude
 
-# Use Claude with specific context
-claude --message "optimize my sway config"
+# Send direct message
+claude --message "optimize system performance"
 
-# Get system help
-claude --message "how do I check disk usage?"
+# Get help with commands
+claude --message "how to check disk usage?"
 ```
 
-## 📊 System Architecture
+### Capabilities
+
+- **Code assistance** - Write, debug, and review code
+- **System management** - Configure services, troubleshoot issues
+- **Documentation** - Explain commands and concepts
+- **Automation** - Create scripts and workflows
+- **Problem solving** - Intelligent system orchestration
+
+## System Architecture
 
 ```
-madOS Stack
-├── Hardware Layer
-│   └── Intel Atom / 1.9GB RAM
-├── Kernel Layer
-│   ├── Linux kernel (latest)
-│   ├── ZRAM (compressed swap)
-│   └── Optimized sysctl parameters
-├── System Services
-│   ├── systemd
-│   ├── EarlyOOM
-│   ├── iwd (wireless)
-│   └── PipeWire (audio)
-├── Display Server
-│   └── Wayland (via Sway)
-├── Desktop Environment
-│   ├── Sway compositor
-│   ├── Waybar (status)
-│   ├── Wofi (launcher)
-│   └── Nord theme
-├── Applications
-│   ├── Chromium
-│   ├── VS Code
-│   └── Developer tools
-└── AI Layer
-    └── Claude Code (system orchestration)
+madOS Architecture
+├── Hardware (Intel Atom / 1.9GB RAM)
+├── Kernel (Linux latest + ZRAM + sysctl tuning)
+├── Services (systemd, EarlyOOM, iwd, PipeWire)
+├── Display (Wayland via Sway)
+├── Desktop (Sway, Waybar, Wofi, Nord theme)
+├── Applications (Chromium, VS Code, dev tools)
+└── AI Layer (Claude Code system orchestration)
 ```
 
-## 🔧 Post-Installation
+## Post-Installation
 
 ### First Boot
 
-1. System auto-logs in and starts Sway
-2. Waybar shows system stats
-3. Press `Super+Enter` for terminal
-4. Type `claude` to start AI assistant
+1. System auto-logs into TTY1 and starts Sway
+2. Waybar displays system status
+3. Press `Super+Enter` to open terminal
+4. Run `claude` to start AI assistant
 
-### Essential Keybindings
+### Key Bindings
 
-- `Super+Enter` - Terminal
-- `Super+D` - Application launcher
-- `Super+Shift+Q` - Close window
-- `Super+1-9` - Switch workspace
-- `Super+Shift+E` - Exit Sway
+| Shortcut | Action |
+|----------|--------|
+| `Super+Enter` | Open terminal |
+| `Super+D` | Application launcher |
+| `Super+Shift+Q` | Close window |
+| `Super+1-9` | Switch workspace |
+| `Super+Shift+E` | Exit Sway |
 
-### Install Additional Software
+### Package Management
 
 ```bash
-# Using pacman
+# Install software
 sudo pacman -S <package>
 
-# Using AUR helper (install yay first)
-yay -S <aur-package>
-```
-
-### Update System
-
-```bash
-# Full system update
+# Update system
 sudo pacman -Syu
 
 # Update Claude Code
 npm update -g @anthropic-ai/claude-code
 ```
 
-## 📈 Performance Tips
+## Performance Monitoring
 
-madOS is already optimized, but you can:
+```bash
+# Monitor RAM usage
+htop
+free -h
 
-1. **Monitor RAM**: `htop` or `free -h`
-2. **Check ZRAM**: `zramctl`
-3. **Disable services**: `systemctl disable <service>`
-4. **Use lightweight apps**: Replace Chromium with qutebrowser
-5. **Trim unused packages**: `sudo pacman -Rns $(pacman -Qtdq)`
+# Check ZRAM status
+zramctl
 
-## 🐛 Troubleshooting
+# View system services
+systemctl list-units --type=service
 
-### Installation Issues
+# Remove orphaned packages
+sudo pacman -Rns $(pacman -Qtdq)
+```
 
-- **No disks detected**: Check connections, try `lsblk`
-- **Pacstrap fails**: Check internet connection
-- **GRUB install fails**: Verify UEFI/BIOS mode
+## Troubleshooting
 
-### Boot Issues
+### Installation
 
-- **Won't boot**: Check BIOS boot order
-- **Kernel panic**: Boot with `systemd.unit=rescue.target`
-- **No display**: Try different compositor or X11
+| Issue | Solution |
+|-------|----------|
+| No disks detected | Check connections, run `lsblk` |
+| Pacstrap fails | Verify internet connection |
+| GRUB install error | Check UEFI/BIOS boot mode |
 
-### Performance Issues
+### Boot
 
-- **High RAM usage**: Check `htop`, disable unused services
-- **Slow compositor**: Switch from Sway to dwm or i3
-- **ZRAM not working**: `systemctl status systemd-zram-setup@zram0`
+| Issue | Solution |
+|-------|----------|
+| Won't boot | Verify BIOS boot order |
+| Kernel panic | Boot with `systemd.unit=rescue.target` |
+| No display | Try software rendering or different compositor |
 
-## 🤝 Contributing
+### Performance
 
-Contributions welcome! This project is open source.
+| Issue | Solution |
+|-------|----------|
+| High RAM usage | Check `htop`, disable unused services |
+| Slow compositor | Consider i3 or dwm instead of Sway |
+| ZRAM issues | `systemctl status systemd-zram-setup@zram0` |
 
-### Areas for Contribution
+## Resources
 
-- 🎨 Themes and appearance
-- 📦 Package selection optimization
-- 🔧 System optimizations
-- 📝 Documentation
-- 🐛 Bug fixes
+- **Website:** https://madkoding.github.io/mad-os/
+- **Documentation:** `/usr/share/doc/madOS/` (after install)
+- **Arch Wiki:** https://wiki.archlinux.org/
+- **Issues:** GitHub Issues
 
-## 📜 License
+## Contributing
 
-Based on Arch Linux and archiso.
+Contributions are welcome. Areas for contribution:
 
-Custom configurations and scripts: **MIT License**
+- Themes and visual improvements
+- Package optimization
+- System tuning
+- Documentation
+- Bug fixes
 
-## 🙏 Credits
+## License
 
-- **Arch Linux**: The base distribution
-- **archiso**: ISO building tool
-- **Anthropic**: Claude Code AI
-- **Sway**: Wayland compositor
-- **Nord Theme**: Color scheme
+- Custom configurations and scripts: **MIT License**
+- Based on Arch Linux and archiso
 
-## 📞 Support
+## Credits
 
-- **Documentation**: See `/usr/share/doc/madOS/` (after install)
-- **Arch Wiki**: https://wiki.archlinux.org/
-- **Issues**: GitHub Issues
+- **Arch Linux** - Base distribution
+- **archiso** - ISO building framework
+- **Anthropic** - Claude Code AI
+- **Sway** - Wayland compositor
+- **Nord Theme** - Color scheme
 
 ---
 
-**Made with 🤖 and ❤️ for the Arch Linux community**
+Built for the Arch Linux community
