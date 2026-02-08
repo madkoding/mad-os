@@ -124,14 +124,16 @@ def update_summary(app):
     if app.install_data['separate_home']:
         root_size = '50GB' if app.install_data['disk_size_gb'] < 128 else '60GB'
         part_text = (
-            f'  {part_prefix}1   <b>1GB</b>      {app.t("efi_label")}  (FAT32)\n'
-            f'  {part_prefix}2   <b>{root_size}</b>   {app.t("root_label")}  (/)  ext4\n'
-            f'  {part_prefix}3   <b>{app.t("rest_label")}</b>     {app.t("home_label")}  (/home)  ext4'
+            f'  {part_prefix}1   <b>1MB</b>      BIOS boot\n'
+            f'  {part_prefix}2   <b>1GB</b>      {app.t("efi_label")}  (FAT32)\n'
+            f'  {part_prefix}3   <b>{root_size}</b>   {app.t("root_label")}  (/)  ext4\n'
+            f'  {part_prefix}4   <b>{app.t("rest_label")}</b>     {app.t("home_label")}  (/home)  ext4'
         )
     else:
         part_text = (
-            f'  {part_prefix}1   <b>1GB</b>        {app.t("efi_label")}  (FAT32)\n'
-            f'  {part_prefix}2   <b>{app.t("all_rest_label")}</b>   {app.t("root_label")}  (/)  ext4 '
+            f'  {part_prefix}1   <b>1MB</b>        BIOS boot\n'
+            f'  {part_prefix}2   <b>1GB</b>        {app.t("efi_label")}  (FAT32)\n'
+            f'  {part_prefix}3   <b>{app.t("all_rest_label")}</b>   {app.t("root_label")}  (/)  ext4 '
             f'– {app.t("home_dir_label")}'
         )
 

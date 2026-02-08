@@ -75,7 +75,7 @@ PACKAGES = [
     'intel-media-driver', 'vulkan-intel', 'mesa-utils',
     'ttf-jetbrains-mono-nerd', 'papirus-icon-theme', 'noto-fonts-emoji', 'noto-fonts-cjk',
     'pcmanfm', 'lxappearance', 'plymouth',
-    'grub', 'efibootmgr', 'os-prober', 'dosfstools', 'networkmanager', 'sudo',
+    'grub', 'efibootmgr', 'os-prober', 'dosfstools', 'sbctl', 'networkmanager', 'sudo',
     'brightnessctl',
     'nodejs', 'npm', 'python', 'python-gobject', 'gtk3', 'rsync'
 ]

@@ -129,6 +129,16 @@ def _on_user_next(app):
         show_error(app, "Empty Hostname", "Hostname cannot be empty.")
         return
 
+    if not re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$', hostname) or len(hostname) > 63:
+        show_error(app, "Invalid Hostname",
+                   "Hostname must contain only letters, numbers and hyphens, "
+                   "start/end with a letter or number, and be at most 63 characters.")
+        return
+
+    if len(password) < 4:
+        show_error(app, "Weak Password", "Password must be at least 4 characters.")
+        return
+
     app.install_data['username'] = username
     app.install_data['password'] = password
     app.install_data['hostname'] = hostname

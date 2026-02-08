@@ -115,7 +115,11 @@ def _run_installation(app):
             time.sleep(0.5)
             log_message(app, "[DEMO] Simulating parted mklabel gpt...")
             time.sleep(0.5)
-            log_message(app, "[DEMO] Simulating parted mkpart EFI...")
+            log_message(app, "[DEMO] Simulating parted mkpart bios_boot 1MiB-2MiB...")
+            time.sleep(0.3)
+            log_message(app, "[DEMO] Simulating parted set bios_grub on...")
+            time.sleep(0.3)
+            log_message(app, "[DEMO] Simulating parted mkpart EFI 2MiB-1GiB...")
             time.sleep(0.5)
             log_message(app, "[DEMO] Simulating parted set esp on...")
             time.sleep(0.5)
@@ -126,10 +130,16 @@ def _run_installation(app):
             subprocess.run(f'swapoff {disk}p* 2>/dev/null || true', shell=True)
             subprocess.run(f'umount -l {disk}p* 2>/dev/null || true', shell=True)
             time.sleep(1)
-            subprocess.run(['wipefs', '-a', disk], check=True)
+            # Thorough disk cleanup: remove GPT/MBR structures + all filesystem signatures
+            subprocess.run(['sgdisk', '--zap-all', disk], check=False)
+            subprocess.run(['wipefs', '-a', '-f', disk], check=True)
             subprocess.run(['parted', '-s', disk, 'mklabel', 'gpt'], check=True)
-            subprocess.run(['parted', '-s', disk, 'mkpart', 'EFI', 'fat32', '1MiB', '1GiB'], check=True)
-            subprocess.run(['parted', '-s', disk, 'set', '1', 'esp', 'on'], check=True)
+            # BIOS boot partition (required by grub-install --target=i386-pc on GPT disks)
+            subprocess.run(['parted', '-s', disk, 'mkpart', 'bios_boot', '1MiB', '2MiB'], check=True)
+            subprocess.run(['parted', '-s', disk, 'set', '1', 'bios_grub', 'on'], check=True)
+            # EFI System Partition for UEFI boot
+            subprocess.run(['parted', '-s', disk, 'mkpart', 'EFI', 'fat32', '2MiB', '1GiB'], check=True)
+            subprocess.run(['parted', '-s', disk, 'set', '2', 'esp', 'on'], check=True)
 
         if separate_home:
             if disk_size_gb < 128:
@@ -158,6 +168,10 @@ def _run_installation(app):
                 subprocess.run(['parted', '-s', disk, 'mkpart', 'root', 'ext4', '1GiB', '100%'], check=True)
 
         if not DEMO_MODE:
+            # Force kernel to re-read partition table and wait for device nodes
+            log_message(app, "Waiting for partition devices...")
+            subprocess.run(['partprobe', disk], check=False)
+            subprocess.run(['udevadm', 'settle', '--timeout=10'], check=False)
             time.sleep(2)
         else:
             time.sleep(0.5)
@@ -168,9 +182,10 @@ def _run_installation(app):
         else:
             part_prefix = disk
 
-        boot_part = f"{part_prefix}1"
-        root_part = f"{part_prefix}2"
-        home_part = f"{part_prefix}3" if separate_home else None
+        # Partition 1 = BIOS boot (no filesystem), Partition 2 = EFI, Partition 3 = root, Partition 4 = home
+        boot_part = f"{part_prefix}2"
+        root_part = f"{part_prefix}3"
+        home_part = f"{part_prefix}4" if separate_home else None
 
         # Step 2: Format
         set_progress(app, 0.15, "Formatting partitions...")
@@ -184,6 +199,10 @@ def _run_installation(app):
                 log_message(app, f"[DEMO] Simulating mkfs.ext4 {home_part}...")
                 time.sleep(0.5)
         else:
+            # Verify partition device nodes exist before formatting
+            for part_name, part_dev in [('EFI', boot_part), ('root', root_part)] + ([('home', home_part)] if separate_home else []):
+                if not os.path.exists(part_dev):
+                    raise RuntimeError(f"Partition device {part_dev} ({part_name}) does not exist! Partitioning may have failed.")
             subprocess.run(['mkfs.fat', '-F32', boot_part], check=True)
             subprocess.run(['mkfs.ext4', '-F', root_part], check=True)
             if separate_home:
@@ -237,7 +256,7 @@ def _run_installation(app):
             time.sleep(0.5)
         else:
             result = subprocess.run(['genfstab', '-U', '/mnt'], capture_output=True, text=True, check=True)
-            with open('/mnt/etc/fstab', 'a') as f:
+            with open('/mnt/etc/fstab', 'w') as f:
                 f.write(result.stdout)
 
         # Step 6: Configure system
@@ -302,8 +321,9 @@ def _run_installation(app):
             time.sleep(0.5)
         else:
             subprocess.run(['rm', '/mnt/root/configure.sh'], check=True)
-            # Unmount all filesystems cleanly
-            log_message(app, "Unmounting filesystems...")
+            # Sync and unmount all filesystems cleanly
+            log_message(app, "Syncing and unmounting filesystems...")
+            subprocess.run(['sync'], check=False)
             subprocess.run(['umount', '-R', '/mnt'], check=False)
 
         set_progress(app, 1.0, "Installation complete!")
@@ -318,6 +338,10 @@ def _run_installation(app):
 
     except Exception as e:
         log_message(app, f"\n[ERROR] {str(e)}")
+        # Cleanup: try to unmount filesystems on failure
+        if not DEMO_MODE:
+            log_message(app, "Cleaning up after error...")
+            subprocess.run(['umount', '-R', '/mnt'], capture_output=True)
         GLib.idle_add(app.install_spinner.stop)
         GLib.idle_add(show_error, app, "Installation Failed", str(e))
 
@@ -399,7 +423,7 @@ def _build_config_script(data):
     """Build the chroot configuration shell script"""
     disk = data['disk']
     return f'''#!/bin/bash
-# Exit on error for critical commands only (handled per-command)
+set -e
 
 # Timezone
 ln -sf /usr/share/zoneinfo/{data['timezone']} /etc/localtime
@@ -430,16 +454,96 @@ chmod 440 /etc/sudoers.d/claude-nopasswd
 
 # GRUB - Auto-detect UEFI or BIOS
 if [ -d /sys/firmware/efi ]; then
-    # Ensure efivarfs is mounted
-    if ! mount | grep -q efivarfs; then
+    echo "==> Detected UEFI boot mode"
+    # Ensure efivarfs is mounted for NVRAM access
+    if ! mountpoint -q /sys/firmware/efi/efivars 2>/dev/null; then
         mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null || true
     fi
+
+    # Disable GRUB's shim_lock verifier so it works without shim
+    echo 'GRUB_DISABLE_SHIM_LOCK=true' >> /etc/default/grub
+
     # Install GRUB with custom bootloader-id (writes NVRAM entry)
-    grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=madOS --recheck 2>&1 || true
+    if ! grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=madOS --recheck 2>&1; then
+        echo "WARN: grub-install bootloader-id failed (NVRAM may be read-only)"
+    fi
     # Also install to the standard fallback path EFI/BOOT/BOOTX64.EFI for maximum compatibility
-    grub-install --target=x86_64-efi --efi-directory=/boot --removable --recheck 2>&1
+    if ! grub-install --target=x86_64-efi --efi-directory=/boot --removable --recheck 2>&1; then
+        echo "ERROR: GRUB UEFI --removable install failed!"
+        exit 1
+    fi
+    # Verify EFI binary exists
+    if [ ! -f /boot/EFI/BOOT/BOOTX64.EFI ]; then
+        echo "ERROR: /boot/EFI/BOOT/BOOTX64.EFI was not created!"
+        exit 1
+    fi
+
+    # --- Secure Boot support via sbctl ---
+    SECURE_BOOT=0
+    if [ -f /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c ]; then
+        SB_VAL=$(od -An -t u1 -j4 -N1 /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c 2>/dev/null | tr -d ' ')
+        [ "$SB_VAL" = "1" ] && SECURE_BOOT=1
+    fi
+
+    if [ "$SECURE_BOOT" = "1" ]; then
+        echo "==> Secure Boot is ENABLED – setting up sbctl signing"
+
+        # Create signing keys
+        sbctl create-keys 2>/dev/null || echo "WARN: sbctl keys may already exist"
+
+        # Try to enroll keys (works only in Setup Mode)
+        SETUP_MODE=0
+        if [ -f /sys/firmware/efi/efivars/SetupMode-8be4df61-93ca-11d2-aa0d-00e098032b8c ]; then
+            SM_VAL=$(od -An -t u1 -j4 -N1 /sys/firmware/efi/efivars/SetupMode-8be4df61-93ca-11d2-aa0d-00e098032b8c 2>/dev/null | tr -d ' ')
+            [ "$SM_VAL" = "1" ] && SETUP_MODE=1
+        fi
+
+        if [ "$SETUP_MODE" = "1" ]; then
+            echo "==> Firmware is in Setup Mode – enrolling Secure Boot keys"
+            sbctl enroll-keys --microsoft 2>&1 || echo "WARN: Could not enroll keys automatically"
+        else
+            echo "==> Firmware is NOT in Setup Mode"
+            echo "    After first reboot, enter UEFI firmware settings and either:"
+            echo "    1) Disable Secure Boot, or"
+            echo "    2) Put firmware in Setup Mode, reboot to madOS, then run: sudo sbctl enroll-keys --microsoft"
+        fi
+
+        # Sign all EFI binaries and kernel (with -s to save in sbctl database for re-signing)
+        for f in /boot/EFI/BOOT/BOOTX64.EFI /boot/EFI/madOS/grubx64.efi /boot/vmlinuz-linux; do
+            if [ -f "$f" ]; then
+                echo "    Signing $f"
+                sbctl sign -s "$f" 2>&1 || echo "WARN: Could not sign $f"
+            fi
+        done
+
+        # Create pacman hook to auto-sign after kernel/grub updates
+        mkdir -p /etc/pacman.d/hooks
+        cat > /etc/pacman.d/hooks/99-sbctl-sign.hook <<'EOFHOOK'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = linux
+Target = linux-lts
+Target = linux-zen
+Target = grub
+
+[Action]
+Description = Signing EFI binaries for Secure Boot...
+When = PostTransaction
+Exec = /usr/bin/sbctl sign-all
+Depends = sbctl
+EOFHOOK
+    else
+        echo "==> Secure Boot is disabled – skipping sbctl signing"
+    fi
 else
-    grub-install --target=i386-pc --recheck {disk}
+    echo "==> Detected BIOS boot mode"
+    # BIOS boot uses the bios_grub partition on GPT disk
+    if ! grub-install --target=i386-pc --recheck {disk} 2>&1; then
+        echo "ERROR: GRUB BIOS install failed!"
+        exit 1
+    fi
 fi
 
 # Configure GRUB
@@ -447,6 +551,10 @@ sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="zswap.enabled=0 splash quiet
 sed -i 's/GRUB_DISTRIBUTOR="Arch"/GRUB_DISTRIBUTOR="madOS"/' /etc/default/grub
 sed -i 's/#GRUB_DISABLE_OS_PROBER=false/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
 grub-mkconfig -o /boot/grub/grub.cfg
+if [ ! -f /boot/grub/grub.cfg ]; then
+    echo "ERROR: grub.cfg was not generated!"
+    exit 1
+fi
 
 # Plymouth theme
 mkdir -p /usr/share/plymouth/themes/mados
@@ -524,7 +632,7 @@ EOFPLYCONF
 
 # Rebuild initramfs with plymouth hook
 sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect modconf kms block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
-mkinitcpio -P 2>/dev/null || true
+mkinitcpio -P
 
 # Lock root account (security: users should use sudo)
 passwd -l root
@@ -534,6 +642,9 @@ systemctl enable NetworkManager
 systemctl enable systemd-resolved
 systemctl enable earlyoom
 systemctl enable systemd-timesyncd
+
+# --- Non-critical section: errors below should not abort installation ---
+set +e
 
 # Configure NetworkManager to use iwd as Wi-Fi backend
 mkdir -p /etc/NetworkManager/conf.d
