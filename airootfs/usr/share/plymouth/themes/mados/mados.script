@@ -25,16 +25,16 @@ SPINNER_RADIUS = 25;
 spinner_x = Window.GetWidth() / 2;
 spinner_y = Window.GetHeight() / 2 + logo.image.GetHeight() / 2;
 
-// Pre-create dot sprites using the bullet character "●"
+// Pre-create dot sprites using dot.png image
+dot_image = Image("dot.png");
 for (i = 0; i < NUM_DOTS; i++) {
-    dot[i].image = Image.Text("●", 0.533, 0.753, 0.816);  // #88C0D0
-    dot[i].sprite = Sprite(dot[i].image);
+    dot[i].sprite = Sprite(dot_image);
     dot[i].sprite.SetZ(10);
 
     // Position dots in a circle
     angle = i * 2 * 3.14159 / NUM_DOTS;
-    dot_x = spinner_x + SPINNER_RADIUS * Math.Sin(angle) - dot[i].image.GetWidth() / 2;
-    dot_y = spinner_y - SPINNER_RADIUS * Math.Cos(angle) - dot[i].image.GetHeight() / 2;
+    dot_x = spinner_x + SPINNER_RADIUS * Math.Sin(angle) - dot_image.GetWidth() / 2;
+    dot_y = spinner_y - SPINNER_RADIUS * Math.Cos(angle) - dot_image.GetHeight() / 2;
     dot[i].sprite.SetX(dot_x);
     dot[i].sprite.SetY(dot_y);
     dot[i].sprite.SetOpacity(0.2);

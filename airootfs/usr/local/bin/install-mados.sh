@@ -475,13 +475,13 @@ NUM_DOTS = 8;
 SPINNER_RADIUS = 25;
 spinner_x = Window.GetWidth() / 2;
 spinner_y = Window.GetHeight() / 2 + logo.image.GetHeight() / 2;
+dot_image = Image("dot.png");
 for (i = 0; i < NUM_DOTS; i++) {
-    dot[i].image = Image.Text(".", 0.533, 0.753, 0.816);
-    dot[i].sprite = Sprite(dot[i].image);
+    dot[i].sprite = Sprite(dot_image);
     dot[i].sprite.SetZ(10);
     angle = i * 2 * 3.14159 / NUM_DOTS;
-    dot[i].sprite.SetX(spinner_x + SPINNER_RADIUS * Math.Sin(angle) - dot[i].image.GetWidth() / 2);
-    dot[i].sprite.SetY(spinner_y - SPINNER_RADIUS * Math.Cos(angle) - dot[i].image.GetHeight() / 2);
+    dot[i].sprite.SetX(spinner_x + SPINNER_RADIUS * Math.Sin(angle) - dot_image.GetWidth() / 2);
+    dot[i].sprite.SetY(spinner_y - SPINNER_RADIUS * Math.Cos(angle) - dot_image.GetHeight() / 2);
     dot[i].sprite.SetOpacity(0.2);
 }
 frame = 0;
@@ -611,9 +611,10 @@ EOFCHROOT
         progress 70 "Applying configurations..."
         chmod +x /mnt/root/configure.sh
 
-        # Copy Plymouth logo to installed system before chroot
+        # Copy Plymouth assets to installed system before chroot
         mkdir -p /mnt/usr/share/plymouth/themes/mados
         cp /usr/share/plymouth/themes/mados/logo.png /mnt/usr/share/plymouth/themes/mados/logo.png 2>/dev/null || true
+        cp /usr/share/plymouth/themes/mados/dot.png /mnt/usr/share/plymouth/themes/mados/dot.png 2>/dev/null || true
 
         arch-chroot /mnt /root/configure.sh
 
