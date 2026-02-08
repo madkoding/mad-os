@@ -37,7 +37,9 @@ git
 openssh
 python
 python-gobject
+python-cairo
 gtk3
+xdg-desktop-portal-gtk
 
 # Utilidades del sistema
 htop
@@ -100,3 +102,6 @@ ntfs-3g
 less
 man-db
 man-pages
+
+# Boot splash
+plymouth
