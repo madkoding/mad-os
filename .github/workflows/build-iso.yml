@@ -39,68 +39,22 @@ jobs:
         # Extract date from tag (e.g., v2026.02.07 -> 2026.02.07)
         BUILD_DATE="${GITHUB_REF_NAME#v}"
         ISO_SIZE=$(stat --format=%s "$ISO_FILE")
+        ISO_SIZE_MB=$((ISO_SIZE / 1024 / 1024))
         echo "iso_file=$ISO_FILE" >> "$GITHUB_OUTPUT"
         echo "iso_name=$ISO_NAME" >> "$GITHUB_OUTPUT"
         echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
-        echo "iso_size=$ISO_SIZE" >> "$GITHUB_OUTPUT"
-
-    - name: Split ISO if larger than 1.9GB
-      id: split_info
-      run: |
-        ISO_FILE="${{ steps.iso_info.outputs.iso_file }}"
-        ISO_SIZE="${{ steps.iso_info.outputs.iso_size }}"
-        MAX_SIZE=1900000000  # ~1.9GB to stay safely under 2GB limit
-
-        if [ "$ISO_SIZE" -gt "$MAX_SIZE" ]; then
-          echo "ISO is ${ISO_SIZE} bytes, splitting into parts..."
-          split -b 1900m "$ISO_FILE" "${ISO_FILE}.part"
-          rm "$ISO_FILE"
-          
-          # Create checksums for parts
-          cd out
-          sha256sum *.part* > SHA256SUMS
-          cd ..
-          
-          # Create reassembly script
-          ISO_NAME="${{ steps.iso_info.outputs.iso_name }}"
-          cat > out/reassemble.sh << 'SCRIPT'
-        #!/bin/bash
-        set -e
-        ISO_NAME="__ISO_NAME__"
-        echo "Reassembling ${ISO_NAME}..."
-        cat ${ISO_NAME}.part* > "${ISO_NAME}"
-        echo "Verifying checksums..."
-        sha256sum -c SHA256SUMS --ignore-missing 2>/dev/null || true
-        echo "Done! ISO saved as ${ISO_NAME}"
-        SCRIPT
-          sed -i "s/__ISO_NAME__/$ISO_NAME/" out/reassemble.sh
-          chmod +x out/reassemble.sh
-          
-          # List all parts for upload
-          PARTS=$(ls out/*.part* out/SHA256SUMS out/reassemble.sh | tr '\n' '\n')
-          echo "split=true" >> "$GITHUB_OUTPUT"
-          
-          # Create file list for upload
-          FILES=""
-          for f in out/*.part*; do
-            FILES="${FILES}${f}\n"
-          done
-          echo "is_split=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "ISO is ${ISO_SIZE} bytes, no split needed."
-          echo "is_split=false" >> "$GITHUB_OUTPUT"
-        fi
+        echo "iso_size_mb=$ISO_SIZE_MB" >> "$GITHUB_OUTPUT"
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
-      if: steps.split_info.outputs.is_split == 'false'
       with:
         tag_name: ${{ github.ref_name }}
         name: madOS ${{ steps.iso_info.outputs.build_date }}
         body: |
           ## madOS Build ${{ steps.iso_info.outputs.build_date }}
           
-          **ISO:** `${{ steps.iso_info.outputs.iso_name }}`
+          **ISO:** `${{ steps.iso_info.outputs.iso_name }}`  
+          **Tamaño:** ${{ steps.iso_info.outputs.iso_size_mb }} MB
           
           ### Verificación
           ```bash
@@ -109,34 +63,4 @@ jobs:
         files: |
           ${{ steps.iso_info.outputs.iso_file }}
           out/SHA256SUMS
-        make_latest: true
-
-    - name: Create Release (split ISO)
-      uses: softprops/action-gh-release@v2
-      if: steps.split_info.outputs.is_split == 'true'
-      with:
-        tag_name: ${{ github.ref_name }}
-        name: madOS ${{ steps.iso_info.outputs.build_date }}
-        body: |
-          ## madOS Build ${{ steps.iso_info.outputs.build_date }}
-          
-          **ISO:** `${{ steps.iso_info.outputs.iso_name }}`
-          
-          > ⚠️ El ISO fue dividido en partes por superar el límite de 2GB de GitHub.
-          
-          ### Descargar y reconstruir
-          Descarga todos los archivos `.part*`, `SHA256SUMS` y `reassemble.sh`, luego:
-          ```bash
-          chmod +x reassemble.sh
-          ./reassemble.sh
-          ```
-          
-          O manualmente:
-          ```bash
-          cat ${{ steps.iso_info.outputs.iso_name }}.part* > ${{ steps.iso_info.outputs.iso_name }}
-          ```
-        files: |
-          out/*.part*
-          out/SHA256SUMS
-          out/reassemble.sh
         make_latest: true
