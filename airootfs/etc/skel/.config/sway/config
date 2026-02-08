@@ -43,7 +43,9 @@ output * bg ~/Pictures/Wallpapers/nord-landscape.jpg fill
 # Display scaling - adjust scale value to your preference
 # scale 1.0 = 100% (default), 0.8 = 80% (smaller), 0.75 = 75% (even smaller)
 # Fractional scaling can cause issues with some apps, use 1.0 for compatibility
-output LVDS-1 scale 1.0
+# Get display names with: swaymsg -t get_outputs
+# output LVDS-1 scale 1.0
+# output Virtual-1 scale 1.0
 
 # Uncomment and adjust for your displays
 # Get display names with: swaymsg -t get_outputs

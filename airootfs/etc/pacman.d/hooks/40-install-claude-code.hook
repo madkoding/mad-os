@@ -1,0 +1,15 @@
+# remove from airootfs!
+# Install Claude Code globally during ISO build via npm.
+# This hook runs after nodejs/npm packages are installed by pacstrap.
+
+[Trigger]
+Operation = Install
+Type = Package
+Target = npm
+
+[Action]
+Description = Installing Claude Code globally via npm...
+When = PostTransaction
+Depends = nodejs
+Depends = npm
+Exec = /usr/bin/npm install -g @anthropic-ai/claude-code
