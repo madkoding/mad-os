@@ -314,30 +314,15 @@ layout: none
             </div>
             <div class="download-options">
                 <div class="download-card">
-                    <h3 data-i18n="download.build.title">Compilar Localmente</h3>
-                    <p data-i18n="download.build.desc">Construye la ISO en tu sistema Arch Linux</p>
-                    <div class="code-block">
-                        <pre><code># Instalar archiso
-sudo pacman -S archiso
-
-# Clonar repositorio
-git clone https://github.com/madkoding/mad-os.git
-cd mad-os
-
-# Compilar ISO
-sudo mkarchiso -v -w /tmp/archiso-tmp .</code></pre>
-                    </div>
-                </div>
-                <div class="download-card">
                     <h3 data-i18n="download.iso.title">Descargar ISO</h3>
-                    <p data-i18n="download.iso.desc">Obtén la última versión desde GitHub Actions</p>
-                    <a href="https://github.com/madkoding/mad-os/actions" target="_blank" class="btn btn-primary btn-large">
+                    <p data-i18n="download.iso.desc">Obtén la última versión oficial</p>
+                    <a href="https://github.com/madkoding/mad-os/releases" target="_blank" class="btn btn-primary btn-large">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                             <polyline points="7 10 12 15 17 10"></polyline>
                             <line x1="12" y1="15" x2="12" y2="3"></line>
                         </svg>
-                        <span data-i18n="download.iso.button">Ver Artifacts en GitHub Actions</span>
+                        <span data-i18n="download.iso.button">Descargar desde GitHub Releases</span>
                     </a>
                 </div>
             </div>
