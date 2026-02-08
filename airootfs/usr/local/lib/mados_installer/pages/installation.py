@@ -704,17 +704,36 @@ if [ ! -f /home/{data['username']}/.bash_profile ]; then
 fi
 chown {data['username']}:{data['username']} /home/{data['username']}/.bash_profile
 
-# Install Claude Code only for the created user (non-fatal if no network)
-su - {data['username']} -c "mkdir -p ~/.local/lib/node_modules ~/.local/bin"
-su - {data['username']} -c "npm install --prefix ~/.local/lib @anthropic-ai/claude-code 2>/dev/null && ln -sf ~/.local/lib/node_modules/.bin/claude ~/.local/bin/claude" || echo "Warning: Could not install Claude Code. Install manually later with: npm install --prefix ~/.local/lib @anthropic-ai/claude-code"
+# Install Claude Code globally (non-fatal if no network)
+echo "Installing Claude Code..."
+if npm install -g @anthropic-ai/claude-code; then
+    echo "Claude Code installed successfully"
+else
+    echo "Warning: Could not install Claude Code during installation."
+    echo "It will be installed automatically on first boot if network is available."
+fi
 
-# Ensure ~/.local/bin is in PATH for the user
-cat >> /home/{data['username']}/.bashrc <<'EOFBASHRC'
+# Create first-boot service to install Claude Code if not present
+cat > /etc/systemd/system/setup-claude-code.service <<'EOFSVC'
+[Unit]
+Description=Install Claude Code if not already present
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/usr/bin/claude
 
-# Claude Code (local install)
-export PATH="$HOME/.local/bin:$PATH"
-EOFBASHRC
-chown {data['username']}:{data['username']} /home/{data['username']}/.bashrc
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=HOME=/root
+ExecStart=/bin/bash -c 'npm install -g @anthropic-ai/claude-code && echo "Claude Code installed successfully" || echo "Failed to install Claude Code"'
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
+EOFSVC
+systemctl enable setup-claude-code.service
 
 # MOTD
 cat > /etc/motd <<EOF
