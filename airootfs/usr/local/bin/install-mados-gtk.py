@@ -2277,7 +2277,7 @@ class MadOSInstaller(Gtk.Window):
                 'ttf-jetbrains-mono-nerd', 'papirus-icon-theme', 'noto-fonts-emoji', 'noto-fonts-cjk',
                 'pcmanfm', 'lxappearance', 'plymouth',
                 'grub', 'efibootmgr', 'networkmanager', 'sudo',
-                'nodejs', 'npm', 'python', 'python-gobject', 'gtk3', 'rsync', 'dialog'
+                'nodejs', 'npm', 'python', 'python-gobject', 'gtk3', 'rsync'
             ]
 
             if DEMO_MODE:

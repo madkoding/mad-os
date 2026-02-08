@@ -69,20 +69,16 @@ Files copied into the live environment root:
     - `.config/wofi/`: Application launcher config
 
 - **`airootfs/usr/local/bin/`**: Custom scripts
-  - `install-mados`: **Smart launcher** (auto-selects GTK or TUI)
-  - `install-mados-gtk.py`: **Beautiful GTK installer** (graphical, Python + GTK3)
-  - `install-mados.sh`: **Beautiful TUI installer** (dialog-based, text mode)
-  - `install-arch-optimized.sh`: Original CLI installer (legacy)
+  - `install-mados`: Launcher (runs the GTK installer)
+  - `install-mados-gtk.py`: **GTK installer** (graphical, Python + GTK3, Nord theme)
   - `setup-claude-code.sh`: Installs Claude Code via npm
 
-## The Installers
+## The Installer
 
-madOS includes **three installers** with a smart launcher that auto-selects the best one:
+madOS includes a graphical GTK installer with Nord theme.
 
-### Smart Launcher (`install-mados`)
-Automatically chooses:
-- GTK installer if Wayland/X11 is running and Python+GTK3 available
-- TUI installer as fallback
+### Launcher (`install-mados`)
+Runs the GTK installer as root.
 
 ### GTK Installer (`install-mados-gtk.py`)
 Beautiful graphical installer using Python + GTK3 with Nord theme.
@@ -105,27 +101,11 @@ Beautiful graphical installer using Python + GTK3 with Nord theme.
 6. Installation (progress bar + log viewer)
 7. Completion (success screen with reboot)
 
-### TUI Installer (`install-mados.sh`)
-Beautiful text-based installer using `dialog`.
-
-### Features
-- **ASCII art branding**: madOS logo and visual design
-- **Color-coded dialogs**: Blue/white theme with Nord colors
-- **Progress bars**: Real-time installation progress
-- **Interactive prompts**:
-  - Disk selection with size display
-  - User account creation with validation
-  - Timezone and locale selection
-  - Installation summary review
-- **Error handling**: Clear error messages with exit paths
-- **Automatic configuration**: Sets up all system services and optimizations
-
 ### Usage in Live Environment
 ```bash
-# User boots from USB → Sway auto-starts → Open terminal
-sudo install-mados        # Smart launcher (recommended)
-sudo install-mados-gtk.py # Force GTK
-sudo install-mados.sh     # Force TUI
+# User boots from USB → Sway auto-starts → Installer launches automatically
+# Or manually:
+sudo install-mados
 ```
 
 ### Installer Flow
@@ -186,7 +166,7 @@ vim packages.x86_64
 # Don't forget to rebuild ISO after changes
 ```
 
-**Important**: Keep `dialog` in the list for the TUI installer to work.
+**Important**: Keep `python`, `python-gobject`, and `gtk3` in the list for the installer to work.
 
 ### Changing System Configuration
 
@@ -201,17 +181,16 @@ Edit default configs in `airootfs/etc/skel/`:
 - Waybar: `airootfs/etc/skel/.config/waybar/`
 - Terminal: `airootfs/etc/skel/.config/foot/foot.ini`
 
-### Modifying the TUI Installer
+### Customizing the Installer
 
-Edit `airootfs/usr/local/bin/install-mados.sh`:
+Edit `airootfs/usr/local/bin/install-mados-gtk.py`:
 
 **Key customization points**:
-- **Dialog theme**: Edit the `DIALOGRC` section (colors, styles)
-- **ASCII art**: Modify the welcome screen branding
-- **Partition layout**: Change sizes in `perform_installation()` function
-- **Package list**: Edit the `pacstrap` command
+- **Theme/CSS**: Edit the `apply_theme()` method (Nord colors, styles)
+- **Partition layout**: Change sizes in `run_installation()` method
+- **Package list**: Edit the `packages` list
 - **Default values**: Timezone, locale, hostname format
-- **Progress steps**: Adjust progress percentages
+- **Translations**: Edit the `TRANSLATIONS` dictionary for i18n
 
 **After editing**:
 1. Update `profiledef.sh` if changing script name/location
@@ -249,7 +228,7 @@ qemu-system-x86_64 \
 
 **Files with branding**:
 - `profiledef.sh`: iso_name, iso_publisher, iso_application
-- `install-mados.sh`: Welcome screen, completion screen, /etc/motd
+- `install-mados-gtk.py`: Welcome screen, completion screen, /etc/motd
 - `README.md`: Full branding and documentation
 - GRUB config: Distributor name
 

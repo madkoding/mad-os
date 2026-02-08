@@ -87,7 +87,6 @@ noto-fonts-cjk
 arch-install-scripts
 gptfdisk
 parted
-dialog
 
 # Utilidades de red
 dhcpcd
