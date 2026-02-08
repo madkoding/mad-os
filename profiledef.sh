@@ -5,7 +5,10 @@ iso_name="madOS"
 iso_label="MADOS_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
 iso_publisher="madOS Project"
 iso_application="madOS - AI-Orchestrated Arch Linux"
-iso_version="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d)"
+_iso_date="$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y.%m.%d-%H%M)"
+_iso_tag="$(git -C "$(dirname "$0")" tag -l --sort=-version:refname 'v*' 2>/dev/null | head -1)"
+_iso_tag="${_iso_tag:-dev}"
+iso_version="${_iso_tag}-${_iso_date}"
 install_dir="arch"
 buildmodes=('iso')
 bootmodes=('bios.syslinux.mbr'
