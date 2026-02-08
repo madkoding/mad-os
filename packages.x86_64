@@ -3,6 +3,7 @@ base
 base-devel
 linux
 linux-firmware
+mkinitcpio-archiso
 intel-ucode
 grub
 efibootmgr
