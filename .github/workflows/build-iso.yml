@@ -58,13 +58,23 @@ jobs:
         ISO_NAME="${{ steps.iso_info.outputs.iso_name }}"
         BUILD_DATE="${{ steps.iso_info.outputs.build_date }}"
         
-        # Crear identificador único para Internet Archive (solo minúsculas, números, guiones y puntos)
+        # Configure IA credentials via config file (env vars alone are unreliable)
+        mkdir -p ~/.config/internetarchive
+        cat > ~/.config/internetarchive/ia.ini <<EOF
+        [s3]
+        access = ${IAS3_ACCESS_KEY}
+        secret = ${IAS3_SECRET_KEY}
+        EOF
+        chmod 600 ~/.config/internetarchive/ia.ini
+        
+        # Create unique identifier for Internet Archive
         IDENTIFIER="mados-${BUILD_DATE}"
         
-        # Subir ISO con metadatos (las credenciales se toman automáticamente de IAS3_ACCESS_KEY y IAS3_SECRET_KEY)
+        # Upload ISO with metadata and retries
         ia upload "$IDENTIFIER" \
           "$ISO_FILE" \
           out/SHA256SUMS \
+          --retries 3 \
           --metadata="title:madOS ${BUILD_DATE}" \
           --metadata="mediatype:software" \
           --metadata="collection:opensource" \
@@ -73,7 +83,7 @@ jobs:
           --metadata="creator:madOS Project" \
           --metadata="date:${BUILD_DATE}"
         
-        # Generar URL de descarga
+        # Generate download URL
         DOWNLOAD_URL="https://archive.org/download/${IDENTIFIER}/${ISO_NAME}"
         echo "download_url=$DOWNLOAD_URL" >> "$GITHUB_OUTPUT"
         echo "identifier=$IDENTIFIER" >> "$GITHUB_OUTPUT"
