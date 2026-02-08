@@ -94,6 +94,10 @@ jobs:
         DOWNLOAD_URL="${{ steps.upload_ia.outputs.download_url }}"
         ISO_NAME="${{ steps.iso_info.outputs.iso_name }}"
         
+        # Checkout main branch (workflow runs on detached HEAD from tag)
+        git fetch origin main
+        git checkout main
+        
         # Actualizar el enlace en docs/index.html
         sed -i "s|https://archive.org/download/mados-[^/]*/madOS-[^\"]*\.iso|$DOWNLOAD_URL|g" docs/index.html
         
