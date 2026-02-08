@@ -69,7 +69,6 @@ libva-intel-driver
 # Drivers para máquinas virtuales
 virtualbox-guest-utils
 open-vm-tools
-xf86-video-vmware
 
 # Audio
 pipewire
