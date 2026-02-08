@@ -219,3 +219,57 @@ document.querySelectorAll('.feature-card, .installer-card').forEach(card => {
 console.log('%c🤖 madOS - AI-Orchestrated Arch Linux', 'font-size: 20px; font-weight: bold; color: #88c0d0;');
 console.log('%cPowered by Claude Code', 'font-size: 14px; color: #81a1c1;');
 console.log('%c\nVisit: https://github.com/madkoding/mad-os', 'color: #a3be8c;');
+
+// Language Selector
+document.addEventListener('DOMContentLoaded', () => {
+    const langButtons = document.querySelectorAll('.lang-option');
+    
+    langButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const selectedLang = button.dataset.lang;
+            i18n.setLanguage(selectedLang);
+        });
+    });
+    
+    // Update copy feedback text based on language
+    const originalCopyFunction = copyToClipboard;
+    window.copyToClipboard = function(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            const copyText = i18n.currentLang === 'es' ? '¡Copiado!' : 'Copied!';
+            const feedback = document.createElement('div');
+            feedback.textContent = copyText;
+            feedback.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: var(--accent-success);
+                color: var(--bg-primary);
+                padding: 1rem 2rem;
+                border-radius: 8px;
+                font-weight: 600;
+                z-index: 9999;
+                animation: fadeInUp 0.3s ease-out;
+            `;
+            document.body.appendChild(feedback);
+            setTimeout(() => feedback.remove(), 2000);
+        });
+    };
+    
+    // Update copy button text based on language
+    function updateCopyButtons() {
+        const copyText = i18n.currentLang === 'es' ? '📋 Copiar' : '📋 Copy';
+        document.querySelectorAll('.code-block button, .installer-command button').forEach(button => {
+            if (button.textContent.includes('📋')) {
+                button.innerHTML = copyText;
+            }
+        });
+    }
+    
+    // Override the i18n setLanguage to update copy buttons
+    const originalSetLanguage = i18n.setLanguage.bind(i18n);
+    i18n.setLanguage = function(lang) {
+        originalSetLanguage(lang);
+        updateCopyButtons();
+    };
+});

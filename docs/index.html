@@ -36,6 +36,7 @@ layout: none
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <script src="translations.js"></script>
 </head>
 <body>
     <!-- Navigation -->
@@ -45,11 +46,15 @@ layout: none
                 <img src="mados-logo.png" alt="madOS" class="logo-img">
             </div>
             <ul class="nav-menu">
-                <li><a href="#features">Características</a></li>
-                <li><a href="#installers">Instaladores</a></li>
-                <li><a href="#hardware">Hardware</a></li>
-                <li><a href="#download">Descargar</a></li>
+                <li><a href="#features" data-i18n="nav.features">Características</a></li>
+                <li><a href="#installers" data-i18n="nav.installers">Instaladores</a></li>
+                <li><a href="#hardware" data-i18n="nav.hardware">Hardware</a></li>
+                <li><a href="#download" data-i18n="nav.download">Descargar</a></li>
                 <li><a href="https://github.com/madkoding/mad-os" target="_blank" class="btn-github">GitHub</a></li>
+                <li class="lang-selector">
+                    <button class="lang-option active" data-lang="es" title="Español">🇪🇸</button>
+                    <button class="lang-option" data-lang="en" title="English">🇬🇧</button>
+                </li>
             </ul>
             <button class="mobile-menu-toggle" aria-label="Toggle menu">
                 <span></span>
@@ -63,12 +68,12 @@ layout: none
     <section class="hero">
         <div class="container">
             <div class="hero-content">
-                <div class="hero-badge">🤖 Powered by Claude Code</div>
+                <div class="hero-badge" data-i18n="hero.badge">🤖 Powered by Claude Code</div>
                 <h1 class="hero-title">
                     <img src="mados-logo.png" alt="madOS" class="hero-logo">
-                    <span class="hero-subtitle-text">AI-Orchestrated Arch Linux</span>
+                    <span class="hero-subtitle-text" data-i18n="hero.title">AI-Orchestrated Arch Linux</span>
                 </h1>
-                <p class="hero-subtitle">
+                <p class="hero-subtitle" data-i18n="hero.subtitle">
                     Una distribución Arch Linux optimizada para sistemas con poca RAM, 
                     con inteligencia artificial integrada para gestión inteligente del sistema.
                 </p>
@@ -79,24 +84,24 @@ layout: none
                             <polyline points="7 10 12 15 17 10"></polyline>
                             <line x1="12" y1="15" x2="12" y2="3"></line>
                         </svg>
-                        Descargar madOS
+                        <span data-i18n="hero.download">Descargar madOS</span>
                     </a>
                     <a href="https://github.com/madkoding/mad-os" target="_blank" class="btn btn-secondary">
-                        Ver en GitHub
+                        <span data-i18n="hero.github">Ver en GitHub</span>
                     </a>
                 </div>
                 <div class="hero-stats">
                     <div class="stat">
                         <span class="stat-value">~67MB</span>
-                        <span class="stat-label">Uso de RAM</span>
+                        <span class="stat-label" data-i18n="hero.stat.ram">Uso de RAM</span>
                     </div>
                     <div class="stat">
                         <span class="stat-value">1.9GB</span>
-                        <span class="stat-label">RAM mínima</span>
+                        <span class="stat-label" data-i18n="hero.stat.minram">RAM mínima</span>
                     </div>
                     <div class="stat">
                         <span class="stat-value">100%</span>
-                        <span class="stat-label">Open Source</span>
+                        <span class="stat-label" data-i18n="hero.stat.opensource">Open Source</span>
                     </div>
                 </div>
             </div>
@@ -129,39 +134,39 @@ layout: none
     <section id="features" class="features">
         <div class="container">
             <div class="section-header">
-                <h2>Características Destacadas</h2>
-                <p>Todo lo que necesitas en un sistema operativo ligero y potente</p>
+                <h2 data-i18n="features.title">Características Destacadas</h2>
+                <p data-i18n="features.subtitle">Todo lo que necesitas en un sistema operativo ligero y potente</p>
             </div>
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-icon">🤖</div>
-                    <h3>Claude Code Integration</h3>
-                    <p>Asistente de IA integrado para orquestación inteligente del sistema y asistencia avanzada.</p>
+                    <h3 data-i18n="feature.ai.title">Claude Code Integration</h3>
+                    <p data-i18n="feature.ai.desc">Asistente de IA integrado para orquestación inteligente del sistema y asistencia avanzada.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">💾</div>
-                    <h3>Optimizado para Poca RAM</h3>
-                    <p>Diseñado específicamente para sistemas con 1.9GB RAM (Intel Atom) con ZRAM y EarlyOOM.</p>
+                    <h3 data-i18n="feature.ram.title">Optimizado para Poca RAM</h3>
+                    <p data-i18n="feature.ram.desc">Diseñado específicamente para sistemas con 1.9GB RAM (Intel Atom) con ZRAM y EarlyOOM.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🚀</div>
-                    <h3>Escritorio Ligero</h3>
-                    <p>Compositor Sway con tema Nord consume solo ~67MB de RAM para máximo rendimiento.</p>
+                    <h3 data-i18n="feature.lightweight.title">Escritorio Ligero</h3>
+                    <p data-i18n="feature.lightweight.desc">Compositor Sway con tema Nord consume solo ~67MB de RAM para máximo rendimiento.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🛠️</div>
-                    <h3>Listo para Desarrollar</h3>
-                    <p>Node.js, npm, Git y VS Code pre-instalados para comenzar a programar inmediatamente.</p>
+                    <h3 data-i18n="feature.dev.title">Listo para Desarrollar</h3>
+                    <p data-i18n="feature.dev.desc">Node.js, npm, Git y VS Code pre-instalados para comenzar a programar inmediatamente.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">⚡</div>
-                    <h3>Ajustado al Máximo</h3>
-                    <p>Optimizaciones de kernel, red y memoria para extraer el máximo rendimiento.</p>
+                    <h3 data-i18n="feature.tuned.title">Ajustado al Máximo</h3>
+                    <p data-i18n="feature.tuned.desc">Optimizaciones de kernel, red y memoria para extraer el máximo rendimiento.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🎨</div>
-                    <h3>Instalador Hermoso</h3>
-                    <p>Tres opciones de instalación: GTK gráfico, TUI en terminal o CLI para expertos.</p>
+                    <h3 data-i18n="feature.installer.title">Instalador Hermoso</h3>
+                    <p data-i18n="feature.installer.desc">Tres opciones de instalación: GTK gráfico, TUI en terminal o CLI para expertos.</p>
                 </div>
             </div>
         </div>
@@ -171,55 +176,55 @@ layout: none
     <section id="installers" class="installers">
         <div class="container">
             <div class="section-header">
-                <h2>Tres Formas de Instalar</h2>
-                <p>Elige el instalador que mejor se adapte a tu estilo</p>
+                <h2 data-i18n="installers.title">Tres Formas de Instalar</h2>
+                <p data-i18n="installers.subtitle">Elige el instalador que mejor se adapte a tu estilo</p>
             </div>
             <div class="installers-grid">
                 <div class="installer-card featured">
-                    <div class="installer-badge">Recomendado</div>
+                    <div class="installer-badge" data-i18n="installer.recommended">Recomendado</div>
                     <div class="installer-icon">🎨</div>
-                    <h3>GTK Installer</h3>
-                    <p class="installer-subtitle">Interfaz gráfica hermosa</p>
+                    <h3 data-i18n="installer.gtk.title">GTK Installer</h3>
+                    <p class="installer-subtitle" data-i18n="installer.gtk.subtitle">Interfaz gráfica hermosa</p>
                     <ul class="installer-features">
-                        <li>✓ Interfaz gráfica con tema Nord</li>
-                        <li>✓ Logo y diseño visual madOS</li>
-                        <li>✓ Navegación con mouse</li>
-                        <li>✓ Progreso visual en tiempo real</li>
+                        <li data-i18n="installer.gtk.feat1">✓ Interfaz gráfica con tema Nord</li>
+                        <li data-i18n="installer.gtk.feat2">✓ Logo y diseño visual madOS</li>
+                        <li data-i18n="installer.gtk.feat3">✓ Navegación con mouse</li>
+                        <li data-i18n="installer.gtk.feat4">✓ Progreso visual en tiempo real</li>
                     </ul>
                     <div class="installer-command">
                         <code>sudo install-mados-gtk.py</code>
                     </div>
-                    <span class="installer-size">~15MB de dependencias extras</span>
+                    <span class="installer-size" data-i18n="installer.gtk.size">~15MB de dependencias extras</span>
                 </div>
                 <div class="installer-card">
                     <div class="installer-icon">📟</div>
-                    <h3>TUI Installer</h3>
-                    <p class="installer-subtitle">Terminal con colores</p>
+                    <h3 data-i18n="installer.tui.title">TUI Installer</h3>
+                    <p class="installer-subtitle" data-i18n="installer.tui.subtitle">Terminal con colores</p>
                     <ul class="installer-features">
-                        <li>✓ Interfaz de texto con colores</li>
-                        <li>✓ Navegación solo con teclado</li>
-                        <li>✓ Arte ASCII de marca</li>
-                        <li>✓ Sin entorno gráfico requerido</li>
+                        <li data-i18n="installer.tui.feat1">✓ Interfaz de texto con colores</li>
+                        <li data-i18n="installer.tui.feat2">✓ Navegación solo con teclado</li>
+                        <li data-i18n="installer.tui.feat3">✓ Arte ASCII de marca</li>
+                        <li data-i18n="installer.tui.feat4">✓ Sin entorno gráfico requerido</li>
                     </ul>
                     <div class="installer-command">
                         <code>sudo install-mados.sh</code>
                     </div>
-                    <span class="installer-size">~200KB (dialog)</span>
+                    <span class="installer-size" data-i18n="installer.tui.size">~200KB (dialog)</span>
                 </div>
                 <div class="installer-card">
                     <div class="installer-icon">⌨️</div>
-                    <h3>CLI Installer</h3>
-                    <p class="installer-subtitle">Línea de comandos pura</p>
+                    <h3 data-i18n="installer.cli.title">CLI Installer</h3>
+                    <p class="installer-subtitle" data-i18n="installer.cli.subtitle">Línea de comandos pura</p>
                     <ul class="installer-features">
-                        <li>✓ Instalador original</li>
-                        <li>✓ Mínimo, rápido, sin adornos</li>
-                        <li>✓ Para usuarios avanzados</li>
-                        <li>✓ Ideal para automatización</li>
+                        <li data-i18n="installer.cli.feat1">✓ Instalador original</li>
+                        <li data-i18n="installer.cli.feat2">✓ Mínimo, rápido, sin adornos</li>
+                        <li data-i18n="installer.cli.feat3">✓ Para usuarios avanzados</li>
+                        <li data-i18n="installer.cli.feat4">✓ Ideal para automatización</li>
                     </ul>
                     <div class="installer-command">
                         <code>sudo install-arch-optimized.sh</code>
                     </div>
-                    <span class="installer-size">Sin dependencias extras</span>
+                    <span class="installer-size" data-i18n="installer.cli.size">Sin dependencias extras</span>
                 </div>
             </div>
         </div>
@@ -230,69 +235,69 @@ layout: none
         <div class="container">
             <div class="hardware-content">
                 <div class="hardware-info">
-                    <h2>Hardware Objetivo</h2>
-                    <p>madOS está optimizado para dar nueva vida a hardware modesto</p>
+                    <h2 data-i18n="hardware.title">Hardware Objetivo</h2>
+                    <p data-i18n="hardware.subtitle">madOS está optimizado para dar nueva vida a hardware modesto</p>
                     <div class="specs-list">
                         <div class="spec-item">
                             <span class="spec-icon">🔧</span>
                             <div>
-                                <strong>CPU</strong>
-                                <p>Intel Atom o equivalente</p>
+                                <strong data-i18n="hardware.cpu">CPU</strong>
+                                <p data-i18n="hardware.cpu.desc">Intel Atom o equivalente</p>
                             </div>
                         </div>
                         <div class="spec-item">
                             <span class="spec-icon">💾</span>
                             <div>
-                                <strong>RAM</strong>
-                                <p>1.9GB mínimo (optimizado para memoria limitada)</p>
+                                <strong data-i18n="hardware.ram">RAM</strong>
+                                <p data-i18n="hardware.ram.desc">1.9GB mínimo (optimizado para memoria limitada)</p>
                             </div>
                         </div>
                         <div class="spec-item">
                             <span class="spec-icon">🎮</span>
                             <div>
-                                <strong>GPU</strong>
-                                <p>Intel integrada (soporte para renderizado por software)</p>
+                                <strong data-i18n="hardware.gpu">GPU</strong>
+                                <p data-i18n="hardware.gpu.desc">Intel integrada (soporte para renderizado por software)</p>
                             </div>
                         </div>
                         <div class="spec-item">
                             <span class="spec-icon">💿</span>
                             <div>
-                                <strong>Almacenamiento</strong>
-                                <p>32GB+ recomendado</p>
+                                <strong data-i18n="hardware.storage">Almacenamiento</strong>
+                                <p data-i18n="hardware.storage.desc">32GB+ recomendado</p>
                             </div>
                         </div>
                         <div class="spec-item">
                             <span class="spec-icon">⚙️</span>
                             <div>
-                                <strong>Arranque</strong>
-                                <p>Soporte UEFI y BIOS</p>
+                                <strong data-i18n="hardware.boot">Arranque</strong>
+                                <p data-i18n="hardware.boot.desc">Soporte UEFI y BIOS</p>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="hardware-visual">
                     <div class="system-monitor">
-                        <h4>Monitor del Sistema</h4>
+                        <h4 data-i18n="hardware.monitor.title">Monitor del Sistema</h4>
                         <div class="monitor-stat">
-                            <span class="monitor-label">RAM en uso</span>
+                            <span class="monitor-label" data-i18n="hardware.monitor.ram">RAM en uso</span>
                             <div class="monitor-bar">
                                 <div class="monitor-bar-fill" style="width: 3.5%"></div>
                             </div>
                             <span class="monitor-value">67MB / 1.9GB</span>
                         </div>
                         <div class="monitor-stat">
-                            <span class="monitor-label">CPU (promedio)</span>
+                            <span class="monitor-label" data-i18n="hardware.monitor.cpu">CPU (promedio)</span>
                             <div class="monitor-bar">
                                 <div class="monitor-bar-fill" style="width: 15%"></div>
                             </div>
                             <span class="monitor-value">15%</span>
                         </div>
                         <div class="monitor-stat">
-                            <span class="monitor-label">ZRAM Compresión</span>
+                            <span class="monitor-label" data-i18n="hardware.monitor.zram">ZRAM Compresión</span>
                             <div class="monitor-bar">
                                 <div class="monitor-bar-fill monitor-bar-success" style="width: 50%"></div>
                             </div>
-                            <span class="monitor-value">50% ratio (zstd)</span>
+                            <span class="monitor-value" data-i18n="hardware.monitor.zram.value">50% ratio (zstd)</span>
                         </div>
                     </div>
                 </div>
@@ -304,13 +309,13 @@ layout: none
     <section id="download" class="download">
         <div class="container">
             <div class="section-header">
-                <h2>Descarga madOS</h2>
-                <p>Comienza tu experiencia con madOS hoy</p>
+                <h2 data-i18n="download.title">Descarga madOS</h2>
+                <p data-i18n="download.subtitle">Comienza tu experiencia con madOS hoy</p>
             </div>
             <div class="download-options">
                 <div class="download-card">
-                    <h3>Compilar Localmente</h3>
-                    <p>Construye la ISO en tu sistema Arch Linux</p>
+                    <h3 data-i18n="download.build.title">Compilar Localmente</h3>
+                    <p data-i18n="download.build.desc">Construye la ISO en tu sistema Arch Linux</p>
                     <div class="code-block">
                         <pre><code># Instalar archiso
 sudo pacman -S archiso
@@ -324,40 +329,40 @@ sudo mkarchiso -v -w /tmp/archiso-tmp .</code></pre>
                     </div>
                 </div>
                 <div class="download-card">
-                    <h3>Descargar ISO</h3>
-                    <p>Obtén la última versión desde GitHub Actions</p>
+                    <h3 data-i18n="download.iso.title">Descargar ISO</h3>
+                    <p data-i18n="download.iso.desc">Obtén la última versión desde GitHub Actions</p>
                     <a href="https://github.com/madkoding/mad-os/actions" target="_blank" class="btn btn-primary btn-large">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                             <polyline points="7 10 12 15 17 10"></polyline>
                             <line x1="12" y1="15" x2="12" y2="3"></line>
                         </svg>
-                        Ver Artifacts en GitHub Actions
+                        <span data-i18n="download.iso.button">Ver Artifacts en GitHub Actions</span>
                     </a>
                 </div>
             </div>
             <div class="installation-steps">
-                <h3>Pasos de Instalación</h3>
+                <h3 data-i18n="download.steps.title">Pasos de Instalación</h3>
                 <div class="steps-grid">
                     <div class="step">
                         <div class="step-number">1</div>
-                        <h4>Crear USB Booteable</h4>
+                        <h4 data-i18n="download.step1.title">Crear USB Booteable</h4>
                         <code>sudo dd if=madOS-*.iso of=/dev/sdX bs=4M status=progress</code>
                     </div>
                     <div class="step">
                         <div class="step-number">2</div>
-                        <h4>Arrancar desde USB</h4>
-                        <p>Espera a que Sway inicie automáticamente</p>
+                        <h4 data-i18n="download.step2.title">Arrancar desde USB</h4>
+                        <p data-i18n="download.step2.desc">Espera a que Sway inicie automáticamente</p>
                     </div>
                     <div class="step">
                         <div class="step-number">3</div>
-                        <h4>Ejecutar Instalador</h4>
+                        <h4 data-i18n="download.step3.title">Ejecutar Instalador</h4>
                         <code>sudo install-mados</code>
                     </div>
                     <div class="step">
                         <div class="step-number">4</div>
-                        <h4>¡Disfruta madOS!</h4>
-                        <p>Reinicia y comienza a usar tu sistema</p>
+                        <h4 data-i18n="download.step4.title">¡Disfruta madOS!</h4>
+                        <p data-i18n="download.step4.desc">Reinicia y comienza a usar tu sistema</p>
                     </div>
                 </div>
             </div>
@@ -368,37 +373,37 @@ sudo mkarchiso -v -w /tmp/archiso-tmp .</code></pre>
     <section class="applications">
         <div class="container">
             <div class="section-header">
-                <h2>Aplicaciones Incluidas</h2>
-                <p>Todo lo que necesitas, pre-instalado</p>
+                <h2 data-i18n="apps.title">Aplicaciones Incluidas</h2>
+                <p data-i18n="apps.subtitle">Todo lo que necesitas, pre-instalado</p>
             </div>
             <div class="apps-grid">
                 <div class="app-category">
-                    <h3>Entorno de Escritorio</h3>
+                    <h3 data-i18n="apps.desktop">Entorno de Escritorio</h3>
                     <ul>
-                        <li><strong>Sway</strong> - Compositor Wayland compatible con i3</li>
-                        <li><strong>Waybar</strong> - Barra de estado personalizable</li>
-                        <li><strong>Wofi</strong> - Lanzador de aplicaciones</li>
-                        <li><strong>Foot</strong> - Emulador de terminal rápido</li>
-                        <li><strong>Mako</strong> - Daemon de notificaciones</li>
+                        <li><strong>Sway</strong> - <span data-i18n="apps.desktop.sway">Compositor Wayland compatible con i3</span></li>
+                        <li><strong>Waybar</strong> - <span data-i18n="apps.desktop.waybar">Barra de estado personalizable</span></li>
+                        <li><strong>Wofi</strong> - <span data-i18n="apps.desktop.wofi">Lanzador de aplicaciones</span></li>
+                        <li><strong>Foot</strong> - <span data-i18n="apps.desktop.foot">Emulador de terminal rápido</span></li>
+                        <li><strong>Mako</strong> - <span data-i18n="apps.desktop.mako">Daemon de notificaciones</span></li>
                     </ul>
                 </div>
                 <div class="app-category">
-                    <h3>Aplicaciones</h3>
+                    <h3 data-i18n="apps.applications">Aplicaciones</h3>
                     <ul>
-                        <li><strong>Chromium</strong> - Navegador web</li>
-                        <li><strong>VS Code</strong> - Editor de código</li>
-                        <li><strong>PCManFM</strong> - Gestor de archivos</li>
-                        <li><strong>LXAppearance</strong> - Configurador de temas</li>
+                        <li><strong>Chromium</strong> - <span data-i18n="apps.applications.chromium">Navegador web</span></li>
+                        <li><strong>VS Code</strong> - <span data-i18n="apps.applications.vscode">Editor de código</span></li>
+                        <li><strong>PCManFM</strong> - <span data-i18n="apps.applications.pcmanfm">Gestor de archivos</span></li>
+                        <li><strong>LXAppearance</strong> - <span data-i18n="apps.applications.lxappearance">Configurador de temas</span></li>
                     </ul>
                 </div>
                 <div class="app-category">
-                    <h3>Herramientas de Desarrollo</h3>
+                    <h3 data-i18n="apps.dev">Herramientas de Desarrollo</h3>
                     <ul>
-                        <li><strong>Claude Code</strong> - Asistente IA</li>
+                        <li><strong>Claude Code</strong> - <span data-i18n="apps.dev.claude">Asistente IA</span></li>
                         <li><strong>Node.js</strong> (v24.x) & npm</li>
-                        <li><strong>Git</strong> - Control de versiones</li>
-                        <li><strong>htop</strong> - Monitor del sistema</li>
-                        <li><strong>Vim & Nano</strong> - Editores de texto</li>
+                        <li><strong>Git</strong> - <span data-i18n="apps.dev.git">Control de versiones</span></li>
+                        <li><strong>htop</strong> - <span data-i18n="apps.dev.htop">Monitor del sistema</span></li>
+                        <li><strong>Vim & Nano</strong> - <span data-i18n="apps.dev.editors">Editores de texto</span></li>
                     </ul>
                 </div>
             </div>
@@ -411,37 +416,37 @@ sudo mkarchiso -v -w /tmp/archiso-tmp .</code></pre>
             <div class="footer-content">
                 <div class="footer-brand">
                     <img src="mados-logo.png" alt="madOS" class="footer-logo">
-                    <p>AI-Orchestrated Arch Linux System</p>
-                    <p class="footer-tagline">Powered by Claude Code</p>
+                    <p data-i18n="footer.tagline">AI-Orchestrated Arch Linux System</p>
+                    <p class="footer-tagline" data-i18n="footer.powered">Powered by Claude Code</p>
                 </div>
                 <div class="footer-links">
                     <div class="footer-section">
-                        <h4>Proyecto</h4>
+                        <h4 data-i18n="footer.project">Proyecto</h4>
                         <ul>
-                            <li><a href="https://github.com/madkoding/mad-os" target="_blank">GitHub</a></li>
-                            <li><a href="https://github.com/madkoding/mad-os/issues" target="_blank">Issues</a></li>
-                            <li><a href="https://github.com/madkoding/mad-os/blob/main/README.md" target="_blank">Documentación</a></li>
+                            <li><a href="https://github.com/madkoding/mad-os" target="_blank" data-i18n="footer.project.github">GitHub</a></li>
+                            <li><a href="https://github.com/madkoding/mad-os/issues" target="_blank" data-i18n="footer.project.issues">Issues</a></li>
+                            <li><a href="https://github.com/madkoding/mad-os/blob/main/README.md" target="_blank" data-i18n="footer.project.docs">Documentación</a></li>
                         </ul>
                     </div>
                     <div class="footer-section">
-                        <h4>Recursos</h4>
+                        <h4 data-i18n="footer.resources">Recursos</h4>
                         <ul>
-                            <li><a href="#download">Descargar</a></li>
-                            <li><a href="#installers">Instaladores</a></li>
-                            <li><a href="#features">Características</a></li>
+                            <li><a href="#download" data-i18n="footer.resources.download">Descargar</a></li>
+                            <li><a href="#installers" data-i18n="footer.resources.installers">Instaladores</a></li>
+                            <li><a href="#features" data-i18n="footer.resources.features">Características</a></li>
                         </ul>
                     </div>
                     <div class="footer-section">
-                        <h4>Comunidad</h4>
+                        <h4 data-i18n="footer.community">Comunidad</h4>
                         <ul>
-                            <li><a href="https://github.com/madkoding/mad-os/discussions" target="_blank">Discussions</a></li>
-                            <li><a href="https://github.com/madkoding/mad-os/blob/main/CONTRIBUTING.md" target="_blank">Contribuir</a></li>
+                            <li><a href="https://github.com/madkoding/mad-os/discussions" target="_blank" data-i18n="footer.community.discussions">Discussions</a></li>
+                            <li><a href="https://github.com/madkoding/mad-os/blob/main/CONTRIBUTING.md" target="_blank" data-i18n="footer.community.contribute">Contribuir</a></li>
                         </ul>
                     </div>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 madOS. Distribuido bajo licencia GPL-3.0. Hecho con ❤️ para la comunidad open source.</p>
+                <p data-i18n="footer.copyright">&copy; 2026 madOS. Distribuido bajo licencia GPL-3.0. Hecho con ❤️ para la comunidad open source.</p>
             </div>
         </div>
     </footer>
