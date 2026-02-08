@@ -61,10 +61,7 @@ jobs:
         # Crear identificador único para Internet Archive (solo minúsculas, números, guiones y puntos)
         IDENTIFIER="mados-${BUILD_DATE}"
         
-        # Configurar credenciales
-        ia configure --username="${IAS3_ACCESS_KEY}" --password="${IAS3_SECRET_KEY}"
-        
-        # Subir ISO con metadatos
+        # Subir ISO con metadatos (las credenciales se toman automáticamente de IAS3_ACCESS_KEY y IAS3_SECRET_KEY)
         ia upload "$IDENTIFIER" \
           "$ISO_FILE" \
           out/SHA256SUMS \
