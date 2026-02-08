@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=madOS
+Description=madOS boot splash with Nord theme
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/mados
+ScriptFile=/usr/share/plymouth/themes/mados/mados.script
