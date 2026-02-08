@@ -1,44 +1,49 @@
-/* Nord Theme for Wofi - Clean & Professional */
+/* Nord LED Theme for Wofi */
 
 * {
     font-family: "JetBrainsMono Nerd Font", monospace;
-    font-size: 14px;
+    font-size: 11px;
 }
 
 window {
-    background: linear-gradient(180deg, #2E3440 0%, #3B4252 100%);
+    background: transparent;
     color: #ECEFF4;
-    border: 2px solid rgba(136, 192, 208, 0.4);
-    border-radius: 12px;
+    border: none;
+    border-radius: 0;
+}
+
+#outer-box {
+    background: #2E3440;
+    border: 1px solid rgba(136, 192, 208, 0.5);
+    border-radius: 10px;
+    margin: 0;
+    padding: 0;
 }
 
 #input {
-    background: linear-gradient(135deg, #3B4252, #434C5E);
-    color: #ECEFF4;
+    background: #3B4252;
+    color: #88C0D0;
     border: none;
-    border-bottom: 2px solid rgba(136, 192, 208, 0.3);
-    border-radius: 12px 12px 0 0;
-    padding: 14px 18px;
+    border-bottom: 1px solid rgba(136, 192, 208, 0.3);
+    border-radius: 10px 10px 0 0;
+    padding: 8px 12px;
     margin: 0;
-    font-size: 15px;
-    font-weight: 500;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
 #input:focus {
-    border-bottom: 2px solid rgba(136, 192, 208, 0.6);
+    border-bottom: 1px solid #88C0D0;
+    text-shadow: 0 0 8px rgba(136, 192, 208, 0.4);
 }
 
 #inner-box {
     background-color: transparent;
     margin: 0;
-    padding: 6px;
+    padding: 4px;
 }
 
-#outer-box {
-    background-color: transparent;
-    margin: 0;
-    padding: 0;
-}
 
 #scroll {
     background-color: transparent;
@@ -46,32 +51,32 @@ window {
 }
 
 #text {
-    color: #ECEFF4;
+    color: #D8DEE9;
     font-weight: 500;
 }
 
 #entry {
-    padding: 10px 14px;
-    margin: 3px 6px;
-    border-radius: 8px;
+    padding: 6px 10px;
+    margin: 1px 4px;
+    border-radius: 6px;
     transition: all 0.2s ease;
 }
 
 #entry:hover {
-    background: rgba(136, 192, 208, 0.15);
+    background: rgba(136, 192, 208, 0.1);
 }
 
 #entry:selected {
-    background: linear-gradient(135deg, #88C0D0, #81A1C1);
-    color: #2E3440;
-    box-shadow: 0 2px 10px rgba(136, 192, 208, 0.3);
+    background: linear-gradient(135deg, rgba(136, 192, 208, 0.25), rgba(129, 161, 193, 0.2));
+    border: 1px solid rgba(136, 192, 208, 0.4);
 }
 
 #entry:selected #text {
-    color: #2E3440;
+    color: #88C0D0;
     font-weight: 700;
+    text-shadow: 0 0 8px rgba(136, 192, 208, 0.5);
 }
 
 #img {
-    margin-right: 12px;
+    margin-right: 8px;
 }

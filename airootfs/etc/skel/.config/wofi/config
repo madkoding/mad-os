@@ -1,0 +1,15 @@
+width=400
+height=200
+location=center
+show=drun
+allow_markup=true
+allow_images=true
+image_size=20
+term=foot
+lines=4
+insensitive=true
+filter_rate=100
+matching=contains
+gtk_dark=true
+prompt=
+no_actions=false

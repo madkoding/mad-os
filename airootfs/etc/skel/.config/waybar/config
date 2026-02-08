@@ -9,6 +9,7 @@
     "spacing": 0,
 
     "modules-left": [
+        "custom/launcher",
         "sway/workspaces",
         "sway/mode"
     ],
@@ -25,25 +26,16 @@
         "battery"
     ],
 
+    "custom/launcher": {
+        "format": "󰀻",
+        "on-click": "wofi --show drun",
+        "tooltip": false
+    },
+
     "sway/workspaces": {
-        "format": "{icon}",
+        "format": "{name}",
         "disable-scroll": false,
         "all-outputs": true,
-        "format-icons": {
-            "1": "󰲠",
-            "2": "󰲢",
-            "3": "󰲤",
-            "4": "󰲦",
-            "5": "󰲨",
-            "6": "󰲪",
-            "7": "󰲬",
-            "8": "󰲮",
-            "9": "󰲰",
-            "10": "󰿬",
-            "urgent": "",
-            "focused": "",
-            "default": ""
-        },
         "persistent-workspaces": {
             "1": [],
             "2": [],
@@ -59,8 +51,8 @@
     },
 
     "clock": {
-        "format": "󰥔  {:%a %d %b  %H:%M}",
-        "format-alt": "󰃭  {:%Y-%m-%d  %H:%M:%S}",
+        "format": "<span size='x-large'>󰥔</span>  {:%a %d %b  %H:%M}",
+        "format-alt": "<span size='x-large'>󰃭</span>  {:%Y-%m-%d  %H:%M:%S}",
         "tooltip-format": "<tt><small>{calendar}</small></tt>",
         "calendar": {
             "mode": "month",
@@ -79,13 +71,13 @@
     },
 
     "cpu": {
-        "format": "󰻠  {usage}%",
+        "format": "<span size='x-large'>󰻠</span>  {usage}%",
         "tooltip": false,
         "interval": 30
     },
 
     "memory": {
-        "format": "󰍛  {percentage}%",
+        "format": "<span size='x-large'>󰍛</span>  {percentage}%",
         "tooltip-format": "{used:0.1f}G / {total:0.1f}G used",
         "interval": 30
     },
@@ -96,18 +88,19 @@
     },
 
     "network": {
-        "format-wifi": "WiFi: {essid}",
-        "format-ethernet": "ETH: {ifname}",
-        "format-disconnected": "No Net",
-        "tooltip-format-wifi": "{essid} ({signalStrength}%)",
-        "tooltip-format-ethernet": "{ifname}",
-        "interval": 30,
-        "max-length": 24
+        "format-wifi": "󰖩",
+        "format-ethernet": "󰈀",
+        "format-disconnected": "󰖪",
+        "tooltip-format-wifi": "WiFi: {essid}\nSeñal: {signalStrength}%\nIP: {ipaddr}/{cidr}",
+        "tooltip-format-ethernet": "Ethernet: {ifname}\nIP: {ipaddr}/{cidr}",
+        "tooltip-format-disconnected": "Sin conexión",
+        "on-click": "",
+        "interval": 30
     },
 
     "pulseaudio": {
-        "format": "{icon}  {volume}%",
-        "format-muted": "󰝟  Muted",
+        "format": "<span size='x-large'>{icon}</span>  {volume}%",
+        "format-muted": "<span size='x-large'>󰝟</span>  Muted",
         "format-icons": {
             "headphone": "󰋋",
             "hands-free": "󰋎",
@@ -125,7 +118,7 @@
     },
 
     "backlight": {
-        "format": "{icon}  {percent}%",
+        "format": "<span size='x-large'>{icon}</span>  {percent}%",
         "format-icons": ["󰃞", "󰃟", "󰃠"],
         "on-scroll-up": "brightnessctl set +5%",
         "on-scroll-down": "brightnessctl set 5%-",
@@ -138,10 +131,10 @@
             "warning": 30,
             "critical": 15
         },
-        "format": "{icon}  {capacity}%",
-        "format-charging": "󰂄  {capacity}%",
-        "format-plugged": "󰚥  {capacity}%",
-        "format-alt": "{icon}  {time}",
+        "format": "<span size='x-large'>{icon}</span>  {capacity}%",
+        "format-charging": "<span size='x-large'>󰂄</span>  {capacity}%",
+        "format-plugged": "<span size='x-large'>󰚥</span>  {capacity}%",
+        "format-alt": "<span size='x-large'>{icon}</span>  {time}",
         "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
         "tooltip-format": "{capacity}% • {timeTo}"
     }

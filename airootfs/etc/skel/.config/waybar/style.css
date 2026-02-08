@@ -1,13 +1,11 @@
-/* Nord Color Scheme - Professional & Clean */
+/* Nord Color Scheme con efectos LED Digital */
+
 * {
     margin: 0;
     padding: 0;
     border: none;
     border-radius: 0;
     min-height: 0;
-    font-family: "JetBrainsMono Nerd Font", monospace;
-    font-size: 9px;
-    font-weight: 500;
 }
 
 window#waybar {
@@ -15,6 +13,34 @@ window#waybar {
     color: #ECEFF4;
     border-bottom: 2px solid rgba(136, 192, 208, 0.3);
     padding-bottom: 1px;
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* ===== Left: Launcher Button ===== */
+
+#custom-launcher {
+    padding: 3px 12px;
+    margin: 3px 2px 3px 6px;
+    color: #88C0D0;
+    background: linear-gradient(135deg, rgba(136, 192, 208, 0.15), rgba(129, 161, 193, 0.1));
+    border-radius: 8px;
+    font-size: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-shadow:
+        0 0 6px #88C0D0,
+        0 0 10px rgba(136, 192, 208, 0.6);
+}
+
+#custom-launcher:hover {
+    background: linear-gradient(135deg, rgba(136, 192, 208, 0.3), rgba(129, 161, 193, 0.2));
+    color: #ECEFF4;
+    box-shadow: 0 2px 10px rgba(136, 192, 208, 0.3);
+    text-shadow:
+        0 0 10px #88C0D0,
+        0 0 15px rgba(136, 192, 208, 0.8),
+        0 0 20px rgba(136, 192, 208, 0.5);
 }
 
 /* ===== Left: Workspaces ===== */
@@ -26,25 +52,40 @@ window#waybar {
 #workspaces button {
     padding: 3px 10px;
     margin: 3px 2px;
-    color: #D8DEE9;
+    color: #88C0D0;
     background: transparent;
     border-radius: 6px;
-    font-weight: 600;
+    font-family: "DSEG7 Classic", "JetBrainsMono Nerd Font", monospace;
+    font-weight: 700;
+    font-size: 9px;
+    letter-spacing: 1.5px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-shadow:
+        0 0 6px #88C0D0,
+        0 0 10px rgba(136, 192, 208, 0.6),
+        0 0 14px rgba(136, 192, 208, 0.4);
 }
 
 #workspaces button:hover {
     background: rgba(136, 192, 208, 0.2);
-    color: #ECEFF4;
+    color: #88C0D0;
     box-shadow: 0 2px 8px rgba(136, 192, 208, 0.15);
+    text-shadow:
+        0 0 8px #88C0D0,
+        0 0 12px rgba(136, 192, 208, 0.8),
+        0 0 16px rgba(136, 192, 208, 0.5);
 }
 
 #workspaces button.focused,
 #workspaces button.active {
-    color: #2E3440;
+    color: #ECEFF4;
     background: linear-gradient(135deg, #88C0D0, #81A1C1);
     font-weight: 700;
     box-shadow: 0 2px 10px rgba(136, 192, 208, 0.3);
+    text-shadow:
+        0 0 10px #ECEFF4,
+        0 0 15px rgba(236, 239, 244, 0.8),
+        0 0 20px rgba(236, 239, 244, 0.5);
 }
 
 #workspaces button.urgent {
@@ -69,111 +110,222 @@ window#waybar {
     font-weight: 600;
 }
 
-/* ===== Center: Clock ===== */
+/* ===== Center: Clock - LED Rojo ===== */
 
 #clock {
     padding: 3px 18px;
-    color: #ECEFF4;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    background: linear-gradient(135deg, rgba(136, 192, 208, 0.15), rgba(129, 161, 193, 0.1));
-    border-radius: 8px;
     margin: 3px 0;
+    color: #ff3366;
+    font-family: "DSEG7 Classic", "JetBrainsMono Nerd Font", monospace;
+    font-weight: 700;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    background: linear-gradient(135deg, rgba(255, 51, 102, 0.15), rgba(220, 30, 80, 0.1));
+    border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    text-shadow:
+        0 0 8px #ff3366,
+        0 0 12px #ff3366,
+        0 0 16px rgba(255, 51, 102, 0.8),
+        0 0 20px rgba(255, 51, 102, 0.5);
 }
 
 #clock:hover {
-    background: linear-gradient(135deg, rgba(136, 192, 208, 0.25), rgba(129, 161, 193, 0.15));
+    background: linear-gradient(135deg, rgba(255, 51, 102, 0.25), rgba(220, 30, 80, 0.15));
+    text-shadow:
+        0 0 10px #ff3366,
+        0 0 15px #ff3366,
+        0 0 20px rgba(255, 51, 102, 0.9),
+        0 0 25px rgba(255, 51, 102, 0.6);
 }
 
 /* ===== Right Modules ===== */
 
-#tray,
-#cpu,
-#memory,
-#network,
-#pulseaudio,
-#backlight,
-#battery {
-    padding: 3px 12px;
-    margin: 3px 2px;
-    color: #D8DEE9;
-    border-radius: 6px;
-    transition: all 0.3s ease;
-}
-
 #tray {
     padding: 3px 10px;
+    margin: 3px 2px;
     background: rgba(76, 86, 106, 0.3);
+    border-radius: 6px;
 }
 
+/* CPU - LED Verde Cian */
 #cpu {
-    color: #88C0D0;
-    background: linear-gradient(135deg, rgba(136, 192, 208, 0.12), rgba(129, 161, 193, 0.08));
+    padding: 3px 12px;
+    margin: 3px 2px;
+    color: #00ff9f;
+    background: linear-gradient(135deg, rgba(0, 255, 159, 0.12), rgba(0, 200, 120, 0.08));
+    border-radius: 6px;
+    font-family: "DSEG7 Classic", "JetBrainsMono Nerd Font", monospace;
+    font-weight: 700;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    transition: all 0.3s ease;
+    text-shadow:
+        0 0 8px #00ff9f,
+        0 0 12px #00ff9f,
+        0 0 16px rgba(0, 255, 159, 0.8),
+        0 0 20px rgba(0, 255, 159, 0.5);
 }
 
 #cpu:hover {
-    background: linear-gradient(135deg, rgba(136, 192, 208, 0.2), rgba(129, 161, 193, 0.12));
+    background: linear-gradient(135deg, rgba(0, 255, 159, 0.2), rgba(0, 200, 120, 0.12));
+    text-shadow:
+        0 0 10px #00ff9f,
+        0 0 15px #00ff9f,
+        0 0 20px rgba(0, 255, 159, 0.9),
+        0 0 25px rgba(0, 255, 159, 0.6);
 }
 
+/* Memory - LED Azul Cian */
 #memory {
-    color: #81A1C1;
-    background: linear-gradient(135deg, rgba(129, 161, 193, 0.12), rgba(94, 129, 172, 0.08));
+    padding: 3px 12px;
+    margin: 3px 2px;
+    color: #00d4ff;
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.12), rgba(0, 170, 220, 0.08));
+    border-radius: 6px;
+    font-family: "DSEG7 Classic", "JetBrainsMono Nerd Font", monospace;
+    font-weight: 700;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    transition: all 0.3s ease;
+    text-shadow:
+        0 0 8px #00d4ff,
+        0 0 12px #00d4ff,
+        0 0 16px rgba(0, 212, 255, 0.8),
+        0 0 20px rgba(0, 212, 255, 0.5);
 }
 
 #memory:hover {
-    background: linear-gradient(135deg, rgba(129, 161, 193, 0.2), rgba(94, 129, 172, 0.12));
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 170, 220, 0.12));
+    text-shadow:
+        0 0 10px #00d4ff,
+        0 0 15px #00d4ff,
+        0 0 20px rgba(0, 212, 255, 0.9),
+        0 0 25px rgba(0, 212, 255, 0.6);
 }
 
+/* Network - LED Verde Menta */
 #network {
-    color: #A3BE8C;
-    background: linear-gradient(135deg, rgba(163, 190, 140, 0.12), rgba(143, 188, 187, 0.08));
+    padding: 3px 12px;
+    margin: 3px 2px;
+    color: #00ffaa;
+    background: linear-gradient(135deg, rgba(0, 255, 170, 0.12), rgba(0, 200, 140, 0.08));
+    border-radius: 6px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    text-shadow:
+        0 0 8px #00ffaa,
+        0 0 12px #00ffaa,
+        0 0 16px rgba(0, 255, 170, 0.8),
+        0 0 20px rgba(0, 255, 170, 0.5);
 }
 
 #network:hover {
-    background: linear-gradient(135deg, rgba(163, 190, 140, 0.2), rgba(143, 188, 187, 0.12));
+    background: linear-gradient(135deg, rgba(0, 255, 170, 0.2), rgba(0, 200, 140, 0.12));
+    text-shadow:
+        0 0 10px #00ffaa,
+        0 0 15px #00ffaa,
+        0 0 20px rgba(0, 255, 170, 0.9),
+        0 0 25px rgba(0, 255, 170, 0.6);
 }
 
 #network.disconnected {
     color: #4C566A;
     background: rgba(76, 86, 106, 0.15);
+    text-shadow: none;
 }
 
+/* PulseAudio - LED Púrpura */
 #pulseaudio {
-    color: #5E81AC;
-    background: linear-gradient(135deg, rgba(94, 129, 172, 0.12), rgba(136, 192, 208, 0.08));
+    padding: 3px 12px;
+    margin: 3px 2px;
+    color: #9d4edd;
+    background: linear-gradient(135deg, rgba(157, 78, 221, 0.12), rgba(120, 50, 180, 0.08));
+    border-radius: 6px;
+    font-family: "DSEG7 Classic", "JetBrainsMono Nerd Font", monospace;
+    font-weight: 700;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    transition: all 0.3s ease;
+    text-shadow:
+        0 0 8px #9d4edd,
+        0 0 12px #9d4edd,
+        0 0 16px rgba(157, 78, 221, 0.8),
+        0 0 20px rgba(157, 78, 221, 0.5);
 }
 
 #pulseaudio:hover {
-    background: linear-gradient(135deg, rgba(94, 129, 172, 0.2), rgba(136, 192, 208, 0.12));
+    background: linear-gradient(135deg, rgba(157, 78, 221, 0.2), rgba(120, 50, 180, 0.12));
+    text-shadow:
+        0 0 10px #9d4edd,
+        0 0 15px #9d4edd,
+        0 0 20px rgba(157, 78, 221, 0.9),
+        0 0 25px rgba(157, 78, 221, 0.6);
 }
 
 #pulseaudio.muted {
     color: #4C566A;
     background: rgba(76, 86, 106, 0.15);
+    text-shadow: none;
 }
 
+/* Backlight - LED Naranja/Ámbar */
 #backlight {
-    color: #EBCB8B;
-    background: linear-gradient(135deg, rgba(235, 203, 139, 0.12), rgba(208, 135, 112, 0.08));
+    padding: 3px 12px;
+    margin: 3px 2px;
+    color: #ffaa00;
+    background: linear-gradient(135deg, rgba(255, 170, 0, 0.12), rgba(220, 140, 0, 0.08));
+    border-radius: 6px;
+    font-family: "DSEG7 Classic", "JetBrainsMono Nerd Font", monospace;
+    font-weight: 700;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    transition: all 0.3s ease;
+    text-shadow:
+        0 0 8px #ffaa00,
+        0 0 12px #ffaa00,
+        0 0 16px rgba(255, 170, 0, 0.8),
+        0 0 20px rgba(255, 170, 0, 0.5);
 }
 
 #backlight:hover {
-    background: linear-gradient(135deg, rgba(235, 203, 139, 0.2), rgba(208, 135, 112, 0.12));
+    background: linear-gradient(135deg, rgba(255, 170, 0, 0.2), rgba(220, 140, 0, 0.12));
+    text-shadow:
+        0 0 10px #ffaa00,
+        0 0 15px #ffaa00,
+        0 0 20px rgba(255, 170, 0, 0.9),
+        0 0 25px rgba(255, 170, 0, 0.6);
 }
 
+/* Battery - LED Verde Neón */
 #battery {
-    color: #A3BE8C;
-    background: linear-gradient(135deg, rgba(163, 190, 140, 0.12), rgba(143, 188, 187, 0.08));
+    padding: 3px 12px;
+    margin: 3px 2px;
+    color: #39ff14;
+    background: linear-gradient(135deg, rgba(57, 255, 20, 0.12), rgba(30, 200, 10, 0.08));
+    border-radius: 6px;
+    font-family: "DSEG7 Classic", "JetBrainsMono Nerd Font", monospace;
+    font-weight: 700;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    transition: all 0.3s ease;
+    text-shadow:
+        0 0 8px #39ff14,
+        0 0 12px #39ff14,
+        0 0 16px rgba(57, 255, 20, 0.8),
+        0 0 20px rgba(57, 255, 20, 0.5);
 }
 
 #battery:hover {
-    background: linear-gradient(135deg, rgba(163, 190, 140, 0.2), rgba(143, 188, 187, 0.12));
+    background: linear-gradient(135deg, rgba(57, 255, 20, 0.2), rgba(30, 200, 10, 0.12));
+    text-shadow:
+        0 0 10px #39ff14,
+        0 0 15px #39ff14,
+        0 0 20px rgba(57, 255, 20, 0.9),
+        0 0 25px rgba(57, 255, 20, 0.6);
 }
 
 #battery.charging {
-    color: #A3BE8C;
-    background: linear-gradient(135deg, rgba(163, 190, 140, 0.18), rgba(143, 188, 187, 0.12));
     animation: chargingPulse 2s ease-in-out infinite;
 }
 
@@ -186,12 +338,20 @@ window#waybar {
 #battery.warning:not(.charging) {
     color: #D08770;
     background: linear-gradient(135deg, rgba(208, 135, 112, 0.18), rgba(235, 203, 139, 0.1));
+    text-shadow:
+        0 0 8px #D08770,
+        0 0 12px #D08770,
+        0 0 16px rgba(208, 135, 112, 0.8);
 }
 
 #battery.critical:not(.charging) {
     color: #BF616A;
     background: linear-gradient(135deg, rgba(191, 97, 106, 0.18), rgba(208, 135, 112, 0.1));
     animation: criticalPulse 1s ease-in-out infinite;
+    text-shadow:
+        0 0 8px #BF616A,
+        0 0 12px #BF616A,
+        0 0 16px rgba(191, 97, 106, 0.8);
 }
 
 @keyframes criticalPulse {
@@ -208,13 +368,17 @@ window#waybar {
 
 /* ===== Tooltip ===== */
 
-tooltip {
+tooltip,
+tooltip.background {
     background: #2E3440;
     color: #ECEFF4;
-    border: 2px solid rgba(136, 192, 208, 0.3);
-    border-radius: 10px;
+    border: 1px solid rgba(136, 192, 208, 0.5);
+    border-radius: 0;
     padding: 10px 14px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+tooltip decoration {
+    box-shadow: none;
 }
 
 tooltip label {
