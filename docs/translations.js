@@ -124,8 +124,11 @@ const translations = {
         'footer.copyright': '2026 madOS. Distribuido bajo licencia GPL-3.0. Hecho con ❤️ para la comunidad open source.',
         
         // Meta
-        'meta.title': 'madOS - AI-Orchestrated Arch Linux',
-        'meta.description': 'Una distribución Arch Linux optimizada para sistemas con poca RAM, con Claude Code integrado para orquestación inteligente del sistema.'
+        'meta.title': 'madOS - AI-Orchestrated Arch Linux | Linux ligero con Claude Code',
+        'meta.description': 'madOS: distribución Arch Linux optimizada para sistemas con poca RAM (1.9GB), con Claude Code integrado para orquestación inteligente. Sway, Nord theme, ~67MB RAM.',
+        'meta.og.description': 'Distribución Arch Linux optimizada para poca RAM (1.9GB) con Claude Code integrado para orquestación inteligente del sistema. Sway + Nord theme, ~67MB RAM.',
+        'meta.og.image.alt': 'madOS - Distribución Arch Linux con IA integrada, vista previa de terminal y estadísticas clave',
+        'meta.og.locale': 'es_ES'
     },
     en: {
         // Navigation
@@ -251,8 +254,11 @@ const translations = {
         'footer.copyright': '2026 madOS. Licensed under GPL-3.0. Made with ❤️ for the open source community.',
         
         // Meta
-        'meta.title': 'madOS - AI-Orchestrated Arch Linux',
-        'meta.description': 'An Arch Linux distribution optimized for low-RAM systems, with Claude Code integrated for intelligent system orchestration.'
+        'meta.title': 'madOS - AI-Orchestrated Arch Linux | Lightweight Linux with Claude Code',
+        'meta.description': 'madOS: Arch Linux distribution optimized for low-RAM systems (1.9GB), with Claude Code integrated for intelligent system orchestration. Sway, Nord theme, ~67MB RAM.',
+        'meta.og.description': 'Arch Linux distribution optimized for low-RAM systems (1.9GB) with Claude Code integrated for intelligent system orchestration. Sway + Nord theme, ~67MB RAM.',
+        'meta.og.image.alt': 'madOS - AI-Orchestrated Arch Linux distribution with terminal preview and key stats',
+        'meta.og.locale': 'en_US'
     }
 };
 
@@ -332,23 +338,42 @@ const i18n = {
     updateMetaTags() {
         const title = this.t('meta.title');
         const description = this.t('meta.description');
-        
+        const ogDescription = this.t('meta.og.description');
+        const ogImageAlt = this.t('meta.og.image.alt');
+        const ogLocale = this.t('meta.og.locale');
+
         document.title = title;
-        
+
+        // Basic SEO meta
         const metaDesc = document.querySelector('meta[name="description"]');
         if (metaDesc) metaDesc.content = description;
-        
+
+        // Open Graph
         const ogTitle = document.querySelector('meta[property="og:title"]');
         if (ogTitle) ogTitle.content = title;
-        
+
         const ogDesc = document.querySelector('meta[property="og:description"]');
-        if (ogDesc) ogDesc.content = description;
-        
-        const twitterTitle = document.querySelector('meta[property="twitter:title"]');
+        if (ogDesc) ogDesc.content = ogDescription;
+
+        const ogImgAlt = document.querySelector('meta[property="og:image:alt"]');
+        if (ogImgAlt) ogImgAlt.content = ogImageAlt;
+
+        const ogLoc = document.querySelector('meta[property="og:locale"]');
+        if (ogLoc) ogLoc.content = ogLocale;
+
+        // Twitter
+        const twitterTitle = document.querySelector('meta[name="twitter:title"]');
         if (twitterTitle) twitterTitle.content = title;
-        
-        const twitterDesc = document.querySelector('meta[property="twitter:description"]');
-        if (twitterDesc) twitterDesc.content = description;
+
+        const twitterDesc = document.querySelector('meta[name="twitter:description"]');
+        if (twitterDesc) twitterDesc.content = ogDescription;
+
+        const twitterImgAlt = document.querySelector('meta[name="twitter:image:alt"]');
+        if (twitterImgAlt) twitterImgAlt.content = ogImageAlt;
+
+        // Update HTML lang attribute for SEO
+        const langMap = { 'es': 'es', 'en': 'en' };
+        document.documentElement.lang = langMap[this.currentLang] || 'es';
     }
 };
 

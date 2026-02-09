@@ -6,32 +6,109 @@ layout: none
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>madOS - AI-Orchestrated Arch Linux</title>
-    <meta name="description" content="Una distribución Arch Linux optimizada para sistemas con poca RAM, con Claude Code integrado para orquestación inteligente del sistema.">
-    
+    <title>madOS - AI-Orchestrated Arch Linux | Lightweight Linux with Claude Code</title>
+    <meta name="description" content="madOS: distribución Arch Linux optimizada para sistemas con poca RAM (1.9GB), con Claude Code integrado para orquestación inteligente. Sway, Nord theme, ~67MB RAM.">
+
+    <!-- SEO -->
+    <link rel="canonical" href="https://madkoding.github.io/mad-os/">
+    <link rel="alternate" hreflang="es" href="https://madkoding.github.io/mad-os/">
+    <link rel="alternate" hreflang="en" href="https://madkoding.github.io/mad-os/">
+    <link rel="alternate" hreflang="x-default" href="https://madkoding.github.io/mad-os/">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="author" content="madkoding">
+    <meta name="generator" content="madOS Project">
+    <meta name="keywords" content="madOS, Arch Linux, Claude Code, AI, Linux, distribución, low RAM, lightweight, Sway, Wayland, Nord theme, AI orchestrated, operating system, open source, ZRAM, EarlyOOM, Intel Atom, GTK installer">
+    <meta name="theme-color" content="#88c0d0">
+    <meta name="color-scheme" content="dark">
+
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    
+    <link rel="apple-touch-icon" href="og-image.png">
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://madkoding.github.io/mad-os/">
     <meta property="og:title" content="madOS - AI-Orchestrated Arch Linux">
-    <meta property="og:description" content="Distribución Arch Linux optimizada para poca RAM con Claude Code integrado">
+    <meta property="og:description" content="Distribución Arch Linux optimizada para poca RAM (1.9GB) con Claude Code integrado para orquestación inteligente del sistema. Sway + Nord theme, ~67MB RAM.">
     <meta property="og:image" content="https://madkoding.github.io/mad-os/og-image.png">
-    
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="madOS - AI-Orchestrated Arch Linux distribution with terminal preview and key stats">
+    <meta property="og:site_name" content="madOS">
+    <meta property="og:locale" content="es_ES">
+    <meta property="og:locale:alternate" content="en_US">
+
     <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://madkoding.github.io/mad-os/">
-    <meta property="twitter:title" content="madOS - AI-Orchestrated Arch Linux">
-    <meta property="twitter:description" content="Distribución Arch Linux optimizada para poca RAM con Claude Code integrado">
-    <meta property="twitter:image" content="https://madkoding.github.io/mad-os/og-image.png">
-    
-    <!-- Theme Color -->
-    <meta name="theme-color" content="#88c0d0">
-    
-    <!-- Keywords -->
-    <meta name="keywords" content="madOS, Arch Linux, Claude Code, AI, Linux, distribución, low RAM, ligero, Sway, Wayland">
-    
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://madkoding.github.io/mad-os/">
+    <meta name="twitter:title" content="madOS - AI-Orchestrated Arch Linux">
+    <meta name="twitter:description" content="Distribución Arch Linux optimizada para poca RAM (1.9GB) con Claude Code integrado para orquestación inteligente del sistema.">
+    <meta name="twitter:image" content="https://madkoding.github.io/mad-os/og-image.png">
+    <meta name="twitter:image:alt" content="madOS - AI-Orchestrated Arch Linux distribution with terminal preview and key stats">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "madOS",
+        "alternateName": "mad-os",
+        "description": "AI-Orchestrated Arch Linux distribution optimized for low-RAM systems with Claude Code integrated for intelligent system orchestration.",
+        "url": "https://madkoding.github.io/mad-os/",
+        "applicationCategory": "OperatingSystem",
+        "operatingSystem": "Linux",
+        "license": "https://opensource.org/licenses/GPL-3.0",
+        "isAccessibleForFree": true,
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "softwareRequirements": "x86_64 processor, 1.9GB RAM minimum, 32GB storage recommended",
+        "screenshot": "https://madkoding.github.io/mad-os/og-image.png",
+        "image": "https://madkoding.github.io/mad-os/og-image.png",
+        "author": {
+            "@type": "Organization",
+            "name": "madkoding",
+            "url": "https://github.com/madkoding"
+        },
+        "sourceOrganization": {
+            "@type": "Organization",
+            "name": "madkoding",
+            "url": "https://github.com/madkoding"
+        },
+        "codeRepository": "https://github.com/madkoding/mad-os",
+        "downloadUrl": "https://github.com/madkoding/mad-os/releases/latest",
+        "featureList": [
+            "Claude Code AI integration",
+            "Optimized for 1.9GB RAM systems",
+            "Sway compositor with Nord theme (~67MB RAM)",
+            "GTK graphical installer with 6 languages",
+            "ZRAM and EarlyOOM memory optimization",
+            "Built-in WiFi configuration",
+            "UEFI and BIOS boot support",
+            "Pre-installed development tools"
+        ],
+        "keywords": "Arch Linux, AI, Claude Code, lightweight, low RAM, Sway, Wayland"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "madOS",
+        "url": "https://madkoding.github.io/mad-os/",
+        "description": "Official website for madOS - AI-Orchestrated Arch Linux",
+        "inLanguage": ["es", "en"],
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://github.com/madkoding/mad-os/search?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+        }
+    }
+    </script>
+
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
