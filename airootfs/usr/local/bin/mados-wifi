@@ -1,0 +1,3 @@
+#!/bin/bash
+# madOS WiFi Configuration - Launcher script
+exec python3 -m mados_wifi "$@"

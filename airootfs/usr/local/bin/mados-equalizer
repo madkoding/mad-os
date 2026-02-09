@@ -1,0 +1,3 @@
+#!/bin/bash
+# madOS Audio Equalizer - Launcher script
+exec python3 -m mados_equalizer "$@"
