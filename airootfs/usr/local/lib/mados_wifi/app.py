@@ -9,7 +9,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib, Pango
 
 from .theme import apply_theme
-from .translations import get_text, get_languages, TRANSLATIONS
+from .translations import get_text, detect_system_language
 from .backend import (
     WiFiNetwork, ConnectionDetails,
     check_wifi_available, get_wifi_device,
@@ -29,7 +29,7 @@ class WiFiApp(Gtk.Window):
         self.set_position(Gtk.WindowPosition.CENTER)
         self.connect("destroy", Gtk.main_quit)
 
-        self._lang = "English"
+        self._lang = detect_system_language()
         self._networks = []
         self._selected_network = None
         self._auto_refresh_id = None
@@ -78,7 +78,7 @@ class WiFiApp(Gtk.Window):
         main_box.pack_start(self._build_status_bar(), False, False, 0)
 
     def _build_header(self):
-        """Build the header bar with title, scan button, and language selector."""
+        """Build the header bar with title and scan button."""
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         header.set_margin_start(12)
         header.set_margin_end(12)
@@ -92,20 +92,6 @@ class WiFiApp(Gtk.Window):
         )
         self._title_label.set_halign(Gtk.Align.START)
         header.pack_start(self._title_label, True, True, 0)
-
-        # Language selector
-        lang_box = Gtk.Box(spacing=4)
-        lang_label = Gtk.Label(label="\U0001F310")
-        lang_box.pack_start(lang_label, False, False, 0)
-
-        self._lang_combo = Gtk.ComboBoxText()
-        for lang in get_languages():
-            self._lang_combo.append_text(lang)
-        self._lang_combo.set_active(0)
-        self._lang_combo.connect("changed", self._on_language_changed)
-        lang_box.pack_start(self._lang_combo, False, False, 0)
-
-        header.pack_end(lang_box, False, False, 0)
 
         # Scan button
         self._scan_btn = Gtk.Button(label=self.t("scan"))
@@ -540,21 +526,6 @@ class WiFiApp(Gtk.Window):
         self._detail_box.pack_start(expander, False, False, 0)
 
     # -- Event Handlers ----------------------------------------------------
-
-    def _on_language_changed(self, combo):
-        """Handle language change."""
-        text = combo.get_active_text()
-        if text:
-            self._lang = text
-            self.set_title(self.t("title"))
-            self._title_label.set_markup(f'<b>{self.t("wifi_config")}</b>')
-            self._scan_btn.set_label(self.t("scan"))
-            self._networks_label.set_markup(f'<b>{self.t("available_networks")}</b>')
-            self._hidden_btn.set_label(self.t("hidden_network"))
-            self._empty_label.set_text(self.t("no_networks"))
-            self._status_label.set_text(self.t("disconnected"))
-            # Re-populate network list with new language
-            self._populate_network_list(self._networks)
 
     def _on_scan_clicked(self, button):
         """Start a network scan."""

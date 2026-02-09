@@ -32,7 +32,7 @@ from .tools import (
 )
 from .navigator import FileNavigator, is_image_file, is_video_file, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, ALL_EXTENSIONS
 from .video_player import VideoPlayer, GST_AVAILABLE
-from .translations import get_text, get_languages, DEFAULT_LANGUAGE
+from .translations import get_text, detect_system_language, DEFAULT_LANGUAGE
 from .theme import apply_theme, NORD
 
 
@@ -51,7 +51,7 @@ class PhotoViewerApp(Gtk.Window):
         apply_theme()
 
         # State
-        self._language = DEFAULT_LANGUAGE
+        self._language = detect_system_language()
         self._navigator = FileNavigator()
         self._current_mode = 'image'  # 'image' or 'video'
 
@@ -127,18 +127,6 @@ class PhotoViewerApp(Gtk.Window):
         file_menu.append(quit_item)
 
         menubar.append(file_item)
-
-        # --- Language menu ---
-        lang_menu = Gtk.Menu()
-        lang_item = Gtk.MenuItem(label=self._t('language'))
-        lang_item.set_submenu(lang_menu)
-
-        for lang in get_languages():
-            item = Gtk.MenuItem(label=lang)
-            item.connect('activate', self._on_language_changed, lang)
-            lang_menu.append(item)
-
-        menubar.append(lang_item)
 
         self._main_box.pack_start(menubar, False, False, 0)
         self._menu_bar = menubar
@@ -780,18 +768,6 @@ class PhotoViewerApp(Gtk.Window):
     # ==================================================================
     # LANGUAGE
     # ==================================================================
-
-    def _on_language_changed(self, widget, language):
-        """Handle language selection from the menu.
-
-        Rebuilds the UI with the new language's strings.
-
-        Args:
-            widget: The MenuItem.
-            language: The language name string.
-        """
-        self._language = language
-        self._rebuild_ui_labels()
 
     def _t(self, key):
         """Shortcut for getting a translated string.

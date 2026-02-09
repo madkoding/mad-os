@@ -21,7 +21,7 @@ from .annotations import (
     SignatureDialog, TextAnnotationDialog,
     FormFieldManager, FormFieldDialog,
 )
-from .translations import get_text, available_languages, DEFAULT_LANGUAGE
+from .translations import get_text, detect_system_language, DEFAULT_LANGUAGE
 from .theme import apply_theme, hex_to_rgb_float
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@ class PDFViewerApp:
             filepath: Optional path to a PDF file to open on startup.
         """
         # ── State ─────────────────────────────────────────────────────────
-        self.lang = DEFAULT_LANGUAGE
+        self.lang = detect_system_language()
         self.pdf_doc = PDFDocument()
         self.renderer = PageRenderer(self.pdf_doc)
         self.form_manager = FormFieldManager(self.pdf_doc)
@@ -209,22 +209,6 @@ class PDFViewerApp:
 
         # ── Fit Width button ──────────────────────────────────────────────
         self._add_tool_button(toolbar, 'view-fullscreen', 'fit_width', self._on_fit_width)
-
-        # ── Language selector ─────────────────────────────────────────────
-        # Push to right side
-        sep_expand = Gtk.SeparatorToolItem()
-        sep_expand.set_draw(False)
-        sep_expand.set_expand(True)
-        toolbar.insert(sep_expand, -1)
-
-        ti_lang = Gtk.ToolItem()
-        self.lang_combo = Gtk.ComboBoxText()
-        for lang_name in available_languages():
-            self.lang_combo.append_text(lang_name)
-        self.lang_combo.set_active(0)
-        self.lang_combo.connect('changed', self._on_language_changed)
-        ti_lang.add(self.lang_combo)
-        toolbar.insert(ti_lang, -1)
 
     def _build_canvas(self):
         """Create the scrollable PDF drawing canvas."""
@@ -1158,22 +1142,6 @@ class PDFViewerApp:
     # ══════════════════════════════════════════════════════════════════════════
     #  Language
     # ══════════════════════════════════════════════════════════════════════════
-
-    def _on_language_changed(self, combo):
-        """Handle language selection change."""
-        text = combo.get_active_text()
-        if text and text in available_languages():
-            self.lang = text
-            self._refresh_ui_strings()
-
-    def _refresh_ui_strings(self):
-        """Update all translatable UI text to the current language."""
-        if self.pdf_doc.document:
-            title = self.pdf_doc.get_title()
-            self.window.set_title(f"{title} - {get_text('title', self.lang)}")
-        else:
-            self.window.set_title(get_text('title', self.lang))
-        self._update_page_controls()
 
     # ══════════════════════════════════════════════════════════════════════════
     #  Keyboard Shortcuts

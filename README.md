@@ -48,6 +48,12 @@ madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB),
 - **PCManFM** - File manager
 - **LXAppearance** - Theme configuration
 
+### madOS Native Apps
+- **madOS Equalizer** (`mados-equalizer`) - 8-band audio equalizer with PipeWire/PulseAudio
+- **madOS PDF Viewer** (`mados-pdf-viewer`) - PDF viewer with annotations and digital signatures
+- **madOS Photo Viewer** (`mados-photo-viewer`) - Photo viewer/editor with video playback
+- **madOS WiFi** (`mados-wifi`) - NetworkManager-based WiFi configuration tool
+
 ### Developer Tools
 - **Claude Code** - AI assistant (`claude` command)
 - **Node.js 24.x** & npm

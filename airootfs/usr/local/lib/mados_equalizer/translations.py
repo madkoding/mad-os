@@ -509,6 +509,47 @@ DEFAULT_LANGUAGE = 'English'
 AVAILABLE_LANGUAGES = list(TRANSLATIONS.keys())
 
 
+def detect_system_language():
+    """Detect the system language from environment variables.
+
+    Returns:
+        The language name matching available translations, or 'English' as default.
+    """
+    import os
+    import locale
+
+    # Try to get locale from environment
+    lang_code = None
+    for var in ['LC_ALL', 'LC_MESSAGES', 'LANG', 'LANGUAGE']:
+        lang_code = os.environ.get(var)
+        if lang_code:
+            break
+
+    if not lang_code:
+        try:
+            lang_code, _ = locale.getdefaultlocale()
+        except:
+            pass
+
+    if not lang_code:
+        return DEFAULT_LANGUAGE
+
+    # Extract language prefix (e.g., 'es' from 'es_ES.UTF-8')
+    lang_prefix = lang_code.split('_')[0].split('.')[0].lower()
+
+    # Map language codes to translation keys
+    lang_map = {
+        'en': 'English',
+        'es': 'Español',
+        'fr': 'Français',
+        'de': 'Deutsch',
+        'zh': '中文',
+        'ja': '日本語',
+    }
+
+    return lang_map.get(lang_prefix, DEFAULT_LANGUAGE)
+
+
 def get_text(key, language=None):
     """Get translated text for a given key and language.
 

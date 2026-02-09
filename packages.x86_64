@@ -41,6 +41,7 @@ python
 python-gobject
 python-cairo
 gtk3
+gdk-pixbuf2
 xdg-desktop-portal-gtk
 
 # Utilidades del sistema
@@ -108,16 +109,17 @@ man-pages
 # Boot splash
 plymouth
 
-# madOS Photo Viewer dependencies
+# madOS Native Apps Dependencies
+# madOS Photo Viewer - image viewing and video playback
 gstreamer
 gst-plugins-base
 gst-plugins-good
 gst-plugins-bad
+gst-python
 python-pillow
 
-# madOS PDF Viewer dependencies
+# madOS PDF Viewer - PDF rendering and annotations
 poppler-glib
-python-cairo
 
-# madOS Equalizer dependencies (PipeWire already included above)
+# madOS Equalizer - audio processing (PipeWire already included above)
 pipewire-jack

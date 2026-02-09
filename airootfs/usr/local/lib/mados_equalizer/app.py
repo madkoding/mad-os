@@ -24,7 +24,7 @@ from .presets import (
     GAIN_MIN, GAIN_MAX, GAIN_DEFAULT, BUILTIN_PRESET_ORDER,
 )
 from .translations import (
-    TRANSLATIONS, AVAILABLE_LANGUAGES, DEFAULT_LANGUAGE, get_text,
+    TRANSLATIONS, AVAILABLE_LANGUAGES, DEFAULT_LANGUAGE, get_text, detect_system_language,
 )
 from .theme import apply_theme, get_gain_color, get_gain_color_hex, NORD
 
@@ -154,7 +154,7 @@ class EqualizerApp:
 
     def __init__(self):
         """Initialize the application, create UI, and show the window."""
-        self.language = DEFAULT_LANGUAGE
+        self.language = detect_system_language()
         self._updating_sliders = False
         self._updating_preset = False
 
@@ -256,7 +256,7 @@ class EqualizerApp:
         main_box.pack_start(status_bar, False, False, 0)
 
     def _build_top_bar(self):
-        """Build the top bar with title, enable toggle, and language selector.
+        """Build the top bar with title and enable toggle.
 
         Returns:
             A Gtk.Box containing the top bar widgets.
@@ -280,24 +280,6 @@ class EqualizerApp:
         # Spacer
         spacer = Gtk.Box()
         top_bar.pack_start(spacer, True, True, 0)
-
-        # Language selector
-        lang_label = Gtk.Label(label=self._t('language') + ':')
-        lang_label.get_style_context().add_class('subtitle-label')
-        top_bar.pack_start(lang_label, False, False, 0)
-        self.lang_label_widget = lang_label
-
-        lang_combo = Gtk.ComboBoxText()
-        for lang in AVAILABLE_LANGUAGES:
-            lang_combo.append_text(lang)
-        lang_combo.set_active(AVAILABLE_LANGUAGES.index(self.language))
-        lang_combo.connect('changed', self._on_language_changed)
-        top_bar.pack_start(lang_combo, False, False, 0)
-        self.lang_combo = lang_combo
-
-        # Separator
-        sep = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-        top_bar.pack_start(sep, False, False, 4)
 
         # Enable/Disable toggle button
         self.enable_button = Gtk.Button(label=self._t('enable'))
@@ -838,76 +820,6 @@ class EqualizerApp:
         else:
             self.mute_button.set_label(self._t('mute'))
             self.mute_button.get_style_context().remove_class('danger-button')
-
-    def _on_language_changed(self, combo):
-        """Handle language selection change.
-
-        Updates all UI text to the newly selected language.
-
-        Args:
-            combo: The Gtk.ComboBoxText that changed.
-        """
-        index = combo.get_active()
-        if 0 <= index < len(AVAILABLE_LANGUAGES):
-            self.language = AVAILABLE_LANGUAGES[index]
-            self._update_all_labels()
-
-    def _update_all_labels(self):
-        """Update all translatable UI labels to the current language."""
-        # Window title
-        self.window.set_title(self._t('title'))
-
-        # Title label
-        self.title_label.set_markup(
-            f'<span font_weight="bold" font_size="large" foreground="#ECEFF4">'
-            f'{self._t("audio_equalizer")}</span>'
-        )
-
-        # Language label
-        self.lang_label_widget.set_text(self._t('language') + ':')
-
-        # Enable button
-        if self.backend.enabled:
-            self.enable_button.set_label(self._t('enabled'))
-        else:
-            self.enable_button.set_label(self._t('enable'))
-
-        # Preset bar
-        self.preset_label_widget.set_text(self._t('preset') + ':')
-        self.save_button.set_label(self._t('save_preset'))
-        self.delete_button.set_label(self._t('delete_preset'))
-        self.reset_button.set_label(self._t('reset'))
-
-        # Repopulate presets with translated names
-        current_id = self.preset_combo.get_active_id()
-        self._populate_preset_combo()
-        if current_id:
-            self.preset_combo.set_active_id(current_id)
-
-        # Frequency labels
-        for i, label in enumerate(self._freq_labels):
-            label.set_text(self._t(BAND_KEYS[i]))
-
-        # Volume
-        self.vol_title_label.set_markup(
-            f'<span font_size="small" foreground="#81A1C1" font_weight="bold">'
-            f'{self._t("master_volume")}</span>'
-        )
-
-        # Mute button
-        if self.backend.muted:
-            self.mute_button.set_label(self._t('unmute'))
-        else:
-            self.mute_button.set_label(self._t('mute'))
-
-        # Status bar
-        self.device_prefix_label.set_text(self._t('active_output') + ': ')
-
-        device_name = self.backend.get_output_device_name()
-        if device_name:
-            self.device_label.set_text(device_name)
-        else:
-            self.device_label.set_text(self._t('no_device'))
 
     def _refresh_device_info(self):
         """Refresh the displayed audio output device information."""
