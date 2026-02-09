@@ -1,11 +1,9 @@
 # Sistema base
 base
-base-devel
 linux
 linux-firmware
 mkinitcpio-archiso
 intel-ucode
-amd-ucode
 grub
 efibootmgr
 os-prober
@@ -48,7 +46,6 @@ xdg-desktop-portal-gtk
 htop
 wget
 jq
-imagemagick
 networkmanager
 iwd
 wireless_tools
@@ -65,27 +62,12 @@ brightnessctl
 earlyoom
 zram-generator
 
-# Drivers de video (Intel, AMD, NVIDIA)
-# Intel
+# Drivers de video (Intel - hardware objetivo)
 intel-media-driver
 vulkan-intel
 libva-intel-driver
-
-# AMD
-xf86-video-amdgpu
-vulkan-radeon
-libva-mesa-driver
-
-# NVIDIA (open source)
-xf86-video-nouveau
-
-# Común para todos
 mesa
 mesa-utils
-
-# Drivers para máquinas virtuales
-virtualbox-guest-utils
-open-vm-tools
 
 # Audio
 pipewire
@@ -95,11 +77,9 @@ wireplumber
 alsa-utils
 pavucontrol
 
-# Fuentes y temas
+# Fuentes
 ttf-jetbrains-mono-nerd
-papirus-icon-theme
 noto-fonts-emoji
-noto-fonts-cjk
 
 # Herramientas de instalación
 arch-install-scripts
@@ -113,27 +93,14 @@ wpa_supplicant
 # Sistema de archivos
 dosfstools
 e2fsprogs
-ntfs-3g
-
-# Otras utilidades útiles
-less
-man-db
-man-pages
-
-# Boot splash
-plymouth
 
 # madOS Native Apps Dependencies
 # madOS Photo Viewer - image viewing and video playback
 gstreamer
 gst-plugins-base
 gst-plugins-good
-gst-plugins-bad
 gst-python
 python-pillow
 
 # madOS PDF Viewer - PDF rendering and annotations
 poppler-glib
-
-# madOS Equalizer - audio processing (PipeWire already included above)
-pipewire-jack
