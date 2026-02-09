@@ -75,7 +75,7 @@ PACKAGES = [
     'pipewire', 'pipewire-pulse', 'pipewire-alsa', 'wireplumber',
     'alsa-utils', 'pavucontrol',
     'intel-media-driver', 'vulkan-intel', 'mesa-utils',
-    'ttf-jetbrains-mono-nerd', 'noto-fonts-emoji', 'noto-fonts-cjk',
+    'ttf-jetbrains-mono-nerd', 'noto-fonts-emoji',
     'pcmanfm', 'lxappearance',
     'grub', 'efibootmgr', 'os-prober', 'dosfstools', 'sbctl', 'networkmanager', 'sudo',
     'brightnessctl',
