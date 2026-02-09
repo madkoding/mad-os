@@ -59,6 +59,12 @@ Welcome to madOS Live Environment!
    Super+D          - Application launcher
    Super+Shift+Q    - Close window
 
+🐛 Debugging:
+   mados-debug              (quick system diagnostics)
+   mados-debug chromium     (Chromium logs)
+   mados-debug apps         (Python app diagnostics)
+   less /usr/share/doc/madOS/DEBUGGING.md
+
 Type 'claude' to start the AI assistant (after installation)
 
 EOF
