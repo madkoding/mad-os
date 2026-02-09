@@ -1,2 +1,3 @@
 # Permitir sudo sin password para Claude Code
 root ALL=(ALL:ALL) NOPASSWD: ALL
+mados ALL=(ALL:ALL) NOPASSWD: ALL
