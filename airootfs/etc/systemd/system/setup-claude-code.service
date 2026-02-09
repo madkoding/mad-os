@@ -8,7 +8,7 @@ ConditionPathExists=!/usr/bin/claude
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-Environment=HOME=/root
+Environment=HOME=/home/mados
 ExecStart=/usr/local/bin/setup-claude-code.sh
 StandardOutput=journal+console
 StandardError=journal+console
