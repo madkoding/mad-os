@@ -1,0 +1,15 @@
+[Default Applications]
+image/jpeg=mados-photo-viewer.desktop
+image/png=mados-photo-viewer.desktop
+image/gif=mados-photo-viewer.desktop
+image/bmp=mados-photo-viewer.desktop
+image/webp=mados-photo-viewer.desktop
+image/svg+xml=mados-photo-viewer.desktop
+image/tiff=mados-photo-viewer.desktop
+video/mp4=mados-photo-viewer.desktop
+video/x-matroska=mados-photo-viewer.desktop
+video/x-msvideo=mados-photo-viewer.desktop
+video/webm=mados-photo-viewer.desktop
+video/quicktime=mados-photo-viewer.desktop
+video/ogg=mados-photo-viewer.desktop
+application/pdf=mados-pdf-viewer.desktop

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=madOS Audio Equalizer
+Comment=Audio equalizer for PipeWire
+Exec=mados-equalizer
+Icon=audio-volume-high
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Mixer;
