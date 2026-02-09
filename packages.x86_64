@@ -47,6 +47,7 @@ xdg-desktop-portal-gtk
 # Utilidades del sistema
 htop
 wget
+curl
 jq
 networkmanager
 iwd

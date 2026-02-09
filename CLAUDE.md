@@ -296,7 +296,7 @@ sudo mados-persistence remove
 
 ## Claude Code Integration
 
-After installation, users can run `claude` to start the AI assistant. The system is designed for Claude Code to help with:
+Claude Code is available in both the live ISO and installed system. The system is designed for Claude Code to help with:
 - System configuration and troubleshooting
 - Package management
 - Service management
@@ -304,3 +304,34 @@ After installation, users can run `claude` to start the AI assistant. The system
 - Learning and documentation
 
 Claude Code has passwordless sudo access for seamless system orchestration.
+
+### Installation in Live ISO
+
+Claude Code is automatically installed in the live ISO environment via systemd service:
+
+- **Service**: `airootfs/etc/systemd/system/setup-claude-code.service` - Runs at boot
+- **Script**: `airootfs/usr/local/bin/setup-claude-code.sh` - Installation script
+- **Requirements**: Network connectivity (curl, npm)
+
+**How it works:**
+1. Service runs after `network-online.target` and `pacman-init.service`
+2. Checks if `claude` binary exists (skips if present)
+3. Verifies npm is available and network is accessible
+4. Installs via `npm install -g @anthropic-ai/claude-code`
+5. Exits gracefully if network unavailable (can be run manually later)
+
+**Manual installation:**
+```bash
+# If auto-install didn't run (no network at boot)
+sudo setup-claude-code.sh
+
+# Verify installation
+claude --version
+```
+
+### Installation in Installed System
+
+During system installation, Claude Code is installed via:
+1. The installer attempts npm install (non-fatal if fails)
+2. A systemd service installs it on first boot if not present
+3. Same mechanism as live ISO ensures it's always available
