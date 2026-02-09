@@ -6,7 +6,8 @@ function extractVersionFromURL() {
     if (downloadLink) {
         const url = downloadLink.getAttribute('href');
         // Extract version from URL like: https://archive.org/download/mados-0.6.1/...
-        const match = url.match(/mados-([0-9.]+)\//);
+        // Using more precise regex to match valid version numbers (e.g., 1.2.3, 0.6.1)
+        const match = url.match(/mados-(\d+(?:\.\d+)*)\//);
         if (match && match[1]) {
             return match[1];
         }
@@ -323,9 +324,10 @@ const i18n = {
     t(key, vars = {}) {
         let translation = translations[this.currentLang][key] || translations[this.defaultLang][key] || key;
         
-        // Replace variables in the translation
+        // Replace all instances of variables in the translation
         Object.keys(vars).forEach(varKey => {
-            translation = translation.replace(`{${varKey}}`, vars[varKey]);
+            const regex = new RegExp(`\\{${varKey}\\}`, 'g');
+            translation = translation.replace(regex, vars[varKey]);
         });
         
         return translation;
