@@ -107,3 +107,17 @@ man-pages
 
 # Boot splash
 plymouth
+
+# madOS Photo Viewer dependencies
+gstreamer
+gst-plugins-base
+gst-plugins-good
+gst-plugins-bad
+python-pillow
+
+# madOS PDF Viewer dependencies
+poppler-glib
+python-cairo
+
+# madOS Equalizer dependencies (PipeWire already included above)
+pipewire-jack

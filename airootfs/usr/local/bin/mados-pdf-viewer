@@ -1,0 +1,3 @@
+#!/bin/bash
+# madOS PDF Viewer - Launcher script
+exec python3 -m mados_pdf_viewer "$@"

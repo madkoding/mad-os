@@ -34,4 +34,12 @@ file_permissions=(
   ["/usr/local/lib/mados_installer/"]="0:0:755"
   ["/usr/local/bin/setup-claude-code.sh"]="0:0:755"
   ["/usr/local/bin/toggle-demo-mode.sh"]="0:0:755"
+  ["/usr/local/bin/mados-photo-viewer"]="0:0:755"
+  ["/usr/local/bin/mados-pdf-viewer"]="0:0:755"
+  ["/usr/local/bin/mados-wifi"]="0:0:755"
+  ["/usr/local/bin/mados-equalizer"]="0:0:755"
+  ["/usr/local/lib/mados_photo_viewer/"]="0:0:755"
+  ["/usr/local/lib/mados_pdf_viewer/"]="0:0:755"
+  ["/usr/local/lib/mados_wifi/"]="0:0:755"
+  ["/usr/local/lib/mados_equalizer/"]="0:0:755"
 )

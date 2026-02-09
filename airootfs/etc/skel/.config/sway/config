@@ -214,5 +214,22 @@ exec_always --no-startup-id "pgrep Xwayland || echo 'Xwayland should auto-start'
 # Notification daemon (optional, uncomment if mako is installed)
 # exec_always --no-startup-id mako
 
+### madOS Application Window Rules
+# Photo Viewer - floating for better image viewing
+for_window [app_id="mados-photo-viewer"] floating enable
+for_window [app_id="mados-photo-viewer"] resize set 900 700
+
+# PDF Viewer - floating for document viewing
+for_window [app_id="mados-pdf-viewer"] floating enable
+for_window [app_id="mados-pdf-viewer"] resize set 900 700
+
+# WiFi Configuration - floating utility
+for_window [app_id="mados-wifi"] floating enable
+for_window [app_id="mados-wifi"] resize set 700 550
+
+# Audio Equalizer - floating utility
+for_window [app_id="mados-equalizer"] floating enable
+for_window [app_id="mados-equalizer"] resize set 750 450
+
 ### System includes
 include /etc/sway/config.d/*
