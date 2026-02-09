@@ -712,7 +712,7 @@ log "Starting madOS audio initialization"
 cards=$(get_card_indices)
 if [[ -z "$cards" ]]; then log "No sound cards detected"; exit 0; fi
 for card in $cards; do init_card "$card"; done
-if command -v alsactl &>/dev/null; then alsactl store 2>/dev/null || true; log "ALSA state saved"; fi
+if command -v alsactl &>/dev/null && alsactl store 2>/dev/null; then log "ALSA state saved"; fi
 log "Audio initialization complete"
 EOFAUDIO
 chmod 755 /usr/local/bin/mados-audio-init.sh

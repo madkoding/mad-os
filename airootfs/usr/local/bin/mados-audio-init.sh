@@ -113,8 +113,9 @@ main() {
 
     # Store ALSA state so it persists across reboots (installed system)
     if command -v alsactl &>/dev/null; then
-        alsactl store 2>/dev/null || true
-        log "ALSA state saved"
+        if alsactl store 2>/dev/null; then
+            log "ALSA state saved"
+        fi
     fi
 
     log "Audio initialization complete"
