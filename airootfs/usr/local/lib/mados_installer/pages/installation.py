@@ -235,16 +235,22 @@ def _run_installation(app):
         set_progress(app, 0.25, "Installing base system (this may take a while)...")
         log_message(app, "Installing base system...")
 
+        # Build package list with conditional CJK fonts
+        packages = list(PACKAGES)
+        if data['locale'] in ('zh_CN.UTF-8', 'ja_JP.UTF-8'):
+            packages.append('noto-fonts-cjk')
+            log_message(app, "Adding CJK fonts for selected locale...")
+
         if DEMO_MODE:
             log_message(app, "[DEMO] Simulating pacstrap with packages:")
-            for i, pkg in enumerate(PACKAGES):
-                progress = 0.25 + (0.23 * (i + 1) / len(PACKAGES))
+            for i, pkg in enumerate(packages):
+                progress = 0.25 + (0.23 * (i + 1) / len(packages))
                 set_progress(app, progress, f"Installing {pkg}...")
                 log_message(app, f"[DEMO] Installing {pkg}...")
                 time.sleep(0.2)
             time.sleep(0.5)
         else:
-            _run_pacstrap_with_progress(app, PACKAGES)
+            _run_pacstrap_with_progress(app, packages)
 
         # Step 5: Generate fstab
         set_progress(app, 0.50, "Generating filesystem table...")
