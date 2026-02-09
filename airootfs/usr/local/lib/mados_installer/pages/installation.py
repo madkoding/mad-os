@@ -652,8 +652,86 @@ systemctl enable systemd-resolved
 systemctl enable earlyoom
 systemctl enable systemd-timesyncd
 
-# Enable PipeWire audio for all user sessions (socket-activated)
+# Audio: Enable PipeWire for all user sessions (socket-activated)
 systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service
+
+# Audio: Create and enable ALSA unmute service for first boot
+cat > /usr/local/bin/mados-audio-init.sh <<'EOFAUDIO'
+#!/usr/bin/env bash
+# mados-audio-init.sh - Unmute ALSA controls and set default volumes
+set -euo pipefail
+LOG_TAG="mados-audio-init"
+log() {{ systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1"; }}
+get_card_indices() {{
+    if [[ -f /proc/asound/cards ]]; then
+        sed -n -e 's/^[[:space:]]*\\([0-9]\\+\\)[[:space:]].*/\\1/p' /proc/asound/cards
+    fi
+}}
+set_control() {{ amixer -c "$1" set "$2" "$3" unmute 2>/dev/null || true; }}
+mute_control() {{ amixer -c "$1" set "$2" "0%" mute 2>/dev/null || true; }}
+switch_control() {{ amixer -c "$1" set "$2" "$3" 2>/dev/null || true; }}
+init_card() {{
+    local card="$1"
+    log "Initializing audio on card $card"
+    set_control "$card" "Master" "80%"
+    set_control "$card" "Front" "80%"
+    set_control "$card" "Master Mono" "80%"
+    set_control "$card" "Master Digital" "80%"
+    set_control "$card" "Playback" "80%"
+    set_control "$card" "Headphone" "100%"
+    set_control "$card" "Speaker" "80%"
+    set_control "$card" "PCM" "80%"
+    set_control "$card" "PCM,1" "80%"
+    set_control "$card" "DAC" "80%"
+    set_control "$card" "DAC,0" "80%"
+    set_control "$card" "DAC,1" "80%"
+    set_control "$card" "Digital" "80%"
+    set_control "$card" "Wave" "80%"
+    set_control "$card" "Music" "80%"
+    set_control "$card" "AC97" "80%"
+    set_control "$card" "Analog Front" "80%"
+    set_control "$card" "Synth" "80%"
+    switch_control "$card" "Master Playback Switch" "on"
+    switch_control "$card" "Master Surround" "on"
+    switch_control "$card" "Speaker" "on"
+    switch_control "$card" "Headphone" "on"
+    set_control "$card" "VIA DXS,0" "80%"
+    set_control "$card" "VIA DXS,1" "80%"
+    set_control "$card" "VIA DXS,2" "80%"
+    set_control "$card" "VIA DXS,3" "80%"
+    set_control "$card" "Dynamic Range Compression" "80%"
+    mute_control "$card" "Mic"
+    mute_control "$card" "Internal Mic"
+    mute_control "$card" "Rear Mic"
+    mute_control "$card" "IEC958"
+    switch_control "$card" "IEC958 Capture Monitor" "off"
+    switch_control "$card" "Headphone Jack Sense" "off"
+    switch_control "$card" "Line Jack Sense" "off"
+}}
+log "Starting madOS audio initialization"
+cards=$(get_card_indices)
+if [[ -z "$cards" ]]; then log "No sound cards detected"; exit 0; fi
+for card in $cards; do init_card "$card"; done
+if command -v alsactl &>/dev/null && alsactl store 2>/dev/null; then log "ALSA state saved"; fi
+log "Audio initialization complete"
+EOFAUDIO
+chmod 755 /usr/local/bin/mados-audio-init.sh
+
+cat > /etc/systemd/system/mados-audio-init.service <<'EOFSVC'
+[Unit]
+Description=madOS Audio Initialization - Unmute ALSA Controls
+Wants=systemd-udev-settle.service
+After=systemd-udev-settle.service sound.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/mados-audio-init.sh
+
+[Install]
+WantedBy=multi-user.target
+EOFSVC
+systemctl enable mados-audio-init.service
 
 # --- Non-critical section: errors below should not abort installation ---
 set +e

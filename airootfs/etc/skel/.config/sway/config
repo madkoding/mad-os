@@ -15,8 +15,8 @@ exec {
     systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK
     hash dbus-update-activation-environment 2>/dev/null && \
          dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY SWAYSOCK
-    # Iniciar servicios de audio PipeWire
-    systemctl --user --now enable pipewire pipewire-pulse wireplumber
+    # Iniciar servicios de audio PipeWire (socket-activated)
+    systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service
 }
 
 # Vim-style directional keys
