@@ -20,13 +20,14 @@ fi
 
 # Verificar conectividad
 if ! curl -sf --connect-timeout 5 https://registry.npmjs.org/ >/dev/null 2>&1; then
-    echo "✗ Error: No hay conexión a Internet."
+    echo "⚠ No hay conexión a Internet."
     echo "  Conecta a la red primero:"
     echo "    WiFi:     iwctl station wlan0 connect <SSID>"
     echo "    Ethernet: debería conectarse automáticamente"
     echo ""
     echo "  Luego ejecuta de nuevo: setup-claude-code.sh"
-    exit 1
+    # Exit 0 to not fail the systemd service when run at boot without network
+    exit 0
 fi
 
 echo "Instalando Claude Code..."
@@ -35,7 +36,8 @@ if npm install -g @anthropic-ai/claude-code; then
     echo "✓ Claude Code instalado correctamente."
     "$CLAUDE_CMD" --version
 else
-    echo "✗ Error al instalar Claude Code."
-    echo "  Intenta manualmente: npm install -g @anthropic-ai/claude-code"
-    exit 1
+    echo "⚠ Error al instalar Claude Code."
+    echo "  Intenta manualmente: setup-claude-code.sh"
+    # Exit 0 to not fail the service
+    exit 0
 fi
