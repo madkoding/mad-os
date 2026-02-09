@@ -737,25 +737,4 @@ TimeoutStartSec=300
 WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-claude-code.service
-
-# MOTD
-cat > /etc/motd <<EOF
-
-╔═══════════════════════════════════════════════════╗
-║                                                   ║
-║     ███╗   ███╗ █████╗ ██████╗  ██████╗ ███████╗ ║
-║     ████╗ ████║██╔══██╗██╔══██╗██╔═══██╗██╔════╝ ║
-║     ██╔████╔██║███████║██║  ██║██║   ██║███████╗ ║
-║     ██║╚██╔╝██║██╔══██║██║  ██║██║   ██║╚════██║ ║
-║     ██║ ╚═╝ ██║██║  ██║██████╔╝╚██████╔╝███████║ ║
-║     ╚═╝     ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚══════╝ ║
-║                                                   ║
-║         AI-Orchestrated Arch Linux System        ║
-║              Powered by Claude Code              ║
-║                                                   ║
-╚═══════════════════════════════════════════════════╝
-
-Welcome to madOS! Type 'claude' to start the AI assistant.
-
-EOF
 '''

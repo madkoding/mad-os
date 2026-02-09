@@ -228,7 +228,7 @@ qemu-system-x86_64 \
 
 **Files with branding**:
 - `profiledef.sh`: iso_name, iso_publisher, iso_application
-- `install-mados-gtk.py`: Welcome screen, completion screen, /etc/motd
+- `install-mados-gtk.py`: Welcome screen, completion screen
 - `README.md`: Full branding and documentation
 - GRUB config: Distributor name
 
@@ -242,7 +242,6 @@ qemu-system-x86_64 \
 - **AI Integration**: Claude Code pre-installed globally
 - **Autologin**: TTY1 autologin to user, auto-starts Sway
 - **Passwordless sudo**: Configured for Claude Code operations
-- **MOTD**: madOS branding displayed on login
 
 ## Hardware Target
 

@@ -65,12 +65,23 @@ brightnessctl
 earlyoom
 zram-generator
 
-# Drivers Intel Atom
+# Drivers de video (Intel, AMD, NVIDIA)
+# Intel
 intel-media-driver
 vulkan-intel
+libva-intel-driver
+
+# AMD
+xf86-video-amdgpu
+vulkan-radeon
+libva-mesa-driver
+
+# NVIDIA (open source)
+xf86-video-nouveau
+
+# Común para todos
 mesa
 mesa-utils
-libva-intel-driver
 
 # Drivers para máquinas virtuales
 virtualbox-guest-utils

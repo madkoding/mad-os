@@ -12,16 +12,17 @@
 
 </div>
 
-madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB), featuring integrated Claude Code AI assistance for intelligent system management and orchestration.
+madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB), featuring integrated Claude Code AI assistance for intelligent system management and orchestration. Includes open source drivers for Intel, AMD, and NVIDIA GPUs.
 
 ## Overview
 
 - **Claude Code Integration** - AI-powered system orchestration and assistance
-- **Low-RAM Optimized** - Designed for 1.9GB RAM systems with Intel Atom processors
+- **Low-RAM Optimized** - Designed for 1.9GB+ RAM systems with any x86_64 processor
 - **Lightweight Desktop** - Sway Wayland compositor (~67MB RAM footprint)
 - **Developer Ready** - Node.js, npm, Git, VS Code pre-installed
 - **Performance Tuned** - ZRAM compression, EarlyOOM, kernel optimizations
 - **Dual Installers** - GTK graphical and TUI text-based installers
+- **Multi-GPU Support** - Open source drivers for Intel, AMD, and NVIDIA
 
 ## Hardware Requirements
 
@@ -30,7 +31,7 @@ madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB),
 | CPU | Intel Atom or equivalent | Any x86_64 |
 | RAM | 1.9GB | 2GB+ |
 | Storage | 32GB | 64GB+ |
-| GPU | Intel integrated | Any with kernel driver |
+| GPU | Intel/AMD/NVIDIA (open drivers) | Any x86_64 compatible |
 | Boot | UEFI or BIOS | UEFI |
 
 ## Features
@@ -66,6 +67,12 @@ madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB),
 - **EarlyOOM** - Out-of-memory killer to prevent freezes
 - **Kernel tuning** - `vm.swappiness=5`, `vm.vfs_cache_pressure=200`
 - **Network stack** - Optimized TCP buffers for low memory
+
+### GPU Drivers (Open Source)
+- **Intel** - intel-media-driver, vulkan-intel, libva-intel-driver
+- **AMD** - xf86-video-amdgpu, vulkan-radeon, libva-mesa-driver
+- **NVIDIA** - xf86-video-nouveau (open source driver)
+- **Mesa** - OpenGL/Vulkan implementation for all GPUs
 
 ## Quick Start
 
@@ -194,7 +201,7 @@ claude --message "how to check disk usage?"
 
 ```
 madOS Architecture
-├── Hardware (Intel Atom / 1.9GB RAM)
+├── Hardware (1.9GB RAM, Intel/AMD/NVIDIA GPU)
 ├── Kernel (Linux latest + ZRAM + sysctl tuning)
 ├── Services (systemd, EarlyOOM, iwd, PipeWire)
 ├── Display (Wayland via Sway)
@@ -268,7 +275,9 @@ sudo pacman -Rns $(pacman -Qtdq)
 |-------|----------|
 | Won't boot | Verify BIOS boot order |
 | Kernel panic | Boot with `systemd.unit=rescue.target` |
-| No display | Try software rendering or different compositor |
+| No display | Try different TTY (Ctrl+Alt+F2-F6), check GPU drivers |
+| Black screen with NVIDIA | Nouveau may need `nomodeset` kernel parameter |
+| AMD screen flicker | Update kernel or try `amdgpu.dc=0` parameter |
 
 ### Performance
 
