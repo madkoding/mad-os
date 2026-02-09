@@ -30,6 +30,7 @@ vim
 nano
 pcmanfm
 lxappearance
+plymouth
 
 # Herramientas de desarrollo (para Claude Code)
 nodejs

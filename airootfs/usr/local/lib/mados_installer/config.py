@@ -76,7 +76,7 @@ PACKAGES = [
     'alsa-utils', 'pavucontrol',
     'intel-media-driver', 'vulkan-intel', 'mesa-utils',
     'ttf-jetbrains-mono-nerd', 'noto-fonts-emoji',
-    'pcmanfm', 'lxappearance',
+    'pcmanfm', 'lxappearance', 'plymouth',
     'grub', 'efibootmgr', 'os-prober', 'dosfstools', 'sbctl', 'networkmanager', 'sudo',
     'brightnessctl',
     'nodejs', 'npm', 'python', 'python-gobject', 'gtk3', 'rsync'
