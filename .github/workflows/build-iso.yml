@@ -20,8 +20,12 @@ jobs:
     - name: Build ISO in Arch container
       run: |
         docker run --privileged --rm \
+          --dns 8.8.8.8 --dns 8.8.4.4 \
           -v ${{ github.workspace }}:/build \
           archlinux:latest bash -c "
+            # Ensure DNS resolution works inside chroot environments
+            echo 'nameserver 8.8.8.8' > /etc/resolv.conf
+            echo 'nameserver 8.8.4.4' >> /etc/resolv.conf
             pacman-key --init
             pacman -Syu --noconfirm archiso
             cd /build

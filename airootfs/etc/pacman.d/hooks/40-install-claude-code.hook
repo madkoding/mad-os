@@ -12,4 +12,5 @@ Description = Installing Claude Code globally via npm...
 When = PostTransaction
 Depends = nodejs
 Depends = npm
-Exec = /usr/bin/npm install -g @anthropic-ai/claude-code
+Depends = sh
+Exec = /bin/sh -c 'for attempt in 1 2 3 4 5; do echo "npm install attempt $attempt/5..."; npm install -g @anthropic-ai/claude-code && exit 0; echo "Attempt $attempt failed, waiting ${attempt}0s..."; sleep $((attempt * 10)); done; echo "All attempts failed"; exit 1'
