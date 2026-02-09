@@ -30,6 +30,7 @@ file_permissions=(
   ["/usr/local/bin/choose-mirror"]="0:0:755"
   ["/usr/local/bin/Installation_guide"]="0:0:755"
   ["/usr/local/bin/livecd-sound"]="0:0:755"
+  ["/usr/local/bin/mados-audio-init.sh"]="0:0:755"
   ["/usr/local/bin/install-mados-gtk.py"]="0:0:755"
   ["/usr/local/bin/install-mados"]="0:0:755"
   ["/usr/local/lib/mados_installer/"]="0:0:755"
