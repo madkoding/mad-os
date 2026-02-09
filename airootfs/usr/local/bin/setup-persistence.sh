@@ -10,6 +10,33 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
 }
 
+# Check if a device is a USB device
+is_usb_device() {
+    local device=$1
+    
+    # Remove /dev/ prefix if present
+    device=${device#/dev/}
+    
+    # Check if device is on USB bus via sysfs
+    if [ -e "/sys/block/$device" ]; then
+        # Follow the device symlink to check for usb in the path
+        local device_path=$(readlink -f "/sys/block/$device" 2>/dev/null)
+        if [[ "$device_path" == *"/usb"* ]]; then
+            return 0
+        fi
+    fi
+    
+    # Alternative: check using udevadm
+    if command -v udevadm >/dev/null 2>&1; then
+        local id_bus=$(udevadm info --query=property --name="/dev/$device" 2>/dev/null | grep "^ID_BUS=" | cut -d= -f2)
+        if [ "$id_bus" = "usb" ]; then
+            return 0
+        fi
+    fi
+    
+    return 1
+}
+
 # Find the device where the ISO is running from
 find_iso_device() {
     local iso_device=""
@@ -124,6 +151,15 @@ setup_persistence() {
     fi
     
     log "ISO device detected: $iso_device"
+    
+    # Check if device is a USB device
+    if ! is_usb_device "$iso_device"; then
+        log "Device $iso_device is not a USB device (likely ISO/CD/VM), skipping persistence setup"
+        log "Persistence is only available when booting from USB devices"
+        return 0
+    fi
+    
+    log "Confirmed USB device, proceeding with persistence setup"
     
     # Check for existing persistence partition
     local persist_dev=$(find_persist_partition)
