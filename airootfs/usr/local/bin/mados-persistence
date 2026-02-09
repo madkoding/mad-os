@@ -1,0 +1,272 @@
+#!/usr/bin/env bash
+# madOS Persistence Manager
+# User-friendly tool to manage persistent storage on live USB
+
+PERSIST_LABEL="MADOS_PERSIST"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+print_header() {
+    echo -e "${BLUE}╔════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║        madOS Persistent Storage Manager               ║${NC}"
+    echo -e "${BLUE}╚════════════════════════════════════════════════════════╝${NC}"
+    echo
+}
+
+print_status() {
+    echo -e "${GREEN}✓${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}✗${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠${NC} $1"
+}
+
+print_info() {
+    echo -e "${BLUE}ℹ${NC} $1"
+}
+
+# Check if running in live environment
+check_live_env() {
+    if [ ! -d /run/archiso ]; then
+        print_error "Not running in madOS live environment"
+        exit 1
+    fi
+}
+
+# Find persistence partition
+find_persist_partition() {
+    lsblk -nlo NAME,LABEL 2>/dev/null | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1
+}
+
+# Get persistence info
+get_persist_info() {
+    local persist_dev=$(find_persist_partition)
+    
+    if [ -n "$persist_dev" ]; then
+        local size=$(lsblk -no SIZE "$persist_dev" 2>/dev/null)
+        local used=$(df -h "$persist_dev" 2>/dev/null | tail -1 | awk '{print $3}')
+        local avail=$(df -h "$persist_dev" 2>/dev/null | tail -1 | awk '{print $4}')
+        local use_pct=$(df -h "$persist_dev" 2>/dev/null | tail -1 | awk '{print $5}')
+        local mount=$(findmnt -n -o TARGET "$persist_dev" 2>/dev/null)
+        
+        echo "DEVICE=$persist_dev"
+        echo "SIZE=$size"
+        echo "USED=$used"
+        echo "AVAILABLE=$avail"
+        echo "USE_PERCENT=$use_pct"
+        echo "MOUNTED=$mount"
+    fi
+}
+
+# Show status
+show_status() {
+    print_header
+    
+    local persist_dev=$(find_persist_partition)
+    
+    if [ -z "$persist_dev" ]; then
+        print_warning "Persistence not configured"
+        echo
+        print_info "Persistence allows you to save changes between reboots"
+        print_info "It creates a partition on your USB drive to store data"
+        echo
+        echo "To enable persistence, run: mados-persistence enable"
+        return
+    fi
+    
+    # Get info
+    eval "$(get_persist_info)"
+    
+    print_status "Persistence is configured"
+    echo
+    echo "  Device:    $DEVICE"
+    echo "  Size:      $SIZE"
+    echo "  Used:      $USED"
+    echo "  Available: $AVAILABLE"
+    echo "  Usage:     $USE_PERCENT"
+    
+    if [ -n "$MOUNTED" ]; then
+        print_status "Mounted at: $MOUNTED"
+    else
+        print_warning "Not currently mounted"
+    fi
+    
+    echo
+}
+
+# Enable persistence
+enable_persistence() {
+    print_header
+    
+    if [ "$(id -u)" -ne 0 ]; then
+        print_error "This command requires root privileges"
+        echo "Please run: sudo mados-persistence enable"
+        exit 1
+    fi
+    
+    local persist_dev=$(find_persist_partition)
+    
+    if [ -n "$persist_dev" ]; then
+        print_warning "Persistence already configured at $persist_dev"
+        return
+    fi
+    
+    print_info "Setting up persistence..."
+    echo
+    print_warning "This will create a new partition using all free space on your USB drive"
+    echo
+    read -p "Continue? (y/N): " -n 1 -r
+    echo
+    
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        print_info "Cancelled"
+        return
+    fi
+    
+    # Run setup script
+    if /usr/local/bin/setup-persistence.sh; then
+        echo
+        print_status "Persistence enabled successfully!"
+        echo
+        print_info "Your changes will now persist across reboots"
+        print_info "View status with: mados-persistence status"
+    else
+        print_error "Failed to enable persistence"
+        print_info "Check /var/log/mados-persistence.log for details"
+    fi
+}
+
+# Disable persistence (unmount only, don't delete)
+disable_persistence() {
+    print_header
+    
+    if [ "$(id -u)" -ne 0 ]; then
+        print_error "This command requires root privileges"
+        echo "Please run: sudo mados-persistence disable"
+        exit 1
+    fi
+    
+    local persist_dev=$(find_persist_partition)
+    
+    if [ -z "$persist_dev" ]; then
+        print_warning "Persistence not configured"
+        return
+    fi
+    
+    local mount=$(findmnt -n -o TARGET "$persist_dev" 2>/dev/null)
+    
+    if [ -n "$mount" ]; then
+        print_info "Unmounting $persist_dev from $mount..."
+        if umount "$mount"; then
+            print_status "Persistence disabled for this session"
+            print_info "It will be re-enabled on next boot"
+            print_info "To permanently remove, use: mados-persistence remove"
+        else
+            print_error "Failed to unmount"
+        fi
+    else
+        print_info "Persistence partition not mounted"
+    fi
+}
+
+# Remove persistence partition
+remove_persistence() {
+    print_header
+    
+    if [ "$(id -u)" -ne 0 ]; then
+        print_error "This command requires root privileges"
+        echo "Please run: sudo mados-persistence remove"
+        exit 1
+    fi
+    
+    local persist_dev=$(find_persist_partition)
+    
+    if [ -z "$persist_dev" ]; then
+        print_warning "Persistence not configured"
+        return
+    fi
+    
+    print_warning "This will PERMANENTLY DELETE the persistence partition!"
+    print_warning "All persistent data will be LOST!"
+    echo
+    print_info "Partition: $persist_dev"
+    echo
+    read -p "Are you sure? Type 'yes' to confirm: " confirm
+    
+    if [ "$confirm" != "yes" ]; then
+        print_info "Cancelled"
+        return
+    fi
+    
+    # Unmount if mounted
+    local mount=$(findmnt -n -o TARGET "$persist_dev" 2>/dev/null)
+    if [ -n "$mount" ]; then
+        umount "$mount" 2>/dev/null || true
+    fi
+    
+    # Get parent device and partition number
+    local parent_dev=$(lsblk -no PKNAME "$persist_dev" 2>/dev/null)
+    local part_num=$(echo "$persist_dev" | grep -o '[0-9]*$')
+    
+    if [ -n "$parent_dev" ] && [ -n "$part_num" ]; then
+        print_info "Removing partition..."
+        if parted -s "/dev/$parent_dev" rm "$part_num" 2>/dev/null; then
+            partprobe "/dev/$parent_dev" 2>/dev/null || true
+            print_status "Persistence partition removed"
+        else
+            print_error "Failed to remove partition"
+        fi
+    else
+        print_error "Could not determine partition details"
+    fi
+}
+
+# Show usage
+show_usage() {
+    print_header
+    echo "Usage: mados-persistence [command]"
+    echo
+    echo "Commands:"
+    echo "  status    - Show persistence status (default)"
+    echo "  enable    - Enable persistence (requires root)"
+    echo "  disable   - Disable persistence for this session (requires root)"
+    echo "  remove    - Permanently remove persistence partition (requires root)"
+    echo "  help      - Show this help message"
+    echo
+}
+
+# Main
+check_live_env
+
+case "${1:-status}" in
+    status)
+        show_status
+        ;;
+    enable)
+        enable_persistence
+        ;;
+    disable)
+        disable_persistence
+        ;;
+    remove)
+        remove_persistence
+        ;;
+    help|--help|-h)
+        show_usage
+        ;;
+    *)
+        print_error "Unknown command: $1"
+        echo
+        show_usage
+        exit 1
+        ;;
+esac

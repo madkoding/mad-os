@@ -1,0 +1,15 @@
+[Unit]
+Description=madOS Persistent Storage Setup
+After=local-fs.target
+Before=multi-user.target
+ConditionPathExists=/run/archiso
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/setup-persistence.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
