@@ -2,6 +2,8 @@
 
 madOS live USB can be configured with persistent storage, allowing you to save changes, install packages, and keep your data across reboots.
 
+**Note**: Persistence is only available when booting from USB devices. When booting from ISO files (e.g., in VMs or from CD/DVD), persistence is automatically disabled to prevent boot issues.
+
 ## Overview
 
 Persistent storage creates a partition on your USB drive that stores:
@@ -41,8 +43,11 @@ This will:
 ## Requirements
 
 - At least 100MB of free space on your USB drive
+- **Booting from a USB device** (not ISO/CD/DVD)
 - Running from live USB environment
 - Root privileges for setup
+
+**Important**: Persistence is not available when booting from ISO files in VMs or from CD/DVD media. The system automatically detects USB devices and only enables persistence for USB boot media.
 
 ## Usage
 
@@ -133,6 +138,26 @@ Advanced users can customize persistence behavior:
 - Label `MADOS_PERSIST` is used to identify the persistence partition
 
 ## Troubleshooting
+
+### Persistence Not Available (ISO/VM Boot)
+
+**Problem**: Persistence not available when booting in VM or from CD/DVD
+
+**Explanation**: Persistence is only supported on USB devices. When you boot from an ISO file (in VirtualBox, QEMU, etc.) or from a CD/DVD, the system automatically detects this and disables persistence to prevent boot issues.
+
+**Solutions**:
+1. Write the ISO to a USB drive using:
+   ```bash
+   sudo dd if=madOS.iso of=/dev/sdX bs=4M conv=fsync oflag=direct status=progress
+   ```
+2. For VMs, use USB passthrough to pass a real USB device to the VM
+3. For testing in VMs without persistence, boot normally - all changes will be stored in RAM
+
+**Check logs** to confirm:
+```bash
+cat /var/log/mados-persistence.log
+```
+You should see: "Device X is not a USB device (likely ISO/CD/VM), skipping persistence setup"
 
 ### Persistence Not Auto-Created
 

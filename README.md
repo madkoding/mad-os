@@ -123,7 +123,9 @@ The system automatically switches to software rendering when legacy hardware is 
 
 ### Using Live USB with Persistence
 
-madOS can save changes on the USB drive for persistent storage:
+madOS can save changes on the USB drive for persistent storage.
+
+**Note**: Persistence is only available when booting from USB devices. When booting from ISO files (e.g., in VMs), persistence is automatically disabled.
 
 1. **Create bootable USB with extra space:**
    ```bash
@@ -147,6 +149,8 @@ madOS can save changes on the USB drive for persistent storage:
    - Installed packages
    - User files and settings
    - System configurations
+
+**For VMs**: Boot from ISO normally - changes will be stored in RAM only. To use persistence in a VM, write the ISO to a physical USB drive and use USB passthrough.
 
 📖 **Full documentation:** [docs/PERSISTENCE.md](docs/PERSISTENCE.md)
 
