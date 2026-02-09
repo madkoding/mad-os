@@ -1,0 +1,114 @@
+#!/bin/bash
+# detect-legacy-hardware - Detecta hardware antiguo que requiere renderizado por software
+# Retorna 0 si se detecta hardware antiguo, 1 si es hardware moderno
+
+# Función para detectar CPUs antiguas
+detect_legacy_cpu() {
+    local cpu_info=$(cat /proc/cpuinfo 2>/dev/null)
+    
+    # Detectar Intel Atom (Bonnell, Saltwell, Silvermont, Airmont, Goldmont, Goldmont Plus)
+    if echo "$cpu_info" | grep -qi "Atom\|Celeron N\|Pentium N"; then
+        return 0
+    fi
+    
+    # Detectar CPUs muy antiguas por familia/modelo
+    local cpu_family=$(grep -m1 "cpu family" /proc/cpuinfo | awk '{print $4}')
+    local model=$(grep -m1 "model\s" /proc/cpuinfo | awk '{print $3}')
+    
+    # Intel Core antiguo (antes de Sandy Bridge - familia 6, modelo < 42)
+    if [ "$cpu_family" = "6" ] && [ "$model" -lt "42" ] 2>/dev/null; then
+        return 0
+    fi
+    
+    # CPUs con frecuencia muy baja (< 1.5 GHz)
+    local max_freq=$(lscpu | grep "CPU max MHz" | awk '{print $NF}')
+    if [ -n "$max_freq" ]; then
+        if awk -v freq="$max_freq" 'BEGIN {exit !(freq < 1500)}'; then
+            return 0
+        fi
+    fi
+    
+    return 1
+}
+
+# Función para detectar GPUs antiguas de Intel
+detect_legacy_intel_gpu() {
+    # Buscar dispositivos Intel Graphics
+    local gpu_info=$(lspci 2>/dev/null | grep -i "VGA\|3D\|Display" | grep -i intel)
+    
+    if [ -z "$gpu_info" ]; then
+        return 1  # No es Intel
+    fi
+    
+    # GPUs antiguas que tienen problemas con aceleración
+    # Gen 1-4: i810, i815, i830, i845, i855, i865, i915, i945
+    # Gen 5-6: GMA 950, GMA 3000, GMA X3000, GMA X3100, GMA X3500
+    if echo "$gpu_info" | grep -qiE "810|815|830|845|855|865|915|945|GMA|Gen[1-6]"; then
+        return 0
+    fi
+    
+    # Atom GPUs integradas (PowerVR-based)
+    if echo "$gpu_info" | grep -qiE "Atom|Poulsbo|US15|GMA 500|GMA 600|GMA 3600|GMA 3650"; then
+        return 0
+    fi
+    
+    return 1
+}
+
+# Función para detectar sistemas con RAM muy baja
+detect_low_ram() {
+    local total_ram_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    local total_ram_mb=$((total_ram_kb / 1024))
+    
+    # Menos de 2GB de RAM
+    if [ "$total_ram_mb" -lt 2048 ]; then
+        return 0
+    fi
+    
+    return 1
+}
+
+# Detección principal
+main() {
+    local legacy_reason=""
+    
+    # Detectar máquina virtual (ya existe en el código actual)
+    if systemd-detect-virt --vm --quiet 2>/dev/null; then
+        echo "VM detected"
+        return 0
+    fi
+    
+    # Detectar nomodeset (safe graphics mode)
+    if grep -q 'nomodeset' /proc/cmdline 2>/dev/null; then
+        echo "nomodeset detected"
+        return 0
+    fi
+    
+    # Detectar CPU antigua
+    if detect_legacy_cpu; then
+        legacy_reason="${legacy_reason}Legacy CPU;"
+    fi
+    
+    # Detectar GPU Intel antigua
+    if detect_legacy_intel_gpu; then
+        legacy_reason="${legacy_reason}Legacy Intel GPU;"
+    fi
+    
+    # Detectar RAM baja
+    if detect_low_ram; then
+        legacy_reason="${legacy_reason}Low RAM;"
+    fi
+    
+    # Si se detectó alguna razón, retornar hardware antiguo
+    if [ -n "$legacy_reason" ]; then
+        echo "Legacy hardware detected: $legacy_reason"
+        return 0
+    fi
+    
+    # Hardware moderno
+    echo "Modern hardware detected"
+    return 1
+}
+
+# Ejecutar detección
+main "$@"

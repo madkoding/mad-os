@@ -74,6 +74,18 @@ madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB),
 - **NVIDIA** - xf86-video-nouveau (open source driver)
 - **Mesa** - OpenGL/Vulkan implementation for all GPUs
 
+### Adaptive Rendering
+madOS automatically detects hardware capabilities and optimizes rendering:
+- **Modern hardware** - Hardware-accelerated OpenGL/Vulkan rendering
+- **Legacy hardware** - Software rendering (pixman) for:
+  - Old CPUs (Intel Atom, Celeron N, Pentium N, pre-Sandy Bridge)
+  - Legacy Intel GPUs (Gen 1-6, GMA series, Atom integrated graphics)
+  - Systems with <2GB RAM
+  - Virtual machines
+  - Safe graphics mode (`nomodeset` kernel parameter)
+
+The system automatically switches to software rendering when legacy hardware is detected, ensuring compatibility and stability on older systems while maximizing performance on modern hardware.
+
 ## Quick Start
 
 ### Installation
@@ -286,6 +298,9 @@ sudo pacman -Rns $(pacman -Qtdq)
 | High RAM usage | Check `htop`, disable unused services |
 | Slow compositor | Consider i3 or dwm instead of Sway |
 | ZRAM issues | `systemctl status systemd-zram-setup@zram0` |
+| Graphical glitches | Force software rendering: `WLR_RENDERER=pixman sway` |
+| Sway crashes on start | Check if legacy hardware detected: `/usr/local/bin/detect-legacy-hardware` |
+| Poor performance on old GPU | Software rendering is auto-enabled, verify with `echo $WLR_RENDERER` |
 
 ## Resources
 
