@@ -46,4 +46,5 @@ file_permissions=(
   ["/usr/local/lib/mados_pdf_viewer/"]="0:0:755"
   ["/usr/local/lib/mados_wifi/"]="0:0:755"
   ["/usr/local/lib/mados_equalizer/"]="0:0:755"
+  ["/usr/local/bin/mados-debug"]="0:0:755"
 )

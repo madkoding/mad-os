@@ -1,3 +1,4 @@
 #!/bin/bash
 # madOS PDF Viewer - Launcher script
+export PYTHONPATH="/usr/local/lib${PYTHONPATH:+:$PYTHONPATH}"
 exec python3 -m mados_pdf_viewer "$@"

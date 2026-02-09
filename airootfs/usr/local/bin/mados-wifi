@@ -1,3 +1,4 @@
 #!/bin/bash
 # madOS WiFi Configuration - Launcher script
+export PYTHONPATH="/usr/local/lib${PYTHONPATH:+:$PYTHONPATH}"
 exec python3 -m mados_wifi "$@"

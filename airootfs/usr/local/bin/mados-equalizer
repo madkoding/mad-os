@@ -1,3 +1,4 @@
 #!/bin/bash
 # madOS Audio Equalizer - Launcher script
+export PYTHONPATH="/usr/local/lib${PYTHONPATH:+:$PYTHONPATH}"
 exec python3 -m mados_equalizer "$@"
