@@ -90,7 +90,10 @@ open-vm-tools
 # Audio
 pipewire
 pipewire-pulse
+pipewire-alsa
 wireplumber
+alsa-utils
+pavucontrol
 
 # Fuentes y temas
 ttf-jetbrains-mono-nerd
