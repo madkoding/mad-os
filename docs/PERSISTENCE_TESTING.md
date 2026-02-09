@@ -17,8 +17,11 @@ This guide describes how to test the persistent storage feature in madOS.
 git clone https://github.com/madkoding/mad-os
 cd mad-os
 
-# Checkout the persistence branch
+# Checkout the persistence branch (if not merged to main yet)
 git checkout copilot/add-persistent-memory-space
+
+# Or if merged to main:
+# git checkout main
 
 # Build ISO (requires Arch Linux)
 sudo mkarchiso -v -w work/ -o out/ .
