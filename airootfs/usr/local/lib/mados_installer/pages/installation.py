@@ -646,6 +646,9 @@ systemctl enable systemd-resolved
 systemctl enable earlyoom
 systemctl enable systemd-timesyncd
 
+# Enable PipeWire audio for all user sessions (socket-activated)
+systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service
+
 # --- Non-critical section: errors below should not abort installation ---
 set +e
 
