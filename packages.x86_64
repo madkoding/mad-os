@@ -4,6 +4,7 @@ linux
 linux-firmware
 mkinitcpio-archiso
 intel-ucode
+amd-ucode
 grub
 efibootmgr
 os-prober
@@ -62,10 +63,14 @@ brightnessctl
 earlyoom
 zram-generator
 
-# Drivers de video (Intel - hardware objetivo)
+# Drivers de video (multi-GPU)
 intel-media-driver
 vulkan-intel
 libva-intel-driver
+xf86-video-amdgpu
+vulkan-radeon
+libva-mesa-driver
+xf86-video-nouveau
 mesa
 mesa-utils
 
@@ -93,6 +98,11 @@ wpa_supplicant
 # Sistema de archivos
 dosfstools
 e2fsprogs
+ntfs-3g
+
+# Soporte VM
+virtualbox-guest-utils
+open-vm-tools
 
 # madOS Native Apps Dependencies
 # madOS Photo Viewer - image viewing and video playback
