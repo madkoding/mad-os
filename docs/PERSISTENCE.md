@@ -157,7 +157,7 @@ Advanced users can customize persistence behavior:
 ```bash
 cat /var/log/mados-persistence.log
 ```
-You should see: "Device X is not a USB device (likely ISO/CD/VM), skipping persistence setup"
+You should see: "Device /dev/sdX is not a USB device (likely ISO/CD/VM), skipping persistence setup"
 
 ### Persistence Not Auto-Created
 
