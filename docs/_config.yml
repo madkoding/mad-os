@@ -4,6 +4,7 @@ exclude:
   - Gemfile
   - Gemfile.lock
   - .gitignore
+  - INSTRUCTIONS.md
 
 # Configuración básica
 theme: null
@@ -21,13 +22,30 @@ lsi: false
 
 # Configuración del sitio
 title: "madOS - AI-Orchestrated Arch Linux"
-description: "Una distribución Arch Linux optimizada para sistemas con poca RAM, con Claude Code integrado"
+description: "madOS: Arch Linux distribution optimized for low-RAM systems (1.9GB) with Claude Code integrated for intelligent system orchestration."
 baseurl: "/mad-os"
 url: "https://madkoding.github.io"
+lang: "es"
+logo: "/mad-os/mados-logo.png"
+image: "/mad-os/og-image.png"
+
+# Social / author
+author:
+  name: "madkoding"
+  url: "https://github.com/madkoding"
+
+github:
+  repository_url: "https://github.com/madkoding/mad-os"
 
 # No procesar archivos estáticos
 include:
   - index.html
   - styles.css
   - script.js
-  - README.md
+  - translations.js
+  - robots.txt
+  - sitemap.xml
+  - og-image.png
+  - favicon.svg
+  - mados-logo.png
+  - mad-os-wallpaper.jpg
