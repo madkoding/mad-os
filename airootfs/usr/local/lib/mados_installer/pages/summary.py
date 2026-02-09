@@ -5,7 +5,9 @@ madOS Installer - Installation summary page
 from gi.repository import Gtk
 
 from ..config import (
-    NORD_FROST, NORD_AURORA, NORD_SNOW_STORM
+    NORD_FROST, NORD_AURORA, NORD_SNOW_STORM,
+    OPTIONAL_DEV_LANGUAGES, OPTIONAL_SERVERS,
+    OPTIONAL_CONTAINERS, OPTIONAL_EDITORS, OPTIONAL_AI_TOOLS
 )
 from .base import create_page_header, create_nav_buttons
 
@@ -24,7 +26,7 @@ def create_summary_page(app):
     content.set_margin_bottom(14)
 
     # Page header
-    header = create_page_header(app, app.t('summary'), 6)
+    header = create_page_header(app, app.t('summary'), 8)
     content.pack_start(header, False, False, 0)
 
     # Summary container (filled by update_summary)
@@ -160,4 +162,80 @@ def update_summary(app):
     sw_card.pack_start(sw_info, False, False, 0)
     app.summary_container.pack_start(sw_card, False, False, 0)
 
+    # ── Environment & AI row ──
+    env_ai_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+
+    # Environment card
+    env_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+    env_card.get_style_context().add_class('summary-card-system')
+
+    env_title = Gtk.Label()
+    env_title.set_markup(
+        f'<span weight="bold" foreground="{NORD_FROST["nord8"]}">'
+        f'{app.t("selected_env").rstrip(":")}</span>'
+    )
+    env_title.set_halign(Gtk.Align.START)
+    env_card.pack_start(env_title, False, False, 0)
+
+    env_names = _get_selected_names(app.install_data.get('selected_env', []))
+    env_text = ', '.join(env_names) if env_names else app.t('none_selected')
+    env_info = Gtk.Label()
+    env_info.set_markup(f'<span size="9000">  {env_text}</span>')
+    env_info.set_halign(Gtk.Align.START)
+    env_info.set_line_wrap(True)
+    env_info.set_max_width_chars(40)
+    env_card.pack_start(env_info, False, False, 0)
+    env_ai_row.pack_start(env_card, True, True, 0)
+
+    # AI tools card
+    ai_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+    ai_card.get_style_context().add_class('summary-card-account')
+
+    ai_title = Gtk.Label()
+    ai_title.set_markup(
+        f'<span weight="bold" foreground="{NORD_AURORA["nord15"]}">'
+        f'{app.t("selected_ai").rstrip(":")}</span>'
+    )
+    ai_title.set_halign(Gtk.Align.START)
+    ai_card.pack_start(ai_title, False, False, 0)
+
+    ai_names = _get_selected_ai_names(app.install_data.get('selected_ai', []))
+    ai_text = ', '.join(ai_names) if ai_names else app.t('none_selected')
+    ai_info = Gtk.Label()
+    ai_info.set_markup(f'<span size="9000">  {ai_text}</span>')
+    ai_info.set_halign(Gtk.Align.START)
+    ai_info.set_line_wrap(True)
+    ai_info.set_max_width_chars(40)
+    ai_card.pack_start(ai_info, False, False, 0)
+    env_ai_row.pack_start(ai_card, True, True, 0)
+
+    app.summary_container.pack_start(env_ai_row, False, False, 0)
+
     app.summary_container.show_all()
+
+
+def _get_selected_names(selected_keys):
+    """Resolve selected env keys to display names"""
+    all_items = (
+        [('lang', item) for item in OPTIONAL_DEV_LANGUAGES] +
+        [('srv', item) for item in OPTIONAL_SERVERS] +
+        [('cnt', item) for item in OPTIONAL_CONTAINERS] +
+        [('edt', item) for item in OPTIONAL_EDITORS]
+    )
+    lookup = {f"{prefix}_{item['key']}": item['name'] for prefix, item in all_items}
+    return [lookup[k] for k in selected_keys if k in lookup and not _is_included(k, all_items)]
+
+
+def _get_selected_ai_names(selected_keys):
+    """Resolve selected AI tool keys to display names"""
+    lookup = {f"ai_{item['key']}": item['name'] for item in OPTIONAL_AI_TOOLS}
+    included = {f"ai_{item['key']}" for item in OPTIONAL_AI_TOOLS if item.get('included')}
+    return [lookup[k] for k in selected_keys if k in lookup and k not in included]
+
+
+def _is_included(key, all_items):
+    """Check if an item is already included in base"""
+    for prefix, item in all_items:
+        if f"{prefix}_{item['key']}" == key and item.get('included'):
+            return True
+    return False

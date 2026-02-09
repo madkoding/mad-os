@@ -8,6 +8,8 @@ from .disk import create_disk_page
 from .partitioning import create_partitioning_page
 from .user import create_user_page
 from .locale import create_locale_page
+from .environment import create_environment_page
+from .ai_tools import create_ai_tools_page
 from .summary import create_summary_page
 from .installation import create_installation_page
 from .completion import create_completion_page
@@ -19,6 +21,8 @@ __all__ = [
     'create_partitioning_page',
     'create_user_page',
     'create_locale_page',
+    'create_environment_page',
+    'create_ai_tools_page',
     'create_summary_page',
     'create_installation_page',
     'create_completion_page',

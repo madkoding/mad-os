@@ -9,7 +9,7 @@ from ..config import (
 )
 
 
-def create_page_header(app, title, step_num, total_steps=7):
+def create_page_header(app, title, step_num, total_steps=9):
     """Create consistent page header with step indicator dots"""
     header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
     header.get_style_context().add_class('page-header')

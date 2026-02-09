@@ -91,3 +91,71 @@ LOCALE_KB_MAP = {
     'zh_CN.UTF-8': 'us',
     'ja_JP.UTF-8': 'jp',
 }
+
+# ── Optional software definitions ────────────────────────────────────────────
+# Each item: key, display name, short description, pacman packages,
+# post-install shell commands (run in chroot), systemd services to enable,
+# whether it's already included in the base install.
+
+OPTIONAL_DEV_LANGUAGES = [
+    {'key': 'nodejs', 'name': 'Node.js', 'desc': 'JavaScript/TypeScript runtime (included)',
+     'packages': [], 'post_install': [], 'services': [], 'included': True},
+    {'key': 'php', 'name': 'PHP', 'desc': 'PHP 8.x + Composer',
+     'packages': ['php', 'composer'], 'post_install': [], 'services': [], 'included': False},
+    {'key': 'elixir', 'name': 'Elixir', 'desc': 'Functional language on Erlang VM',
+     'packages': ['elixir'], 'post_install': [], 'services': [], 'included': False},
+    {'key': 'java', 'name': 'Java (OpenJDK)', 'desc': 'JDK + Maven',
+     'packages': ['jdk-openjdk', 'maven'], 'post_install': [], 'services': [], 'included': False},
+    {'key': 'c_cpp', 'name': 'C / C++', 'desc': 'GCC, Clang, CMake, GDB',
+     'packages': ['gcc', 'cmake', 'gdb', 'clang'], 'post_install': [], 'services': [], 'included': False},
+    {'key': 'csharp', 'name': 'C# / .NET', 'desc': '.NET SDK',
+     'packages': ['dotnet-sdk'], 'post_install': [], 'services': [], 'included': False},
+]
+
+OPTIONAL_SERVERS = [
+    {'key': 'apache', 'name': 'Apache', 'desc': 'Apache HTTP Server',
+     'packages': ['apache'], 'post_install': [], 'services': [], 'included': False},
+    {'key': 'nginx', 'name': 'Nginx', 'desc': 'High-performance web server',
+     'packages': ['nginx'], 'post_install': [], 'services': [], 'included': False},
+    {'key': 'postgresql', 'name': 'PostgreSQL', 'desc': 'Advanced relational database',
+     'packages': ['postgresql'], 'post_install': [], 'services': ['postgresql'], 'included': False},
+    {'key': 'mariadb', 'name': 'MariaDB', 'desc': 'MySQL-compatible database',
+     'packages': ['mariadb'], 'post_install': ['mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql || true'],
+     'services': ['mariadb'], 'included': False},
+    {'key': 'redis', 'name': 'Redis', 'desc': 'In-memory key-value store',
+     'packages': ['redis'], 'post_install': [], 'services': ['redis'], 'included': False},
+]
+
+OPTIONAL_CONTAINERS = [
+    {'key': 'docker', 'name': 'Docker', 'desc': 'Container runtime + Compose',
+     'packages': ['docker', 'docker-compose', 'docker-buildx'], 'post_install': [],
+     'services': ['docker'], 'included': False},
+    {'key': 'kubernetes', 'name': 'Kubernetes', 'desc': 'kubectl CLI tool',
+     'packages': ['kubectl'], 'post_install': [], 'services': [], 'included': False},
+]
+
+OPTIONAL_EDITORS = [
+    {'key': 'vscode', 'name': 'VS Code', 'desc': 'Visual Studio Code (included)',
+     'packages': [], 'post_install': [], 'services': [], 'included': True},
+    {'key': 'neovim', 'name': 'Neovim', 'desc': 'Hyperextensible Vim-based editor',
+     'packages': ['neovim'], 'post_install': [], 'services': [], 'included': False},
+    {'key': 'emacs', 'name': 'Emacs', 'desc': 'Extensible text editor',
+     'packages': ['emacs-nox'], 'post_install': [], 'services': [], 'included': False},
+]
+
+OPTIONAL_AI_TOOLS = [
+    {'key': 'claude_code', 'name': 'Claude Code', 'desc': 'AI assistant by Anthropic (included)',
+     'packages': [], 'post_install': [], 'services': [], 'included': True},
+    {'key': 'ollama', 'name': 'Ollama', 'desc': 'Run LLMs locally (Llama, Mistral, etc.)',
+     'packages': [], 'post_install': ['curl -fsSL https://ollama.ai/install.sh | sh || true'],
+     'services': ['ollama'], 'included': False},
+    {'key': 'opencode', 'name': 'OpenCode', 'desc': 'Open-source AI coding assistant',
+     'packages': [], 'post_install': ['npm install -g opencode || true'],
+     'services': [], 'included': False},
+    {'key': 'openclaw', 'name': 'OpenClaw', 'desc': 'AI-powered code analysis tool',
+     'packages': ['python-pip'], 'post_install': ['pip install openclaw || true'],
+     'services': [], 'included': False},
+    {'key': 'aider', 'name': 'Aider', 'desc': 'AI pair programming in terminal',
+     'packages': ['python-pip'], 'post_install': ['pip install aider-chat || true'],
+     'services': [], 'included': False},
+]

@@ -98,9 +98,6 @@ def create_locale_page(app):
 
 
 def _on_locale_next(app):
-    """Save locale data and advance to summary"""
+    """Save locale data and advance to environment selection"""
     app.install_data['timezone'] = app.timezone_combo.get_active_text()
-    # Trigger summary update before showing the page
-    from .summary import update_summary
-    update_summary(app)
     app.notebook.next_page()

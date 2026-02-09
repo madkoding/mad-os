@@ -20,6 +20,8 @@ from .pages import (
     create_partitioning_page,
     create_user_page,
     create_locale_page,
+    create_environment_page,
+    create_ai_tools_page,
     create_summary_page,
     create_installation_page,
     create_completion_page,
@@ -57,7 +59,9 @@ class MadOSInstaller(Gtk.Window):
             'password': '',
             'hostname': 'mados-' + random_suffix(),
             'timezone': 'UTC',
-            'locale': 'en_US.UTF-8'
+            'locale': 'en_US.UTF-8',
+            'selected_env': [],
+            'selected_ai': [],
         }
 
         # Create notebook (page container)
@@ -122,6 +126,8 @@ class MadOSInstaller(Gtk.Window):
         create_partitioning_page(self)
         create_user_page(self)
         create_locale_page(self)
+        create_environment_page(self)
+        create_ai_tools_page(self)
         create_summary_page(self)
         create_installation_page(self)
         create_completion_page(self)

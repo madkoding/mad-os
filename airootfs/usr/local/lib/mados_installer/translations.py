@@ -73,6 +73,21 @@ TRANSLATIONS = {
         'wifi_connected': 'Connected to',
         'wifi_failed': 'Connection failed. Check password and try again.',
         'wifi_enter_password': 'Please enter the WiFi password.',
+        # Environment selection page
+        'dev_environment': 'Development Environment',
+        'dev_languages': 'Programming Languages',
+        'dev_servers': 'Servers & Databases',
+        'dev_containers': 'Containers & Orchestration',
+        'dev_editors': 'Editors & IDEs',
+        'select_dev_desc': 'Choose development tools, servers, and editors to install',
+        'included_base': 'included',
+        # AI tools page
+        'ai_tools_title': 'AI Tools',
+        'select_ai_desc': 'Choose AI and machine learning tools to install',
+        # Summary extras
+        'selected_env': 'Development Environment:',
+        'selected_ai': 'AI Tools:',
+        'none_selected': 'None selected',
     },
     'Español': {
         'title': 'madOS',
@@ -144,6 +159,21 @@ TRANSLATIONS = {
         'wifi_connected': 'Conectado a',
         'wifi_failed': 'Conexión fallida. Verifica la contraseña e intenta de nuevo.',
         'wifi_enter_password': 'Por favor ingresa la contraseña WiFi.',
+        # Environment selection page
+        'dev_environment': 'Entorno de Desarrollo',
+        'dev_languages': 'Lenguajes de Programación',
+        'dev_servers': 'Servidores y Bases de Datos',
+        'dev_containers': 'Contenedores y Orquestación',
+        'dev_editors': 'Editores e IDEs',
+        'select_dev_desc': 'Elige herramientas de desarrollo, servidores y editores',
+        'included_base': 'incluido',
+        # AI tools page
+        'ai_tools_title': 'Herramientas de IA',
+        'select_ai_desc': 'Elige herramientas de IA y aprendizaje automático',
+        # Summary extras
+        'selected_env': 'Entorno de Desarrollo:',
+        'selected_ai': 'Herramientas de IA:',
+        'none_selected': 'Ninguno seleccionado',
     },
     'Français': {
         'title': 'madOS',
@@ -215,6 +245,21 @@ TRANSLATIONS = {
         'wifi_connected': 'Connecté à',
         'wifi_failed': 'Connexion échouée. Vérifiez le mot de passe et réessayez.',
         'wifi_enter_password': 'Veuillez entrer le mot de passe WiFi.',
+        # Environment selection page
+        'dev_environment': 'Environnement de Développement',
+        'dev_languages': 'Langages de Programmation',
+        'dev_servers': 'Serveurs et Bases de Données',
+        'dev_containers': 'Conteneurs et Orchestration',
+        'dev_editors': 'Éditeurs et IDEs',
+        'select_dev_desc': 'Choisissez les outils de développement, serveurs et éditeurs',
+        'included_base': 'inclus',
+        # AI tools page
+        'ai_tools_title': 'Outils IA',
+        'select_ai_desc': "Choisissez les outils d'IA et d'apprentissage automatique",
+        # Summary extras
+        'selected_env': 'Environnement de Développement:',
+        'selected_ai': 'Outils IA:',
+        'none_selected': 'Aucun sélectionné',
     },
     'Deutsch': {
         'title': 'madOS',
@@ -286,6 +331,21 @@ TRANSLATIONS = {
         'wifi_connected': 'Verbunden mit',
         'wifi_failed': 'Verbindung fehlgeschlagen. Passwort prüfen und erneut versuchen.',
         'wifi_enter_password': 'Bitte WLAN-Passwort eingeben.',
+        # Environment selection page
+        'dev_environment': 'Entwicklungsumgebung',
+        'dev_languages': 'Programmiersprachen',
+        'dev_servers': 'Server & Datenbanken',
+        'dev_containers': 'Container & Orchestrierung',
+        'dev_editors': 'Editoren & IDEs',
+        'select_dev_desc': 'Wählen Sie Entwicklungstools, Server und Editoren',
+        'included_base': 'enthalten',
+        # AI tools page
+        'ai_tools_title': 'KI-Werkzeuge',
+        'select_ai_desc': 'Wählen Sie KI- und Machine-Learning-Werkzeuge',
+        # Summary extras
+        'selected_env': 'Entwicklungsumgebung:',
+        'selected_ai': 'KI-Werkzeuge:',
+        'none_selected': 'Keine ausgewählt',
     },
     '中文': {
         'title': 'madOS',
@@ -357,6 +417,21 @@ TRANSLATIONS = {
         'wifi_connected': '已连接到',
         'wifi_failed': '连接失败。请检查密码后重试。',
         'wifi_enter_password': '请输入WiFi密码。',
+        # Environment selection page
+        'dev_environment': '开发环境',
+        'dev_languages': '编程语言',
+        'dev_servers': '服务器和数据库',
+        'dev_containers': '容器和编排',
+        'dev_editors': '编辑器和IDE',
+        'select_dev_desc': '选择要安装的开发工具、服务器和编辑器',
+        'included_base': '已包含',
+        # AI tools page
+        'ai_tools_title': 'AI 工具',
+        'select_ai_desc': '选择要安装的AI和机器学习工具',
+        # Summary extras
+        'selected_env': '开发环境:',
+        'selected_ai': 'AI 工具:',
+        'none_selected': '未选择',
     },
     '日本語': {
         'title': 'madOS',
@@ -428,5 +503,20 @@ TRANSLATIONS = {
         'wifi_connected': '接続完了',
         'wifi_failed': '接続失敗。パスワードを確認して再試行してください。',
         'wifi_enter_password': 'WiFiパスワードを入力してください。',
+        # Environment selection page
+        'dev_environment': '開発環境',
+        'dev_languages': 'プログラミング言語',
+        'dev_servers': 'サーバーとデータベース',
+        'dev_containers': 'コンテナとオーケストレーション',
+        'dev_editors': 'エディタとIDE',
+        'select_dev_desc': '開発ツール、サーバー、エディタを選択',
+        'included_base': '含まれています',
+        # AI tools page
+        'ai_tools_title': 'AIツール',
+        'select_ai_desc': 'AIと機械学習ツールを選択',
+        # Summary extras
+        'selected_env': '開発環境:',
+        'selected_ai': 'AIツール:',
+        'none_selected': '未選択',
     }
 }

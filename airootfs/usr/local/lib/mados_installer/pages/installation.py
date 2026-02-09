@@ -10,7 +10,11 @@ import threading
 
 from gi.repository import Gtk, GLib
 
-from ..config import DEMO_MODE, PACKAGES, NORD_FROST, LOCALE_KB_MAP
+from ..config import (
+    DEMO_MODE, PACKAGES, NORD_FROST, LOCALE_KB_MAP,
+    OPTIONAL_DEV_LANGUAGES, OPTIONAL_SERVERS,
+    OPTIONAL_CONTAINERS, OPTIONAL_EDITORS, OPTIONAL_AI_TOOLS
+)
 from ..utils import log_message, set_progress, show_error
 
 
@@ -241,6 +245,12 @@ def _run_installation(app):
             packages.append('noto-fonts-cjk')
             log_message(app, "Adding CJK fonts for selected locale...")
 
+        # Add optional packages from environment and AI tool selections
+        extra_pkgs = _collect_optional_packages(data)
+        if extra_pkgs:
+            packages.extend(extra_pkgs)
+            log_message(app, f"Adding {len(extra_pkgs)} optional packages...")
+
         if DEMO_MODE:
             log_message(app, "[DEMO] Simulating pacstrap with packages:")
             for i, pkg in enumerate(packages):
@@ -317,7 +327,19 @@ def _run_installation(app):
             log_message(app, "[DEMO]   - Setting up autologin...")
             time.sleep(0.5)
             log_message(app, "[DEMO]   - Installing Claude Code...")
-            time.sleep(1)
+            time.sleep(0.5)
+            # Demo optional software
+            post_cmds = _collect_post_install_commands(data)
+            services = _collect_services_to_enable(data)
+            if post_cmds or services:
+                log_message(app, "[DEMO]   - Installing optional software...")
+                for cmd in post_cmds:
+                    log_message(app, f"[DEMO]     {cmd}")
+                    time.sleep(0.3)
+                for svc in services:
+                    log_message(app, f"[DEMO]     systemctl enable {svc}")
+                    time.sleep(0.2)
+            time.sleep(0.5)
         else:
             subprocess.run(['arch-chroot', '/mnt', '/root/configure.sh'], check=True)
 
@@ -426,6 +448,106 @@ def _run_pacstrap_with_progress(app, packages):
 
     set_progress(app, progress_end, "Base system installed")
     log_message(app, f"Base system installed ({installed_count} packages)")
+
+
+def _collect_optional_packages(data):
+    """Collect pacman packages from environment and AI tool selections"""
+    all_items = (
+        [('lang', item) for item in OPTIONAL_DEV_LANGUAGES] +
+        [('srv', item) for item in OPTIONAL_SERVERS] +
+        [('cnt', item) for item in OPTIONAL_CONTAINERS] +
+        [('edt', item) for item in OPTIONAL_EDITORS]
+    )
+    ai_items = [('ai', item) for item in OPTIONAL_AI_TOOLS]
+
+    selected_env = set(data.get('selected_env', []))
+    selected_ai = set(data.get('selected_ai', []))
+
+    packages = []
+    seen = set()
+    for prefix, item in all_items:
+        key = f"{prefix}_{item['key']}"
+        if key in selected_env and not item.get('included'):
+            for pkg in item.get('packages', []):
+                if pkg not in seen:
+                    packages.append(pkg)
+                    seen.add(pkg)
+    for prefix, item in ai_items:
+        key = f"{prefix}_{item['key']}"
+        if key in selected_ai and not item.get('included'):
+            for pkg in item.get('packages', []):
+                if pkg not in seen:
+                    packages.append(pkg)
+                    seen.add(pkg)
+    return packages
+
+
+def _collect_post_install_commands(data):
+    """Collect post-install shell commands from selections"""
+    all_items = (
+        [('lang', item) for item in OPTIONAL_DEV_LANGUAGES] +
+        [('srv', item) for item in OPTIONAL_SERVERS] +
+        [('cnt', item) for item in OPTIONAL_CONTAINERS] +
+        [('edt', item) for item in OPTIONAL_EDITORS]
+    )
+    ai_items = [('ai', item) for item in OPTIONAL_AI_TOOLS]
+
+    selected_env = set(data.get('selected_env', []))
+    selected_ai = set(data.get('selected_ai', []))
+
+    commands = []
+    for prefix, item in all_items + ai_items:
+        key = f"{prefix}_{item['key']}"
+        selected = selected_env if prefix != 'ai' else selected_ai
+        if key in selected and not item.get('included'):
+            commands.extend(item.get('post_install', []))
+    return commands
+
+
+def _collect_services_to_enable(data):
+    """Collect systemd services to enable from selections"""
+    all_items = (
+        [('lang', item) for item in OPTIONAL_DEV_LANGUAGES] +
+        [('srv', item) for item in OPTIONAL_SERVERS] +
+        [('cnt', item) for item in OPTIONAL_CONTAINERS] +
+        [('edt', item) for item in OPTIONAL_EDITORS]
+    )
+    ai_items = [('ai', item) for item in OPTIONAL_AI_TOOLS]
+
+    selected_env = set(data.get('selected_env', []))
+    selected_ai = set(data.get('selected_ai', []))
+
+    services = []
+    for prefix, item in all_items + ai_items:
+        key = f"{prefix}_{item['key']}"
+        selected = selected_env if prefix != 'ai' else selected_ai
+        if key in selected and not item.get('included'):
+            services.extend(item.get('services', []))
+    return services
+
+
+def _build_optional_software_section(data):
+    """Build shell script section for optional software post-install and services"""
+    lines = []
+    post_cmds = _collect_post_install_commands(data)
+    services = _collect_services_to_enable(data)
+
+    if post_cmds:
+        lines.append('echo "Installing optional software..."')
+        for cmd in post_cmds:
+            lines.append(cmd)
+
+    if services:
+        lines.append('echo "Enabling optional services..."')
+        for svc in services:
+            lines.append(f'systemctl enable {svc} || true')
+
+    # Add user to docker group if docker was selected
+    selected_env = set(data.get('selected_env', []))
+    if 'cnt_docker' in selected_env:
+        lines.append(f'usermod -aG docker {data["username"]}')
+
+    return '\n'.join(lines) if lines else '# No optional software selected'
 
 
 def _build_config_script(data):
@@ -746,4 +868,7 @@ TimeoutStartSec=300
 WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-claude-code.service
+
+# --- Optional software (user-selected) ---
+{_build_optional_software_section(data)}
 '''
