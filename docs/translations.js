@@ -1,4 +1,20 @@
 // Multilanguage translations for madOS website
+
+// Extract version from ISO URL dynamically
+function extractVersionFromURL() {
+    const downloadLink = document.querySelector('a[href*="archive.org"]');
+    if (downloadLink) {
+        const url = downloadLink.getAttribute('href');
+        // Extract version from URL like: https://archive.org/download/mados-0.6.1/...
+        // Using more precise regex to match valid version numbers (e.g., 1.2.3, 0.6.1)
+        const match = url.match(/mados-(\d+(?:\.\d+)*)\//);
+        if (match && match[1]) {
+            return match[1];
+        }
+    }
+    return '0.6.1'; // Fallback version
+}
+
 const translations = {
     es: {
         // Navigation
@@ -77,7 +93,7 @@ const translations = {
         'download.build.desc': 'Construye la ISO en tu sistema Arch Linux',
         'download.iso.title': 'Descargar ISO',
         'download.iso.desc': 'Obtén la última versión oficial',
-        'download.iso.button': 'Descargar desde Internet Archive',
+        'download.iso.button': 'Descargar madOS v{version}',
         'download.iso.checksums': 'Ver checksums en GitHub',
         'download.steps.title': 'Pasos de Instalación',
         'download.step1.title': 'Crear USB Booteable',
@@ -207,7 +223,7 @@ const translations = {
         'download.build.desc': 'Build the ISO on your Arch Linux system',
         'download.iso.title': 'Download ISO',
         'download.iso.desc': 'Get the latest official release',
-        'download.iso.button': 'Download from Internet Archive',
+        'download.iso.button': 'Download madOS v{version}',
         'download.iso.checksums': 'View checksums on GitHub',
         'download.steps.title': 'Installation Steps',
         'download.step1.title': 'Create Bootable USB',
@@ -304,16 +320,27 @@ const i18n = {
         });
     },
     
-    // Get translation
-    t(key) {
-        return translations[this.currentLang][key] || translations[this.defaultLang][key] || key;
+    // Get translation with variable replacement
+    t(key, vars = {}) {
+        let translation = translations[this.currentLang][key] || translations[this.defaultLang][key] || key;
+        
+        // Replace all instances of variables in the translation
+        Object.keys(vars).forEach(varKey => {
+            const regex = new RegExp(`\\{${varKey}\\}`, 'g');
+            translation = translation.replace(regex, vars[varKey]);
+        });
+        
+        return translation;
     },
     
     // Apply all translations
     applyTranslations() {
+        // Get version for dynamic replacement
+        const version = extractVersionFromURL();
+        
         document.querySelectorAll('[data-i18n]').forEach(element => {
             const key = element.getAttribute('data-i18n');
-            const translation = this.t(key);
+            const translation = this.t(key, { version });
             
             if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
                 element.placeholder = translation;
@@ -325,7 +352,7 @@ const i18n = {
         // Handle elements with HTML content
         document.querySelectorAll('[data-i18n-html]').forEach(element => {
             const key = element.getAttribute('data-i18n-html');
-            element.innerHTML = this.t(key);
+            element.innerHTML = this.t(key, { version });
         });
     },
     
