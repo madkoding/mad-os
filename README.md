@@ -54,6 +54,13 @@ madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB),
 - **madOS PDF Viewer** (`mados-pdf-viewer`) - PDF viewer with annotations and digital signatures
 - **madOS Photo Viewer** (`mados-photo-viewer`) - Photo viewer/editor with video playback
 - **madOS WiFi** (`mados-wifi`) - NetworkManager-based WiFi configuration tool
+- **madOS Persistence** (`mados-persistence`) - Persistent storage manager for live USB
+
+### Persistent Storage
+- **Dynamic Persistence** - Automatically uses free USB space for persistent storage
+- **Auto-Configuration** - Persistence partition created on first boot if space available
+- **User-Friendly Management** - Simple CLI tool to enable, disable, and monitor persistence
+- **Full Data Persistence** - Saves packages, files, and configurations across reboots
 
 ### Developer Tools
 - **Claude Code** - AI assistant (`claude` command)
@@ -113,6 +120,35 @@ The system automatically switches to software rendering when legacy hardware is 
    - Review and confirm settings
 
 5. **Reboot** into your new madOS system
+
+### Using Live USB with Persistence
+
+madOS can save changes on the USB drive for persistent storage:
+
+1. **Create bootable USB with extra space:**
+   ```bash
+   # Use dd to write ISO, leaving free space on USB
+   sudo dd if=madOS-*.iso of=/dev/sdX bs=4M status=progress oflag=sync
+   ```
+
+2. **Boot from USB** - Persistence will auto-configure if space available
+
+3. **Check persistence status:**
+   ```bash
+   mados-persistence status
+   ```
+
+4. **Manually enable if needed:**
+   ```bash
+   sudo mados-persistence enable
+   ```
+
+5. **Your changes now persist across reboots!**
+   - Installed packages
+   - User files and settings
+   - System configurations
+
+📖 **Full documentation:** [docs/PERSISTENCE.md](docs/PERSISTENCE.md)
 
 ### Installer Options
 
