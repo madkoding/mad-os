@@ -20,19 +20,25 @@ jobs:
     - name: Determine build type
       id: build_type
       run: |
-        TAG="${GITHUB_REF_NAME}"
-        if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta$ ]]; then
-          echo "is_release=false" >> "$GITHUB_OUTPUT"
-          echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
-          echo "release_type=beta" >> "$GITHUB_OUTPUT"
-        elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha$ ]]; then
-          echo "is_release=false" >> "$GITHUB_OUTPUT"
-          echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
-          echo "release_type=alpha" >> "$GITHUB_OUTPUT"
-        elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "is_release=true" >> "$GITHUB_OUTPUT"
-          echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
-          echo "release_type=stable" >> "$GITHUB_OUTPUT"
+        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          TAG="${GITHUB_REF_NAME}"
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta$ ]]; then
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "release_type=beta" >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha$ ]]; then
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "release_type=alpha" >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "release_type=stable" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "release_type=dev" >> "$GITHUB_OUTPUT"
+          fi
         else
           echo "is_release=false" >> "$GITHUB_OUTPUT"
           echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
@@ -62,8 +68,11 @@ jobs:
       run: |
         ISO_FILE=$(ls out/*.iso | head -1)
         ISO_NAME=$(basename "$ISO_FILE")
-        TAG="${GITHUB_REF_NAME}"
-        VERSION="${TAG#v}"
+        if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          VERSION="${GITHUB_REF_NAME#v}"
+        else
+          VERSION="dev-$(date +%Y%m%d)"
+        fi
         BUILD_DATE=$(date +%Y.%m.%d)
         ISO_SIZE=$(stat --format=%s "$ISO_FILE")
         ISO_SIZE_MB=$((ISO_SIZE / 1024 / 1024))
@@ -106,7 +115,8 @@ jobs:
         else
           SHORT_SHA="${{ steps.iso_info.outputs.short_sha }}"
           IDENTIFIER="mados-${RELEASE_TYPE}-${VERSION}-${SHORT_SHA}"
-          TITLE="madOS ${RELEASE_TYPE} ${VERSION}"
+          TYPE_LABEL=$(echo "${RELEASE_TYPE}" | sed 's/./\U&/')
+          TITLE="madOS ${TYPE_LABEL} ${VERSION}"
         fi
         
         ia upload "$IDENTIFIER" \
