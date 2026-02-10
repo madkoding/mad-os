@@ -67,23 +67,11 @@ jobs:
         echo "iso_size_mb=$ISO_SIZE_MB" >> "$GITHUB_OUTPUT"
         echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
 
-    - name: Upload ISO as artifact
-      if: steps.build_type.outputs.is_beta == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: madOS-beta-${{ steps.iso_info.outputs.build_date }}-${{ steps.iso_info.outputs.short_sha }}
-        path: |
-          out/*.iso
-          out/SHA256SUMS
-        retention-days: 14
-
     - name: Install Internet Archive CLI
-      if: steps.build_type.outputs.is_release == 'true'
       run: |
         pip install internetarchive
 
     - name: Upload to Internet Archive
-      if: steps.build_type.outputs.is_release == 'true'
       env:
         IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
         IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
@@ -101,15 +89,21 @@ jobs:
         EOF
         chmod 600 ~/.config/internetarchive/ia.ini
         
-        # Create unique identifier for Internet Archive
-        IDENTIFIER="mados-${BUILD_DATE}"
+        # Create unique identifier and title for Internet Archive
+        if [[ "${{ steps.build_type.outputs.is_release }}" == "true" ]]; then
+          IDENTIFIER="mados-${BUILD_DATE}"
+          TITLE="madOS ${BUILD_DATE}"
+        else
+          SHORT_SHA="${{ steps.iso_info.outputs.short_sha }}"
+          IDENTIFIER="mados-beta-${BUILD_DATE}-${SHORT_SHA}"
+          TITLE="madOS Beta ${BUILD_DATE}"
+        fi
         
-        # Upload ISO with metadata and retries
         ia upload "$IDENTIFIER" \
           "$ISO_FILE" \
           out/SHA256SUMS \
           --retries 3 \
-          --metadata="title:madOS ${BUILD_DATE}" \
+          --metadata="title:${TITLE}" \
           --metadata="mediatype:software" \
           --metadata="collection:opensource" \
           --metadata="description:madOS - AI-Orchestrated Arch Linux Live ISO" \
@@ -189,6 +183,10 @@ jobs:
           **ISO:** `${{ steps.iso_info.outputs.iso_name }}`
           **Tamaño:** ${{ steps.iso_info.outputs.iso_size_mb }} MB
 
+          ### 📥 Descarga
+
+          🌐 **[Descargar ISO desde Internet Archive](${{ steps.upload_ia.outputs.download_url }})**
+
           > ⚠️ Esta es una build beta para pruebas. Para la versión estable, consulta la [última release](https://github.com/${{ github.repository }}/releases/latest).
 
           ### ✅ Verificación
@@ -197,6 +195,5 @@ jobs:
           sha256sum -c SHA256SUMS
           ```
         files: |
-          out/*.iso
           out/SHA256SUMS
         make_latest: false
