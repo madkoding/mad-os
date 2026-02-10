@@ -315,6 +315,17 @@ def _run_installation(app):
             subprocess.run(['cp', '-a', '/usr/local/bin/detect-legacy-hardware',
                             '/mnt/usr/local/bin/detect-legacy-hardware'], check=False)
 
+            # Copy cage-greeter and sway-session wrappers with hardware detection
+            subprocess.run(['cp', '-a', '/usr/local/bin/cage-greeter',
+                            '/mnt/usr/local/bin/cage-greeter'], check=False)
+            subprocess.run(['cp', '-a', '/usr/local/bin/sway-session',
+                            '/mnt/usr/local/bin/sway-session'], check=False)
+
+            # Copy madOS Sway session desktop file for ReGreet
+            subprocess.run(['mkdir', '-p', '/mnt/usr/share/wayland-sessions'], check=False)
+            subprocess.run(['cp', '-a', '/usr/share/wayland-sessions/sway-mados.desktop',
+                            '/mnt/usr/share/wayland-sessions/sway-mados.desktop'], check=False)
+
             # Copy custom fonts (DSEG7 for waybar LED theme)
             if os.path.isdir('/usr/share/fonts/dseg'):
                 subprocess.run(['mkdir', '-p', '/mnt/usr/share/fonts/dseg'], check=False)
@@ -891,66 +902,8 @@ usermod -aG video greeter 2>/dev/null || echo "Note: greeter user group modifica
 mkdir -p /var/cache/regreet
 chown greeter:greeter /var/cache/regreet
 
-# Create sway-session wrapper with hardware detection for greeter sessions
-cat > /usr/local/bin/sway-session <<'EOFSWAY'
-#!/bin/bash
-export XDG_SESSION_TYPE=wayland
-export XDG_CURRENT_DESKTOP=sway
-export MOZ_ENABLE_WAYLAND=1
-
-if [ -x /usr/local/bin/detect-legacy-hardware ]; then
-    if /usr/local/bin/detect-legacy-hardware >/dev/null 2>&1; then
-        export WLR_RENDERER=pixman
-        export WLR_NO_HARDWARE_CURSORS=1
-        export LIBGL_ALWAYS_SOFTWARE=1
-        export MESA_GL_VERSION_OVERRIDE=3.3
-    fi
-else
-    if systemd-detect-virt --vm --quiet 2>/dev/null; then
-        export WLR_RENDERER=pixman
-        export WLR_NO_HARDWARE_CURSORS=1
-        export LIBGL_ALWAYS_SOFTWARE=1
-        export MESA_GL_VERSION_OVERRIDE=3.3
-    fi
-fi
-
-exec sway
-EOFSWAY
-chmod 755 /usr/local/bin/sway-session
-
-# Create cage-greeter wrapper with hardware detection for software rendering fallback
-cat > /usr/local/bin/cage-greeter <<'EOFCAGE'
-#!/bin/bash
-# Cage greeter wrapper - detects legacy hardware and enables software rendering
-if [ -x /usr/local/bin/detect-legacy-hardware ]; then
-    if /usr/local/bin/detect-legacy-hardware >/dev/null 2>&1; then
-        export WLR_RENDERER=pixman
-        export WLR_NO_HARDWARE_CURSORS=1
-        export LIBGL_ALWAYS_SOFTWARE=1
-        export MESA_GL_VERSION_OVERRIDE=3.3
-    fi
-else
-    if systemd-detect-virt --vm --quiet 2>/dev/null; then
-        export WLR_RENDERER=pixman
-        export WLR_NO_HARDWARE_CURSORS=1
-        export LIBGL_ALWAYS_SOFTWARE=1
-        export MESA_GL_VERSION_OVERRIDE=3.3
-    fi
-fi
-exec cage -s -- regreet
-EOFCAGE
-chmod 755 /usr/local/bin/cage-greeter
-
-# Create madOS Sway session desktop file for ReGreet
-mkdir -p /usr/share/wayland-sessions
-cat > /usr/share/wayland-sessions/sway-mados.desktop <<'EOFDESKTOP'
-[Desktop Entry]
-Name=Sway (madOS)
-Comment=madOS Sway session with hardware detection
-Exec=sway-session
-Type=Application
-DesktopNames=sway
-EOFDESKTOP
+# sway-session, cage-greeter, and sway-mados.desktop are copied from the live ISO
+# (see file copy section before arch-chroot)
 
 # Copy configs
 su - {username} -c "mkdir -p ~/.config/{{sway,waybar,foot,wofi,alacritty}}"

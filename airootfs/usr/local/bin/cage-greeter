@@ -1,0 +1,18 @@
+#!/bin/bash
+# Cage greeter wrapper - detects legacy hardware and enables software rendering
+if [ -x /usr/local/bin/detect-legacy-hardware ]; then
+    if /usr/local/bin/detect-legacy-hardware >/dev/null 2>&1; then
+        export WLR_RENDERER=pixman
+        export WLR_NO_HARDWARE_CURSORS=1
+        export LIBGL_ALWAYS_SOFTWARE=1
+        export MESA_GL_VERSION_OVERRIDE=3.3
+    fi
+else
+    if systemd-detect-virt --vm --quiet 2>/dev/null; then
+        export WLR_RENDERER=pixman
+        export WLR_NO_HARDWARE_CURSORS=1
+        export LIBGL_ALWAYS_SOFTWARE=1
+        export MESA_GL_VERSION_OVERRIDE=3.3
+    fi
+fi
+exec cage -s -- regreet
