@@ -70,6 +70,7 @@ def create_installation_page(app):
     scrolled = Gtk.ScrolledWindow()
     scrolled.set_min_content_height(120)
     scrolled.set_max_content_height(180)
+    app.log_scrolled = scrolled
 
     app.log_buffer = Gtk.TextBuffer()
     log_view = Gtk.TextView(buffer=app.log_buffer)

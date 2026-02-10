@@ -64,6 +64,12 @@ def log_message(app, message):
 def _log_idle(app, message):
     """Idle callback for logging"""
     app.log_buffer.insert_at_cursor(message + "\n")
+    # Auto-scroll log viewer to the bottom using the built-in insert mark
+    if hasattr(app, 'log_scrolled'):
+        text_view = app.log_scrolled.get_child()
+        if text_view:
+            insert_mark = app.log_buffer.get_insert()
+            text_view.scroll_to_mark(insert_mark, 0.0, True, 0.0, 1.0)
     return False
 
 
