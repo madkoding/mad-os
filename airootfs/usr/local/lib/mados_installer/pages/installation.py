@@ -62,10 +62,25 @@ def create_installation_page(app):
     app.progress_bar.set_margin_end(16)
     content.pack_start(app.progress_bar, False, False, 0)
 
-    # Log viewer
+    # Log toggle link
+    app.log_toggle = Gtk.EventBox()
+    app.log_toggle.set_halign(Gtk.Align.CENTER)
+    app.log_toggle.set_margin_top(8)
+    toggle_label = Gtk.Label()
+    toggle_label.set_markup(
+        f'<span size="9000" foreground="{NORD_FROST["nord8"]}">{app.t("show_log")}</span>'
+    )
+    toggle_label.get_style_context().add_class('log-toggle')
+    app.log_toggle.add(toggle_label)
+    app.log_toggle.connect('button-press-event', lambda w, e: _toggle_log(app))
+    content.pack_start(app.log_toggle, False, False, 0)
+
+    # Log viewer (hidden by default)
     log_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
     log_card.get_style_context().add_class('content-card')
-    log_card.set_margin_top(8)
+    log_card.set_margin_top(4)
+    log_card.set_no_show_all(True)
+    app.log_card = log_card
 
     scrolled = Gtk.ScrolledWindow()
     scrolled.set_min_content_height(120)
@@ -87,6 +102,22 @@ def create_installation_page(app):
 
     page.pack_start(content, True, True, 0)
     app.notebook.append_page(page, Gtk.Label(label="Installing"))
+
+
+def _toggle_log(app):
+    """Toggle visibility of the log console"""
+    if app.log_card.get_visible():
+        app.log_card.hide()
+        label = app.log_toggle.get_child()
+        label.set_markup(
+            f'<span size="9000" foreground="{NORD_FROST["nord8"]}">{app.t("show_log")}</span>'
+        )
+    else:
+        app.log_card.show_all()
+        label = app.log_toggle.get_child()
+        label.set_markup(
+            f'<span size="9000" foreground="{NORD_FROST["nord8"]}">{app.t("hide_log")}</span>'
+        )
 
 
 def on_start_installation(app):
