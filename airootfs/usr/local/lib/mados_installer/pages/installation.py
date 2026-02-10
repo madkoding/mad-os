@@ -113,7 +113,9 @@ def _toggle_log(app):
             f'<span size="9000" foreground="{NORD_FROST["nord8"]}">{app.t("show_log")}</span>'
         )
     else:
-        app.log_card.show_all()
+        # show() bypasses no_show_all; then show children that were never shown
+        app.log_card.show()
+        app.log_card.foreach(lambda w: w.show_all())
         label = app.log_toggle.get_child()
         label.set_markup(
             f'<span size="9000" foreground="{NORD_FROST["nord8"]}">{app.t("hide_log")}</span>'
