@@ -29,6 +29,7 @@ file_permissions=(
   ["/root/.gnupg"]="0:0:700"
   ["/home/mados"]="1000:1000:750"
   ["/home/mados/.zlogin"]="1000:1000:644"
+  ["/home/mados/.automated_script.sh"]="1000:1000:700"
   ["/usr/local/bin/choose-mirror"]="0:0:755"
   ["/usr/local/bin/Installation_guide"]="0:0:755"
   ["/usr/local/bin/livecd-sound"]="0:0:755"
