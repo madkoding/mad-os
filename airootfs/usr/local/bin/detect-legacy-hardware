@@ -62,7 +62,6 @@ detect_legacy_cpu() {
 
 # Función para detectar GPUs antiguas de Intel
 detect_legacy_intel_gpu() {
-    # Buscar dispositivos Intel Graphics
     local gpu_info=$(lspci 2>/dev/null | grep -i "VGA\|3D\|Display" | grep -i intel)
     
     if [ -z "$gpu_info" ]; then
@@ -78,6 +77,64 @@ detect_legacy_intel_gpu() {
     
     # Atom GPUs integradas (PowerVR-based)
     if echo "$gpu_info" | grep -qiE "Atom|Poulsbo|US15|GMA 500|GMA 600|GMA 3600|GMA 3650"; then
+        return 0
+    fi
+    
+    return 1
+}
+
+# Función para detectar GPUs antiguas de NVIDIA
+detect_legacy_nvidia_gpu() {
+    local gpu_info=$(lspci 2>/dev/null | grep -i "VGA\|3D\|Display" | grep -i nvidia)
+    
+    if [ -z "$gpu_info" ]; then
+        return 1  # No es NVIDIA
+    fi
+    
+    # NVIDIA GPUs antiguas que no soportan el driver propietario actual ni nouveau adecuadamente
+    # GeForce FX (NV3x) y anteriores: GeForce 256, GeForce2, GeForce3, GeForce4, GeForce FX
+    # GeForce 6/7 series (NV4x/G7x): soporte nouveau limitado
+    # Quadro FX antiguas
+    if echo "$gpu_info" | grep -qiE "GeForce (FX|[2-4][0-9]{2}[^0-9]|256|MX|Ti |PCX)"; then
+        return 0
+    fi
+    if echo "$gpu_info" | grep -qiE "Quadro (FX|NVS [0-9]{2}[^0-9]|[0-9]{3}[^0-9])"; then
+        return 0
+    fi
+    if echo "$gpu_info" | grep -qiE "NV[0-3][0-9A-Fa-f]|C51|C61|C67|C68|C73|MCP"; then
+        return 0
+    fi
+    # GeForce 6xxx/7xxx series
+    if echo "$gpu_info" | grep -qiE "GeForce [67][0-9]{3}"; then
+        return 0
+    fi
+    
+    return 1
+}
+
+# Función para detectar GPUs antiguas de AMD/ATI
+detect_legacy_amd_gpu() {
+    local gpu_info=$(lspci 2>/dev/null | grep -i "VGA\|3D\|Display" | grep -iE "AMD|ATI|Radeon")
+    
+    if [ -z "$gpu_info" ]; then
+        return 1  # No es AMD/ATI
+    fi
+    
+    # GPUs AMD/ATI antiguas que no soportan amdgpu driver (usan radeon driver)
+    # R100-R500: Radeon 7000-X1950 (muy antiguas, sin soporte adecuado)
+    # R600-R700: Radeon HD 2000-4000 (soporte radeon driver, sin Vulkan)
+    if echo "$gpu_info" | grep -qiE "Radeon (7[0-9]{3}|8[0-9]{3}|9[0-9]{3}|X[0-9]{3,4})"; then
+        return 0
+    fi
+    if echo "$gpu_info" | grep -qiE "Radeon HD [2-4][0-9]{3}"; then
+        return 0
+    fi
+    # ATI Rage, Mach series
+    if echo "$gpu_info" | grep -qiE "Rage|Mach[0-9]|RS[0-9]{3}|RV[0-9]{3}"; then
+        return 0
+    fi
+    # FireGL/FirePro antiguas
+    if echo "$gpu_info" | grep -qiE "Fire(GL|Pro) [VT][0-9]{1,4}"; then
         return 0
     fi
     
@@ -127,6 +184,16 @@ main() {
     # Detectar GPU Intel antigua
     if detect_legacy_intel_gpu; then
         legacy_reason="${legacy_reason}Legacy Intel GPU;"
+    fi
+    
+    # Detectar GPU NVIDIA antigua
+    if detect_legacy_nvidia_gpu; then
+        legacy_reason="${legacy_reason}Legacy NVIDIA GPU;"
+    fi
+    
+    # Detectar GPU AMD/ATI antigua
+    if detect_legacy_amd_gpu; then
+        legacy_reason="${legacy_reason}Legacy AMD/ATI GPU;"
     fi
     
     # Detectar RAM baja
