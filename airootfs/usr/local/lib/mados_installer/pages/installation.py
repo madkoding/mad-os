@@ -1007,6 +1007,7 @@ EOF
 
 echo '[PROGRESS 10/11] Configuring desktop environment...'
 # greetd + ReGreet greeter configuration
+mkdir -p /etc/greetd
 cat > /etc/greetd/config.toml <<'EOFGREETD'
 [terminal]
 vt = 1
@@ -1029,12 +1030,13 @@ reboot = [ "systemctl", "reboot" ]
 poweroff = [ "systemctl", "poweroff" ]
 EOFREGREET
 
-# Ensure greeter user has video group access for cage
-usermod -aG video greeter 2>/dev/null || echo "Note: greeter user group modification skipped"
+# Ensure greeter user has video and input group access for cage
+usermod -aG video,input greeter 2>/dev/null || echo "Note: greeter user group modification skipped"
 
 # Create regreet cache directory
 mkdir -p /var/cache/regreet
 chown greeter:greeter /var/cache/regreet
+chmod 750 /var/cache/regreet
 
 # sway-session, cage-greeter, and sway-mados.desktop are copied from the live ISO
 # (see file copy section before arch-chroot)
