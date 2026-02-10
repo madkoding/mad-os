@@ -790,7 +790,7 @@ poweroff = [ "systemctl", "poweroff" ]
 EOFREGREET
 
 # Ensure greeter user has video group access for cage
-usermod -aG video greeter 2>/dev/null || true
+usermod -aG video greeter 2>/dev/null || echo "Note: greeter user group modification skipped"
 
 # Create regreet cache directory
 mkdir -p /var/cache/regreet
