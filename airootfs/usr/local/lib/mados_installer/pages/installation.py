@@ -11,7 +11,7 @@ import threading
 
 from gi.repository import Gtk, GLib
 
-from ..config import DEMO_MODE, PACKAGES, NORD_FROST, LOCALE_KB_MAP
+from ..config import DEMO_MODE, PACKAGES, NORD_FROST, LOCALE_KB_MAP, TIMEZONES, LOCALE_MAP
 from ..utils import log_message, set_progress, show_error
 
 
@@ -430,7 +430,6 @@ def _run_pacstrap_with_progress(app, packages):
 
 def _build_config_script(data):
     """Build the chroot configuration shell script"""
-    from ..config import TIMEZONES, LOCALE_MAP
     disk = data['disk']
 
     # Validate timezone against whitelist to prevent path traversal
@@ -447,6 +446,11 @@ def _build_config_script(data):
     # Validate disk path (must be a block device path)
     if not re.match(r'^/dev/[a-zA-Z0-9/]+$', disk):
         raise ValueError(f"Invalid disk path: {disk}")
+
+    # Validate username (defense-in-depth, also checked in user.py)
+    username = data['username']
+    if not re.match(r'^[a-z_][a-z0-9_-]*$', username):
+        raise ValueError(f"Invalid username: {username}")
 
     return f'''#!/bin/bash
 set -e
@@ -470,12 +474,12 @@ cat > /etc/hosts <<EOF
 EOF
 
 # User
-useradd -m -G wheel,audio,video,storage -s /bin/bash {data['username']}
-echo '{data['username']}:{_escape_shell(data['password'])}' | chpasswd
+useradd -m -G wheel,audio,video,storage -s /bin/bash {username}
+echo '{username}:{_escape_shell(data['password'])}' | chpasswd
 
 # Sudo
 echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
-echo "{data['username']} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/claude,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/claude-nopasswd
+echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/claude,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/claude-nopasswd
 chmod 440 /etc/sudoers.d/claude-nopasswd
 
 # GRUB - Auto-detect UEFI or BIOS
@@ -852,25 +856,25 @@ DesktopNames=sway
 EOFDESKTOP
 
 # Copy configs
-su - {data['username']} -c "mkdir -p ~/.config/{{sway,waybar,foot,wofi,alacritty}}"
-su - {data['username']} -c "mkdir -p ~/Pictures/{{Wallpapers,Screenshots}}"
-cp -r /etc/skel/.config/* /home/{data['username']}/.config/ 2>/dev/null || true
-cp -r /etc/skel/Pictures/* /home/{data['username']}/Pictures/ 2>/dev/null || true
-chown -R {data['username']}:{data['username']} /home/{data['username']}
+su - {username} -c "mkdir -p ~/.config/{{sway,waybar,foot,wofi,alacritty}}"
+su - {username} -c "mkdir -p ~/Pictures/{{Wallpapers,Screenshots}}"
+cp -r /etc/skel/.config/* /home/{username}/.config/ 2>/dev/null || true
+cp -r /etc/skel/Pictures/* /home/{username}/Pictures/ 2>/dev/null || true
+chown -R {username}:{username} /home/{username}
 
 # Set keyboard layout in Sway config based on locale
-KB_LAYOUT="{LOCALE_KB_MAP.get(data['locale'], 'us')}"
-if [ -f /home/{data['username']}/.config/sway/config ]; then
-    sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /home/{data['username']}/.config/sway/config
+KB_LAYOUT="{LOCALE_KB_MAP.get(locale, 'us')}"
+if [ -f /home/{username}/.config/sway/config ]; then
+    sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /home/{username}/.config/sway/config
 elif [ -f /etc/skel/.config/sway/config ]; then
     sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /etc/skel/.config/sway/config
 fi
 
 # Ensure .bash_profile from skel was copied correctly
-if [ ! -f /home/{data['username']}/.bash_profile ]; then
-    cp /etc/skel/.bash_profile /home/{data['username']}/.bash_profile 2>/dev/null || true
+if [ ! -f /home/{username}/.bash_profile ]; then
+    cp /etc/skel/.bash_profile /home/{username}/.bash_profile 2>/dev/null || true
 fi
-chown {data['username']}:{data['username']} /home/{data['username']}/.bash_profile
+chown {username}:{username} /home/{username}/.bash_profile
 
 # Install Claude Code globally (non-fatal if no network)
 echo "Installing Claude Code..."

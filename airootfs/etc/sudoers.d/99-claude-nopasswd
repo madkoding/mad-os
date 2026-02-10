@@ -1,6 +1,7 @@
-# Permitir sudo sin password para operaciones de Claude Code (limitado a comandos específicos)
+# Sudo sin password para entorno live ISO
+# mados necesita acceso completo para ejecutar el instalador, gestionar discos y persistencia
 root ALL=(ALL:ALL) NOPASSWD: ALL
-mados ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm, /usr/bin/node, /usr/bin/claude, /usr/bin/pacman, /usr/bin/systemctl, /usr/local/bin/setup-claude-code.sh, /usr/local/bin/install-mados, /usr/local/bin/install-mados-gtk.py, /usr/local/bin/setup-persistence.sh, /usr/local/bin/mados-persistence, /usr/local/bin/mados-audio-init.sh
+mados ALL=(ALL:ALL) NOPASSWD: ALL
 
 # Preservar variables de entorno Wayland para aplicaciones GTK ejecutadas con sudo
 Defaults env_keep += "WAYLAND_DISPLAY XDG_RUNTIME_DIR DISPLAY SWAYSOCK"
