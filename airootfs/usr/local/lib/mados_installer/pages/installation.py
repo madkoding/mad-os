@@ -298,6 +298,8 @@ def _run_installation(app):
             subprocess.run(['cp', '-a', '/etc/skel/.config', '/mnt/etc/skel/'], check=False)
             subprocess.run(['cp', '-a', '/etc/skel/Pictures', '/mnt/etc/skel/'], check=False)
             subprocess.run(['cp', '-a', '/etc/skel/.bash_profile', '/mnt/etc/skel/'], check=False)
+            subprocess.run(['cp', '-a', '/etc/skel/.zshrc', '/mnt/etc/skel/'], check=False)
+            subprocess.run(['cp', '-a', '/etc/skel/.bashrc', '/mnt/etc/skel/'], check=False)
 
             # Copy custom fonts (DSEG7 for waybar LED theme)
             if os.path.isdir('/usr/share/fonts/dseg'):
@@ -474,7 +476,7 @@ cat > /etc/hosts <<EOF
 EOF
 
 # User
-useradd -m -G wheel,audio,video,storage -s /bin/bash {username}
+useradd -m -G wheel,audio,video,storage -s /bin/zsh {username}
 echo '{username}:{_escape_shell(data['password'])}' | chpasswd
 
 # Sudo
@@ -758,6 +760,54 @@ systemctl enable mados-audio-init.service
 # --- Non-critical section: errors below should not abort installation ---
 set +e
 
+# madOS branding - custom os-release
+cat > /etc/os-release <<EOF
+NAME="madOS"
+PRETTY_NAME="madOS"
+ID=mados
+ID_LIKE=arch
+BUILD_ID=rolling
+ANSI_COLOR="38;2;23;147;209"
+HOME_URL="https://github.com/madkoding/mad-os"
+LOGO=mados
+EOF
+
+# Oh My Zsh - install for user
+if command -v git &>/dev/null; then
+    if curl -sf --connect-timeout 5 https://github.com >/dev/null 2>&1; then
+        echo "Installing Oh My Zsh..."
+        git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git /etc/skel/.oh-my-zsh 2>&1 || true
+        if [ -d /etc/skel/.oh-my-zsh ]; then
+            cp -a /etc/skel/.oh-my-zsh /home/{username}/.oh-my-zsh
+            chown -R {username}:{username} /home/{username}/.oh-my-zsh
+            echo "Oh My Zsh installed for {username}"
+        fi
+    else
+        echo "No internet - Oh My Zsh will be available via first-boot service"
+    fi
+fi
+
+# Oh My Zsh first-boot service (fallback if no network during install)
+cat > /etc/systemd/system/setup-ohmyzsh.service <<'EOFSVC'
+[Unit]
+Description=Install Oh My Zsh if not already present
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/etc/skel/.oh-my-zsh
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash -c 'git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git /etc/skel/.oh-my-zsh && echo "Oh My Zsh installed" || echo "Failed to install Oh My Zsh"'
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target
+EOFSVC
+systemctl enable setup-ohmyzsh.service
+
 # Configure NetworkManager to use iwd as Wi-Fi backend
 mkdir -p /etc/NetworkManager/conf.d
 cat > /etc/NetworkManager/conf.d/wifi-backend.conf <<EOF
@@ -881,6 +931,12 @@ if [ ! -f /home/{username}/.bash_profile ]; then
     cp /etc/skel/.bash_profile /home/{username}/.bash_profile 2>/dev/null || true
 fi
 chown {username}:{username} /home/{username}/.bash_profile
+
+# Copy .zshrc for zsh users
+if [ -f /etc/skel/.zshrc ]; then
+    cp /etc/skel/.zshrc /home/{username}/.zshrc 2>/dev/null || true
+    chown {username}:{username} /home/{username}/.zshrc
+fi
 
 # Install Claude Code globally (non-fatal if no network)
 echo "Installing Claude Code..."

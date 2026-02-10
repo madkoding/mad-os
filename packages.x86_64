@@ -88,6 +88,9 @@ pavucontrol
 ttf-jetbrains-mono-nerd
 noto-fonts-emoji
 
+# Información del sistema
+fastfetch
+
 # Herramientas de instalación
 arch-install-scripts
 gptfdisk
