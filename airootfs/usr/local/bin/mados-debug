@@ -116,11 +116,11 @@ debug_chromium() {
         echo -e "${YELLOW}Chromium flags (/etc/chromium-flags.conf):${NC}"
         cat /etc/chromium-flags.conf
     else
-        echo -e "${RED}WARNING: /etc/chromium-flags.conf not found${NC}"
-        if [ "$(id -u)" -eq 0 ]; then
-            echo -e "${RED}Running as root without --no-sandbox will prevent Chromium from starting!${NC}"
-            echo -e "Fix: echo '--no-sandbox' | tee /etc/chromium-flags.conf"
-        fi
+        echo -e "${YELLOW}INFO: /etc/chromium-flags.conf not found (using defaults)${NC}"
+    fi
+    if [ "$(id -u)" -eq 0 ]; then
+        echo -e "${RED}WARNING: Running Chromium as root is not recommended.${NC}"
+        echo -e "${RED}The live session should run as the 'mados' user.${NC}"
     fi
     echo ""
 
