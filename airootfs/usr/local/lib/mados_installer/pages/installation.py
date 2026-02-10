@@ -2,6 +2,7 @@
 madOS Installer - Installation progress page and install logic
 """
 
+import glob as globmod
 import os
 import re
 import subprocess
@@ -125,10 +126,9 @@ def _run_installation(app):
             time.sleep(0.5)
         else:
             log_message(app, f"Unmounting existing partitions on {disk}...")
-            subprocess.run(f'swapoff {disk}* 2>/dev/null || true', shell=True)
-            subprocess.run(f'umount -l {disk}* 2>/dev/null || true', shell=True)
-            subprocess.run(f'swapoff {disk}p* 2>/dev/null || true', shell=True)
-            subprocess.run(f'umount -l {disk}p* 2>/dev/null || true', shell=True)
+            for part in globmod.glob(f'{disk}*') + globmod.glob(f'{disk}p*'):
+                subprocess.run(['swapoff', part], stderr=subprocess.DEVNULL, check=False)
+                subprocess.run(['umount', '-l', part], stderr=subprocess.DEVNULL, check=False)
             time.sleep(1)
             # Thorough disk cleanup: remove GPT/MBR structures + all filesystem signatures
             subprocess.run(['sgdisk', '--zap-all', disk], check=False)
@@ -282,9 +282,9 @@ def _run_installation(app):
             log_message(app, "[DEMO]   - Sudo setup")
             time.sleep(1)
         else:
-            with open('/mnt/root/configure.sh', 'w') as f:
+            fd = os.open('/mnt/root/configure.sh', os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o700)
+            with os.fdopen(fd, 'w') as f:
                 f.write(config_script)
-            subprocess.run(['chmod', '+x', '/mnt/root/configure.sh'], check=True)
 
             # Copy Plymouth assets
             subprocess.run(['mkdir', '-p', '/mnt/usr/share/plymouth/themes/mados'], check=True)
@@ -430,26 +430,43 @@ def _run_pacstrap_with_progress(app, packages):
 
 def _build_config_script(data):
     """Build the chroot configuration shell script"""
+    from ..config import TIMEZONES, LOCALE_MAP
     disk = data['disk']
+
+    # Validate timezone against whitelist to prevent path traversal
+    timezone = data['timezone']
+    if timezone not in TIMEZONES:
+        raise ValueError(f"Invalid timezone: {timezone}")
+
+    # Validate locale against whitelist
+    locale = data['locale']
+    valid_locales = list(LOCALE_MAP.values())
+    if locale not in valid_locales:
+        raise ValueError(f"Invalid locale: {locale}")
+
+    # Validate disk path (must be a block device path)
+    if not re.match(r'^/dev/[a-zA-Z0-9/]+$', disk):
+        raise ValueError(f"Invalid disk path: {disk}")
+
     return f'''#!/bin/bash
 set -e
 
 # Timezone
-ln -sf /usr/share/zoneinfo/{data['timezone']} /etc/localtime
+ln -sf /usr/share/zoneinfo/{timezone} /etc/localtime
 hwclock --systohc 2>/dev/null || true
 
 # Locale
 echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
-echo "{data['locale']} UTF-8" >> /etc/locale.gen
+echo "{locale} UTF-8" >> /etc/locale.gen
 locale-gen
-echo "LANG={data['locale']}" > /etc/locale.conf
+echo "LANG={locale}" > /etc/locale.conf
 
 # Hostname
-echo "{data['hostname']}" > /etc/hostname
+echo '{_escape_shell(data['hostname'])}' > /etc/hostname
 cat > /etc/hosts <<EOF
 127.0.0.1   localhost
 ::1         localhost
-127.0.1.1   {data['hostname']}.localdomain {data['hostname']}
+127.0.1.1   {_escape_shell(data['hostname'])}.localdomain {_escape_shell(data['hostname'])}
 EOF
 
 # User
@@ -458,7 +475,7 @@ echo '{data['username']}:{_escape_shell(data['password'])}' | chpasswd
 
 # Sudo
 echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
-echo "{data['username']} ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/claude-nopasswd
+echo "{data['username']} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/claude,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/claude-nopasswd
 chmod 440 /etc/sudoers.d/claude-nopasswd
 
 # GRUB - Auto-detect UEFI or BIOS
