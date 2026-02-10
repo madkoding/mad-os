@@ -1026,6 +1026,9 @@ cat > /etc/greetd/regreet.toml <<'EOFREGREET'
 [background]
 fit = "Cover"
 
+[env]
+LIBSEAT_BACKEND = "logind"
+
 [GTK]
 application_prefer_dark_theme = true
 
@@ -1042,17 +1045,21 @@ chmod 644 /etc/greetd/config.toml /etc/greetd/regreet.toml
 # Ensure greeter user has video and input group access for cage
 usermod -aG video,input greeter 2>/dev/null || echo "Note: greeter user group modification skipped"
 
-# Create regreet cache directory
+# Create regreet cache directory and ensure greeter home is writable
 mkdir -p /var/cache/regreet
 chown greeter:greeter /var/cache/regreet
 chmod 750 /var/cache/regreet
+mkdir -p /var/lib/greetd
+chown greeter:greeter /var/lib/greetd
 
-# Ensure greetd starts after systemd-logind (cage needs seat management via logind)
+# Ensure greetd starts after systemd-logind and doesn't conflict with getty on VT1
 mkdir -p /etc/systemd/system/greetd.service.d
 cat > /etc/systemd/system/greetd.service.d/override.conf <<'EOFOVERRIDE'
 [Unit]
 After=systemd-logind.service
 Wants=systemd-logind.service
+Conflicts=getty@tty1.service
+After=getty@tty1.service
 EOFOVERRIDE
 
 # sway-session, cage-greeter, and sway-mados.desktop are copied from the live ISO
