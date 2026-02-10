@@ -370,8 +370,24 @@ def _run_installation(app):
             subprocess.run(['cp', '-a', '/usr/local/bin/sway-session',
                             '/mnt/usr/local/bin/sway-session'], check=False)
 
+            # Copy custom Python application launchers
+            for launcher in ['mados-photo-viewer', 'mados-pdf-viewer',
+                             'mados-equalizer', 'mados-wifi', 'mados-debug']:
+                subprocess.run(['cp', '-a', f'/usr/local/bin/{launcher}',
+                                f'/mnt/usr/local/bin/{launcher}'], check=False)
+
+            # Copy custom Python application libraries
+            subprocess.run(['mkdir', '-p', '/mnt/usr/local/lib'], check=False)
+            for lib in ['mados_photo_viewer', 'mados_pdf_viewer',
+                        'mados_equalizer', 'mados_wifi']:
+                if os.path.isdir(f'/usr/local/lib/{lib}'):
+                    subprocess.run(['cp', '-a', f'/usr/local/lib/{lib}',
+                                    '/mnt/usr/local/lib/'], check=False)
+
             # Ensure copied scripts are executable in the installed system
-            for script in ['detect-legacy-hardware', 'cage-greeter', 'sway-session']:
+            for script in ['detect-legacy-hardware', 'cage-greeter', 'sway-session',
+                           'mados-photo-viewer', 'mados-pdf-viewer',
+                           'mados-equalizer', 'mados-wifi', 'mados-debug']:
                 subprocess.run(['chmod', '+x', f'/mnt/usr/local/bin/{script}'], check=False)
 
             # Copy madOS Sway session desktop file for ReGreet
@@ -385,6 +401,14 @@ def _run_installation(app):
             subprocess.run(['mkdir', '-p', '/mnt/usr/share/backgrounds'], check=False)
             subprocess.run(['cp', '-a', '/usr/share/backgrounds/mad-os-wallpaper.jpg',
                             '/mnt/usr/share/backgrounds/mad-os-wallpaper.jpg'], check=False)
+
+            # Copy custom application desktop entries
+            subprocess.run(['mkdir', '-p', '/mnt/usr/share/applications'], check=False)
+            for desktop in ['mados-photo-viewer.desktop', 'mados-pdf-viewer.desktop',
+                            'mados-equalizer.desktop']:
+                if os.path.isfile(f'/usr/share/applications/{desktop}'):
+                    subprocess.run(['cp', '-a', f'/usr/share/applications/{desktop}',
+                                    f'/mnt/usr/share/applications/{desktop}'], check=False)
 
             # Copy custom fonts (DSEG7 for waybar LED theme)
             if os.path.isdir('/usr/share/fonts/dseg'):
