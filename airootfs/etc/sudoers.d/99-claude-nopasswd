@@ -1,3 +1,6 @@
 # Permitir sudo sin password para Claude Code
 root ALL=(ALL:ALL) NOPASSWD: ALL
 mados ALL=(ALL:ALL) NOPASSWD: ALL
+
+# Preservar variables de entorno Wayland para aplicaciones GTK ejecutadas con sudo
+Defaults env_keep += "WAYLAND_DISPLAY XDG_RUNTIME_DIR DISPLAY SWAYSOCK"
