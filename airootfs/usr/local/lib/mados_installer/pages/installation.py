@@ -311,6 +311,10 @@ def _run_installation(app):
             subprocess.run(['cp', '-a', '/usr/local/bin/setup-ohmyzsh.sh',
                             '/mnt/usr/local/bin/setup-ohmyzsh.sh'], check=False)
 
+            # Copy detect-legacy-hardware script for software rendering fallback
+            subprocess.run(['cp', '-a', '/usr/local/bin/detect-legacy-hardware',
+                            '/mnt/usr/local/bin/detect-legacy-hardware'], check=False)
+
             # Copy custom fonts (DSEG7 for waybar LED theme)
             if os.path.isdir('/usr/share/fonts/dseg'):
                 subprocess.run(['mkdir', '-p', '/mnt/usr/share/fonts/dseg'], check=False)
@@ -863,7 +867,7 @@ cat > /etc/greetd/config.toml <<'EOFGREETD'
 vt = 1
 
 [default_session]
-command = "cage -s -- regreet"
+command = "/usr/local/bin/cage-greeter"
 user = "greeter"
 EOFGREETD
 
@@ -913,6 +917,29 @@ fi
 exec sway
 EOFSWAY
 chmod 755 /usr/local/bin/sway-session
+
+# Create cage-greeter wrapper with hardware detection for software rendering fallback
+cat > /usr/local/bin/cage-greeter <<'EOFCAGE'
+#!/bin/bash
+# Cage greeter wrapper - detects legacy hardware and enables software rendering
+if [ -x /usr/local/bin/detect-legacy-hardware ]; then
+    if /usr/local/bin/detect-legacy-hardware >/dev/null 2>&1; then
+        export WLR_RENDERER=pixman
+        export WLR_NO_HARDWARE_CURSORS=1
+        export LIBGL_ALWAYS_SOFTWARE=1
+        export MESA_GL_VERSION_OVERRIDE=3.3
+    fi
+else
+    if systemd-detect-virt --vm --quiet 2>/dev/null; then
+        export WLR_RENDERER=pixman
+        export WLR_NO_HARDWARE_CURSORS=1
+        export LIBGL_ALWAYS_SOFTWARE=1
+        export MESA_GL_VERSION_OVERRIDE=3.3
+    fi
+fi
+exec cage -s -- regreet
+EOFCAGE
+chmod 755 /usr/local/bin/cage-greeter
 
 # Create madOS Sway session desktop file for ReGreet
 mkdir -p /usr/share/wayland-sessions
