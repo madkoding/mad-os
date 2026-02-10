@@ -19,7 +19,8 @@ if [ -z "${WAYLAND_DISPLAY}" ] && [ "$(tty)" = "/dev/tty1" ]; then
     export XDG_CURRENT_DESKTOP=sway
     export MOZ_ENABLE_WAYLAND=1
 
-    # Detectar hardware antiguo (VMs, CPUs/GPUs antiguas, RAM baja) y usar renderizado por software
+    # Detectar hardware antiguo (VMs sin 3D, CPUs/GPUs antiguas, RAM baja) y usar renderizado por software
+    # VMs con aceleración 3D usarán hardware rendering con workarounds DRM
     # Hardware moderno usará aceleración por hardware automáticamente
     if [ -x /usr/local/bin/detect-legacy-hardware ]; then
         if /usr/local/bin/detect-legacy-hardware >/dev/null 2>&1; then
@@ -39,6 +40,13 @@ if [ -z "${WAYLAND_DISPLAY}" ] && [ "$(tty)" = "/dev/tty1" ]; then
             export LIBGL_ALWAYS_SOFTWARE=1
             export MESA_GL_VERSION_OVERRIDE=3.3
         fi
+    fi
+
+    # VM DRM workarounds: disable atomic modesetting and modifiers for VM GPU drivers
+    if systemd-detect-virt --vm --quiet 2>/dev/null; then
+        export WLR_DRM_NO_ATOMIC=1
+        export WLR_DRM_NO_MODIFIERS=1
+        export WLR_NO_HARDWARE_CURSORS=1
     fi
 
     exec sway

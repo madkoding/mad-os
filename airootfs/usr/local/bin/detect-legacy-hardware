@@ -1,6 +1,35 @@
 #!/bin/bash
 # detect-legacy-hardware - Detecta hardware antiguo que requiere renderizado por software
 # Retorna 0 si se detecta hardware antiguo, 1 si es hardware moderno
+# VMs con aceleración 3D NO se consideran legacy (usan hardware rendering con workarounds DRM)
+
+# Función para detectar si hay aceleración 3D disponible
+detect_3d_acceleration() {
+    # Verificar si existe un render node DRM (indica GPU con aceleración)
+    if [ -e /dev/dri/renderD128 ]; then
+        # Verificar si EGL puede inicializarse (prueba real de aceleración 3D)
+        if command -v eglinfo >/dev/null 2>&1; then
+            if eglinfo 2>/dev/null | grep -qi "OpenGL"; then
+                return 0
+            fi
+        fi
+        # Fallback: verificar driver DRM con aceleración conocida
+        local drm_driver=""
+        for card in /sys/class/drm/card*/device/driver; do
+            if [ -L "$card" ]; then
+                drm_driver=$(basename "$(readlink "$card")")
+                break
+            fi
+        done
+        # Drivers que soportan aceleración 3D en VMs
+        case "$drm_driver" in
+            vmwgfx|virtio-gpu|virgl|vboxvideo)
+                return 0
+                ;;
+        esac
+    fi
+    return 1
+}
 
 # Función para detectar CPUs antiguas
 detect_legacy_cpu() {
@@ -72,15 +101,21 @@ detect_low_ram() {
 main() {
     local legacy_reason=""
     
-    # Detectar máquina virtual (ya existe en el código actual)
-    if systemd-detect-virt --vm --quiet 2>/dev/null; then
-        echo "VM detected"
+    # Detectar nomodeset (safe graphics mode) - siempre es legacy
+    if grep -q 'nomodeset' /proc/cmdline 2>/dev/null; then
+        echo "nomodeset detected"
         return 0
     fi
     
-    # Detectar nomodeset (safe graphics mode)
-    if grep -q 'nomodeset' /proc/cmdline 2>/dev/null; then
-        echo "nomodeset detected"
+    # Detectar máquina virtual
+    if systemd-detect-virt --vm --quiet 2>/dev/null; then
+        # VM con aceleración 3D: NO es legacy (usará hardware rendering con workarounds DRM)
+        if detect_3d_acceleration; then
+            echo "VM with 3D acceleration detected"
+            return 1
+        fi
+        # VM sin aceleración 3D: es legacy (necesita pixman)
+        echo "VM without 3D acceleration detected"
         return 0
     fi
     

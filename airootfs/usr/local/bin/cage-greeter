@@ -1,5 +1,6 @@
 #!/bin/bash
 # Cage greeter wrapper - detects legacy hardware and enables software rendering
+# For VMs with 3D acceleration, uses hardware rendering with DRM workarounds
 if [ -x /usr/local/bin/detect-legacy-hardware ]; then
     if /usr/local/bin/detect-legacy-hardware >/dev/null 2>&1; then
         export WLR_RENDERER=pixman
@@ -15,4 +16,12 @@ else
         export MESA_GL_VERSION_OVERRIDE=3.3
     fi
 fi
+
+# VM DRM workarounds: disable atomic modesetting and modifiers for VM GPU drivers
+if systemd-detect-virt --vm --quiet 2>/dev/null; then
+    export WLR_DRM_NO_ATOMIC=1
+    export WLR_DRM_NO_MODIFIERS=1
+    export WLR_NO_HARDWARE_CURSORS=1
+fi
+
 exec cage -s -- regreet
