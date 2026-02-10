@@ -113,7 +113,9 @@ def _toggle_log(app):
             f'<span size="9000" foreground="{NORD_FROST["nord8"]}">{app.t("show_log")}</span>'
         )
     else:
-        app.log_card.show_all()
+        # show() bypasses no_show_all; then show children that were never shown
+        app.log_card.show()
+        app.log_card.foreach(lambda w: w.show_all())
         label = app.log_toggle.get_child()
         label.set_markup(
             f'<span size="9000" foreground="{NORD_FROST["nord8"]}">{app.t("hide_log")}</span>'
@@ -263,8 +265,18 @@ def _run_installation(app):
                 subprocess.run(['mkdir', '-p', '/mnt/home'], check=True)
                 subprocess.run(['mount', home_part, '/mnt/home'], check=True)
 
-        # Step 4: Install base system
-        set_progress(app, 0.25, "Installing base system (this may take a while)...")
+        # Step 4: Prepare package manager and install base system
+        if DEMO_MODE:
+            log_message(app, "[DEMO] Simulating pacman keyring check...")
+            set_progress(app, 0.21, "Checking package manager keyring...")
+            time.sleep(0.5)
+            log_message(app, "[DEMO] Simulating database sync...")
+            set_progress(app, 0.23, "Synchronizing package databases...")
+            time.sleep(0.5)
+        else:
+            _prepare_pacman(app)
+
+        set_progress(app, 0.25, "Installing base system...")
         log_message(app, "Installing base system...")
 
         # Build package list with conditional CJK fonts
@@ -435,6 +447,85 @@ def _finish_installation(app):
 
 
 
+def _prepare_pacman(app):
+    """Ensure pacman keyring is ready and databases are synced before pacstrap.
+
+    On the live ISO, pacman-init.service initializes the keyring on a tmpfs at
+    boot.  On slow hardware (Intel Atom, limited entropy) this can take 10-20
+    minutes.  If pacstrap starts before it finishes, it blocks silently while
+    waiting for the keyring — the user sees no progress at all.
+
+    This function:
+    1. Waits for pacman-init.service to finish (with progress feedback).
+    2. Syncs the package databases so pacstrap can skip that step.
+    """
+    # --- Wait for pacman-init.service ---
+    set_progress(app, 0.21, "Checking package manager keyring...")
+    log_message(app, "Checking pacman keyring status...")
+
+    try:
+        result = subprocess.run(
+            ['systemctl', 'is-active', 'pacman-init.service'],
+            capture_output=True, text=True
+        )
+        status = result.stdout.strip()
+    except Exception:
+        status = 'unknown'
+
+    if status == 'activating':
+        log_message(app, "  Pacman keyring is still being initialized, waiting...")
+        log_message(app, "  (This can take several minutes on slow hardware)")
+        poll_count = 0
+        while True:
+            time.sleep(5)
+            poll_count += 1
+            try:
+                result = subprocess.run(
+                    ['systemctl', 'is-active', 'pacman-init.service'],
+                    capture_output=True, text=True
+                )
+                status = result.stdout.strip()
+            except Exception:
+                status = 'unknown'
+                break
+            if status != 'activating':
+                break
+            # Show periodic feedback so the user knows it's not stuck
+            if poll_count % 6 == 0:  # every ~30 seconds
+                elapsed = poll_count * 5
+                log_message(app, f"  Still initializing keyring... ({elapsed}s elapsed)")
+
+    if status == 'failed':
+        log_message(app, "  Keyring service failed, re-initializing manually...")
+        subprocess.run(['pacman-key', '--init'], check=True)
+        subprocess.run(['pacman-key', '--populate'], check=True)
+
+    log_message(app, "  Pacman keyring is ready")
+
+    # --- Sync package databases ---
+    set_progress(app, 0.23, "Synchronizing package databases...")
+    log_message(app, "Synchronizing package databases...")
+    proc = subprocess.Popen(
+        ['pacman', '-Sy', '--noconfirm'],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
+    while True:
+        line = proc.stdout.readline()
+        if not line:
+            break
+        line = line.rstrip()
+        if line:
+            log_message(app, f"  {line}")
+    proc.wait()
+    if proc.returncode != 0:
+        log_message(app, "  Warning: database sync returned non-zero, pacstrap will retry")
+    else:
+        log_message(app, "  Package databases synchronized")
+
+
 def _run_pacstrap_with_progress(app, packages):
     """Run pacstrap while parsing output to update progress bar and log"""
     total_packages = len(packages)
@@ -463,6 +554,16 @@ def _run_pacstrap_with_progress(app, packages):
     section_pattern = re.compile(r'^::')
     # Detect hook lines like "(1/5) Arming ConditionNeedsUpdate..."
     hook_pattern = re.compile(r'^\((\d+)/(\d+)\)\s+(?!installing)', re.IGNORECASE)
+    # Detect early-phase output: keyring checks, integrity verification, syncing
+    keyring_pattern = re.compile(
+        r'checking keyring|checking keys|checking integrity|'
+        r'checking package integrity|checking available disk|'
+        r'synchronizing package|loading package|'
+        r'checking for file conflicts|upgrading|retrieving',
+        re.IGNORECASE
+    )
+    # Skip noisy progress-bar lines (e.g. "  100%  [####...]")
+    progress_bar_pattern = re.compile(r'^\s*\d+%\s*\[|^\s*[-#]+\s*$|^$')
 
     # Use readline() instead of iterator to avoid Python's internal
     # read-ahead buffering which delays output on piped subprocesses
@@ -526,6 +627,19 @@ def _run_pacstrap_with_progress(app, packages):
         if hook_pattern.search(line):
             log_message(app, f"  {line.strip()}")
             continue
+
+        # Show early-phase output (keyring, integrity, sync, etc.)
+        if keyring_pattern.search(line):
+            set_progress(app, progress_start, f"{line.strip()}...")
+            log_message(app, f"  {line.strip()}")
+            continue
+
+        # Skip noisy progress-bar lines
+        if progress_bar_pattern.search(line):
+            continue
+
+        # Fallback: log any other non-empty output so nothing appears silent
+        log_message(app, f"  {line.strip()}")
 
     proc.wait()
     if proc.returncode != 0:
