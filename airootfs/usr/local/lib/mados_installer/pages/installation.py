@@ -378,8 +378,13 @@ def _run_installation(app):
             set_progress(app, 0.54, "Copying session files...")
             log_message(app, "Copying session files...")
             subprocess.run(['mkdir', '-p', '/mnt/usr/share/wayland-sessions'], check=False)
-            subprocess.run(['cp', '-a', '/usr/share/wayland-sessions/sway-mados.desktop',
-                            '/mnt/usr/share/wayland-sessions/sway-mados.desktop'], check=False)
+            subprocess.run(['cp', '-a', '/usr/share/wayland-sessions/sway.desktop',
+                            '/mnt/usr/share/wayland-sessions/sway.desktop'], check=False)
+
+            # Copy greeter wallpaper (same as session wallpaper)
+            subprocess.run(['mkdir', '-p', '/mnt/usr/share/backgrounds'], check=False)
+            subprocess.run(['cp', '-a', '/usr/share/backgrounds/mad-os-wallpaper.jpg',
+                            '/mnt/usr/share/backgrounds/mad-os-wallpaper.jpg'], check=False)
 
             # Copy custom fonts (DSEG7 for waybar LED theme)
             if os.path.isdir('/usr/share/fonts/dseg'):
@@ -1138,6 +1143,7 @@ EOFGREETD
 # ReGreet configuration
 cat > /etc/greetd/regreet.toml <<'EOFREGREET'
 [background]
+path = "/usr/share/backgrounds/mad-os-wallpaper.jpg"
 fit = "Cover"
 
 [env]
@@ -1176,7 +1182,7 @@ Conflicts=getty@tty1.service
 After=getty@tty1.service
 EOFOVERRIDE
 
-# sway-session, cage-greeter, and sway-mados.desktop are copied from the live ISO
+# sway-session, cage-greeter, and sway.desktop are copied from the live ISO
 # (see file copy section before arch-chroot)
 
 # Copy configs
