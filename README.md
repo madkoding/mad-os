@@ -76,7 +76,7 @@ madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB),
 ```
    /\      mados@mados
   /  \     -----------
- /\   \    OS → madOS
+ /\   \    OS → madOS (Arch Linux)
 /  ..  \   Host → Intel NUC / Custom PC
 /  '  '\  Kernel → 6.12.8-arch1-1
 / ..'   \  Uptime → 2 hours, 15 mins
@@ -94,7 +94,7 @@ madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB),
             🟦🟦🟦🟦🟦🟦🟦🟦
 ```
 
-> **Note**: fastfetch reads `/etc/os-release` to display **madOS** as the distro name instead of "Arch Linux". The output above is an example — actual values depend on your hardware.
+> **Note**: fastfetch reads `/etc/os-release` to display **madOS (Arch Linux)** as the distro name. The output above is an example — actual values depend on your hardware.
 
 </details>
 

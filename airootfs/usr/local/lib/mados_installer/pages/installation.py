@@ -763,13 +763,17 @@ set +e
 # madOS branding - custom os-release
 cat > /etc/os-release <<EOF
 NAME="madOS"
-PRETTY_NAME="madOS"
+PRETTY_NAME="madOS (Arch Linux)"
 ID=mados
 ID_LIKE=arch
 BUILD_ID=rolling
 ANSI_COLOR="38;2;23;147;209"
 HOME_URL="https://github.com/madkoding/mad-os"
-LOGO=mados
+DOCUMENTATION_URL="https://wiki.archlinux.org/"
+SUPPORT_URL="https://bbs.archlinux.org/"
+BUG_REPORT_URL="https://gitlab.archlinux.org/groups/archlinux/-/issues"
+PRIVACY_POLICY_URL="https://terms.archlinux.org/docs/privacy-policy/"
+LOGO=archlinux-logo
 EOF
 
 # Oh My Zsh - install for user
