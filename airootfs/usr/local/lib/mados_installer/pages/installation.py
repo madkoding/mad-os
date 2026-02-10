@@ -394,7 +394,6 @@ def _run_pacstrap_with_progress(app, packages):
     """Run pacstrap while parsing output to update progress bar and log"""
     total_packages = len(packages)
     installed_count = 0
-    current_pkg = ""
 
     # Progress range: 0.25 to 0.48 for pacstrap
     progress_start = 0.25
@@ -409,12 +408,23 @@ def _run_pacstrap_with_progress(app, packages):
     )
 
     # Patterns to detect package installation progress from pacman output
+    # Match "(N/M) installing pkg-name" format used by pacman
+    numbered_pkg_pattern = re.compile(r'\((\d+)/(\d+)\)\s+installing\s+(\S+)', re.IGNORECASE)
     pkg_pattern = re.compile(r'installing\s+(\S+)', re.IGNORECASE)
     downloading_pattern = re.compile(r'downloading\s+(\S+)', re.IGNORECASE)
     resolving_pattern = re.compile(r'resolving dependencies|looking for conflicting', re.IGNORECASE)
     total_pattern = re.compile(r'Packages\s+\((\d+)\)', re.IGNORECASE)
+    # Detect section markers like ":: Processing package changes..."
+    section_pattern = re.compile(r'^::')
+    # Detect hook lines like "(1/5) Arming ConditionNeedsUpdate..."
+    hook_pattern = re.compile(r'^\((\d+)/(\d+)\)\s+(?!installing)', re.IGNORECASE)
 
-    for line in proc.stdout:
+    # Use readline() instead of iterator to avoid Python's internal
+    # read-ahead buffering which delays output on piped subprocesses
+    while True:
+        line = proc.stdout.readline()
+        if not line:
+            break
         line = line.rstrip()
         if not line:
             continue
@@ -424,15 +434,30 @@ def _run_pacstrap_with_progress(app, packages):
         if total_match:
             total_packages = int(total_match.group(1))
             log_message(app, f"Total packages to install: {total_packages}")
+            continue
 
-        # Detect individual package installations
+        # Detect "(N/M) installing pkg" format (most reliable)
+        numbered_match = numbered_pkg_pattern.search(line)
+        if numbered_match:
+            installed_count = int(numbered_match.group(1))
+            total_from_line = int(numbered_match.group(2))
+            current_pkg = numbered_match.group(3).rstrip('.')
+            if total_from_line > 0:
+                total_packages = total_from_line
+            progress = progress_start + (progress_end - progress_start) * (installed_count / max(total_packages, 1))
+            progress = min(progress, progress_end)
+            set_progress(app, progress, f"Installing packages ({installed_count}/{total_packages})...")
+            log_message(app, f"  Installing {current_pkg}...")
+            continue
+
+        # Fallback: detect "installing pkg" without numbering
         pkg_match = pkg_pattern.search(line)
         if pkg_match:
-            current_pkg = pkg_match.group(1)
+            current_pkg = pkg_match.group(1).rstrip('.')
             installed_count += 1
-            progress = progress_start + (progress_end - progress_start) * (installed_count / total_packages)
+            progress = progress_start + (progress_end - progress_start) * (installed_count / max(total_packages, 1))
             progress = min(progress, progress_end)
-            set_progress(app, progress, f"Installing {current_pkg} ({installed_count}/{total_packages})...")
+            set_progress(app, progress, f"Installing packages ({installed_count}/{total_packages})...")
             log_message(app, f"  Installing {current_pkg}...")
             continue
 
@@ -444,7 +469,17 @@ def _run_pacstrap_with_progress(app, packages):
 
         # Show resolving phase
         if resolving_pattern.search(line):
+            log_message(app, f"  {line.strip()}")
+            continue
+
+        # Show section markers (e.g. ":: Processing package changes...")
+        if section_pattern.search(line):
             log_message(app, line.strip())
+            continue
+
+        # Show post-transaction hooks
+        if hook_pattern.search(line):
+            log_message(app, f"  {line.strip()}")
             continue
 
     proc.wait()
