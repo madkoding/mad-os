@@ -2,8 +2,6 @@ name: Build madOS ISO
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -22,12 +20,29 @@ jobs:
     - name: Determine build type
       id: build_type
       run: |
-        if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-          echo "is_release=true" >> "$GITHUB_OUTPUT"
-          echo "is_beta=false" >> "$GITHUB_OUTPUT"
+        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          TAG="${GITHUB_REF_NAME}"
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta$ ]]; then
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "release_type=beta" >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha$ ]]; then
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "release_type=alpha" >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "release_type=stable" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "release_type=dev" >> "$GITHUB_OUTPUT"
+          fi
         else
           echo "is_release=false" >> "$GITHUB_OUTPUT"
-          echo "is_beta=true" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          echo "release_type=dev" >> "$GITHUB_OUTPUT"
         fi
     
     - name: Build ISO in Arch container
@@ -53,16 +68,18 @@ jobs:
       run: |
         ISO_FILE=$(ls out/*.iso | head -1)
         ISO_NAME=$(basename "$ISO_FILE")
-        if [[ "${{ steps.build_type.outputs.is_release }}" == "true" ]]; then
-          BUILD_DATE="${GITHUB_REF_NAME#v}"
+        if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          VERSION="${GITHUB_REF_NAME#v}"
         else
-          BUILD_DATE=$(date +%Y.%m.%d)
+          VERSION="dev-$(date +%Y%m%d)"
         fi
+        BUILD_DATE=$(date +%Y.%m.%d)
         ISO_SIZE=$(stat --format=%s "$ISO_FILE")
         ISO_SIZE_MB=$((ISO_SIZE / 1024 / 1024))
         SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
         echo "iso_file=$ISO_FILE" >> "$GITHUB_OUTPUT"
         echo "iso_name=$ISO_NAME" >> "$GITHUB_OUTPUT"
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
         echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
         echo "iso_size_mb=$ISO_SIZE_MB" >> "$GITHUB_OUTPUT"
         echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
@@ -78,7 +95,9 @@ jobs:
       run: |
         ISO_FILE="${{ steps.iso_info.outputs.iso_file }}"
         ISO_NAME="${{ steps.iso_info.outputs.iso_name }}"
+        VERSION="${{ steps.iso_info.outputs.version }}"
         BUILD_DATE="${{ steps.iso_info.outputs.build_date }}"
+        RELEASE_TYPE="${{ steps.build_type.outputs.release_type }}"
         
         # Configure IA credentials via config file (env vars alone are unreliable)
         mkdir -p ~/.config/internetarchive
@@ -90,13 +109,14 @@ jobs:
         chmod 600 ~/.config/internetarchive/ia.ini
         
         # Create unique identifier and title for Internet Archive
-        if [[ "${{ steps.build_type.outputs.is_release }}" == "true" ]]; then
-          IDENTIFIER="mados-${BUILD_DATE}"
-          TITLE="madOS ${BUILD_DATE}"
+        if [[ "$RELEASE_TYPE" == "stable" ]]; then
+          IDENTIFIER="mados-${VERSION}"
+          TITLE="madOS ${VERSION}"
         else
           SHORT_SHA="${{ steps.iso_info.outputs.short_sha }}"
-          IDENTIFIER="mados-beta-${BUILD_DATE}-${SHORT_SHA}"
-          TITLE="madOS Beta ${BUILD_DATE}"
+          IDENTIFIER="mados-${RELEASE_TYPE}-${VERSION}-${SHORT_SHA}"
+          TYPE_LABEL=$(echo "${RELEASE_TYPE}" | sed 's/./\U&/')
+          TITLE="madOS ${TYPE_LABEL} ${VERSION}"
         fi
         
         ia upload "$IDENTIFIER" \
@@ -146,9 +166,9 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.ref_name }}
-        name: madOS ${{ steps.iso_info.outputs.build_date }}
+        name: madOS ${{ steps.iso_info.outputs.version }}
         body: |
-          ## madOS Build ${{ steps.iso_info.outputs.build_date }}
+          ## madOS ${{ steps.iso_info.outputs.version }}
           
           **ISO:** `${{ steps.iso_info.outputs.iso_name }}`  
           **Tamaño:** ${{ steps.iso_info.outputs.iso_size_mb }} MB
@@ -169,16 +189,17 @@ jobs:
           out/SHA256SUMS
         make_latest: true
 
-    - name: Create Beta Release
-      if: steps.build_type.outputs.is_beta == 'true'
+    - name: Create Pre-release
+      if: steps.build_type.outputs.is_prerelease == 'true'
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: beta-${{ steps.iso_info.outputs.build_date }}-${{ steps.iso_info.outputs.short_sha }}
-        name: "madOS Beta ${{ steps.iso_info.outputs.build_date }} (${{ steps.iso_info.outputs.short_sha }})"
+        tag_name: ${{ github.ref_name }}
+        name: "madOS ${{ steps.iso_info.outputs.version }} (${{ steps.build_type.outputs.release_type }})"
         prerelease: true
         body: |
-          ## 🧪 madOS Beta Build
+          ## 🧪 madOS ${{ steps.build_type.outputs.release_type }} Build
 
+          **Versión:** `${{ steps.iso_info.outputs.version }}`
           **Commit:** `${{ github.sha }}`
           **ISO:** `${{ steps.iso_info.outputs.iso_name }}`
           **Tamaño:** ${{ steps.iso_info.outputs.iso_size_mb }} MB
@@ -187,7 +208,7 @@ jobs:
 
           🌐 **[Descargar ISO desde Internet Archive](${{ steps.upload_ia.outputs.download_url }})**
 
-          > ⚠️ Esta es una build beta para pruebas. Para la versión estable, consulta la [última release](https://github.com/${{ github.repository }}/releases/latest).
+          > ⚠️ Esta es una build de prueba (${{ steps.build_type.outputs.release_type }}). Para la versión estable, consulta la [última release](https://github.com/${{ github.repository }}/releases/latest).
 
           ### ✅ Verificación
 
