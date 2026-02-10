@@ -126,7 +126,7 @@ def _run_installation(app):
             time.sleep(0.5)
         else:
             log_message(app, f"Unmounting existing partitions on {disk}...")
-            for part in globmod.glob(f'{disk}*') + globmod.glob(f'{disk}p*'):
+            for part in globmod.glob(f'{disk}[0-9]*') + globmod.glob(f'{disk}p[0-9]*'):
                 subprocess.run(['swapoff', part], stderr=subprocess.DEVNULL, check=False)
                 subprocess.run(['umount', '-l', part], stderr=subprocess.DEVNULL, check=False)
             time.sleep(1)
@@ -443,8 +443,8 @@ def _build_config_script(data):
     if locale not in valid_locales:
         raise ValueError(f"Invalid locale: {locale}")
 
-    # Validate disk path (must be a block device path)
-    if not re.match(r'^/dev/[a-zA-Z0-9/]+$', disk):
+    # Validate disk path (must be a simple block device path like /dev/sda or /dev/nvme0n1)
+    if not re.match(r'^/dev/[a-zA-Z0-9]+$', disk):
         raise ValueError(f"Invalid disk path: {disk}")
 
     # Validate username (defense-in-depth, also checked in user.py)
