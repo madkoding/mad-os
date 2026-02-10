@@ -1,20 +1,56 @@
 #!/bin/bash
 # Cage greeter wrapper - detects legacy hardware and enables software rendering
 # For VMs with 3D acceleration, uses hardware rendering with DRM workarounds
+# Includes retry logic with software rendering fallback to prevent greetd restart loops
+
+LOG_TAG="cage-greeter"
+log() { echo "$1" | systemd-cat -t "$LOG_TAG" -p "${2:-info}" 2>/dev/null || echo "[$LOG_TAG] $1"; }
+
+# Validate required binaries exist
+if ! command -v cage >/dev/null 2>&1; then
+    log "FATAL: cage binary not found in PATH" "err"
+    sleep 2
+    exit 1
+fi
+if ! command -v regreet >/dev/null 2>&1; then
+    log "FATAL: regreet binary not found in PATH" "err"
+    sleep 2
+    exit 1
+fi
+
+# Ensure XDG_RUNTIME_DIR is set (required by Wayland compositors)
+if [ -z "$XDG_RUNTIME_DIR" ]; then
+    export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+    mkdir -p "$XDG_RUNTIME_DIR" 2>/dev/null
+    log "XDG_RUNTIME_DIR was not set, using $XDG_RUNTIME_DIR"
+fi
+
+# Use systemd-logind as the seat management backend (madOS uses systemd)
+export LIBSEAT_BACKEND=logind
+
+USE_SOFTWARE_RENDERING=0
+
 if [ -x /usr/local/bin/detect-legacy-hardware ]; then
     if /usr/local/bin/detect-legacy-hardware >/dev/null 2>&1; then
-        export WLR_RENDERER=pixman
-        export WLR_NO_HARDWARE_CURSORS=1
-        export LIBGL_ALWAYS_SOFTWARE=1
-        export MESA_GL_VERSION_OVERRIDE=3.3
+        USE_SOFTWARE_RENDERING=1
+        log "Legacy hardware detected, using software rendering"
     fi
 else
     if systemd-detect-virt --vm --quiet 2>/dev/null; then
-        export WLR_RENDERER=pixman
-        export WLR_NO_HARDWARE_CURSORS=1
-        export LIBGL_ALWAYS_SOFTWARE=1
-        export MESA_GL_VERSION_OVERRIDE=3.3
+        USE_SOFTWARE_RENDERING=1
+        log "VM detected (no hardware detection script), using software rendering"
     fi
+fi
+
+apply_software_rendering() {
+    export WLR_RENDERER=pixman
+    export WLR_NO_HARDWARE_CURSORS=1
+    export LIBGL_ALWAYS_SOFTWARE=1
+    export MESA_GL_VERSION_OVERRIDE=3.3
+}
+
+if [ "$USE_SOFTWARE_RENDERING" -eq 1 ]; then
+    apply_software_rendering
 fi
 
 # VM DRM workarounds: disable atomic modesetting and modifiers for VM GPU drivers
@@ -24,4 +60,23 @@ if systemd-detect-virt --vm --quiet 2>/dev/null; then
     export WLR_NO_HARDWARE_CURSORS=1
 fi
 
-exec cage -s -- regreet
+# First attempt: run cage with current settings
+log "Starting cage with regreet (attempt 1)"
+cage -s -- regreet
+EXIT_CODE=$?
+
+# If cage failed and we weren't already using software rendering, retry with it
+if [ $EXIT_CODE -ne 0 ] && [ "$USE_SOFTWARE_RENDERING" -eq 0 ]; then
+    log "cage failed (exit code $EXIT_CODE), retrying with software rendering" "warning"
+    apply_software_rendering
+    cage -s -- regreet
+    EXIT_CODE=$?
+fi
+
+# If still failing, sleep to prevent greetd from entering a tight restart loop
+if [ $EXIT_CODE -ne 0 ]; then
+    log "cage failed (exit code $EXIT_CODE), sleeping 2s to prevent restart loop" "err"
+    sleep 2
+fi
+
+exit $EXIT_CODE
