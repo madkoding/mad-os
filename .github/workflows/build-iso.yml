@@ -167,8 +167,10 @@ jobs:
       with:
         tag_name: ${{ github.ref_name }}
         name: madOS ${{ steps.iso_info.outputs.version }}
+        append_body: true
         body: |
-          ## madOS ${{ steps.iso_info.outputs.version }}
+          
+          ---
           
           **ISO:** `${{ steps.iso_info.outputs.iso_name }}`  
           **Tamaño:** ${{ steps.iso_info.outputs.iso_size_mb }} MB
@@ -196,9 +198,11 @@ jobs:
         tag_name: ${{ github.ref_name }}
         name: "madOS ${{ steps.iso_info.outputs.version }} (${{ steps.build_type.outputs.release_type }})"
         prerelease: true
+        append_body: true
         body: |
-          ## 🧪 madOS ${{ steps.build_type.outputs.release_type }} Build
-
+          
+          ---
+          
           **Versión:** `${{ steps.iso_info.outputs.version }}`
           **Commit:** `${{ github.sha }}`
           **ISO:** `${{ steps.iso_info.outputs.iso_name }}`
