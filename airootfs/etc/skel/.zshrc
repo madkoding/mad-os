@@ -1,7 +1,7 @@
 # ~/.zshrc - madOS Zsh Configuration
 
 # If not running interactively, don't do anything
-[[ $- != *i* ]] && return
+[[ -o interactive ]] || return
 
 # Path to Oh My Zsh installation
 export ZSH="$HOME/.oh-my-zsh"
