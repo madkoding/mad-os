@@ -203,8 +203,11 @@ setup_persistence() {
         # Set permissions
         chmod 755 "$MOUNT_POINT"
         
-        # Store device info for later use
-        echo "$persist_dev" > /tmp/mados_persist_device
+        # Store device info in a secure location (not world-writable /tmp)
+        mkdir -p /run/mados
+        chmod 700 /run/mados
+        echo "$persist_dev" > /run/mados/persist_device
+        chmod 600 /run/mados/persist_device
         
         log "Persistence setup complete"
         return 0

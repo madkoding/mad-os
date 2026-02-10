@@ -2,6 +2,7 @@
 madOS Installer - Installation progress page and install logic
 """
 
+import glob as globmod
 import os
 import re
 import subprocess
@@ -10,7 +11,7 @@ import threading
 
 from gi.repository import Gtk, GLib
 
-from ..config import DEMO_MODE, PACKAGES, NORD_FROST, LOCALE_KB_MAP
+from ..config import DEMO_MODE, PACKAGES, NORD_FROST, LOCALE_KB_MAP, TIMEZONES, LOCALE_MAP
 from ..utils import log_message, set_progress, show_error
 
 
@@ -125,10 +126,9 @@ def _run_installation(app):
             time.sleep(0.5)
         else:
             log_message(app, f"Unmounting existing partitions on {disk}...")
-            subprocess.run(f'swapoff {disk}* 2>/dev/null || true', shell=True)
-            subprocess.run(f'umount -l {disk}* 2>/dev/null || true', shell=True)
-            subprocess.run(f'swapoff {disk}p* 2>/dev/null || true', shell=True)
-            subprocess.run(f'umount -l {disk}p* 2>/dev/null || true', shell=True)
+            for part in globmod.glob(f'{disk}[0-9]*') + globmod.glob(f'{disk}p[0-9]*'):
+                subprocess.run(['swapoff', part], stderr=subprocess.DEVNULL, check=False)
+                subprocess.run(['umount', '-l', part], stderr=subprocess.DEVNULL, check=False)
             time.sleep(1)
             # Thorough disk cleanup: remove GPT/MBR structures + all filesystem signatures
             subprocess.run(['sgdisk', '--zap-all', disk], check=False)
@@ -282,9 +282,9 @@ def _run_installation(app):
             log_message(app, "[DEMO]   - Sudo setup")
             time.sleep(1)
         else:
-            with open('/mnt/root/configure.sh', 'w') as f:
+            fd = os.open('/mnt/root/configure.sh', os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o700)
+            with os.fdopen(fd, 'w') as f:
                 f.write(config_script)
-            subprocess.run(['chmod', '+x', '/mnt/root/configure.sh'], check=True)
 
             # Copy Plymouth assets
             subprocess.run(['mkdir', '-p', '/mnt/usr/share/plymouth/themes/mados'], check=True)
@@ -431,34 +431,55 @@ def _run_pacstrap_with_progress(app, packages):
 def _build_config_script(data):
     """Build the chroot configuration shell script"""
     disk = data['disk']
+
+    # Validate timezone against whitelist to prevent path traversal
+    timezone = data['timezone']
+    if timezone not in TIMEZONES:
+        raise ValueError(f"Invalid timezone: {timezone}")
+
+    # Validate locale against whitelist
+    locale = data['locale']
+    valid_locales = list(LOCALE_MAP.values())
+    if locale not in valid_locales:
+        raise ValueError(f"Invalid locale: {locale}")
+
+    # Validate disk path (must be a simple block device path like /dev/sda or /dev/nvme0n1)
+    if not re.match(r'^/dev/[a-zA-Z0-9]+$', disk):
+        raise ValueError(f"Invalid disk path: {disk}")
+
+    # Validate username (defense-in-depth, also checked in user.py)
+    username = data['username']
+    if not re.match(r'^[a-z_][a-z0-9_-]*$', username):
+        raise ValueError(f"Invalid username: {username}")
+
     return f'''#!/bin/bash
 set -e
 
 # Timezone
-ln -sf /usr/share/zoneinfo/{data['timezone']} /etc/localtime
+ln -sf /usr/share/zoneinfo/{timezone} /etc/localtime
 hwclock --systohc 2>/dev/null || true
 
 # Locale
 echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
-echo "{data['locale']} UTF-8" >> /etc/locale.gen
+echo "{locale} UTF-8" >> /etc/locale.gen
 locale-gen
-echo "LANG={data['locale']}" > /etc/locale.conf
+echo "LANG={locale}" > /etc/locale.conf
 
 # Hostname
-echo "{data['hostname']}" > /etc/hostname
+echo '{_escape_shell(data['hostname'])}' > /etc/hostname
 cat > /etc/hosts <<EOF
 127.0.0.1   localhost
 ::1         localhost
-127.0.1.1   {data['hostname']}.localdomain {data['hostname']}
+127.0.1.1   {_escape_shell(data['hostname'])}.localdomain {_escape_shell(data['hostname'])}
 EOF
 
 # User
-useradd -m -G wheel,audio,video,storage -s /bin/bash {data['username']}
-echo '{data['username']}:{_escape_shell(data['password'])}' | chpasswd
+useradd -m -G wheel,audio,video,storage -s /bin/bash {username}
+echo '{username}:{_escape_shell(data['password'])}' | chpasswd
 
 # Sudo
 echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
-echo "{data['username']} ALL=(ALL:ALL) NOPASSWD: ALL" > /etc/sudoers.d/claude-nopasswd
+echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/claude,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/claude-nopasswd
 chmod 440 /etc/sudoers.d/claude-nopasswd
 
 # GRUB - Auto-detect UEFI or BIOS
@@ -835,25 +856,25 @@ DesktopNames=sway
 EOFDESKTOP
 
 # Copy configs
-su - {data['username']} -c "mkdir -p ~/.config/{{sway,waybar,foot,wofi,alacritty}}"
-su - {data['username']} -c "mkdir -p ~/Pictures/{{Wallpapers,Screenshots}}"
-cp -r /etc/skel/.config/* /home/{data['username']}/.config/ 2>/dev/null || true
-cp -r /etc/skel/Pictures/* /home/{data['username']}/Pictures/ 2>/dev/null || true
-chown -R {data['username']}:{data['username']} /home/{data['username']}
+su - {username} -c "mkdir -p ~/.config/{{sway,waybar,foot,wofi,alacritty}}"
+su - {username} -c "mkdir -p ~/Pictures/{{Wallpapers,Screenshots}}"
+cp -r /etc/skel/.config/* /home/{username}/.config/ 2>/dev/null || true
+cp -r /etc/skel/Pictures/* /home/{username}/Pictures/ 2>/dev/null || true
+chown -R {username}:{username} /home/{username}
 
 # Set keyboard layout in Sway config based on locale
-KB_LAYOUT="{LOCALE_KB_MAP.get(data['locale'], 'us')}"
-if [ -f /home/{data['username']}/.config/sway/config ]; then
-    sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /home/{data['username']}/.config/sway/config
+KB_LAYOUT="{LOCALE_KB_MAP.get(locale, 'us')}"
+if [ -f /home/{username}/.config/sway/config ]; then
+    sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /home/{username}/.config/sway/config
 elif [ -f /etc/skel/.config/sway/config ]; then
     sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /etc/skel/.config/sway/config
 fi
 
 # Ensure .bash_profile from skel was copied correctly
-if [ ! -f /home/{data['username']}/.bash_profile ]; then
-    cp /etc/skel/.bash_profile /home/{data['username']}/.bash_profile 2>/dev/null || true
+if [ ! -f /home/{username}/.bash_profile ]; then
+    cp /etc/skel/.bash_profile /home/{username}/.bash_profile 2>/dev/null || true
 fi
-chown {data['username']}:{data['username']} /home/{data['username']}/.bash_profile
+chown {username}:{username} /home/{username}/.bash_profile
 
 # Install Claude Code globally (non-fatal if no network)
 echo "Installing Claude Code..."

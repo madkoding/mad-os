@@ -1,4 +1,5 @@
-# Permitir sudo sin password para Claude Code
+# Sudo sin password para entorno live ISO
+# mados necesita acceso completo para ejecutar el instalador, gestionar discos y persistencia
 root ALL=(ALL:ALL) NOPASSWD: ALL
 mados ALL=(ALL:ALL) NOPASSWD: ALL
 

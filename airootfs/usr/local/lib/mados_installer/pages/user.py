@@ -135,8 +135,8 @@ def _on_user_next(app):
                    "start/end with a letter or number, and be at most 63 characters.")
         return
 
-    if len(password) < 4:
-        show_error(app, "Weak Password", "Password must be at least 4 characters.")
+    if len(password) < 8:
+        show_error(app, "Weak Password", "Password must be at least 8 characters.")
         return
 
     app.install_data['username'] = username
