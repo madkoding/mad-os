@@ -358,6 +358,10 @@ def _run_installation(app):
             subprocess.run(['cp', '-a', '/usr/local/bin/sway-session',
                             '/mnt/usr/local/bin/sway-session'], check=False)
 
+            # Ensure copied scripts are executable in the installed system
+            for script in ['detect-legacy-hardware', 'cage-greeter', 'sway-session']:
+                subprocess.run(['chmod', '+x', f'/mnt/usr/local/bin/{script}'], check=False)
+
             # Copy madOS Sway session desktop file for ReGreet
             set_progress(app, 0.54, "Copying session files...")
             log_message(app, "Copying session files...")
@@ -1030,6 +1034,11 @@ reboot = [ "systemctl", "reboot" ]
 poweroff = [ "systemctl", "poweroff" ]
 EOFREGREET
 
+# Ensure greetd config directory and files are accessible by greeter user
+chown -R greeter:greeter /etc/greetd
+chmod 755 /etc/greetd
+chmod 644 /etc/greetd/config.toml /etc/greetd/regreet.toml
+
 # Ensure greeter user has video and input group access for cage
 usermod -aG video,input greeter 2>/dev/null || echo "Note: greeter user group modification skipped"
 
@@ -1037,6 +1046,14 @@ usermod -aG video,input greeter 2>/dev/null || echo "Note: greeter user group mo
 mkdir -p /var/cache/regreet
 chown greeter:greeter /var/cache/regreet
 chmod 750 /var/cache/regreet
+
+# Ensure greetd starts after systemd-logind (cage needs seat management via logind)
+mkdir -p /etc/systemd/system/greetd.service.d
+cat > /etc/systemd/system/greetd.service.d/override.conf <<'EOFOVERRIDE'
+[Unit]
+After=systemd-logind.service
+Wants=systemd-logind.service
+EOFOVERRIDE
 
 # sway-session, cage-greeter, and sway-mados.desktop are copied from the live ISO
 # (see file copy section before arch-chroot)

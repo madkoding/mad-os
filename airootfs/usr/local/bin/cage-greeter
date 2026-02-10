@@ -6,12 +6,27 @@
 LOG_TAG="cage-greeter"
 log() { echo "$1" | systemd-cat -t "$LOG_TAG" -p "${2:-info}" 2>/dev/null || echo "[$LOG_TAG] $1"; }
 
+# Validate required binaries exist
+if ! command -v cage >/dev/null 2>&1; then
+    log "FATAL: cage binary not found in PATH" "err"
+    sleep 2
+    exit 1
+fi
+if ! command -v regreet >/dev/null 2>&1; then
+    log "FATAL: regreet binary not found in PATH" "err"
+    sleep 2
+    exit 1
+fi
+
 # Ensure XDG_RUNTIME_DIR is set (required by Wayland compositors)
 if [ -z "$XDG_RUNTIME_DIR" ]; then
     export XDG_RUNTIME_DIR="/run/user/$(id -u)"
     mkdir -p "$XDG_RUNTIME_DIR" 2>/dev/null
     log "XDG_RUNTIME_DIR was not set, using $XDG_RUNTIME_DIR"
 fi
+
+# Use systemd-logind as the seat management backend (madOS uses systemd)
+export LIBSEAT_BACKEND=logind
 
 USE_SOFTWARE_RENDERING=0
 

@@ -3,6 +3,9 @@ export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=sway
 export MOZ_ENABLE_WAYLAND=1
 
+# Use systemd-logind as the seat management backend (madOS uses systemd)
+export LIBSEAT_BACKEND=logind
+
 if [ -x /usr/local/bin/detect-legacy-hardware ]; then
     if /usr/local/bin/detect-legacy-hardware >/dev/null 2>&1; then
         export WLR_RENDERER=pixman
