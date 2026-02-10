@@ -285,7 +285,7 @@ def _run_installation(app):
             _run_pacstrap_with_progress(app, packages)
 
         # Step 5: Generate fstab
-        set_progress(app, 0.50, "Generating filesystem table...")
+        set_progress(app, 0.49, "Generating filesystem table...")
         log_message(app, "Generating fstab...")
         if DEMO_MODE:
             log_message(app, "[DEMO] Simulating genfstab -U /mnt...")
@@ -298,8 +298,8 @@ def _run_installation(app):
                 f.write(result.stdout)
 
         # Step 6: Configure system
-        set_progress(app, 0.55, "Configuring system...")
-        log_message(app, "Configuring system...")
+        set_progress(app, 0.50, "Preparing system configuration...")
+        log_message(app, "Preparing system configuration...")
 
         config_script = _build_config_script(data)
 
@@ -319,6 +319,8 @@ def _run_installation(app):
                 f.write(config_script)
 
             # Copy Plymouth assets
+            set_progress(app, 0.51, "Copying boot splash assets...")
+            log_message(app, "Copying Plymouth boot splash assets...")
             subprocess.run(['mkdir', '-p', '/mnt/usr/share/plymouth/themes/mados'], check=True)
             subprocess.run(['cp', '/usr/share/plymouth/themes/mados/logo.png',
                             '/mnt/usr/share/plymouth/themes/mados/logo.png'], check=False)
@@ -326,6 +328,7 @@ def _run_installation(app):
                             '/mnt/usr/share/plymouth/themes/mados/dot.png'], check=False)
 
             # Copy skel configs from live ISO to installed system
+            set_progress(app, 0.52, "Copying desktop configuration files...")
             log_message(app, "Copying desktop configuration files...")
             subprocess.run(['cp', '-a', '/etc/skel/.config', '/mnt/etc/skel/'], check=False)
             subprocess.run(['cp', '-a', '/etc/skel/Pictures', '/mnt/etc/skel/'], check=False)
@@ -339,6 +342,8 @@ def _run_installation(app):
                 subprocess.run(['cp', '-a', '/etc/skel/.oh-my-zsh', '/mnt/etc/skel/'], check=False)
 
             # Copy setup-ohmyzsh.sh script for first-boot fallback
+            set_progress(app, 0.53, "Copying system scripts...")
+            log_message(app, "Copying system scripts...")
             subprocess.run(['mkdir', '-p', '/mnt/usr/local/bin'], check=False)
             subprocess.run(['cp', '-a', '/usr/local/bin/setup-ohmyzsh.sh',
                             '/mnt/usr/local/bin/setup-ohmyzsh.sh'], check=False)
@@ -354,6 +359,8 @@ def _run_installation(app):
                             '/mnt/usr/local/bin/sway-session'], check=False)
 
             # Copy madOS Sway session desktop file for ReGreet
+            set_progress(app, 0.54, "Copying session files...")
+            log_message(app, "Copying session files...")
             subprocess.run(['mkdir', '-p', '/mnt/usr/share/wayland-sessions'], check=False)
             subprocess.run(['cp', '-a', '/usr/share/wayland-sessions/sway-mados.desktop',
                             '/mnt/usr/share/wayland-sessions/sway-mados.desktop'], check=False)
@@ -366,17 +373,19 @@ def _run_installation(app):
         set_progress(app, 0.55, "Applying configurations...")
         log_message(app, "Running configuration...")
         if DEMO_MODE:
+            demo_steps = [
+                (0.58, "Installing GRUB bootloader"),
+                (0.64, "Enabling services (NetworkManager, earlyoom)..."),
+                (0.70, "Rebuilding initramfs..."),
+                (0.76, "Configuring ZRAM..."),
+                (0.82, "Setting up desktop environment..."),
+                (0.88, "Installing Claude Code..."),
+            ]
             log_message(app, "[DEMO] Simulating arch-chroot configuration...")
-            log_message(app, "[DEMO]   - Installing GRUB bootloader")
-            time.sleep(0.5)
-            log_message(app, "[DEMO]   - Enabling services (NetworkManager, earlyoom)...")
-            time.sleep(0.5)
-            log_message(app, "[DEMO]   - Configuring ZRAM...")
-            time.sleep(0.5)
-            log_message(app, "[DEMO]   - Setting up autologin...")
-            time.sleep(0.5)
-            log_message(app, "[DEMO]   - Installing Claude Code...")
-            time.sleep(1)
+            for progress, desc in demo_steps:
+                set_progress(app, progress, desc)
+                log_message(app, f"[DEMO]   - {desc}")
+                time.sleep(0.5)
         else:
             _run_chroot_with_progress(app)
 
