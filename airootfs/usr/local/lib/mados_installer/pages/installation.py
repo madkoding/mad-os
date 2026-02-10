@@ -778,6 +778,12 @@ net.core.rmem_max = 262144
 net.core.wmem_max = 262144
 EOF
 
+# Chromium flags for Wayland/Sway (non-root user, sandbox enabled)
+cat > /etc/chromium-flags.conf <<EOF
+--ozone-platform-hint=auto
+--enable-features=WaylandWindowDecorations
+EOF
+
 # ZRAM
 cat > /etc/systemd/zram-generator.conf <<EOF
 [zram0]
