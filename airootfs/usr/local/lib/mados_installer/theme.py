@@ -584,6 +584,14 @@ def apply_theme():
             min-width: 48px;
             min-height: 48px;
         }}
+        
+        .log-toggle {{
+            opacity: 0.8;
+        }}
+        
+        .log-toggle:hover {{
+            opacity: 1.0;
+        }}
         """
     css_provider.load_from_data(css.encode())
     Gtk.StyleContext.add_provider_for_screen(

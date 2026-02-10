@@ -73,6 +73,8 @@ TRANSLATIONS = {
         'wifi_connected': 'Connected to',
         'wifi_failed': 'Connection failed. Check password and try again.',
         'wifi_enter_password': 'Please enter the WiFi password.',
+        'show_log': '▶ Show log',
+        'hide_log': '▼ Hide log',
     },
     'Español': {
         'title': 'madOS',
@@ -144,6 +146,8 @@ TRANSLATIONS = {
         'wifi_connected': 'Conectado a',
         'wifi_failed': 'Conexión fallida. Verifica la contraseña e intenta de nuevo.',
         'wifi_enter_password': 'Por favor ingresa la contraseña WiFi.',
+        'show_log': '▶ Ver registro',
+        'hide_log': '▼ Ocultar registro',
     },
     'Français': {
         'title': 'madOS',
@@ -215,6 +219,8 @@ TRANSLATIONS = {
         'wifi_connected': 'Connecté à',
         'wifi_failed': 'Connexion échouée. Vérifiez le mot de passe et réessayez.',
         'wifi_enter_password': 'Veuillez entrer le mot de passe WiFi.',
+        'show_log': '▶ Afficher le journal',
+        'hide_log': '▼ Masquer le journal',
     },
     'Deutsch': {
         'title': 'madOS',
@@ -286,6 +292,8 @@ TRANSLATIONS = {
         'wifi_connected': 'Verbunden mit',
         'wifi_failed': 'Verbindung fehlgeschlagen. Passwort prüfen und erneut versuchen.',
         'wifi_enter_password': 'Bitte WLAN-Passwort eingeben.',
+        'show_log': '▶ Protokoll anzeigen',
+        'hide_log': '▼ Protokoll ausblenden',
     },
     '中文': {
         'title': 'madOS',
@@ -357,6 +365,8 @@ TRANSLATIONS = {
         'wifi_connected': '已连接到',
         'wifi_failed': '连接失败。请检查密码后重试。',
         'wifi_enter_password': '请输入WiFi密码。',
+        'show_log': '▶ 显示日志',
+        'hide_log': '▼ 隐藏日志',
     },
     '日本語': {
         'title': 'madOS',
@@ -428,5 +438,7 @@ TRANSLATIONS = {
         'wifi_connected': '接続完了',
         'wifi_failed': '接続失敗。パスワードを確認して再試行してください。',
         'wifi_enter_password': 'WiFiパスワードを入力してください。',
+        'show_log': '▶ ログを表示',
+        'hide_log': '▼ ログを非表示',
     }
 }

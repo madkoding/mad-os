@@ -62,14 +62,30 @@ def create_installation_page(app):
     app.progress_bar.set_margin_end(16)
     content.pack_start(app.progress_bar, False, False, 0)
 
-    # Log viewer
+    # Log toggle link
+    app.log_toggle = Gtk.EventBox()
+    app.log_toggle.set_halign(Gtk.Align.CENTER)
+    app.log_toggle.set_margin_top(8)
+    toggle_label = Gtk.Label()
+    toggle_label.set_markup(
+        f'<span size="9000" foreground="{NORD_FROST["nord8"]}">{app.t("show_log")}</span>'
+    )
+    toggle_label.get_style_context().add_class('log-toggle')
+    app.log_toggle.add(toggle_label)
+    app.log_toggle.connect('button-press-event', lambda w, e: _toggle_log(app))
+    content.pack_start(app.log_toggle, False, False, 0)
+
+    # Log viewer (hidden by default)
     log_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
     log_card.get_style_context().add_class('content-card')
-    log_card.set_margin_top(8)
+    log_card.set_margin_top(4)
+    log_card.set_no_show_all(True)
+    app.log_card = log_card
 
     scrolled = Gtk.ScrolledWindow()
     scrolled.set_min_content_height(120)
     scrolled.set_max_content_height(180)
+    app.log_scrolled = scrolled
 
     app.log_buffer = Gtk.TextBuffer()
     log_view = Gtk.TextView(buffer=app.log_buffer)
@@ -86,6 +102,22 @@ def create_installation_page(app):
 
     page.pack_start(content, True, True, 0)
     app.notebook.append_page(page, Gtk.Label(label="Installing"))
+
+
+def _toggle_log(app):
+    """Toggle visibility of the log console"""
+    if app.log_card.get_visible():
+        app.log_card.hide()
+        label = app.log_toggle.get_child()
+        label.set_markup(
+            f'<span size="9000" foreground="{NORD_FROST["nord8"]}">{app.t("show_log")}</span>'
+        )
+    else:
+        app.log_card.show_all()
+        label = app.log_toggle.get_child()
+        label.set_markup(
+            f'<span size="9000" foreground="{NORD_FROST["nord8"]}">{app.t("hide_log")}</span>'
+        )
 
 
 def on_start_installation(app):
@@ -253,7 +285,7 @@ def _run_installation(app):
             _run_pacstrap_with_progress(app, packages)
 
         # Step 5: Generate fstab
-        set_progress(app, 0.50, "Generating filesystem table...")
+        set_progress(app, 0.49, "Generating filesystem table...")
         log_message(app, "Generating fstab...")
         if DEMO_MODE:
             log_message(app, "[DEMO] Simulating genfstab -U /mnt...")
@@ -266,8 +298,8 @@ def _run_installation(app):
                 f.write(result.stdout)
 
         # Step 6: Configure system
-        set_progress(app, 0.55, "Configuring system...")
-        log_message(app, "Configuring system...")
+        set_progress(app, 0.50, "Preparing system configuration...")
+        log_message(app, "Preparing system configuration...")
 
         config_script = _build_config_script(data)
 
@@ -287,6 +319,8 @@ def _run_installation(app):
                 f.write(config_script)
 
             # Copy Plymouth assets
+            set_progress(app, 0.51, "Copying boot splash assets...")
+            log_message(app, "Copying Plymouth boot splash assets...")
             subprocess.run(['mkdir', '-p', '/mnt/usr/share/plymouth/themes/mados'], check=True)
             subprocess.run(['cp', '/usr/share/plymouth/themes/mados/logo.png',
                             '/mnt/usr/share/plymouth/themes/mados/logo.png'], check=False)
@@ -294,6 +328,7 @@ def _run_installation(app):
                             '/mnt/usr/share/plymouth/themes/mados/dot.png'], check=False)
 
             # Copy skel configs from live ISO to installed system
+            set_progress(app, 0.52, "Copying desktop configuration files...")
             log_message(app, "Copying desktop configuration files...")
             subprocess.run(['cp', '-a', '/etc/skel/.config', '/mnt/etc/skel/'], check=False)
             subprocess.run(['cp', '-a', '/etc/skel/Pictures', '/mnt/etc/skel/'], check=False)
@@ -307,6 +342,8 @@ def _run_installation(app):
                 subprocess.run(['cp', '-a', '/etc/skel/.oh-my-zsh', '/mnt/etc/skel/'], check=False)
 
             # Copy setup-ohmyzsh.sh script for first-boot fallback
+            set_progress(app, 0.53, "Copying system scripts...")
+            log_message(app, "Copying system scripts...")
             subprocess.run(['mkdir', '-p', '/mnt/usr/local/bin'], check=False)
             subprocess.run(['cp', '-a', '/usr/local/bin/setup-ohmyzsh.sh',
                             '/mnt/usr/local/bin/setup-ohmyzsh.sh'], check=False)
@@ -322,6 +359,8 @@ def _run_installation(app):
                             '/mnt/usr/local/bin/sway-session'], check=False)
 
             # Copy madOS Sway session desktop file for ReGreet
+            set_progress(app, 0.54, "Copying session files...")
+            log_message(app, "Copying session files...")
             subprocess.run(['mkdir', '-p', '/mnt/usr/share/wayland-sessions'], check=False)
             subprocess.run(['cp', '-a', '/usr/share/wayland-sessions/sway-mados.desktop',
                             '/mnt/usr/share/wayland-sessions/sway-mados.desktop'], check=False)
@@ -331,22 +370,24 @@ def _run_installation(app):
                 subprocess.run(['mkdir', '-p', '/mnt/usr/share/fonts/dseg'], check=False)
                 subprocess.run(['cp', '-a', '/usr/share/fonts/dseg/', '/mnt/usr/share/fonts/'], check=False)
 
-        set_progress(app, 0.70, "Applying configurations...")
+        set_progress(app, 0.55, "Applying configurations...")
         log_message(app, "Running configuration...")
         if DEMO_MODE:
+            demo_steps = [
+                (0.58, "Installing GRUB bootloader"),
+                (0.64, "Enabling services (NetworkManager, earlyoom)..."),
+                (0.70, "Rebuilding initramfs..."),
+                (0.76, "Configuring ZRAM..."),
+                (0.82, "Setting up desktop environment..."),
+                (0.88, "Installing Claude Code..."),
+            ]
             log_message(app, "[DEMO] Simulating arch-chroot configuration...")
-            log_message(app, "[DEMO]   - Installing GRUB bootloader")
-            time.sleep(0.5)
-            log_message(app, "[DEMO]   - Enabling services (NetworkManager, earlyoom)...")
-            time.sleep(0.5)
-            log_message(app, "[DEMO]   - Configuring ZRAM...")
-            time.sleep(0.5)
-            log_message(app, "[DEMO]   - Setting up autologin...")
-            time.sleep(0.5)
-            log_message(app, "[DEMO]   - Installing Claude Code...")
-            time.sleep(1)
+            for progress, desc in demo_steps:
+                set_progress(app, progress, desc)
+                log_message(app, f"[DEMO]   - {desc}")
+                time.sleep(0.5)
         else:
-            subprocess.run(['arch-chroot', '/mnt', '/root/configure.sh'], check=True)
+            _run_chroot_with_progress(app)
 
         set_progress(app, 0.90, "Cleaning up...")
         log_message(app, "Cleaning up...")
@@ -394,7 +435,6 @@ def _run_pacstrap_with_progress(app, packages):
     """Run pacstrap while parsing output to update progress bar and log"""
     total_packages = len(packages)
     installed_count = 0
-    current_pkg = ""
 
     # Progress range: 0.25 to 0.48 for pacstrap
     progress_start = 0.25
@@ -409,12 +449,23 @@ def _run_pacstrap_with_progress(app, packages):
     )
 
     # Patterns to detect package installation progress from pacman output
+    # Match "(N/M) installing pkg-name" format used by pacman
+    numbered_pkg_pattern = re.compile(r'\((\d+)/(\d+)\)\s+installing\s+(\S+)', re.IGNORECASE)
     pkg_pattern = re.compile(r'installing\s+(\S+)', re.IGNORECASE)
     downloading_pattern = re.compile(r'downloading\s+(\S+)', re.IGNORECASE)
     resolving_pattern = re.compile(r'resolving dependencies|looking for conflicting', re.IGNORECASE)
     total_pattern = re.compile(r'Packages\s+\((\d+)\)', re.IGNORECASE)
+    # Detect section markers like ":: Processing package changes..."
+    section_pattern = re.compile(r'^::')
+    # Detect hook lines like "(1/5) Arming ConditionNeedsUpdate..."
+    hook_pattern = re.compile(r'^\((\d+)/(\d+)\)\s+(?!installing)', re.IGNORECASE)
 
-    for line in proc.stdout:
+    # Use readline() instead of iterator to avoid Python's internal
+    # read-ahead buffering which delays output on piped subprocesses
+    while True:
+        line = proc.stdout.readline()
+        if not line:
+            break
         line = line.rstrip()
         if not line:
             continue
@@ -424,15 +475,30 @@ def _run_pacstrap_with_progress(app, packages):
         if total_match:
             total_packages = int(total_match.group(1))
             log_message(app, f"Total packages to install: {total_packages}")
+            continue
 
-        # Detect individual package installations
+        # Detect "(N/M) installing pkg" format (most reliable)
+        numbered_match = numbered_pkg_pattern.search(line)
+        if numbered_match:
+            installed_count = int(numbered_match.group(1))
+            total_from_line = int(numbered_match.group(2))
+            current_pkg = numbered_match.group(3).rstrip('.')
+            if total_from_line > 0:
+                total_packages = total_from_line
+            progress = progress_start + (progress_end - progress_start) * (installed_count / max(total_packages, 1))
+            progress = min(progress, progress_end)
+            set_progress(app, progress, f"Installing packages ({installed_count}/{total_packages})...")
+            log_message(app, f"  Installing {current_pkg}...")
+            continue
+
+        # Fallback: detect "installing pkg" without numbering
         pkg_match = pkg_pattern.search(line)
         if pkg_match:
-            current_pkg = pkg_match.group(1)
+            current_pkg = pkg_match.group(1).rstrip('.')
             installed_count += 1
-            progress = progress_start + (progress_end - progress_start) * (installed_count / total_packages)
+            progress = progress_start + (progress_end - progress_start) * (installed_count / max(total_packages, 1))
             progress = min(progress, progress_end)
-            set_progress(app, progress, f"Installing {current_pkg} ({installed_count}/{total_packages})...")
+            set_progress(app, progress, f"Installing packages ({installed_count}/{total_packages})...")
             log_message(app, f"  Installing {current_pkg}...")
             continue
 
@@ -444,7 +510,17 @@ def _run_pacstrap_with_progress(app, packages):
 
         # Show resolving phase
         if resolving_pattern.search(line):
+            log_message(app, f"  {line.strip()}")
+            continue
+
+        # Show section markers (e.g. ":: Processing package changes...")
+        if section_pattern.search(line):
             log_message(app, line.strip())
+            continue
+
+        # Show post-transaction hooks
+        if hook_pattern.search(line):
+            log_message(app, f"  {line.strip()}")
             continue
 
     proc.wait()
@@ -453,6 +529,54 @@ def _run_pacstrap_with_progress(app, packages):
 
     set_progress(app, progress_end, "Base system installed")
     log_message(app, f"Base system installed ({installed_count} packages)")
+
+
+def _run_chroot_with_progress(app):
+    """Run arch-chroot configure.sh while streaming output and updating progress"""
+    # Progress range: 0.55 to 0.90 for chroot configuration
+    progress_start = 0.55
+    progress_end = 0.90
+
+    proc = subprocess.Popen(
+        ['arch-chroot', '/mnt', '/root/configure.sh'],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
+
+    # Pattern to detect progress markers: [PROGRESS N/M] description
+    progress_pattern = re.compile(r'\[PROGRESS\s+(\d+)/(\d+)\]\s+(.*)')
+
+    while True:
+        line = proc.stdout.readline()
+        if not line:
+            break
+        line = line.rstrip()
+        if not line:
+            continue
+
+        # Check for progress markers
+        progress_match = progress_pattern.search(line)
+        if progress_match:
+            step = int(progress_match.group(1))
+            total = int(progress_match.group(2))
+            description = progress_match.group(3)
+            progress = progress_start + (progress_end - progress_start) * (step / max(total, 1))
+            progress = min(progress, progress_end)
+            set_progress(app, progress, description)
+            log_message(app, f"  {description}")
+            continue
+
+        # Log all other output
+        log_message(app, f"  {line}")
+
+    proc.wait()
+    if proc.returncode != 0:
+        raise subprocess.CalledProcessError(proc.returncode, 'arch-chroot')
+
+    set_progress(app, progress_end, "System configured")
+    log_message(app, "System configuration complete")
 
 
 def _build_config_script(data):
@@ -482,6 +606,7 @@ def _build_config_script(data):
     return f'''#!/bin/bash
 set -e
 
+echo "[PROGRESS 1/11] Setting timezone and locale..."
 # Timezone
 ln -sf /usr/share/zoneinfo/{timezone} /etc/localtime
 hwclock --systohc 2>/dev/null || true
@@ -492,6 +617,7 @@ echo "{locale} UTF-8" >> /etc/locale.gen
 locale-gen
 echo "LANG={locale}" > /etc/locale.conf
 
+echo '[PROGRESS 2/11] Creating user account...'
 # Hostname
 echo '{_escape_shell(data['hostname'])}' > /etc/hostname
 cat > /etc/hosts <<EOF
@@ -509,6 +635,7 @@ echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
 echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/claude,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/claude-nopasswd
 chmod 440 /etc/sudoers.d/claude-nopasswd
 
+echo '[PROGRESS 3/11] Installing GRUB bootloader...'
 # GRUB - Auto-detect UEFI or BIOS
 if [ -d /sys/firmware/efi ]; then
     echo "==> Detected UEFI boot mode"
@@ -603,6 +730,7 @@ else
     fi
 fi
 
+echo '[PROGRESS 4/11] Configuring GRUB...'
 # Configure GRUB
 sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="zswap.enabled=0 splash quiet"/' /etc/default/grub
 sed -i 's/GRUB_DISTRIBUTOR="Arch"/GRUB_DISTRIBUTOR="madOS"/' /etc/default/grub
@@ -613,6 +741,7 @@ if [ ! -f /boot/grub/grub.cfg ]; then
     exit 1
 fi
 
+echo '[PROGRESS 5/11] Setting up Plymouth boot splash...'
 # Plymouth theme
 mkdir -p /usr/share/plymouth/themes/mados
 cat > /usr/share/plymouth/themes/mados/mados.plymouth <<EOFPLY
@@ -687,10 +816,12 @@ ShowDelay=0
 DeviceTimeout=8
 EOFPLYCONF
 
+echo '[PROGRESS 6/11] Rebuilding initramfs (this takes a while)...'
 # Rebuild initramfs with plymouth hook
 sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect modconf kms block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
 mkinitcpio -P
 
+echo '[PROGRESS 7/11] Enabling system services...'
 # Lock root account (security: users should use sudo)
 passwd -l root
 
@@ -782,6 +913,7 @@ WantedBy=multi-user.target
 EOFSVC
 systemctl enable mados-audio-init.service
 
+echo '[PROGRESS 8/11] Applying system optimizations...'
 # --- Non-critical section: errors below should not abort installation ---
 set +e
 
@@ -801,6 +933,7 @@ PRIVACY_POLICY_URL="https://terms.archlinux.org/docs/privacy-policy/"
 LOGO=archlinux-logo
 EOF
 
+echo '[PROGRESS 9/11] Installing Oh My Zsh...'
 # Oh My Zsh - install for user
 if command -v git &>/dev/null; then
     if curl -sf --connect-timeout 5 https://github.com >/dev/null 2>&1; then
@@ -872,6 +1005,7 @@ swap-priority = 100
 fs-type = swap
 EOF
 
+echo '[PROGRESS 10/11] Configuring desktop environment...'
 # greetd + ReGreet greeter configuration
 cat > /etc/greetd/config.toml <<'EOFGREETD'
 [terminal]
@@ -932,6 +1066,7 @@ if [ -f /etc/skel/.zshrc ]; then
     chown {username}:{username} /home/{username}/.zshrc
 fi
 
+echo '[PROGRESS 11/11] Installing Claude Code...'
 # Install Claude Code globally (non-fatal if no network)
 echo "Installing Claude Code..."
 if npm install -g @anthropic-ai/claude-code; then
