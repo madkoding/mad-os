@@ -381,6 +381,11 @@ def _run_installation(app):
             subprocess.run(['cp', '-a', '/usr/share/wayland-sessions/sway.desktop',
                             '/mnt/usr/share/wayland-sessions/sway.desktop'], check=False)
 
+            # Copy greeter wallpaper (same as session wallpaper)
+            subprocess.run(['mkdir', '-p', '/mnt/usr/share/backgrounds'], check=False)
+            subprocess.run(['cp', '-a', '/usr/share/backgrounds/mad-os-wallpaper.jpg',
+                            '/mnt/usr/share/backgrounds/mad-os-wallpaper.jpg'], check=False)
+
             # Copy custom fonts (DSEG7 for waybar LED theme)
             if os.path.isdir('/usr/share/fonts/dseg'):
                 subprocess.run(['mkdir', '-p', '/mnt/usr/share/fonts/dseg'], check=False)
@@ -1138,6 +1143,7 @@ EOFGREETD
 # ReGreet configuration
 cat > /etc/greetd/regreet.toml <<'EOFREGREET'
 [background]
+path = "/usr/share/backgrounds/mad-os-wallpaper.jpg"
 fit = "Cover"
 
 [env]
