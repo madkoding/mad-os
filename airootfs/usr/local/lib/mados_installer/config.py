@@ -69,7 +69,7 @@ NORD_AURORA = {
 PACKAGES = [
     'base', 'base-devel', 'linux', 'linux-firmware', 'intel-ucode', 'amd-ucode',
     'sway', 'swaybg', 'swayidle', 'swaylock', 'waybar', 'wofi', 'mako', 'xorg-xwayland',
-    'foot', 'chromium', 'code', 'vim', 'nano', 'git', 'htop', 'openssh', 'wget', 'jq',
+    'foot', 'chromium', 'code', 'vim', 'nano', 'git', 'htop', 'fastfetch', 'openssh', 'wget', 'jq',
     'grim', 'slurp', 'wl-clipboard', 'xdg-desktop-portal-wlr',
     'earlyoom', 'zram-generator', 'iwd',
     'pipewire', 'pipewire-pulse', 'pipewire-alsa', 'wireplumber',
@@ -77,7 +77,7 @@ PACKAGES = [
     'intel-media-driver', 'vulkan-intel', 'mesa-utils',
     'ttf-jetbrains-mono-nerd', 'noto-fonts-emoji',
     'pcmanfm', 'lxappearance', 'plymouth',
-    'grub', 'efibootmgr', 'os-prober', 'dosfstools', 'sbctl', 'networkmanager', 'sudo',
+    'grub', 'efibootmgr', 'os-prober', 'dosfstools', 'sbctl', 'networkmanager', 'sudo', 'zsh', 'curl',
     'brightnessctl',
     'nodejs', 'npm', 'python', 'python-gobject', 'gtk3', 'rsync',
     'greetd', 'greetd-regreet', 'cage'

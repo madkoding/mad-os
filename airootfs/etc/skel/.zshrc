@@ -1,21 +1,35 @@
-# ~/.bashrc
+# ~/.zshrc - madOS Zsh Configuration
 
 # If not running interactively, don't do anything
-[[ $- != *i* ]] && return
+[[ -o interactive ]] || return
+
+# Path to Oh My Zsh installation
+export ZSH="$HOME/.oh-my-zsh"
+
+# Oh My Zsh theme
+ZSH_THEME="agnoster"
+
+# Oh My Zsh plugins
+plugins=(git sudo command-not-found)
+
+# Load Oh My Zsh if installed
+if [ -d "$ZSH" ]; then
+    source "$ZSH/oh-my-zsh.sh"
+else
+    # Fallback prompt if Oh My Zsh is not yet installed
+    PROMPT='%F{green}%n@%m%f:%F{blue}%~%f%# '
+fi
 
 # Aliases
 alias ls='ls --color=auto'
 alias ll='ls -lah'
 alias grep='grep --color=auto'
 
-# Prompt
-PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
-
 # Welcome message on live USB
 if [ -f /etc/hostname ] && grep -q "mados" /etc/hostname 2>/dev/null; then
-    # Only show on first terminal open
-    if [ ! -f /tmp/.madOS-welcome-shown ]; then
-        touch /tmp/.madOS-welcome-shown
+    # Only show on first terminal open per session
+    if [ ! -f /tmp/.madOS-welcome-shown-zsh ]; then
+        touch /tmp/.madOS-welcome-shown-zsh
         cat << 'EOF'
 
 ╔═══════════════════════════════════════════════════╗
@@ -37,35 +51,11 @@ Welcome to madOS Live Environment!
 📦 To install madOS to disk:
    sudo install-mados
 
-   (Auto-selects GTK installer if available, TUI otherwise)
-
-🔧 Alternative installers:
-   sudo install-mados.sh                    (TUI - dialog based)
-   sudo install-mados-gtk.py                (GTK - graphical)
-   sudo /usr/local/bin/install-arch-optimized.sh  (CLI - legacy)
-
 🌐 Network setup:
    nmtui                    (Network Manager TUI)
-   sudo systemctl start iwd (WiFi daemon)
 
-💻 System specs:
-   • Sway Wayland compositor
-   • Claude Code AI assistant
-   • Optimized for 1.9GB RAM
-   • Intel Atom support
-
-📚 Keyboard shortcuts:
-   Super+Enter      - Open terminal
-   Super+D          - Application launcher
-   Super+Shift+Q    - Close window
-
-🐛 Debugging:
-   mados-debug              (quick system diagnostics)
-   mados-debug chromium     (Chromium logs)
-   mados-debug apps         (Python app diagnostics)
-   less /usr/share/doc/madOS/DEBUGGING.md
-
-Type 'claude' to start the AI assistant (after installation)
+💻 Type 'fastfetch' to see system info
+💻 Type 'claude' to start the AI assistant
 
 EOF
     fi

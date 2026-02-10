@@ -1,0 +1,16 @@
+[Unit]
+Description=Install Oh My Zsh if not already present
+After=network-online.target pacman-init.service
+Wants=network-online.target
+ConditionPathExists=!/etc/skel/.oh-my-zsh
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/setup-ohmyzsh.sh
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target
