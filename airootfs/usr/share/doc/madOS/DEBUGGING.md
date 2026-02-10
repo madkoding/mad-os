@@ -67,9 +67,7 @@ swaymsg -t get_inputs     # Input devices
 # Launch Chromium with verbose logging
 chromium --enable-logging --v=1 2>&1 | tee /tmp/chromium.log
 
-# Common issue: Running as root
-# The live environment runs as root. Chromium requires --no-sandbox.
-# This is configured in /etc/chromium-flags.conf
+# Check Chromium flags configuration
 cat /etc/chromium-flags.conf
 
 # Check if Chromium is crashing
@@ -180,17 +178,12 @@ journalctl -u mados-persistence.service -b
 
 **Symptom:** Chromium fails to open or crashes immediately.
 
-**Cause:** The live environment runs as root. Chromium refuses to run as root without `--no-sandbox`.
+**Cause:** Chromium may fail to start due to GPU driver issues or missing dependencies.
 
-**Fix:** The file `/etc/chromium-flags.conf` should contain `--no-sandbox`. Verify:
+**Fix:** Check Chromium flags and logs:
 ```bash
 cat /etc/chromium-flags.conf
-# Should show: --no-sandbox
-```
-
-If the file is missing, create it:
-```bash
-echo '--no-sandbox' | sudo tee /etc/chromium-flags.conf
+chromium --enable-logging --v=1 2>&1 | tee /tmp/chromium.log
 ```
 
 ### Python Apps Won't Open
