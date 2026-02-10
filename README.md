@@ -66,8 +66,37 @@ madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB),
 - **Claude Code** - AI assistant (`claude` command)
 - **Node.js 24.x** & npm
 - **Git** - Version control
+- **fastfetch** - System information tool
 - **htop** - System monitor
 - **Vim & Nano** - Text editors
+
+<details>
+<summary><b>📊 fastfetch example output</b></summary>
+
+```
+   /\      mados@mados
+  /  \     -----------
+ /\   \    OS → madOS
+/  ..  \   Host → Intel NUC / Custom PC
+/  '  '\  Kernel → 6.12.8-arch1-1
+/ ..'   \  Uptime → 2 hours, 15 mins
+/..'  ..'\ Packages → 324 (pacman)
+ `..'..'`  Shell → zsh 5.9
+            WM → sway
+            Terminal → foot
+            CPU → Intel Atom x5-Z8350 (4) @ 1.92GHz
+            GPU → Intel HD Graphics 400
+            Memory → 487MiB / 1872MiB
+            Swap → 128MiB / 936MiB
+            Disk (/) → 8.2GiB / 32.0GiB (26%)
+            Local IP (wlan0) → 192.168.1.42/24
+
+            🟦🟦🟦🟦🟦🟦🟦🟦
+```
+
+> **Note**: fastfetch reads `/etc/os-release` to display **madOS** as the distro name instead of "Arch Linux". The output above is an example — actual values depend on your hardware.
+
+</details>
 
 ### System Optimizations
 - **ZRAM** - Compressed swap using 50% RAM with zstd
