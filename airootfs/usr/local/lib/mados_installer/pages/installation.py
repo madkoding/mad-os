@@ -651,6 +651,7 @@ systemctl enable NetworkManager
 systemctl enable systemd-resolved
 systemctl enable earlyoom
 systemctl enable systemd-timesyncd
+systemctl enable greetd
 
 # Audio: Enable PipeWire for all user sessions (socket-activated)
 systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service
@@ -765,13 +766,73 @@ swap-priority = 100
 fs-type = swap
 EOF
 
-# Autologin
-mkdir -p /etc/systemd/system/getty@tty1.service.d
-cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf <<EOF
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty -o '-p -f -- \\\\u' --noclear --autologin {data['username']} %I \\$TERM
-EOF
+# greetd + ReGreet greeter configuration
+cat > /etc/greetd/config.toml <<'EOFGREETD'
+[terminal]
+vt = 1
+
+[default_session]
+command = "cage -s -- regreet"
+user = "greeter"
+EOFGREETD
+
+# ReGreet configuration
+cat > /etc/greetd/regreet.toml <<'EOFREGREET'
+[background]
+fit = "Cover"
+
+[GTK]
+application_prefer_dark_theme = true
+
+[commands]
+reboot = [ "systemctl", "reboot" ]
+poweroff = [ "systemctl", "poweroff" ]
+EOFREGREET
+
+# Ensure greeter user has video group access for cage
+usermod -aG video greeter 2>/dev/null || true
+
+# Create regreet cache directory
+mkdir -p /var/cache/regreet
+chown greeter:greeter /var/cache/regreet
+
+# Create sway-session wrapper with hardware detection for greeter sessions
+cat > /usr/local/bin/sway-session <<'EOFSWAY'
+#!/bin/bash
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=sway
+export MOZ_ENABLE_WAYLAND=1
+
+if [ -x /usr/local/bin/detect-legacy-hardware ]; then
+    if /usr/local/bin/detect-legacy-hardware >/dev/null 2>&1; then
+        export WLR_RENDERER=pixman
+        export WLR_NO_HARDWARE_CURSORS=1
+        export LIBGL_ALWAYS_SOFTWARE=1
+        export MESA_GL_VERSION_OVERRIDE=3.3
+    fi
+else
+    if systemd-detect-virt --vm --quiet 2>/dev/null; then
+        export WLR_RENDERER=pixman
+        export WLR_NO_HARDWARE_CURSORS=1
+        export LIBGL_ALWAYS_SOFTWARE=1
+        export MESA_GL_VERSION_OVERRIDE=3.3
+    fi
+fi
+
+exec sway
+EOFSWAY
+chmod 755 /usr/local/bin/sway-session
+
+# Create madOS Sway session desktop file for ReGreet
+mkdir -p /usr/share/wayland-sessions
+cat > /usr/share/wayland-sessions/sway-mados.desktop <<'EOFDESKTOP'
+[Desktop Entry]
+Name=Sway (madOS)
+Comment=madOS Sway session with hardware detection
+Exec=sway-session
+Type=Application
+DesktopNames=sway
+EOFDESKTOP
 
 # Copy configs
 su - {data['username']} -c "mkdir -p ~/.config/{{sway,waybar,foot,wofi,alacritty}}"

@@ -79,7 +79,8 @@ PACKAGES = [
     'pcmanfm', 'lxappearance', 'plymouth',
     'grub', 'efibootmgr', 'os-prober', 'dosfstools', 'sbctl', 'networkmanager', 'sudo',
     'brightnessctl',
-    'nodejs', 'npm', 'python', 'python-gobject', 'gtk3', 'rsync'
+    'nodejs', 'npm', 'python', 'python-gobject', 'gtk3', 'rsync',
+    'greetd', 'greetd-regreet', 'cage'
 ]
 
 # Locale to keyboard layout mapping for Sway
