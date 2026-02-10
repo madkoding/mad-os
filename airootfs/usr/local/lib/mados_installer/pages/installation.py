@@ -301,6 +301,16 @@ def _run_installation(app):
             subprocess.run(['cp', '-a', '/etc/skel/.zshrc', '/mnt/etc/skel/'], check=False)
             subprocess.run(['cp', '-a', '/etc/skel/.bashrc', '/mnt/etc/skel/'], check=False)
 
+            # Copy Oh My Zsh from live ISO if already installed
+            if os.path.isdir('/etc/skel/.oh-my-zsh'):
+                log_message(app, "Copying Oh My Zsh from live environment...")
+                subprocess.run(['cp', '-a', '/etc/skel/.oh-my-zsh', '/mnt/etc/skel/'], check=False)
+
+            # Copy setup-ohmyzsh.sh script for first-boot fallback
+            subprocess.run(['mkdir', '-p', '/mnt/usr/local/bin'], check=False)
+            subprocess.run(['cp', '-a', '/usr/local/bin/setup-ohmyzsh.sh',
+                            '/mnt/usr/local/bin/setup-ohmyzsh.sh'], check=False)
+
             # Copy custom fonts (DSEG7 for waybar LED theme)
             if os.path.isdir('/usr/share/fonts/dseg'):
                 subprocess.run(['mkdir', '-p', '/mnt/usr/share/fonts/dseg'], check=False)
@@ -802,7 +812,7 @@ ConditionPathExists=!/etc/skel/.oh-my-zsh
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/bash -c 'git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git /etc/skel/.oh-my-zsh && echo "Oh My Zsh installed" || echo "Failed to install Oh My Zsh"'
+ExecStart=/usr/local/bin/setup-ohmyzsh.sh
 StandardOutput=journal+console
 StandardError=journal+console
 TimeoutStartSec=120
