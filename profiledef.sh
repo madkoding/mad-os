@@ -51,4 +51,7 @@ file_permissions=(
   ["/usr/local/lib/mados_wifi/"]="0:0:755"
   ["/usr/local/lib/mados_equalizer/"]="0:0:755"
   ["/usr/local/bin/mados-debug"]="0:0:755"
+  ["/usr/local/bin/detect-legacy-hardware"]="0:0:755"
+  ["/usr/local/bin/cage-greeter"]="0:0:755"
+  ["/usr/local/bin/sway-session"]="0:0:755"
 )
