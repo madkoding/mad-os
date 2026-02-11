@@ -272,12 +272,14 @@ step "Phase 6 – Running configuration in chroot"
 # Build a CI-safe version of the config script.
 # We skip hardware-dependent commands that cannot work inside a container:
 #   - grub-install  (no EFI firmware / real BIOS)
+#   - grub-mkconfig (stubbed but creates dummy output file for existence check)
 #   - mkinitcpio    (no real kernel modules)
 #   - systemctl     (no systemd PID 1 inside chroot)
 #   - plymouth-set-default-theme (may not have Plymouth fully set up)
 #   - hwclock       (no RTC in container)
 #   - sbctl         (no Secure Boot)
 #   - passwd -l root (may fail without shadow setup)
+#   - npm           (no network / avoid long timeouts in CI)
 # All other configuration (timezone, locale, user, configs) is tested.
 
 cat > "$MOUNT_POINT/root/configure-ci.sh" << 'CIEOF'
@@ -287,14 +289,31 @@ set -e
 # ── Helper: skip commands that need real hardware / systemd ──────────────
 stub() { echo "  [CI-SKIP] $*"; return 0; }
 grub-install()                 { stub "grub-install $*"; }
-grub-mkconfig()                { stub "grub-mkconfig $*"; }
+# grub-mkconfig stub: create a dummy output file when -o is used, because
+# the config script checks for its existence and exits 1 if missing.
+grub-mkconfig() {
+    stub "grub-mkconfig $*"
+    local outfile=""
+    while [ $# -gt 0 ]; do
+        if [ "$1" = "-o" ] && [ -n "${2:-}" ]; then
+            outfile="$2"; shift 2
+        else
+            shift
+        fi
+    done
+    if [ -n "$outfile" ]; then
+        mkdir -p "$(dirname "$outfile")"
+        echo "# CI stub grub.cfg" > "$outfile"
+    fi
+}
 mkinitcpio()                   { stub "mkinitcpio $*"; }
 systemctl()                    { stub "systemctl $*"; }
 plymouth-set-default-theme()   { stub "plymouth-set-default-theme $*"; }
 hwclock()                      { stub "hwclock $*"; }
 sbctl()                        { stub "sbctl $*"; }
 passwd()                       { stub "passwd $*"; }
-export -f stub grub-install grub-mkconfig mkinitcpio systemctl plymouth-set-default-theme hwclock sbctl passwd
+npm()                          { stub "npm $*"; }
+export -f stub grub-install grub-mkconfig mkinitcpio systemctl plymouth-set-default-theme hwclock sbctl passwd npm
 CIEOF
 
 # Append the real config script (it will use our stubs for skipped commands)
