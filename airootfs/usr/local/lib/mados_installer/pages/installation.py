@@ -276,23 +276,43 @@ def _run_installation(app):
         else:
             _prepare_pacman(app)
 
-        set_progress(app, 0.25, "Installing base system...")
-        log_message(app, "Installing base system...")
-
         # Build package list with conditional CJK fonts
         packages = list(PACKAGES)
         if data['locale'] in ('zh_CN.UTF-8', 'ja_JP.UTF-8'):
             packages.append('noto-fonts-cjk')
             log_message(app, "Adding CJK fonts for selected locale...")
 
+        # Step 4a: Download packages in groups (progress stays alive)
+        set_progress(app, 0.25, "Downloading packages...")
+        log_message(app, "Downloading packages...")
+
         if DEMO_MODE:
-            log_message(app, "[DEMO] Simulating pacstrap with packages:")
+            log_message(app, "[DEMO] Simulating package downloads in groups:")
+            group_size = 10
+            for i in range(0, len(packages), group_size):
+                group = packages[i:i + group_size]
+                end = min(i + group_size, len(packages))
+                progress = 0.25 + (0.11 * end / len(packages))
+                set_progress(app, progress, f"Downloading packages ({end}/{len(packages)})...")
+                for pkg in group:
+                    log_message(app, f"[DEMO] Downloading {pkg}...")
+                time.sleep(0.3)
+            time.sleep(0.3)
+        else:
+            _download_packages_with_progress(app, packages)
+
+        # Step 4b: Install packages (already cached from download step)
+        set_progress(app, 0.36, "Installing base system...")
+        log_message(app, "Installing base system...")
+
+        if DEMO_MODE:
+            log_message(app, "[DEMO] Simulating pacstrap with cached packages:")
             for i, pkg in enumerate(packages):
-                progress = 0.25 + (0.23 * (i + 1) / len(packages))
+                progress = 0.36 + (0.12 * (i + 1) / len(packages))
                 set_progress(app, progress, f"Installing {pkg}...")
                 log_message(app, f"[DEMO] Installing {pkg}...")
-                time.sleep(0.2)
-            time.sleep(0.5)
+                time.sleep(0.1)
+            time.sleep(0.3)
         else:
             _run_pacstrap_with_progress(app, packages)
 
@@ -560,13 +580,69 @@ def _prepare_pacman(app):
         log_message(app, "  Package databases synchronized")
 
 
+def _download_packages_with_progress(app, packages):
+    """Pre-download packages in small groups so the progress bar stays alive.
+
+    Downloads packages to the host pacman cache using ``pacman -Sw``.
+    pacstrap will then find them already cached and skip re-downloading,
+    which keeps the subsequent install phase fast and responsive.
+
+    The progress bar advances from 0.25 to 0.36 during this phase.
+    """
+    total = len(packages)
+    progress_start = 0.25
+    progress_end = 0.36
+    group_size = 10
+
+    downloaded = 0
+    for i in range(0, total, group_size):
+        group = packages[i:i + group_size]
+        end = min(i + group_size, total)
+        progress = progress_start + (progress_end - progress_start) * (i / total)
+        set_progress(app, progress, f"Downloading packages ({downloaded}/{total})...")
+
+        group_preview = ', '.join(group[:3]) + ('...' if len(group) > 3 else '')
+        log_message(app, f"  Downloading group: {group_preview}")
+
+        proc = subprocess.Popen(
+            ['pacman', '-Sw', '--noconfirm'] + group,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            line = line.rstrip()
+            if not line:
+                continue
+            # Skip noisy progress-bar lines (e.g. "  100%  [####...]")
+            if re.match(r'^\s*\d+%\s*\[|^\s*[-#]+\s*$', line):
+                continue
+            log_message(app, f"    {line}")
+
+        proc.wait()
+        if proc.returncode != 0:
+            log_message(app, f"  Warning: download returned non-zero for group, pacstrap will retry")
+
+        downloaded = end
+        progress = progress_start + (progress_end - progress_start) * (downloaded / total)
+        set_progress(app, progress, f"Downloading packages ({downloaded}/{total})...")
+
+    set_progress(app, progress_end, "All packages downloaded")
+    log_message(app, f"  All {total} packages downloaded to cache")
+
+
 def _run_pacstrap_with_progress(app, packages):
     """Run pacstrap while parsing output to update progress bar and log"""
     total_packages = len(packages)
     installed_count = 0
 
-    # Progress range: 0.25 to 0.48 for pacstrap
-    progress_start = 0.25
+    # Progress range: 0.36 to 0.48 for pacstrap (packages already cached)
+    progress_start = 0.36
     progress_end = 0.48
 
     proc = subprocess.Popen(
