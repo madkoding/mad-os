@@ -288,7 +288,15 @@ set -e
 
 # ── Helper: skip commands that need real hardware / systemd ──────────────
 stub() { echo "  [CI-SKIP] $*"; return 0; }
-grub-install()                 { stub "grub-install $*"; }
+# grub-install stub: create the fallback EFI binary when --removable is used,
+# because the config script checks for its existence and exits 1 if missing.
+grub-install() {
+    stub "grub-install $*"
+    if echo "$*" | grep -q -- '--removable'; then
+        mkdir -p /boot/EFI/BOOT
+        echo "# CI stub BOOTX64.EFI" > /boot/EFI/BOOT/BOOTX64.EFI
+    fi
+}
 # grub-mkconfig stub: create a dummy output file when -o is used, because
 # the config script checks for its existence and exits 1 if missing.
 grub-mkconfig() {
