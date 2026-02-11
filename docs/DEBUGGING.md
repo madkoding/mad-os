@@ -186,6 +186,25 @@ cat /etc/chromium-flags.conf
 chromium --enable-logging --v=1 2>&1 | tee /tmp/chromium.log
 ```
 
+### Chromium GPU / VA-API / Vulkan Errors
+
+**Symptom:** Chromium shows errors like `vaInitialize failed`, `Failed to detect any valid GPUs`,
+`ContextResult::kTransientFailure`, or `Network service crashed`.
+
+**Cause:** Intel Atom and other legacy GPUs don't support VA-API hardware video decode or Vulkan.
+Chromium tries to use these features and crashes when they fail.
+
+**Fix:** madOS already configures `/etc/chromium-flags.conf` with safe defaults:
+- `--disable-vulkan` — Prevents Vulkan errors on unsupported hardware
+- `--disable-features=VaapiVideoDecoder,VaapiVideoEncoder,UseChromeOSDirectVideoDecoder` — Disables VA-API
+- `--renderer-process-limit=3` — Saves RAM on low-memory systems
+
+On legacy hardware, the session startup also sets `CHROMIUM_FLAGS="--disable-gpu"` to force
+software rendering. To manually force software rendering:
+```bash
+CHROMIUM_FLAGS="--disable-gpu" chromium
+```
+
 ### Python Apps Won't Open
 
 **Symptom:** Photo Viewer, PDF Viewer, WiFi config, or Equalizer won't start.

@@ -1144,8 +1144,16 @@ EOF
 
 # Chromium flags for Wayland/Sway (non-root user, sandbox enabled)
 cat > /etc/chromium-flags.conf <<EOF
+# Wayland native support
 --ozone-platform-hint=auto
 --enable-features=WaylandWindowDecorations
+# Disable Vulkan (not supported on Intel Atom / legacy GPUs)
+--disable-vulkan
+# Disable VA-API hardware video decode/encode (fails on Intel Atom)
+--disable-features=VaapiVideoDecoder,VaapiVideoEncoder,UseChromeOSDirectVideoDecoder
+# Memory optimizations for low-RAM systems
+--renderer-process-limit=3
+--disable-gpu-memory-buffer-compositor-resources
 EOF
 
 # Chromium homepage policy
