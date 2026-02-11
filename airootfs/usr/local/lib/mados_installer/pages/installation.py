@@ -1148,6 +1148,17 @@ cat > /etc/chromium-flags.conf <<EOF
 --enable-features=WaylandWindowDecorations
 EOF
 
+# Chromium homepage policy
+mkdir -p /etc/chromium/policies/managed
+cat > /etc/chromium/policies/managed/mados-homepage.json <<EOF
+{
+  "HomepageLocation": "https://www.kodingvibes.com",
+  "HomepageIsNewTabPage": true,
+  "RestoreOnStartup": 4,
+  "RestoreOnStartupURLs": ["https://www.kodingvibes.com"]
+}
+EOF
+
 # ZRAM
 cat > /etc/systemd/zram-generator.conf <<EOF
 [zram0]
