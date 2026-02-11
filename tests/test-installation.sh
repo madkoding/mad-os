@@ -124,6 +124,7 @@ HOME_PART="${LOOP_DEV}p4"
 
 # Use multiple strategies to ensure partition device nodes appear in containers
 partprobe "$LOOP_DEV" 2>/dev/null || true
+partx -a "$LOOP_DEV" 2>/dev/null || true
 partx -u "$LOOP_DEV" 2>/dev/null || true
 udevadm settle --timeout=10 2>/dev/null || true
 
@@ -132,15 +133,43 @@ for attempt in $(seq 1 10); do
     [ -b "$BOOT_PART" ] && [ -b "$ROOT_PART" ] && [ -b "$HOME_PART" ] && break
     info "Waiting for partition device nodes (attempt ${attempt}/10)..."
     partprobe "$LOOP_DEV" 2>/dev/null || true
+    partx -a "$LOOP_DEV" 2>/dev/null || true
     partx -u "$LOOP_DEV" 2>/dev/null || true
     udevadm settle --timeout=5 2>/dev/null || true
     sleep 1
+done
+
+# Fallback: In Docker containers /dev is often a plain tmpfs (not devtmpfs),
+# so the kernel cannot auto-create device nodes even though it knows about the
+# partitions (visible in sysfs).  Manually create them with mknod.
+LOOP_NAME=$(basename "$LOOP_DEV")
+for i in 1 2 3 4; do
+    PART_DEV="${LOOP_DEV}p${i}"
+    SYSFS_DEV="/sys/block/${LOOP_NAME}/${LOOP_NAME}p${i}/dev"
+    if ! [ -b "$PART_DEV" ] && [ -f "$SYSFS_DEV" ]; then
+        MAJOR=$(cut -d: -f1 < "$SYSFS_DEV" | tr -d '[:space:]')
+        MINOR=$(cut -d: -f2 < "$SYSFS_DEV" | tr -d '[:space:]')
+        info "Creating device node ${PART_DEV} (${MAJOR}:${MINOR}) via mknod"
+        mknod "$PART_DEV" b "$MAJOR" "$MINOR"
+    fi
 done
 
 for label_part in "EFI:${BOOT_PART}" "root:${ROOT_PART}" "home:${HOME_PART}"; do
     label="${label_part%%:*}"; part="${label_part##*:}"
     [ -b "$part" ] && ok "Partition ${label} (${part}) exists" || fail "Partition ${label} (${part}) missing"
 done
+
+# Abort early if any partition is still missing (prevents cryptic mkfs errors)
+if ! [ -b "$BOOT_PART" ] || ! [ -b "$ROOT_PART" ] || ! [ -b "$HOME_PART" ]; then
+    info "Diagnostics: ls -la ${LOOP_DEV}*"
+    ls -la "${LOOP_DEV}"* 2>/dev/null || true
+    info "Diagnostics: /sys/block/${LOOP_NAME}/"
+    ls -la "/sys/block/${LOOP_NAME}/" 2>/dev/null || true
+    info "Diagnostics: lsblk"
+    lsblk 2>/dev/null || true
+    fail "Could not create partition device nodes after all strategies. Aborting."
+    exit 1
+fi
 
 # Format
 info "Formatting partitions..."
@@ -264,7 +293,8 @@ systemctl()                    { stub "systemctl $*"; }
 plymouth-set-default-theme()   { stub "plymouth-set-default-theme $*"; }
 hwclock()                      { stub "hwclock $*"; }
 sbctl()                        { stub "sbctl $*"; }
-export -f grub-install grub-mkconfig mkinitcpio systemctl plymouth-set-default-theme hwclock sbctl
+passwd()                       { stub "passwd $*"; }
+export -f stub grub-install grub-mkconfig mkinitcpio systemctl plymouth-set-default-theme hwclock sbctl passwd
 CIEOF
 
 # Append the real config script (it will use our stubs for skipped commands)
