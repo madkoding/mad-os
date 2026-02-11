@@ -111,9 +111,14 @@ parted -s "$LOOP_DEV" set 2 esp on
 parted -s "$LOOP_DEV" mkpart root ext4 1GiB 51GiB
 parted -s "$LOOP_DEV" mkpart home ext4 51GiB 100%
 
-partprobe "$LOOP_DEV"
+# In containers, partprobe is unreliable for loop devices because udev may not
+# be running.  Detach and reattach with -P (--partscan) so the kernel creates
+# the partition device nodes (/dev/loop0p1, …) on attach.
+losetup -d "$LOOP_DEV"
+LOOP_DEV=$(losetup -fP --show "$DISK_IMAGE")
+info "Reattached with partition scan: $LOOP_DEV"
 udevadm settle --timeout=10 2>/dev/null || true
-sleep 2
+sleep 1
 
 BOOT_PART="${LOOP_DEV}p2"
 ROOT_PART="${LOOP_DEV}p3"
