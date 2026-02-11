@@ -13,7 +13,7 @@ if [ -x /usr/local/bin/detect-legacy-hardware ]; then
         export LIBGL_ALWAYS_SOFTWARE=1
         export MESA_GL_VERSION_OVERRIDE=3.3
         # Chromium: force software rendering on legacy hardware
-        export CHROMIUM_FLAGS="${CHROMIUM_FLAGS} --disable-gpu"
+        export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:-} --disable-gpu"
     fi
 else
     if systemd-detect-virt --vm --quiet 2>/dev/null; then
@@ -22,7 +22,7 @@ else
         export LIBGL_ALWAYS_SOFTWARE=1
         export MESA_GL_VERSION_OVERRIDE=3.3
         # Chromium: force software rendering in VMs without 3D
-        export CHROMIUM_FLAGS="${CHROMIUM_FLAGS} --disable-gpu"
+        export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:-} --disable-gpu"
     fi
 fi
 

@@ -30,7 +30,7 @@ if [ -z "${WAYLAND_DISPLAY}" ] && [ "$(tty)" = "/dev/tty1" ]; then
             export LIBGL_ALWAYS_SOFTWARE=1
             export MESA_GL_VERSION_OVERRIDE=3.3
             # Chromium: force software rendering on legacy hardware
-            export CHROMIUM_FLAGS="${CHROMIUM_FLAGS} --disable-gpu"
+            export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:-} --disable-gpu"
         else
             echo "Hardware rendering enabled for modern hardware"
         fi
@@ -42,7 +42,7 @@ if [ -z "${WAYLAND_DISPLAY}" ] && [ "$(tty)" = "/dev/tty1" ]; then
             export LIBGL_ALWAYS_SOFTWARE=1
             export MESA_GL_VERSION_OVERRIDE=3.3
             # Chromium: force software rendering in VMs without 3D
-            export CHROMIUM_FLAGS="${CHROMIUM_FLAGS} --disable-gpu"
+            export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:-} --disable-gpu"
         fi
     fi
 
