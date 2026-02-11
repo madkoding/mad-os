@@ -619,14 +619,15 @@ def _download_packages_with_progress(app, packages):
             line = line.rstrip()
             if not line:
                 continue
-            # Skip noisy progress-bar lines (e.g. "  100%  [####...]")
+            # Skip noisy progress-bar lines (e.g. "  100%  [####...]" or "---")
             if re.match(r'^\s*\d+%\s*\[|^\s*[-#]+\s*$', line):
                 continue
             log_message(app, f"    {line}")
 
         proc.wait()
         if proc.returncode != 0:
-            log_message(app, f"  Warning: download returned non-zero for group, pacstrap will retry")
+            log_message(app, f"  Warning: download failed for group {i // group_size + 1} "
+                             f"(exit code {proc.returncode}), pacstrap will retry")
 
         downloaded = end
         progress = progress_start + (progress_end - progress_start) * (downloaded / total)
