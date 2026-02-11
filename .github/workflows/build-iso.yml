@@ -10,7 +10,22 @@ permissions:
   contents: write
 
 jobs:
+  test-installer:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Test installation process in Arch container
+      run: |
+        docker run --privileged --rm \
+          --dns 8.8.8.8 --dns 8.8.4.4 \
+          -v ${{ github.workspace }}:/build \
+          archlinux:latest bash /build/tests/test-installation.sh
+
   build:
+    needs: test-installer
     runs-on: ubuntu-latest
     
     steps:
