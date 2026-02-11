@@ -117,12 +117,25 @@ parted -s "$LOOP_DEV" mkpart home ext4 51GiB 100%
 losetup -d "$LOOP_DEV"
 LOOP_DEV=$(losetup -fP --show "$DISK_IMAGE")
 info "Reattached with partition scan: $LOOP_DEV"
-udevadm settle --timeout=10 2>/dev/null || true
-sleep 1
 
 BOOT_PART="${LOOP_DEV}p2"
 ROOT_PART="${LOOP_DEV}p3"
 HOME_PART="${LOOP_DEV}p4"
+
+# Use multiple strategies to ensure partition device nodes appear in containers
+partprobe "$LOOP_DEV" 2>/dev/null || true
+partx -u "$LOOP_DEV" 2>/dev/null || true
+udevadm settle --timeout=10 2>/dev/null || true
+
+# Wait for partition device nodes with retries
+for attempt in $(seq 1 10); do
+    [ -b "$BOOT_PART" ] && [ -b "$ROOT_PART" ] && [ -b "$HOME_PART" ] && break
+    info "Waiting for partition device nodes (attempt ${attempt}/10)..."
+    partprobe "$LOOP_DEV" 2>/dev/null || true
+    partx -u "$LOOP_DEV" 2>/dev/null || true
+    udevadm settle --timeout=5 2>/dev/null || true
+    sleep 1
+done
 
 for label_part in "EFI:${BOOT_PART}" "root:${ROOT_PART}" "home:${HOME_PART}"; do
     label="${label_part%%:*}"; part="${label_part##*:}"
