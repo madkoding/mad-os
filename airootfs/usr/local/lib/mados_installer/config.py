@@ -78,7 +78,7 @@ PACKAGES = [
     'xf86-video-amdgpu', 'vulkan-radeon', 'libva-mesa-driver',
     'xf86-video-nouveau',
     'ttf-jetbrains-mono-nerd', 'noto-fonts-emoji',
-    'pcmanfm', 'lxappearance', 'plymouth', 'arc-gtk-theme',
+    'pcmanfm', 'lxappearance', 'plymouth', 'materia-gtk-theme',
     'grub', 'efibootmgr', 'os-prober', 'dosfstools', 'sbctl', 'networkmanager', 'sudo', 'zsh', 'curl',
     'brightnessctl',
     'nodejs', 'npm', 'python', 'python-gobject', 'gtk3', 'rsync',

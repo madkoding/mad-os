@@ -85,7 +85,7 @@ alsa-utils
 pavucontrol
 
 # Tema GTK oscuro
-arc-gtk-theme
+materia-gtk-theme
 
 # Fuentes
 ttf-jetbrains-mono-nerd
