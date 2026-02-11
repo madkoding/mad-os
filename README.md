@@ -106,7 +106,7 @@ madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB),
 
 ### GPU Drivers (Open Source)
 - **Intel** - intel-media-driver, vulkan-intel, libva-intel-driver
-- **AMD** - xf86-video-amdgpu, vulkan-radeon, libva-mesa-driver
+- **AMD** - xf86-video-amdgpu, vulkan-radeon
 - **NVIDIA** - xf86-video-nouveau (open source driver)
 - **Mesa** - OpenGL/Vulkan implementation for all GPUs
 
