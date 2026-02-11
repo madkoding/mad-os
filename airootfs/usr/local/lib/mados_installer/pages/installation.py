@@ -1153,7 +1153,7 @@ mkdir -p /etc/chromium/policies/managed
 cat > /etc/chromium/policies/managed/mados-homepage.json <<EOF
 {
   "HomepageLocation": "https://www.kodingvibes.com",
-  "HomepageIsNewTabPage": false,
+  "HomepageIsNewTabPage": true,
   "RestoreOnStartup": 4,
   "RestoreOnStartupURLs": ["https://www.kodingvibes.com"]
 }
