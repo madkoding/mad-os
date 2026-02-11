@@ -175,8 +175,9 @@ class TestDownloadGrouping(unittest.TestCase):
             popen_calls.append(cmd)
             return mock_proc
 
-        packages = list(PACKAGES)  # ~86 packages
-        expected_groups = (len(packages) + 9) // 10  # ceil division
+        packages = list(PACKAGES)
+        # Number of groups of 10 needed to cover all packages
+        expected_groups = (len(packages) + 9) // 10
 
         with patch("mados_installer.pages.installation.subprocess.Popen",
                     side_effect=capture_popen), \
