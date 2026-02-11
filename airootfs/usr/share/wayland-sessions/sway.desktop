@@ -1,6 +1,0 @@
-[Desktop Entry]
-Name=Sway
-Comment=madOS Sway session with hardware detection
-Exec=/usr/local/bin/sway-session
-Type=Application
-DesktopNames=sway
