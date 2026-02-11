@@ -347,6 +347,11 @@ def _run_installation(app):
             subprocess.run(['cp', '-a', '/etc/skel/.bash_profile', '/mnt/etc/skel/'], check=False)
             subprocess.run(['cp', '-a', '/etc/skel/.zshrc', '/mnt/etc/skel/'], check=False)
             subprocess.run(['cp', '-a', '/etc/skel/.bashrc', '/mnt/etc/skel/'], check=False)
+            subprocess.run(['cp', '-a', '/etc/skel/.gtkrc-2.0', '/mnt/etc/skel/'], check=False)
+
+            # Copy system-wide GTK settings for dark theme
+            subprocess.run(['mkdir', '-p', '/mnt/etc/gtk-3.0'], check=False)
+            subprocess.run(['cp', '-a', '/etc/gtk-3.0/settings.ini', '/mnt/etc/gtk-3.0/'], check=False)
 
             # Copy Oh My Zsh from live ISO if already installed
             if os.path.isdir('/etc/skel/.oh-my-zsh'):
@@ -1210,10 +1215,11 @@ EOFOVERRIDE
 # (see file copy section before arch-chroot)
 
 # Copy configs
-su - {username} -c "mkdir -p ~/.config/{{sway,waybar,foot,wofi,alacritty}}"
+su - {username} -c "mkdir -p ~/.config/{{sway,waybar,foot,wofi,alacritty,gtk-3.0,gtk-4.0}}"
 su - {username} -c "mkdir -p ~/Pictures/{{Wallpapers,Screenshots}}"
 cp -r /etc/skel/.config/* /home/{username}/.config/ 2>/dev/null || true
 cp -r /etc/skel/Pictures/* /home/{username}/Pictures/ 2>/dev/null || true
+cp /etc/skel/.gtkrc-2.0 /home/{username}/.gtkrc-2.0 2>/dev/null || true
 chown -R {username}:{username} /home/{username}
 
 # Set keyboard layout in Sway config based on locale

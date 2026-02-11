@@ -84,6 +84,9 @@ wireplumber
 alsa-utils
 pavucontrol
 
+# Tema GTK oscuro
+arc-gtk-theme
+
 # Fuentes
 ttf-jetbrains-mono-nerd
 noto-fonts-emoji
