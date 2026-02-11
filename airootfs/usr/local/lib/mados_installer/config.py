@@ -81,8 +81,11 @@ PACKAGES = [
     'pcmanfm', 'lxappearance', 'plymouth', 'materia-gtk-theme',
     'grub', 'efibootmgr', 'os-prober', 'dosfstools', 'sbctl', 'networkmanager', 'sudo', 'zsh', 'curl',
     'brightnessctl',
-    'nodejs', 'npm', 'python', 'python-gobject', 'gtk3', 'rsync',
-    'greetd', 'greetd-regreet', 'cage'
+    'nodejs', 'npm', 'python', 'python-gobject', 'python-cairo', 'gtk3', 'gdk-pixbuf2', 'rsync',
+    'greetd', 'greetd-regreet', 'cage',
+    # madOS Native Apps Dependencies
+    'python-pillow', 'poppler-glib',
+    'gstreamer', 'gst-plugins-base', 'gst-plugins-good', 'gst-python'
 ]
 
 # Locale to keyboard layout mapping for Sway
