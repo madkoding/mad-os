@@ -75,7 +75,7 @@ PACKAGES = [
     'pipewire', 'pipewire-pulse', 'pipewire-alsa', 'wireplumber',
     'alsa-utils', 'pavucontrol',
     'intel-media-driver', 'vulkan-intel', 'mesa', 'mesa-utils',
-    'xf86-video-amdgpu', 'vulkan-radeon', 'libva-mesa-driver',
+    'xf86-video-amdgpu', 'vulkan-radeon',
     'xf86-video-nouveau',
     'ttf-jetbrains-mono-nerd', 'noto-fonts-emoji',
     'pcmanfm', 'lxappearance', 'plymouth', 'materia-gtk-theme',
