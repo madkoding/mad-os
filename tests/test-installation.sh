@@ -117,17 +117,59 @@ parted -s "$LOOP_DEV" mkpart home ext4 51GiB 100%
 losetup -d "$LOOP_DEV"
 LOOP_DEV=$(losetup -fP --show "$DISK_IMAGE")
 info "Reattached with partition scan: $LOOP_DEV"
-udevadm settle --timeout=10 2>/dev/null || true
-sleep 1
 
 BOOT_PART="${LOOP_DEV}p2"
 ROOT_PART="${LOOP_DEV}p3"
 HOME_PART="${LOOP_DEV}p4"
 
+# Use multiple strategies to ensure partition device nodes appear in containers
+partprobe "$LOOP_DEV" 2>/dev/null || true
+partx -a "$LOOP_DEV" 2>/dev/null || true
+partx -u "$LOOP_DEV" 2>/dev/null || true
+udevadm settle --timeout=10 2>/dev/null || true
+
+# Wait for partition device nodes with retries
+for attempt in $(seq 1 10); do
+    [ -b "$BOOT_PART" ] && [ -b "$ROOT_PART" ] && [ -b "$HOME_PART" ] && break
+    info "Waiting for partition device nodes (attempt ${attempt}/10)..."
+    partprobe "$LOOP_DEV" 2>/dev/null || true
+    partx -a "$LOOP_DEV" 2>/dev/null || true
+    partx -u "$LOOP_DEV" 2>/dev/null || true
+    udevadm settle --timeout=5 2>/dev/null || true
+    sleep 1
+done
+
+# Fallback: In Docker containers /dev is often a plain tmpfs (not devtmpfs),
+# so the kernel cannot auto-create device nodes even though it knows about the
+# partitions (visible in sysfs).  Manually create them with mknod.
+LOOP_NAME=$(basename "$LOOP_DEV")
+for i in 1 2 3 4; do
+    PART_DEV="${LOOP_DEV}p${i}"
+    SYSFS_DEV="/sys/block/${LOOP_NAME}/${LOOP_NAME}p${i}/dev"
+    if ! [ -b "$PART_DEV" ] && [ -f "$SYSFS_DEV" ]; then
+        MAJOR=$(cut -d: -f1 < "$SYSFS_DEV" | tr -d '[:space:]')
+        MINOR=$(cut -d: -f2 < "$SYSFS_DEV" | tr -d '[:space:]')
+        info "Creating device node ${PART_DEV} (${MAJOR}:${MINOR}) via mknod"
+        mknod "$PART_DEV" b "$MAJOR" "$MINOR"
+    fi
+done
+
 for label_part in "EFI:${BOOT_PART}" "root:${ROOT_PART}" "home:${HOME_PART}"; do
     label="${label_part%%:*}"; part="${label_part##*:}"
     [ -b "$part" ] && ok "Partition ${label} (${part}) exists" || fail "Partition ${label} (${part}) missing"
 done
+
+# Abort early if any partition is still missing (prevents cryptic mkfs errors)
+if ! [ -b "$BOOT_PART" ] || ! [ -b "$ROOT_PART" ] || ! [ -b "$HOME_PART" ]; then
+    info "Diagnostics: ls -la ${LOOP_DEV}*"
+    ls -la "${LOOP_DEV}"* 2>/dev/null || true
+    info "Diagnostics: /sys/block/${LOOP_NAME}/"
+    ls -la "/sys/block/${LOOP_NAME}/" 2>/dev/null || true
+    info "Diagnostics: lsblk"
+    lsblk 2>/dev/null || true
+    fail "Could not create partition device nodes after all strategies. Aborting."
+    exit 1
+fi
 
 # Format
 info "Formatting partitions..."
@@ -230,12 +272,14 @@ step "Phase 6 – Running configuration in chroot"
 # Build a CI-safe version of the config script.
 # We skip hardware-dependent commands that cannot work inside a container:
 #   - grub-install  (no EFI firmware / real BIOS)
+#   - grub-mkconfig (stubbed but creates dummy output file for existence check)
 #   - mkinitcpio    (no real kernel modules)
 #   - systemctl     (no systemd PID 1 inside chroot)
 #   - plymouth-set-default-theme (may not have Plymouth fully set up)
 #   - hwclock       (no RTC in container)
 #   - sbctl         (no Secure Boot)
 #   - passwd -l root (may fail without shadow setup)
+#   - npm           (no network / avoid long timeouts in CI)
 # All other configuration (timezone, locale, user, configs) is tested.
 
 cat > "$MOUNT_POINT/root/configure-ci.sh" << 'CIEOF'
@@ -245,13 +289,31 @@ set -e
 # ── Helper: skip commands that need real hardware / systemd ──────────────
 stub() { echo "  [CI-SKIP] $*"; return 0; }
 grub-install()                 { stub "grub-install $*"; }
-grub-mkconfig()                { stub "grub-mkconfig $*"; }
+# grub-mkconfig stub: create a dummy output file when -o is used, because
+# the config script checks for its existence and exits 1 if missing.
+grub-mkconfig() {
+    stub "grub-mkconfig $*"
+    local outfile=""
+    while [ $# -gt 0 ]; do
+        if [ "$1" = "-o" ] && [ -n "${2:-}" ]; then
+            outfile="$2"; shift 2
+        else
+            shift
+        fi
+    done
+    if [ -n "$outfile" ]; then
+        mkdir -p "$(dirname "$outfile")"
+        echo "# CI stub grub.cfg" > "$outfile"
+    fi
+}
 mkinitcpio()                   { stub "mkinitcpio $*"; }
 systemctl()                    { stub "systemctl $*"; }
 plymouth-set-default-theme()   { stub "plymouth-set-default-theme $*"; }
 hwclock()                      { stub "hwclock $*"; }
 sbctl()                        { stub "sbctl $*"; }
-export -f grub-install grub-mkconfig mkinitcpio systemctl plymouth-set-default-theme hwclock sbctl
+passwd()                       { stub "passwd $*"; }
+npm()                          { stub "npm $*"; }
+export -f stub grub-install grub-mkconfig mkinitcpio systemctl plymouth-set-default-theme hwclock sbctl passwd npm
 CIEOF
 
 # Append the real config script (it will use our stubs for skipped commands)
