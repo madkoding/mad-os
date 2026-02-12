@@ -14,6 +14,8 @@ on:
       - 'profiledef.sh'
       - 'tests/test_boot_scripts.py'
       - 'tests/test_post_installation.py'
+      - 'tests/test_opencode.py'
+      - 'airootfs/etc/systemd/system/multi-user.target.wants/**'
       - '.github/workflows/test-scripts.yml'
   pull_request:
     paths:
@@ -28,6 +30,8 @@ on:
       - 'profiledef.sh'
       - 'tests/test_boot_scripts.py'
       - 'tests/test_post_installation.py'
+      - 'tests/test_opencode.py'
+      - 'airootfs/etc/systemd/system/multi-user.target.wants/**'
       - '.github/workflows/test-scripts.yml'
   workflow_dispatch:
 
@@ -60,3 +64,16 @@ jobs:
 
     - name: Run post-installation tests
       run: python3 -m pytest tests/test_post_installation.py -v
+
+  test-opencode:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install test dependencies
+      run: python3 -m pip install pytest
+
+    - name: Run OpenCode availability tests
+      run: python3 -m pytest tests/test_opencode.py -v
