@@ -65,29 +65,42 @@ NORD_AURORA = {
     'nord15': '#B48EAD'
 }
 
-# Packages to install with pacstrap
-PACKAGES = [
+# Phase 1 packages: minimal set installed during USB installation (fast boot)
+PACKAGES_PHASE1 = [
     'base', 'base-devel', 'linux', 'linux-firmware', 'intel-ucode', 'amd-ucode',
-    'sway', 'swaybg', 'swayidle', 'swaylock', 'waybar', 'wofi', 'mako', 'xorg-xwayland',
-    'foot', 'chromium', 'code', 'vim', 'nano', 'git', 'htop', 'fastfetch', 'openssh', 'wget', 'jq',
+    'grub', 'efibootmgr', 'os-prober', 'dosfstools', 'sbctl',
+    'networkmanager', 'sudo', 'zsh', 'curl', 'iwd',
+    'earlyoom', 'zram-generator',
+    'plymouth',
+    'greetd', 'greetd-regreet', 'cage',
+    'sway', 'swaybg', 'foot', 'xorg-xwayland',
+    'mesa',
+    'python', 'python-gobject', 'gtk3',
+    'nodejs', 'npm',
+]
+
+# Phase 2 packages: installed on first boot from the installed disk
+PACKAGES_PHASE2 = [
+    'swayidle', 'swaylock', 'waybar', 'wofi', 'mako',
+    'chromium', 'code', 'vim', 'nano', 'git', 'htop', 'fastfetch', 'openssh', 'wget', 'jq',
     'grim', 'slurp', 'wl-clipboard', 'xdg-desktop-portal-wlr',
-    'earlyoom', 'zram-generator', 'iwd',
     'bluez', 'bluez-utils',
     'pipewire', 'pipewire-pulse', 'pipewire-alsa', 'wireplumber',
     'alsa-utils', 'pavucontrol',
-    'intel-media-driver', 'vulkan-intel', 'mesa', 'mesa-utils',
+    'intel-media-driver', 'vulkan-intel', 'mesa-utils',
     'xf86-video-amdgpu', 'vulkan-radeon',
     'xf86-video-nouveau',
     'ttf-jetbrains-mono-nerd', 'noto-fonts-emoji',
-    'pcmanfm', 'lxappearance', 'plymouth', 'materia-gtk-theme',
-    'grub', 'efibootmgr', 'os-prober', 'dosfstools', 'sbctl', 'networkmanager', 'sudo', 'zsh', 'curl',
+    'pcmanfm', 'lxappearance', 'materia-gtk-theme',
     'brightnessctl',
-    'nodejs', 'npm', 'python', 'python-gobject', 'python-cairo', 'gtk3', 'gdk-pixbuf2', 'rsync',
-    'greetd', 'greetd-regreet', 'cage',
+    'python-cairo', 'gdk-pixbuf2', 'rsync',
     # madOS Native Apps Dependencies
     'python-pillow', 'poppler-glib',
-    'gstreamer', 'gst-plugins-base', 'gst-plugins-good', 'gst-python'
+    'gstreamer', 'gst-plugins-base', 'gst-plugins-good', 'gst-python',
 ]
+
+# Combined package list (all packages for both phases)
+PACKAGES = PACKAGES_PHASE1 + PACKAGES_PHASE2
 
 # Locale to keyboard layout mapping for Sway
 LOCALE_KB_MAP = {

@@ -138,6 +138,44 @@ class TestInstallerPackages(unittest.TestCase):
             "zram-generator must be in PACKAGES for low-RAM optimization",
         )
 
+    def test_phase1_packages_exist(self):
+        """PACKAGES_PHASE1 must exist and contain essential boot packages."""
+        from mados_installer.config import PACKAGES_PHASE1
+        self.assertIsInstance(PACKAGES_PHASE1, (list, tuple))
+        self.assertGreater(len(PACKAGES_PHASE1), 0, "PACKAGES_PHASE1 must not be empty")
+        for pkg in self.ESSENTIAL_PACKAGES:
+            with self.subTest(package=pkg):
+                self.assertIn(
+                    pkg, PACKAGES_PHASE1,
+                    f"Essential package '{pkg}' must be in PACKAGES_PHASE1 for Phase 1 install",
+                )
+
+    def test_phase2_packages_exist(self):
+        """PACKAGES_PHASE2 must exist and contain desktop/app packages."""
+        from mados_installer.config import PACKAGES_PHASE2
+        self.assertIsInstance(PACKAGES_PHASE2, (list, tuple))
+        self.assertGreater(len(PACKAGES_PHASE2), 0, "PACKAGES_PHASE2 must not be empty")
+
+    def test_combined_packages_equal_phases(self):
+        """PACKAGES must be the combination of PACKAGES_PHASE1 + PACKAGES_PHASE2."""
+        from mados_installer.config import PACKAGES, PACKAGES_PHASE1, PACKAGES_PHASE2
+        self.assertEqual(
+            PACKAGES, PACKAGES_PHASE1 + PACKAGES_PHASE2,
+            "PACKAGES must equal PACKAGES_PHASE1 + PACKAGES_PHASE2",
+        )
+
+    def test_first_boot_script_in_installation(self):
+        """installation.py must contain first-boot service setup."""
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        with open(install_py) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-first-boot", content,
+            "installation.py must set up the mados-first-boot service",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Live ISO package list (packages.x86_64)

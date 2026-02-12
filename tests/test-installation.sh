@@ -188,29 +188,24 @@ mount "$HOME_PART" "$MOUNT_POINT/home"
 ok "Filesystems mounted at ${MOUNT_POINT}"
 
 # =============================================================================
-# Phase 3: pacstrap – install the full package list
+# Phase 3: pacstrap – install the Phase 1 (essential) package list
 # =============================================================================
-step "Phase 3 – Installing base system via pacstrap"
+step "Phase 3 – Installing base system via pacstrap (Phase 1 packages)"
 
-# Exact package list from mados_installer/config.py (PACKAGES)
+# Phase 1 package list from mados_installer/config.py (PACKAGES_PHASE1)
+# These are the essential packages installed during USB installation.
+# Phase 2 packages (desktop apps, dev tools) are installed on first boot.
 PACKAGES=(
     base base-devel linux linux-firmware intel-ucode amd-ucode
-    sway swaybg swayidle swaylock waybar wofi mako xorg-xwayland
-    foot chromium code vim nano git htop fastfetch openssh wget jq
-    grim slurp wl-clipboard xdg-desktop-portal-wlr
-    earlyoom zram-generator iwd
-    bluez bluez-utils
-    pipewire pipewire-pulse pipewire-alsa wireplumber
-    alsa-utils pavucontrol
-    intel-media-driver vulkan-intel mesa mesa-utils
-    xf86-video-amdgpu vulkan-radeon
-    xf86-video-nouveau
-    ttf-jetbrains-mono-nerd noto-fonts-emoji
-    pcmanfm lxappearance plymouth materia-gtk-theme
-    grub efibootmgr os-prober dosfstools sbctl networkmanager sudo zsh curl
-    brightnessctl
-    nodejs npm python python-gobject gtk3 rsync
+    grub efibootmgr os-prober dosfstools sbctl
+    networkmanager sudo zsh curl iwd
+    earlyoom zram-generator
+    plymouth
     greetd greetd-regreet cage
+    sway swaybg foot xorg-xwayland
+    mesa
+    python python-gobject gtk3
+    nodejs npm
 )
 
 info "Installing ${#PACKAGES[@]} packages (this will take several minutes)..."

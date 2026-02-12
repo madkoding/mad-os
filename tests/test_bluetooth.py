@@ -376,23 +376,19 @@ class TestWaybarConfig(unittest.TestCase):
 
 
 class TestInstallationBluetoothPackages(unittest.TestCase):
-    """Verify test-installation.sh includes Bluetooth packages."""
+    """Verify Bluetooth packages are in the installer package lists."""
 
-    def test_test_installation_has_bluez(self):
-        """test-installation.sh PACKAGES should include bluez."""
-        test_file = os.path.join(REPO_DIR, "tests", "test-installation.sh")
-        with open(test_file) as f:
-            content = f.read()
-        self.assertIn('bluez', content,
-                      "test-installation.sh must include bluez package")
+    def test_config_packages_has_bluez(self):
+        """PACKAGES (combined) should include bluez."""
+        from mados_installer.config import PACKAGES
+        self.assertIn('bluez', PACKAGES,
+                      "Installer PACKAGES must include bluez package")
 
-    def test_test_installation_has_bluez_utils(self):
-        """test-installation.sh PACKAGES should include bluez-utils."""
-        test_file = os.path.join(REPO_DIR, "tests", "test-installation.sh")
-        with open(test_file) as f:
-            content = f.read()
-        self.assertIn('bluez-utils', content,
-                      "test-installation.sh must include bluez-utils package")
+    def test_config_packages_has_bluez_utils(self):
+        """PACKAGES (combined) should include bluez-utils."""
+        from mados_installer.config import PACKAGES
+        self.assertIn('bluez-utils', PACKAGES,
+                      "Installer PACKAGES must include bluez-utils package")
 
 
 if __name__ == "__main__":
