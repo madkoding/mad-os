@@ -171,8 +171,8 @@ fi
 mkfs.ext4 -F -L "persistence" "$PERSIST_PART" >/dev/null 2>&1
 ok "Formatted $PERSIST_PART as ext4 with label 'persistence'"
 
-# Verify label
-DETECTED_LABEL=$(lsblk -nlo LABEL "$PERSIST_PART" 2>/dev/null | tr -d '[:space:]')
+# Verify label (use blkid as primary — lsblk may fail in containers with mknod nodes)
+DETECTED_LABEL=$(blkid -s LABEL -o value "$PERSIST_PART" 2>/dev/null | tr -d '[:space:]')
 [ "$DETECTED_LABEL" = "persistence" ] && ok "Label verified: $DETECTED_LABEL" \
     || fail "Expected label 'persistence', got '$DETECTED_LABEL'"
 

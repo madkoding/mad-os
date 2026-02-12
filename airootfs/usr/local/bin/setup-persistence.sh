@@ -60,8 +60,14 @@ find_iso_partition() {
 }
 
 find_persist_partition() {
-    lsblk -nlo NAME,LABEL 2>/dev/null \
-        | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1
+    local dev
+    dev=$(lsblk -nlo NAME,LABEL 2>/dev/null \
+        | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
+    # Fallback: blkid works in containers where lsblk label cache is empty
+    if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+        dev=$(blkid -L "$PERSIST_LABEL" 2>/dev/null)
+    fi
+    echo "$dev"
 }
 
 get_free_space() {
@@ -131,8 +137,14 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [init] $*" | tee -a "$LOG_FILE"; }
 
 # Find partition by label
 find_persist_dev() {
-    lsblk -nlo NAME,LABEL 2>/dev/null \
-        | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1
+    local dev
+    dev=$(lsblk -nlo NAME,LABEL 2>/dev/null \
+        | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
+    # Fallback: blkid works in containers where lsblk label cache is empty
+    if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+        dev=$(blkid -L "$PERSIST_LABEL" 2>/dev/null)
+    fi
+    echo "$dev"
 }
 
 persist_dev=$(find_persist_dev)
