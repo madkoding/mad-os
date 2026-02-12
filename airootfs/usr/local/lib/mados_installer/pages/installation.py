@@ -11,7 +11,7 @@ import threading
 
 from gi.repository import Gtk, GLib
 
-from ..config import DEMO_MODE, PACKAGES, NORD_FROST, LOCALE_KB_MAP, TIMEZONES, LOCALE_MAP
+from ..config import DEMO_MODE, PACKAGES, PACKAGES_PHASE1, PACKAGES_PHASE2, NORD_FROST, LOCALE_KB_MAP, TIMEZONES, LOCALE_MAP
 from ..utils import log_message, set_progress, show_error
 
 
@@ -133,7 +133,14 @@ def on_start_installation(app):
 
 
 def _run_installation(app):
-    """Perform the actual installation (runs in background thread)"""
+    """Perform Phase 1 installation (runs in background thread).
+
+    Phase 1 (from USB): partition, format, install minimal packages, configure
+    bootloader and essential services, set up first-boot service for Phase 2.
+
+    Phase 2 (first boot from installed disk): handled by mados-first-boot.sh
+    which installs remaining packages, desktop config, and services.
+    """
     try:
         data = app.install_data
         disk = data['disk']
@@ -265,7 +272,7 @@ def _run_installation(app):
                 subprocess.run(['mkdir', '-p', '/mnt/home'], check=True)
                 subprocess.run(['mount', home_part, '/mnt/home'], check=True)
 
-        # Step 4: Prepare package manager and install base system
+        # Step 4: Prepare package manager and install Phase 1 packages
         if DEMO_MODE:
             log_message(app, "[DEMO] Simulating pacman keyring check...")
             set_progress(app, 0.21, "Checking package manager keyring...")
@@ -276,15 +283,12 @@ def _run_installation(app):
         else:
             _prepare_pacman(app)
 
-        # Build package list with conditional CJK fonts
-        packages = list(PACKAGES)
-        if data['locale'] in ('zh_CN.UTF-8', 'ja_JP.UTF-8'):
-            packages.append('noto-fonts-cjk')
-            log_message(app, "Adding CJK fonts for selected locale...")
+        # Phase 1: only install essential packages (remaining installed on first boot)
+        packages = list(PACKAGES_PHASE1)
 
-        # Step 4a: Download packages in groups (progress stays alive)
+        # Step 4a: Download Phase 1 packages in groups (progress stays alive)
         set_progress(app, 0.25, "Downloading packages...")
-        log_message(app, "Downloading packages...")
+        log_message(app, f"Downloading {len(packages)} essential packages (Phase 1)...")
 
         if DEMO_MODE:
             log_message(app, "[DEMO] Simulating package downloads in groups:")
@@ -301,9 +305,9 @@ def _run_installation(app):
         else:
             _download_packages_with_progress(app, packages)
 
-        # Step 4b: Install packages (already cached from download step)
+        # Step 4b: Install Phase 1 packages (already cached from download step)
         set_progress(app, 0.36, "Installing base system...")
-        log_message(app, "Installing base system...")
+        log_message(app, "Installing base system (Phase 1)...")
 
         if DEMO_MODE:
             log_message(app, "[DEMO] Simulating pacstrap with cached packages:")
@@ -329,9 +333,9 @@ def _run_installation(app):
             with open('/mnt/etc/fstab', 'w') as f:
                 f.write(result.stdout)
 
-        # Step 6: Configure system
+        # Step 6: Configure system (Phase 1 only)
         set_progress(app, 0.50, "Preparing system configuration...")
-        log_message(app, "Preparing system configuration...")
+        log_message(app, "Preparing Phase 1 configuration...")
 
         config_script = _build_config_script(data)
 
@@ -343,7 +347,8 @@ def _run_installation(app):
             log_message(app, "[DEMO]   - Locale generation")
             log_message(app, "[DEMO]   - Hostname configuration")
             log_message(app, "[DEMO]   - User creation")
-            log_message(app, "[DEMO]   - Sudo setup")
+            log_message(app, "[DEMO]   - GRUB bootloader")
+            log_message(app, "[DEMO]   - First-boot service for Phase 2")
             time.sleep(1)
         else:
             fd = os.open('/mnt/root/configure.sh', os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o700)
@@ -440,16 +445,16 @@ def _run_installation(app):
                 subprocess.run(['mkdir', '-p', '/mnt/usr/share/fonts/dseg'], check=False)
                 subprocess.run(['cp', '-a', '/usr/share/fonts/dseg/', '/mnt/usr/share/fonts/'], check=False)
 
+        # Step 7: Run Phase 1 chroot configuration
         set_progress(app, 0.55, "Applying configurations...")
-        log_message(app, "Running configuration...")
+        log_message(app, "Running Phase 1 configuration...")
         if DEMO_MODE:
             demo_steps = [
                 (0.58, "Installing GRUB bootloader"),
-                (0.64, "Enabling services (NetworkManager, earlyoom)..."),
+                (0.64, "Enabling essential services..."),
                 (0.70, "Rebuilding initramfs..."),
-                (0.76, "Configuring ZRAM..."),
-                (0.82, "Setting up desktop environment..."),
-                (0.88, "Installing Claude Code..."),
+                (0.76, "Setting up first-boot service..."),
+                (0.82, "Preparing Phase 2 setup..."),
             ]
             log_message(app, "[DEMO] Simulating arch-chroot configuration...")
             for progress, desc in demo_steps:
@@ -475,11 +480,12 @@ def _run_installation(app):
 
         set_progress(app, 1.0, "Installation complete!")
         if DEMO_MODE:
-            log_message(app, "\n[OK] Demo installation completed successfully!")
+            log_message(app, "\n[OK] Demo Phase 1 installation completed successfully!")
             log_message(app, "\n[DEMO] No actual changes were made to your system.")
             log_message(app, "[DEMO] Set DEMO_MODE = False for real installation.")
         else:
-            log_message(app, "\n[OK] Installation completed successfully!")
+            log_message(app, "\n[OK] Phase 1 installation completed successfully!")
+            log_message(app, "Remaining packages and configuration will be installed on first boot.")
 
         GLib.idle_add(_finish_installation, app)
 
@@ -809,7 +815,12 @@ def _run_chroot_with_progress(app):
 
 
 def _build_config_script(data):
-    """Build the chroot configuration shell script"""
+    """Build the Phase 1 chroot configuration shell script.
+
+    Phase 1 handles: timezone, locale, hostname, user account, GRUB bootloader,
+    Plymouth, initramfs, essential services, system optimizations, desktop
+    environment basics, and sets up the first-boot service for Phase 2.
+    """
     disk = data['disk']
 
     # Validate timezone against whitelist to prevent path traversal
@@ -832,10 +843,13 @@ def _build_config_script(data):
     if not re.match(r'^[a-z_][a-z0-9_-]*$', username):
         raise ValueError(f"Invalid username: {username}")
 
+    # Build the Phase 2 first-boot script content
+    first_boot_script = _build_first_boot_script(data)
+
     return f'''#!/bin/bash
 set -e
 
-echo "[PROGRESS 1/11] Setting timezone and locale..."
+echo "[PROGRESS 1/9] Setting timezone and locale..."
 # Timezone
 ln -sf /usr/share/zoneinfo/{timezone} /etc/localtime
 hwclock --systohc 2>/dev/null || true
@@ -846,7 +860,7 @@ echo "{locale} UTF-8" >> /etc/locale.gen
 locale-gen
 echo "LANG={locale}" > /etc/locale.conf
 
-echo '[PROGRESS 2/11] Creating user account...'
+echo '[PROGRESS 2/9] Creating user account...'
 # Hostname
 echo '{_escape_shell(data['hostname'])}' > /etc/hostname
 cat > /etc/hosts <<EOF
@@ -864,7 +878,7 @@ echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
 echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/claude,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/claude-nopasswd
 chmod 440 /etc/sudoers.d/claude-nopasswd
 
-echo '[PROGRESS 3/11] Installing GRUB bootloader...'
+echo '[PROGRESS 3/9] Installing GRUB bootloader...'
 # GRUB - Auto-detect UEFI or BIOS
 if [ -d /sys/firmware/efi ]; then
     echo "==> Detected UEFI boot mode"
@@ -959,7 +973,7 @@ else
     fi
 fi
 
-echo '[PROGRESS 4/11] Configuring GRUB...'
+echo '[PROGRESS 4/9] Configuring GRUB...'
 # Configure GRUB
 sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="zswap.enabled=0 splash quiet"/' /etc/default/grub
 sed -i 's/GRUB_DISTRIBUTOR="Arch"/GRUB_DISTRIBUTOR="madOS"/' /etc/default/grub
@@ -970,7 +984,7 @@ if [ ! -f /boot/grub/grub.cfg ]; then
     exit 1
 fi
 
-echo '[PROGRESS 5/11] Setting up Plymouth boot splash...'
+echo '[PROGRESS 5/9] Setting up Plymouth boot splash...'
 # Plymouth theme
 mkdir -p /usr/share/plymouth/themes/mados
 cat > /usr/share/plymouth/themes/mados/mados.plymouth <<EOFPLY
@@ -1045,27 +1059,235 @@ ShowDelay=0
 DeviceTimeout=8
 EOFPLYCONF
 
-echo '[PROGRESS 6/11] Rebuilding initramfs (this takes a while)...'
+echo '[PROGRESS 6/9] Rebuilding initramfs (this takes a while)...'
 # Rebuild initramfs with plymouth hook
 sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect modconf kms block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
 mkinitcpio -P
 
-echo '[PROGRESS 7/11] Enabling system services...'
+echo '[PROGRESS 7/9] Enabling essential services...'
 # Lock root account (security: users should use sudo)
 passwd -l root
 
-# Services
+# Essential services only (remaining services enabled by first-boot)
 systemctl enable NetworkManager
 systemctl enable systemd-resolved
 systemctl enable earlyoom
 systemctl enable systemd-timesyncd
 systemctl enable greetd
-systemctl enable bluetooth
+systemctl enable iwd
+
+echo '[PROGRESS 8/9] Applying system configuration...'
+# --- Non-critical section: errors below should not abort installation ---
+set +e
+
+# madOS branding - custom os-release
+cat > /etc/os-release <<EOF
+NAME="madOS"
+PRETTY_NAME="madOS (Arch Linux)"
+ID=mados
+ID_LIKE=arch
+BUILD_ID=rolling
+ANSI_COLOR="38;2;23;147;209"
+HOME_URL="https://github.com/madkoding/mad-os"
+DOCUMENTATION_URL="https://wiki.archlinux.org/"
+SUPPORT_URL="https://bbs.archlinux.org/"
+BUG_REPORT_URL="https://gitlab.archlinux.org/groups/archlinux/-/issues"
+PRIVACY_POLICY_URL="https://terms.archlinux.org/docs/privacy-policy/"
+LOGO=archlinux-logo
+EOF
+
+# Configure NetworkManager to use iwd as Wi-Fi backend
+mkdir -p /etc/NetworkManager/conf.d
+cat > /etc/NetworkManager/conf.d/wifi-backend.conf <<EOF
+[device]
+wifi.backend=iwd
+EOF
+
+# Kernel optimizations
+cat > /etc/sysctl.d/99-extreme-low-ram.conf <<EOF
+vm.vfs_cache_pressure = 200
+vm.swappiness = 5
+vm.dirty_ratio = 5
+vm.dirty_background_ratio = 3
+vm.min_free_kbytes = 16384
+net.ipv4.tcp_fin_timeout = 15
+net.ipv4.tcp_tw_reuse = 1
+net.core.rmem_max = 262144
+net.core.wmem_max = 262144
+EOF
+
+# ZRAM
+cat > /etc/systemd/zram-generator.conf <<EOF
+[zram0]
+zram-size = ram / 2
+compression-algorithm = zstd
+swap-priority = 100
+fs-type = swap
+EOF
+
+# greetd + ReGreet greeter configuration
+mkdir -p /etc/greetd
+cat > /etc/greetd/config.toml <<'EOFGREETD'
+[terminal]
+vt = 1
+
+[default_session]
+command = "/usr/local/bin/cage-greeter"
+user = "greeter"
+EOFGREETD
+
+# ReGreet configuration
+cat > /etc/greetd/regreet.toml <<'EOFREGREET'
+[background]
+path = "/usr/share/backgrounds/mad-os-wallpaper.jpg"
+fit = "Cover"
+
+[env]
+LIBSEAT_BACKEND = "logind"
+
+[GTK]
+application_prefer_dark_theme = true
+
+[commands]
+reboot = [ "systemctl", "reboot" ]
+poweroff = [ "systemctl", "poweroff" ]
+EOFREGREET
+
+# Ensure greetd config directory and files are accessible by greeter user
+chown -R greeter:greeter /etc/greetd
+chmod 755 /etc/greetd
+chmod 644 /etc/greetd/config.toml /etc/greetd/regreet.toml
+
+# Ensure greeter user has video and input group access for cage
+usermod -aG video,input greeter 2>/dev/null || echo "Note: greeter user group modification skipped"
+
+# Create regreet cache directory and ensure greeter home is writable
+mkdir -p /var/cache/regreet
+chown greeter:greeter /var/cache/regreet
+chmod 750 /var/cache/regreet
+mkdir -p /var/lib/greetd
+chown greeter:greeter /var/lib/greetd
+
+# Ensure greetd starts after systemd-logind and doesn't conflict with getty on VT1
+mkdir -p /etc/systemd/system/greetd.service.d
+cat > /etc/systemd/system/greetd.service.d/override.conf <<'EOFOVERRIDE'
+[Unit]
+After=systemd-logind.service
+Wants=systemd-logind.service
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+EOFOVERRIDE
+
+# Copy configs to user home
+su - {username} -c "mkdir -p ~/.config/{{sway,waybar,foot,wofi,alacritty,gtk-3.0,gtk-4.0}}"
+su - {username} -c "mkdir -p ~/Pictures/{{Wallpapers,Screenshots}}"
+cp -r /etc/skel/.config/* /home/{username}/.config/ 2>/dev/null || true
+cp -r /etc/skel/Pictures/* /home/{username}/Pictures/ 2>/dev/null || true
+cp /etc/skel/.gtkrc-2.0 /home/{username}/.gtkrc-2.0 2>/dev/null || true
+chown -R {username}:{username} /home/{username}
+
+# Set keyboard layout in Sway config based on locale
+KB_LAYOUT="{LOCALE_KB_MAP.get(locale, 'us')}"
+if [ -f /home/{username}/.config/sway/config ]; then
+    sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /home/{username}/.config/sway/config
+elif [ -f /etc/skel/.config/sway/config ]; then
+    sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /etc/skel/.config/sway/config
+fi
+
+# Ensure .bash_profile from skel was copied correctly
+if [ ! -f /home/{username}/.bash_profile ]; then
+    cp /etc/skel/.bash_profile /home/{username}/.bash_profile 2>/dev/null || true
+fi
+chown {username}:{username} /home/{username}/.bash_profile
+
+# Copy .zshrc for zsh users
+if [ -f /etc/skel/.zshrc ]; then
+    cp /etc/skel/.zshrc /home/{username}/.zshrc 2>/dev/null || true
+    chown {username}:{username} /home/{username}/.zshrc
+fi
+
+echo '[PROGRESS 9/9] Setting up first-boot service for Phase 2...'
+# Write the Phase 2 first-boot script
+mkdir -p /usr/local/bin
+cat > /usr/local/bin/mados-first-boot.sh <<'EOFFIRSTBOOT'
+{first_boot_script}
+EOFFIRSTBOOT
+chmod 755 /usr/local/bin/mados-first-boot.sh
+
+# Create the systemd service for Phase 2 first-boot setup
+cat > /etc/systemd/system/mados-first-boot.service <<'EOFSVC'
+[Unit]
+Description=madOS First Boot Setup (Phase 2) - Install packages and configure system
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/usr/local/bin/mados-first-boot.sh
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/mados-first-boot.sh
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target
+EOFSVC
+systemctl enable mados-first-boot.service
+echo "Phase 2 first-boot service installed and enabled"
+'''
+
+
+def _build_first_boot_script(data):
+    """Build the Phase 2 first-boot shell script.
+
+    This script runs on the first boot from the installed disk. It installs
+    remaining packages, configures audio/bluetooth/desktop services, installs
+    Oh My Zsh and Claude Code, then disables itself.
+    """
+    username = data['username']
+    locale = data['locale']
+
+    # Build the Phase 2 package list as a shell array
+    phase2_packages = list(PACKAGES_PHASE2)
+    if locale in ('zh_CN.UTF-8', 'ja_JP.UTF-8'):
+        phase2_packages.append('noto-fonts-cjk')
+
+    packages_str = ' '.join(phase2_packages)
+
+    return f'''#!/bin/bash
+# madOS First Boot Setup (Phase 2)
+# Installs remaining packages and configures services
+# This script runs once on first boot and then disables itself
+set -euo pipefail
+
+LOG_TAG="mados-first-boot"
+log() {{ echo "[Phase 2] $1"; systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/dev/null || true; }}
+
+log "Starting madOS Phase 2 setup..."
+
+# ── Step 1: Install remaining packages ──────────────────────────────────
+log "Installing additional packages..."
+PACKAGES=({packages_str})
+
+# Sync package databases
+pacman -Sy --noconfirm 2>&1 || log "Warning: database sync had issues"
+
+# Install Phase 2 packages (non-fatal individual failures)
+if pacman -S --noconfirm --needed "${{PACKAGES[@]}}" 2>&1; then
+    log "All Phase 2 packages installed successfully"
+else
+    log "Warning: Some packages may have failed to install"
+fi
+
+# ── Step 2: Enable additional services ──────────────────────────────────
+log "Enabling additional services..."
+systemctl enable bluetooth 2>/dev/null || true
 
 # Audio: Enable PipeWire for all user sessions (socket-activated)
-systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service
+systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true
 
-# Audio: Create and enable ALSA unmute service for first boot
+# Audio: Create and enable ALSA unmute service
 cat > /usr/local/bin/mados-audio-init.sh <<'EOFAUDIO'
 #!/usr/bin/env bash
 # mados-audio-init.sh - Unmute ALSA controls and set default volumes
@@ -1141,45 +1363,57 @@ ExecStart=/usr/local/bin/mados-audio-init.sh
 [Install]
 WantedBy=multi-user.target
 EOFSVC
-systemctl enable mados-audio-init.service
+systemctl enable mados-audio-init.service 2>/dev/null || true
 
-echo '[PROGRESS 8/11] Applying system optimizations...'
-# --- Non-critical section: errors below should not abort installation ---
-set +e
+# ── Step 3: Configure Chromium ──────────────────────────────────────────
+log "Configuring Chromium..."
+cat > /etc/chromium-flags.conf <<'EOFCHROMIUM'
+# Wayland native support
+--ozone-platform-hint=auto
+--enable-features=WaylandWindowDecorations
+# Disable Vulkan (not supported on Intel Atom / legacy GPUs)
+--disable-vulkan
+# Disable VA-API hardware video decode/encode (fails on Intel Atom)
+--disable-features=VaapiVideoDecoder,VaapiVideoEncoder,UseChromeOSDirectVideoDecoder
+# Memory optimizations for low-RAM systems
+--renderer-process-limit=3
+--disable-gpu-memory-buffer-compositor-resources
+EOFCHROMIUM
 
-# madOS branding - custom os-release
-cat > /etc/os-release <<EOF
-NAME="madOS"
-PRETTY_NAME="madOS (Arch Linux)"
-ID=mados
-ID_LIKE=arch
-BUILD_ID=rolling
-ANSI_COLOR="38;2;23;147;209"
-HOME_URL="https://github.com/madkoding/mad-os"
-DOCUMENTATION_URL="https://wiki.archlinux.org/"
-SUPPORT_URL="https://bbs.archlinux.org/"
-BUG_REPORT_URL="https://gitlab.archlinux.org/groups/archlinux/-/issues"
-PRIVACY_POLICY_URL="https://terms.archlinux.org/docs/privacy-policy/"
-LOGO=archlinux-logo
-EOF
+# Chromium homepage policy
+mkdir -p /etc/chromium/policies/managed
+cat > /etc/chromium/policies/managed/mados-homepage.json <<'EOFPOLICY'
+{{
+  "HomepageLocation": "https://www.kodingvibes.com",
+  "HomepageIsNewTabPage": true,
+  "RestoreOnStartup": 4,
+  "RestoreOnStartupURLs": ["https://www.kodingvibes.com"]
+}}
+EOFPOLICY
 
-echo '[PROGRESS 9/11] Installing Oh My Zsh...'
-# Oh My Zsh - install for user
-if command -v git &>/dev/null; then
-    if curl -sf --connect-timeout 5 https://github.com >/dev/null 2>&1; then
-        echo "Installing Oh My Zsh..."
-        git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git /etc/skel/.oh-my-zsh 2>&1 || true
-        if [ -d /etc/skel/.oh-my-zsh ]; then
-            cp -a /etc/skel/.oh-my-zsh /home/{username}/.oh-my-zsh
-            chown -R {username}:{username} /home/{username}/.oh-my-zsh
-            echo "Oh My Zsh installed for {username}"
+# ── Step 4: Install Oh My Zsh ──────────────────────────────────────────
+log "Setting up Oh My Zsh..."
+if [ ! -d /etc/skel/.oh-my-zsh ]; then
+    if command -v git &>/dev/null; then
+        if curl -sf --connect-timeout 5 https://github.com >/dev/null 2>&1; then
+            git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git /etc/skel/.oh-my-zsh 2>&1 || true
+            if [ -d /etc/skel/.oh-my-zsh ]; then
+                log "Oh My Zsh installed to /etc/skel"
+            fi
+        else
+            log "No internet - Oh My Zsh skipped"
         fi
-    else
-        echo "No internet - Oh My Zsh will be available via first-boot service"
     fi
 fi
 
-# Oh My Zsh first-boot service (fallback if no network during install)
+# Copy to user home if available
+if [ -d /etc/skel/.oh-my-zsh ] && [ ! -d /home/{username}/.oh-my-zsh ]; then
+    cp -a /etc/skel/.oh-my-zsh /home/{username}/.oh-my-zsh
+    chown -R {username}:{username} /home/{username}/.oh-my-zsh
+    log "Oh My Zsh copied to {username} home"
+fi
+
+# Oh My Zsh fallback service (for future users or if clone failed)
 cat > /etc/systemd/system/setup-ohmyzsh.service <<'EOFSVC'
 [Unit]
 Description=Install Oh My Zsh if not already present
@@ -1198,158 +1432,19 @@ TimeoutStartSec=120
 [Install]
 WantedBy=multi-user.target
 EOFSVC
-systemctl enable setup-ohmyzsh.service
+systemctl enable setup-ohmyzsh.service 2>/dev/null || true
 
-# Configure NetworkManager to use iwd as Wi-Fi backend
-mkdir -p /etc/NetworkManager/conf.d
-cat > /etc/NetworkManager/conf.d/wifi-backend.conf <<EOF
-[device]
-wifi.backend=iwd
-EOF
-
-# Kernel optimizations
-cat > /etc/sysctl.d/99-extreme-low-ram.conf <<EOF
-vm.vfs_cache_pressure = 200
-vm.swappiness = 5
-vm.dirty_ratio = 5
-vm.dirty_background_ratio = 3
-vm.min_free_kbytes = 16384
-net.ipv4.tcp_fin_timeout = 15
-net.ipv4.tcp_tw_reuse = 1
-net.core.rmem_max = 262144
-net.core.wmem_max = 262144
-EOF
-
-# Chromium flags for Wayland/Sway (non-root user, sandbox enabled)
-cat > /etc/chromium-flags.conf <<EOF
-# Wayland native support
---ozone-platform-hint=auto
---enable-features=WaylandWindowDecorations
-# Disable Vulkan (not supported on Intel Atom / legacy GPUs)
---disable-vulkan
-# Disable VA-API hardware video decode/encode (fails on Intel Atom)
---disable-features=VaapiVideoDecoder,VaapiVideoEncoder,UseChromeOSDirectVideoDecoder
-# Memory optimizations for low-RAM systems
---renderer-process-limit=3
---disable-gpu-memory-buffer-compositor-resources
-EOF
-
-# Chromium homepage policy
-mkdir -p /etc/chromium/policies/managed
-cat > /etc/chromium/policies/managed/mados-homepage.json <<EOF
-{{
-  "HomepageLocation": "https://www.kodingvibes.com",
-  "HomepageIsNewTabPage": true,
-  "RestoreOnStartup": 4,
-  "RestoreOnStartupURLs": ["https://www.kodingvibes.com"]
-}}
-EOF
-
-# ZRAM
-cat > /etc/systemd/zram-generator.conf <<EOF
-[zram0]
-zram-size = ram / 2
-compression-algorithm = zstd
-swap-priority = 100
-fs-type = swap
-EOF
-
-echo '[PROGRESS 10/11] Configuring desktop environment...'
-# greetd + ReGreet greeter configuration
-mkdir -p /etc/greetd
-cat > /etc/greetd/config.toml <<'EOFGREETD'
-[terminal]
-vt = 1
-
-[default_session]
-command = "/usr/local/bin/cage-greeter"
-user = "greeter"
-EOFGREETD
-
-# ReGreet configuration
-cat > /etc/greetd/regreet.toml <<'EOFREGREET'
-[background]
-path = "/usr/share/backgrounds/mad-os-wallpaper.jpg"
-fit = "Cover"
-
-[env]
-LIBSEAT_BACKEND = "logind"
-
-[GTK]
-application_prefer_dark_theme = true
-
-[commands]
-reboot = [ "systemctl", "reboot" ]
-poweroff = [ "systemctl", "poweroff" ]
-EOFREGREET
-
-# Ensure greetd config directory and files are accessible by greeter user
-chown -R greeter:greeter /etc/greetd
-chmod 755 /etc/greetd
-chmod 644 /etc/greetd/config.toml /etc/greetd/regreet.toml
-
-# Ensure greeter user has video and input group access for cage
-usermod -aG video,input greeter 2>/dev/null || echo "Note: greeter user group modification skipped"
-
-# Create regreet cache directory and ensure greeter home is writable
-mkdir -p /var/cache/regreet
-chown greeter:greeter /var/cache/regreet
-chmod 750 /var/cache/regreet
-mkdir -p /var/lib/greetd
-chown greeter:greeter /var/lib/greetd
-
-# Ensure greetd starts after systemd-logind and doesn't conflict with getty on VT1
-mkdir -p /etc/systemd/system/greetd.service.d
-cat > /etc/systemd/system/greetd.service.d/override.conf <<'EOFOVERRIDE'
-[Unit]
-After=systemd-logind.service
-Wants=systemd-logind.service
-Conflicts=getty@tty1.service
-After=getty@tty1.service
-EOFOVERRIDE
-
-# sway-session, cage-greeter, and sway.desktop are copied from the live ISO
-# (see file copy section before arch-chroot)
-
-# Copy configs
-su - {username} -c "mkdir -p ~/.config/{{sway,waybar,foot,wofi,alacritty,gtk-3.0,gtk-4.0}}"
-su - {username} -c "mkdir -p ~/Pictures/{{Wallpapers,Screenshots}}"
-cp -r /etc/skel/.config/* /home/{username}/.config/ 2>/dev/null || true
-cp -r /etc/skel/Pictures/* /home/{username}/Pictures/ 2>/dev/null || true
-cp /etc/skel/.gtkrc-2.0 /home/{username}/.gtkrc-2.0 2>/dev/null || true
-chown -R {username}:{username} /home/{username}
-
-# Set keyboard layout in Sway config based on locale
-KB_LAYOUT="{LOCALE_KB_MAP.get(locale, 'us')}"
-if [ -f /home/{username}/.config/sway/config ]; then
-    sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /home/{username}/.config/sway/config
-elif [ -f /etc/skel/.config/sway/config ]; then
-    sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /etc/skel/.config/sway/config
+# ── Step 5: Install Claude Code ─────────────────────────────────────────
+log "Installing Claude Code..."
+if command -v npm &>/dev/null; then
+    if npm install -g @anthropic-ai/claude-code 2>&1; then
+        log "Claude Code installed successfully"
+    else
+        log "Warning: Could not install Claude Code"
+    fi
 fi
 
-# Ensure .bash_profile from skel was copied correctly
-if [ ! -f /home/{username}/.bash_profile ]; then
-    cp /etc/skel/.bash_profile /home/{username}/.bash_profile 2>/dev/null || true
-fi
-chown {username}:{username} /home/{username}/.bash_profile
-
-# Copy .zshrc for zsh users
-if [ -f /etc/skel/.zshrc ]; then
-    cp /etc/skel/.zshrc /home/{username}/.zshrc 2>/dev/null || true
-    chown {username}:{username} /home/{username}/.zshrc
-fi
-
-echo '[PROGRESS 11/11] Installing Claude Code...'
-# Install Claude Code globally (non-fatal if no network)
-echo "Installing Claude Code..."
-if npm install -g @anthropic-ai/claude-code; then
-    echo "Claude Code installed successfully"
-else
-    echo "Warning: Could not install Claude Code during installation."
-    echo "It will be installed automatically on first boot if network is available."
-fi
-
-# Create first-boot service to install Claude Code if not present
+# Claude Code fallback service
 cat > /etc/systemd/system/setup-claude-code.service <<'EOFSVC'
 [Unit]
 Description=Install Claude Code if not already present
@@ -1369,5 +1464,12 @@ TimeoutStartSec=300
 [Install]
 WantedBy=multi-user.target
 EOFSVC
-systemctl enable setup-claude-code.service
+systemctl enable setup-claude-code.service 2>/dev/null || true
+
+# ── Step 6: Cleanup ─────────────────────────────────────────────────────
+log "Phase 2 setup complete! Disabling first-boot service..."
+systemctl disable mados-first-boot.service 2>/dev/null || true
+rm -f /usr/local/bin/mados-first-boot.sh
+
+log "madOS is fully configured. Enjoy!"
 '''
