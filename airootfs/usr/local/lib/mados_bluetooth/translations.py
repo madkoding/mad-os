@@ -270,7 +270,12 @@ def detect_system_language():
 
     if not lang_code:
         try:
-            lang_code, _ = locale.getdefaultlocale()
+            # Prefer LC_MESSAGES locale; fall back to the general locale if needed.
+            lang_tuple = locale.getlocale(locale.LC_MESSAGES)
+            if not lang_tuple or not lang_tuple[0]:
+                lang_tuple = locale.getlocale()
+            if lang_tuple and lang_tuple[0]:
+                lang_code = lang_tuple[0]
         except Exception:
             pass
 
