@@ -124,13 +124,17 @@ def start_scan() -> bool:
     """Start scanning for Bluetooth devices.
 
     Returns:
-        True if scan started successfully.
+        True if scan started successfully.  TimeoutExpired is expected
+        because ``bluetoothctl scan on`` keeps running; only a missing
+        binary is treated as a real failure.
     """
     try:
         _run_btctl(['scan', 'on'], timeout=3)
         return True
-    except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
+    except subprocess.TimeoutExpired:
         return True  # Timeout is expected for scan
+    except FileNotFoundError:
+        return False
 
 
 def stop_scan() -> bool:
@@ -142,8 +146,10 @@ def stop_scan() -> bool:
     try:
         _run_btctl(['scan', 'off'], timeout=3)
         return True
-    except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
+    except subprocess.TimeoutExpired:
         return True
+    except FileNotFoundError:
+        return False
 
 
 def get_devices() -> List[BluetoothDevice]:
@@ -361,6 +367,38 @@ def async_remove(address: str, callback: Callable[[bool], None]) -> None:
     def _worker():
         result = remove_device(address)
         GLib.idle_add(callback, result)
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+
+
+def async_set_power(on: bool, callback: Callable[[bool], None]) -> None:
+    """Toggle adapter power asynchronously.
+
+    Args:
+        on: True to power on, False to power off.
+        callback: Called on the GTK main thread with success boolean.
+    """
+    def _worker():
+        result = set_adapter_power(on)
+        GLib.idle_add(callback, result)
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+
+
+def async_get_adapter_state(
+    callback: Callable[[bool, bool], None],
+) -> None:
+    """Fetch adapter availability and power state asynchronously.
+
+    Args:
+        callback: Called on the GTK main thread with (available, powered).
+    """
+    def _worker():
+        available = check_bluetooth_available()
+        powered = is_adapter_powered() if available else False
+        GLib.idle_add(callback, available, powered)
 
     thread = threading.Thread(target=_worker, daemon=True)
     thread.start()

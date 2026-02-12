@@ -14,6 +14,7 @@ from .backend import (
     BluetoothDevice,
     check_bluetooth_available, is_adapter_powered, set_adapter_power,
     async_scan, async_pair, async_connect, async_disconnect, async_remove,
+    async_set_power, async_get_adapter_state,
     trust_device, get_devices,
 )
 
@@ -54,6 +55,9 @@ class BluetoothApp(Gtk.Window):
         self._devices = []
         self._selected_device = None
         self._auto_refresh_id = None
+        self._refresh_in_flight = False
+        self._adapter_available = False
+        self._adapter_powered = False
 
         apply_theme()
         self._build_ui()
@@ -381,10 +385,15 @@ class BluetoothApp(Gtk.Window):
     def _on_power_toggled(self, switch, gparam):
         """Handle power switch toggle."""
         on = switch.get_active()
-        set_adapter_power(on)
-        if on:
-            self._on_scan_clicked(None)
-        self._update_status_bar()
+        switch.set_sensitive(False)
+
+        def _on_power_done(success):
+            switch.set_sensitive(True)
+            if on and success:
+                self._on_scan_clicked(None)
+            self._refresh_adapter_state()
+
+        async_set_power(on, _on_power_done)
 
     def _on_scan_clicked(self, button):
         """Start a Bluetooth scan."""
@@ -398,13 +407,23 @@ class BluetoothApp(Gtk.Window):
         self._scan_spinner.stop()
         self._scan_btn.set_sensitive(True)
         self._populate_device_list(devices)
-        self._update_status_bar()
+        self._refresh_adapter_state()
 
     def _auto_refresh(self):
-        """Auto-refresh device list (without full scan)."""
+        """Auto-refresh device list (without full scan).
+
+        Skips if a previous refresh is still in flight to avoid
+        piling up background threads under slow conditions.
+        """
+        if self._refresh_in_flight:
+            return True  # Skip this cycle, try again next time
+
+        self._refresh_in_flight = True
+
         def _quick_refresh(devices):
             self._populate_device_list(devices)
             self._update_status_bar()
+            self._refresh_in_flight = False
 
         def _worker():
             devices = get_devices()
@@ -493,14 +512,23 @@ class BluetoothApp(Gtk.Window):
 
     # -- Status Bar Update -------------------------------------------------
 
+    def _refresh_adapter_state(self):
+        """Fetch adapter state asynchronously, then update the status bar."""
+        def _on_state(available, powered):
+            self._adapter_available = available
+            self._adapter_powered = powered
+            self._update_status_bar()
+
+        async_get_adapter_state(_on_state)
+
     def _update_status_bar(self):
-        """Update the status bar with current Bluetooth status."""
-        if not check_bluetooth_available():
+        """Update the status bar with cached Bluetooth status."""
+        if not self._adapter_available:
             self._status_icon.set_text("\u274C")
             self._status_label.set_text(self.t("no_adapter"))
             return
 
-        if not is_adapter_powered():
+        if not self._adapter_powered:
             self._status_icon.set_text("\u26AA")
             self._status_label.set_text(self.t("adapter_off"))
             return
