@@ -1,6 +1,6 @@
 #!/bin/bash
 # Setup Oh My Zsh - installs for all users with zsh as default shell
-# Used as a boot service similar to setup-claude-code.sh
+# Used as a boot service similar to setup-opencode.sh
 
 set -euo pipefail
 

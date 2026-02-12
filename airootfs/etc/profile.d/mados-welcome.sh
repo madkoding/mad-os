@@ -29,7 +29,7 @@ if [ -t 0 ] && [ -t 1 ]; then
 
 🔧 Quick Commands:
    • Install madOS:     sudo install-mados
-   • AI Assistant:      claude
+   • AI Assistant:      opencode
    • Package Manager:   sudo pacman -S <package>
 
 INNER_EOF

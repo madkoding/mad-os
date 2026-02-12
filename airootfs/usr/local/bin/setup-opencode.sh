@@ -1,20 +1,20 @@
 #!/bin/bash
-# Setup Claude Code - instala si no está disponible
+# Setup OpenCode - instala si no está disponible
 # Usado como fallback si no se instaló durante el build de la ISO
 
 set -euo pipefail
 
-CLAUDE_CMD="claude"
+OPENCODE_CMD="opencode"
 
-if command -v "$CLAUDE_CMD" &>/dev/null; then
-    echo "✓ Claude Code ya está instalado:"
-    "$CLAUDE_CMD" --version
+if command -v "$OPENCODE_CMD" &>/dev/null; then
+    echo "✓ OpenCode ya está instalado:"
+    "$OPENCODE_CMD" --version
     exit 0
 fi
 
 # Verificar que npm esté disponible
 if ! command -v npm &>/dev/null; then
-    echo "✗ Error: npm no está instalado. No se puede instalar Claude Code."
+    echo "✗ Error: npm no está instalado. No se puede instalar OpenCode."
     exit 1
 fi
 
@@ -25,19 +25,19 @@ if ! curl -sf --connect-timeout 5 https://registry.npmjs.org/ >/dev/null 2>&1; t
     echo "    WiFi:     iwctl station wlan0 connect <SSID>"
     echo "    Ethernet: debería conectarse automáticamente"
     echo ""
-    echo "  Luego ejecuta de nuevo: setup-claude-code.sh"
+    echo "  Luego ejecuta de nuevo: setup-opencode.sh"
     # Exit 0 to not fail the systemd service when run at boot without network
     exit 0
 fi
 
-echo "Instalando Claude Code..."
-if npm install -g @anthropic-ai/claude-code; then
+echo "Instalando OpenCode..."
+if npm install -g opencode-ai; then
     echo ""
-    echo "✓ Claude Code instalado correctamente."
-    "$CLAUDE_CMD" --version
+    echo "✓ OpenCode instalado correctamente."
+    "$OPENCODE_CMD" --version
 else
-    echo "⚠ Error al instalar Claude Code."
-    echo "  Intenta manualmente: setup-claude-code.sh"
+    echo "⚠ Error al instalar OpenCode."
+    echo "  Intenta manualmente: setup-opencode.sh"
     # Exit 0 to not fail the service
     exit 0
 fi

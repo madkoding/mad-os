@@ -34,7 +34,7 @@ journalctl -f
 
 # Logs from a specific unit
 journalctl -u NetworkManager
-journalctl -u setup-claude-code.service
+journalctl -u setup-opencode.service
 journalctl -u mados-persistence.service
 
 # Kernel messages
