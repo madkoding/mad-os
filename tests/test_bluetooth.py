@@ -113,8 +113,14 @@ class TestBluetoothService(unittest.TestCase):
             "multi-user.target.wants", "bluetooth.service"
         )
         self.assertTrue(
-            os.path.islink(service_link) or os.path.isfile(service_link),
-            "bluetooth.service must be enabled (symlinked) for live USB"
+            os.path.islink(service_link),
+            "bluetooth.service must be enabled as a symlink for live USB"
+        )
+        target = os.readlink(service_link)
+        self.assertEqual(
+            "bluetooth.service",
+            os.path.basename(target),
+            "bluetooth.service symlink should point to the bluetooth.service unit file",
         )
 
     def test_post_install_enables_bluetooth(self):
