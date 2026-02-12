@@ -1270,11 +1270,8 @@ log "Starting madOS Phase 2 setup..."
 log "Installing additional packages..."
 PACKAGES=({packages_str})
 
-# Sync package databases
-pacman -Sy --noconfirm 2>&1 || log "Warning: database sync had issues"
-
-# Install Phase 2 packages (non-fatal individual failures)
-if pacman -S --noconfirm --needed "${{PACKAGES[@]}}" 2>&1; then
+# Sync databases and install Phase 2 packages in one step
+if pacman -Syu --noconfirm --needed "${{PACKAGES[@]}}" 2>&1; then
     log "All Phase 2 packages installed successfully"
 else
     log "Warning: Some packages may have failed to install"

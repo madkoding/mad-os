@@ -94,7 +94,6 @@ PACKAGES_PHASE2 = [
     'pcmanfm', 'lxappearance', 'materia-gtk-theme',
     'brightnessctl',
     'python-cairo', 'gdk-pixbuf2', 'rsync',
-    'swaybg',
     # madOS Native Apps Dependencies
     'python-pillow', 'poppler-glib',
     'gstreamer', 'gst-plugins-base', 'gst-plugins-good', 'gst-python',
