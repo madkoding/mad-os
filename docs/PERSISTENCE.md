@@ -253,7 +253,7 @@ You should see: "Device /dev/sdX is not a USB device (likely ISO/CD/VM), skippin
 
 2. Manually mount:
    ```bash
-   sudo mount -L MADOS_PERSIST /mnt
+   sudo mount -L persistence /mnt
    ```
 
 3. Check systemd service:

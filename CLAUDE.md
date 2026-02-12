@@ -257,7 +257,7 @@ madOS includes automatic persistent storage for live USB environments:
 
 1. On first boot from USB, systemd service runs setup script
 2. Script detects USB device and checks for free space
-3. If ≥100MB free, creates ext4 partition with label `MADOS_PERSIST`
+3. If ≥100MB free, creates ext4 partition with label `persistence`
 4. Partition is mounted and used for persistent storage
 5. User changes, packages, and files persist across reboots
 
@@ -280,9 +280,9 @@ sudo mados-persistence remove
 ### Implementation Details
 
 - **Dynamic Size**: Uses ALL free space on USB (e.g., 16GB USB = ~12GB persistence)
-- **Partition Label**: `MADOS_PERSIST` for easy identification
+- **Partition Label**: `persistence` for easy identification
 - **Filesystem**: ext4 with optimal settings for USB storage
-- **Mount Point**: `/run/archiso/cowspace_persistent`
+- **Mount Point**: `/mnt/persistence`
 - **Auto-detection**: Finds USB device via archiso boot mount
 - **Error Handling**: Logs to `/var/log/mados-persistence.log`
 

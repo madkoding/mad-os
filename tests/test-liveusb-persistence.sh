@@ -194,25 +194,12 @@ mkdir -p "$PERSIST_MOUNT/home"
 chmod 755 "$PERSIST_MOUNT"
 ok "Overlay directories created"
 
-# Instead of extracting the function from setup-persistence.sh, we run the
-# script in a mode where it writes the init files.  We create a small wrapper
-# that sources the script's functions but skips the main USB-detection flow.
-cat > /tmp/install-persist-files.sh << 'WRAPPER'
-#!/usr/bin/env bash
-set -euo pipefail
-# Source the log helper and install_persist_files function
-LOG_FILE="/var/log/mados-persistence.log"
-PERSIST_MOUNT="/mnt/persistence"
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
-WRAPPER
-
-# Extract the install_persist_files function body from setup-persistence.sh
-# (everything between the function definition and its closing brace at col 1)
-sed -n '/^install_persist_files()/,/^}/p' /usr/local/bin/setup-persistence.sh >> /tmp/install-persist-files.sh
-echo 'install_persist_files' >> /tmp/install-persist-files.sh
-
-chmod 755 /tmp/install-persist-files.sh
-bash /tmp/install-persist-files.sh
+# Run setup-persistence.sh functions to install init script and service.
+# We source everything except the bottom auto-execution guard.
+GUARD_LINE=$(grep -n "^# Only run in live environment" /usr/local/bin/setup-persistence.sh | head -1 | cut -d: -f1)
+head -n "$((GUARD_LINE - 1))" /usr/local/bin/setup-persistence.sh > /tmp/_persist_funcs.sh
+echo "install_persist_files" >> /tmp/_persist_funcs.sh
+bash /tmp/_persist_funcs.sh
 
 # Verify files were created
 [ -x "$PERSIST_MOUNT/mados-persist-init.sh" ] \

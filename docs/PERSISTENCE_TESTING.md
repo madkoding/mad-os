@@ -53,7 +53,7 @@ sudo mkarchiso -v -w work/ -o out/ .
 **Expected Result**:
 - Message: "Persistence is configured"
 - Shows device, size, usage, mount point
-- Partition labeled `MADOS_PERSIST` exists
+- Partition labeled `persistence` exists
 - Service log shows successful creation:
   ```bash
   cat /var/log/mados-persistence.log
@@ -185,7 +185,7 @@ sudo mkarchiso -v -w work/ -o out/ .
 4. Verify removal:
    ```bash
    mados-persistence status  # Should show not configured
-   lsblk  # MADOS_PERSIST partition should be gone
+   lsblk  # persistence partition should be gone
    ```
 
 **Expected Result**:

@@ -88,7 +88,7 @@ When you write madOS to a USB drive and enable persistence:
 USB Drive:
 ├── Partition 1: ISO Data (read-only)
 ├── Partition 2: EFI System Partition
-└── Partition 3: MADOS_PERSIST (ext4) <- Your persistent storage
+└── Partition 3: persistence (ext4) <- Your persistent storage
 ```
 
 ### Dynamic Size
@@ -130,7 +130,7 @@ madOS provides boot options for persistence:
 Advanced users can customize persistence behavior:
 
 - `cow_spacesize=512M` - RAM overlay size (default: 256M)
-- Label `MADOS_PERSIST` is used to identify the persistence partition
+- Label `persistence` is used to identify the persistence partition
 
 ## Troubleshooting
 
@@ -176,7 +176,7 @@ Advanced users can customize persistence behavior:
 
 2. Manually mount:
    ```bash
-   sudo mount -L MADOS_PERSIST /mnt
+   sudo mount -L persistence /mnt
    ```
 
 3. Check systemd service:
@@ -270,7 +270,7 @@ sudo dd if=madOS.iso of=/dev/sdX bs=4M conv=fsync oflag=direct status=progress
 sudo parted /dev/sdX mkpart primary ext4 4GB 100%
 
 # 3. Format with label
-sudo mkfs.ext4 -L MADOS_PERSIST /dev/sdX3
+sudo mkfs.ext4 -L persistence /dev/sdX3
 
 # 4. Boot madOS - persistence will be auto-detected
 ```
