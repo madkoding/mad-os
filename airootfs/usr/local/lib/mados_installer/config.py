@@ -74,6 +74,7 @@ PACKAGES_PHASE1 = [
     'plymouth',
     'greetd', 'greetd-regreet', 'cage',
     'sway', 'swaybg', 'foot', 'xorg-xwayland',
+    'hyprland',
     'mesa',
     'python', 'python-gobject', 'gtk3',
     'nodejs', 'npm',
@@ -84,6 +85,7 @@ PACKAGES_PHASE2 = [
     'swayidle', 'swaylock', 'waybar', 'wofi', 'mako',
     'chromium', 'code', 'vim', 'nano', 'git', 'htop', 'fastfetch', 'openssh', 'wget', 'jq',
     'grim', 'slurp', 'wl-clipboard', 'xdg-desktop-portal-wlr',
+    'xdg-desktop-portal-hyprland',
     'bluez', 'bluez-utils',
     'pipewire', 'pipewire-pulse', 'pipewire-alsa', 'wireplumber',
     'alsa-utils', 'pavucontrol',
@@ -102,7 +104,7 @@ PACKAGES_PHASE2 = [
 # Combined package list (all packages for both phases)
 PACKAGES = PACKAGES_PHASE1 + PACKAGES_PHASE2
 
-# Locale to keyboard layout mapping for Sway
+# Locale to keyboard layout mapping for Sway/Hyprland
 LOCALE_KB_MAP = {
     'en_US.UTF-8': 'us',
     'es_ES.UTF-8': 'es',

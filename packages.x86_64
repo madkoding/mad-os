@@ -12,7 +12,8 @@ syslinux
 sudo
 zsh
 
-# Compositor y entorno Wayland
+# Compositores Wayland (Hyprland para hardware moderno, Sway para software rendering)
+hyprland
 sway
 swaybg
 swayidle
@@ -21,6 +22,7 @@ waybar
 wofi
 mako
 xorg-xwayland
+xdg-desktop-portal-hyprland
 
 # Aplicaciones principales
 foot

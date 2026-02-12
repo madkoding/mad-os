@@ -394,11 +394,15 @@ def _run_installation(app):
             subprocess.run(['cp', '-a', '/usr/local/bin/detect-legacy-hardware',
                             '/mnt/usr/local/bin/detect-legacy-hardware'], check=False)
 
-            # Copy cage-greeter and sway-session wrappers with hardware detection
+            # Copy cage-greeter, sway-session, hyprland-session and select-compositor wrappers
             subprocess.run(['cp', '-a', '/usr/local/bin/cage-greeter',
                             '/mnt/usr/local/bin/cage-greeter'], check=False)
             subprocess.run(['cp', '-a', '/usr/local/bin/sway-session',
                             '/mnt/usr/local/bin/sway-session'], check=False)
+            subprocess.run(['cp', '-a', '/usr/local/bin/hyprland-session',
+                            '/mnt/usr/local/bin/hyprland-session'], check=False)
+            subprocess.run(['cp', '-a', '/usr/local/bin/select-compositor',
+                            '/mnt/usr/local/bin/select-compositor'], check=False)
 
             # Copy custom Python application launchers
             for launcher in ['mados-photo-viewer', 'mados-pdf-viewer',
@@ -416,16 +420,20 @@ def _run_installation(app):
 
             # Ensure copied scripts are executable in the installed system
             for script in ['detect-legacy-hardware', 'cage-greeter', 'sway-session',
+                           'hyprland-session', 'select-compositor',
                            'mados-photo-viewer', 'mados-pdf-viewer',
                            'mados-equalizer', 'mados-wifi', 'mados-debug']:
                 subprocess.run(['chmod', '+x', f'/mnt/usr/local/bin/{script}'], check=False)
 
-            # Copy madOS Sway session desktop file for ReGreet
+            # Copy madOS session desktop files for ReGreet
             set_progress(app, 0.54, "Copying session files...")
             log_message(app, "Copying session files...")
             subprocess.run(['mkdir', '-p', '/mnt/usr/share/wayland-sessions'], check=False)
             subprocess.run(['cp', '-a', '/usr/share/wayland-sessions/sway.desktop',
                             '/mnt/usr/share/wayland-sessions/sway.desktop'], check=False)
+            if os.path.isfile('/usr/share/wayland-sessions/hyprland.desktop'):
+                subprocess.run(['cp', '-a', '/usr/share/wayland-sessions/hyprland.desktop',
+                                '/mnt/usr/share/wayland-sessions/hyprland.desktop'], check=False)
 
             # Copy greeter wallpaper (same as session wallpaper)
             subprocess.run(['mkdir', '-p', '/mnt/usr/share/backgrounds'], check=False)
@@ -1179,19 +1187,24 @@ After=getty@tty1.service
 EOFOVERRIDE
 
 # Copy configs to user home
-su - {username} -c "mkdir -p ~/.config/{{sway,waybar,foot,wofi,alacritty,gtk-3.0,gtk-4.0}}"
+su - {username} -c "mkdir -p ~/.config/{{sway,hypr,waybar,foot,wofi,alacritty,gtk-3.0,gtk-4.0}}"
 su - {username} -c "mkdir -p ~/Pictures/{{Wallpapers,Screenshots}}"
 cp -r /etc/skel/.config/* /home/{username}/.config/ 2>/dev/null || true
 cp -r /etc/skel/Pictures/* /home/{username}/Pictures/ 2>/dev/null || true
 cp /etc/skel/.gtkrc-2.0 /home/{username}/.gtkrc-2.0 2>/dev/null || true
 chown -R {username}:{username} /home/{username}
 
-# Set keyboard layout in Sway config based on locale
+# Set keyboard layout in Sway and Hyprland configs based on locale
 KB_LAYOUT="{LOCALE_KB_MAP.get(locale, 'us')}"
 if [ -f /home/{username}/.config/sway/config ]; then
     sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /home/{username}/.config/sway/config
 elif [ -f /etc/skel/.config/sway/config ]; then
     sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /etc/skel/.config/sway/config
+fi
+if [ -f /home/{username}/.config/hypr/hyprland.conf ]; then
+    sed -i "s/kb_layout = es/kb_layout = $KB_LAYOUT/" /home/{username}/.config/hypr/hyprland.conf
+elif [ -f /etc/skel/.config/hypr/hyprland.conf ]; then
+    sed -i "s/kb_layout = es/kb_layout = $KB_LAYOUT/" /etc/skel/.config/hypr/hyprland.conf
 fi
 
 # Ensure .bash_profile from skel was copied correctly

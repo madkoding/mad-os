@@ -1,0 +1,34 @@
+#!/bin/bash
+# select-compositor - Selects the best compositor based on hardware capabilities
+# Returns "sway" for software rendering (legacy/VM without 3D)
+# Returns "hyprland" for hardware-accelerated rendering (modern hardware)
+
+select_compositor() {
+    # Check if detect-legacy-hardware script exists and run it
+    if [ -x /usr/local/bin/detect-legacy-hardware ]; then
+        if /usr/local/bin/detect-legacy-hardware >/dev/null 2>&1; then
+            # Legacy hardware detected: use Sway (better software rendering support via wlroots/pixman)
+            echo "sway"
+            return
+        fi
+    else
+        # Fallback: if no detection script, check for VM or nomodeset
+        if systemd-detect-virt --vm --quiet 2>/dev/null || grep -q 'nomodeset' /proc/cmdline 2>/dev/null; then
+            echo "sway"
+            return
+        fi
+    fi
+
+    # Modern hardware: use Hyprland (GPU-accelerated compositor)
+    # Verify Hyprland is installed, fall back to Sway if not
+    if command -v Hyprland >/dev/null 2>&1; then
+        echo "hyprland"
+    else
+        echo "sway"
+    fi
+}
+
+# If sourced, export function. If executed, print result.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    select_compositor
+fi

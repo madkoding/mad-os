@@ -11,7 +11,9 @@
     "modules-left": [
         "custom/launcher",
         "sway/workspaces",
-        "sway/mode"
+        "sway/mode",
+        "hyprland/workspaces",
+        "hyprland/submap"
     ],
     "modules-center": [
         "clock"
@@ -47,6 +49,24 @@
     },
 
     "sway/mode": {
+        "format": "<span style=\"italic\">󰕷  {}</span>",
+        "tooltip": false
+    },
+
+    "hyprland/workspaces": {
+        "format": "{name}",
+        "all-outputs": true,
+        "active-only": false,
+        "persistent-workspaces": {
+            "1": [],
+            "2": [],
+            "3": [],
+            "4": [],
+            "5": []
+        }
+    },
+
+    "hyprland/submap": {
         "format": "<span style=\"italic\">󰕷  {}</span>",
         "tooltip": false
     },

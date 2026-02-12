@@ -1,0 +1,9 @@
+#!/bin/bash
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=Hyprland
+export MOZ_ENABLE_WAYLAND=1
+
+# Use systemd-logind as the seat management backend (madOS uses systemd)
+export LIBSEAT_BACKEND=logind
+
+exec Hyprland
