@@ -2,7 +2,9 @@
 # madOS Persistence Manager
 # User-friendly tool to manage persistent storage on live USB
 
-PERSIST_LABEL="MADOS_PERSIST"
+PERSIST_LABEL="persistence"
+PERSIST_MOUNT="/mnt/persistence"
+OVERLAY_DIRS="etc usr var opt"
 
 # Colors for output
 RED='\033[0;31m'
@@ -99,6 +101,23 @@ show_status() {
     else
         print_warning "Not currently mounted"
     fi
+
+    # Show overlay status
+    echo
+    print_info "Overlay mounts:"
+    for dir in $OVERLAY_DIRS; do
+        if findmnt -n -t overlay "/$dir" >/dev/null 2>&1; then
+            print_status "  /$dir (overlayfs)"
+        else
+            print_warning "  /$dir (not mounted)"
+        fi
+    done
+    if mountpoint -q /home 2>/dev/null && \
+       findmnt -n -o SOURCE /home 2>/dev/null | grep -q "$PERSIST_MOUNT"; then
+        print_status "  /home (bind mount)"
+    else
+        print_warning "  /home (not mounted)"
+    fi
     
     echo
 }
@@ -137,6 +156,8 @@ enable_persistence() {
         echo
         print_status "Persistence enabled successfully!"
         echo
+        print_info "Overlayfs mounts active for: /etc /usr /var /opt"
+        print_info "Bind mount active for: /home"
         print_info "Your changes will now persist across reboots"
         print_info "View status with: mados-persistence status"
     else
@@ -145,7 +166,7 @@ enable_persistence() {
     fi
 }
 
-# Disable persistence (unmount only, don't delete)
+# Disable persistence (unmount overlays, don't delete)
 disable_persistence() {
     print_header
     
@@ -162,20 +183,28 @@ disable_persistence() {
         return
     fi
     
-    local mount=$(findmnt -n -o TARGET "$persist_dev" 2>/dev/null)
-    
-    if [ -n "$mount" ]; then
-        print_info "Unmounting $persist_dev from $mount..."
-        if umount "$mount"; then
-            print_status "Persistence disabled for this session"
-            print_info "It will be re-enabled on next boot"
-            print_info "To permanently remove, use: mados-persistence remove"
-        else
-            print_error "Failed to unmount"
-        fi
-    else
-        print_info "Persistence partition not mounted"
+    print_info "Unmounting overlay and bind mounts..."
+
+    # Unmount /home bind mount
+    if mountpoint -q /home 2>/dev/null; then
+        umount /home 2>/dev/null && print_status "Unmounted /home" || print_warning "Could not unmount /home"
     fi
+
+    # Unmount overlays in reverse order
+    for dir in opt var usr etc; do
+        if findmnt -n -t overlay "/$dir" >/dev/null 2>&1; then
+            umount "/$dir" 2>/dev/null && print_status "Unmounted /$dir overlay" || print_warning "Could not unmount /$dir"
+        fi
+    done
+
+    # Unmount persistence partition
+    if mountpoint -q "$PERSIST_MOUNT" 2>/dev/null; then
+        umount "$PERSIST_MOUNT" 2>/dev/null && print_status "Unmounted $PERSIST_MOUNT" || print_warning "Could not unmount $PERSIST_MOUNT"
+    fi
+
+    print_status "Persistence disabled for this session"
+    print_info "It will be re-enabled on next boot"
+    print_info "To permanently remove, use: mados-persistence remove"
 }
 
 # Remove persistence partition
@@ -206,12 +235,9 @@ remove_persistence() {
         print_info "Cancelled"
         return
     fi
-    
-    # Unmount if mounted
-    local mount=$(findmnt -n -o TARGET "$persist_dev" 2>/dev/null)
-    if [ -n "$mount" ]; then
-        umount "$mount" 2>/dev/null || true
-    fi
+
+    # Disable first (unmount everything)
+    disable_persistence 2>/dev/null || true
     
     # Get parent device and partition number
     local parent_dev=$(lsblk -no PKNAME "$persist_dev" 2>/dev/null)
@@ -241,6 +267,9 @@ show_usage() {
     echo "  disable   - Disable persistence for this session (requires root)"
     echo "  remove    - Permanently remove persistence partition (requires root)"
     echo "  help      - Show this help message"
+    echo
+    echo "Persistent directories (overlayfs): /etc /usr /var /opt"
+    echo "Persistent directory (bind mount):  /home"
     echo
 }
 
