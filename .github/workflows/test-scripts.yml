@@ -1,0 +1,62 @@
+name: Test Boot & Post-Installation Scripts
+
+on:
+  push:
+    paths:
+      - 'airootfs/usr/local/bin/setup-*.sh'
+      - 'airootfs/usr/local/bin/install-mados*'
+      - 'airootfs/etc/systemd/system/setup-*.service'
+      - 'airootfs/etc/sysusers.d/**'
+      - 'airootfs/etc/passwd'
+      - 'airootfs/etc/skel/**'
+      - 'airootfs/usr/local/lib/mados_installer/**'
+      - 'packages.x86_64'
+      - 'profiledef.sh'
+      - 'tests/test_boot_scripts.py'
+      - 'tests/test_post_installation.py'
+      - '.github/workflows/test-scripts.yml'
+  pull_request:
+    paths:
+      - 'airootfs/usr/local/bin/setup-*.sh'
+      - 'airootfs/usr/local/bin/install-mados*'
+      - 'airootfs/etc/systemd/system/setup-*.service'
+      - 'airootfs/etc/sysusers.d/**'
+      - 'airootfs/etc/passwd'
+      - 'airootfs/etc/skel/**'
+      - 'airootfs/usr/local/lib/mados_installer/**'
+      - 'packages.x86_64'
+      - 'profiledef.sh'
+      - 'tests/test_boot_scripts.py'
+      - 'tests/test_post_installation.py'
+      - '.github/workflows/test-scripts.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-boot-scripts:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install test dependencies
+      run: python3 -m pip install pytest
+
+    - name: Run boot script tests
+      run: python3 -m pytest tests/test_boot_scripts.py -v
+
+  test-post-installation:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install test dependencies
+      run: python3 -m pip install pytest
+
+    - name: Run post-installation tests
+      run: python3 -m pytest tests/test_post_installation.py -v
