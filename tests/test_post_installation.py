@@ -212,6 +212,10 @@ class TestLiveISOPackages(unittest.TestCase):
         """Live ISO must include sway compositor."""
         self.assertIn("sway", self._read_packages())
 
+    def test_hyprland_included(self):
+        """Live ISO must include hyprland compositor."""
+        self.assertIn("hyprland", self._read_packages())
+
     def test_earlyoom_included(self):
         """Live ISO must include earlyoom for low-RAM protection."""
         self.assertIn("earlyoom", self._read_packages())
@@ -292,6 +296,15 @@ class TestSkelConfig(unittest.TestCase):
             "Sway config missing from /etc/skel",
         )
 
+    def test_hyprland_config_exists(self):
+        """Hyprland compositor config must exist in skel."""
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(self.SKEL, ".config", "hypr", "hyprland.conf")
+            ),
+            "Hyprland config missing from /etc/skel",
+        )
+
     def test_waybar_config_exists(self):
         """Waybar status bar config must exist in skel."""
         self.assertTrue(
@@ -321,6 +334,38 @@ class TestInstallerScripts(unittest.TestCase):
         """install-mados launcher must exist."""
         path = os.path.join(BIN_DIR, "install-mados")
         self.assertTrue(os.path.isfile(path), "install-mados missing")
+
+    def test_select_compositor_exists(self):
+        """select-compositor script must exist."""
+        path = os.path.join(BIN_DIR, "select-compositor")
+        self.assertTrue(os.path.isfile(path), "select-compositor missing")
+
+    def test_select_compositor_valid_syntax(self):
+        """select-compositor must have valid bash syntax."""
+        path = os.path.join(BIN_DIR, "select-compositor")
+        result = subprocess.run(
+            ["bash", "-n", path], capture_output=True, text=True,
+        )
+        self.assertEqual(
+            result.returncode, 0,
+            f"Bash syntax error: {result.stderr}",
+        )
+
+    def test_hyprland_session_exists(self):
+        """hyprland-session wrapper must exist."""
+        path = os.path.join(BIN_DIR, "hyprland-session")
+        self.assertTrue(os.path.isfile(path), "hyprland-session missing")
+
+    def test_hyprland_session_valid_syntax(self):
+        """hyprland-session must have valid bash syntax."""
+        path = os.path.join(BIN_DIR, "hyprland-session")
+        result = subprocess.run(
+            ["bash", "-n", path], capture_output=True, text=True,
+        )
+        self.assertEqual(
+            result.returncode, 0,
+            f"Bash syntax error: {result.stderr}",
+        )
 
     def test_install_mados_valid_syntax(self):
         """install-mados launcher must have valid bash syntax."""
@@ -441,6 +486,104 @@ class TestSudoersConfig(unittest.TestCase):
             "NOPASSWD", content,
             "mados user must have NOPASSWD sudo access",
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Compositor selection (Hyprland / Sway)
+# ═══════════════════════════════════════════════════════════════════════════
+class TestCompositorSelection(unittest.TestCase):
+    """Verify dynamic compositor selection is properly configured."""
+
+    def test_select_compositor_outputs_valid_compositor(self):
+        """select-compositor should output either 'sway' or 'hyprland'."""
+        path = os.path.join(BIN_DIR, "select-compositor")
+        with open(path) as f:
+            content = f.read()
+        # Script must echo either "sway" or "hyprland"
+        self.assertIn('echo "sway"', content)
+        self.assertIn('echo "hyprland"', content)
+
+    def test_bash_profile_uses_select_compositor(self):
+        """bash_profile should use select-compositor for dynamic selection."""
+        path = os.path.join(AIROOTFS, "etc", "skel", ".bash_profile")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("select-compositor", content,
+                       ".bash_profile must use select-compositor script")
+
+    def test_bash_profile_supports_both_compositors(self):
+        """bash_profile should handle both Sway and Hyprland."""
+        path = os.path.join(AIROOTFS, "etc", "skel", ".bash_profile")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("exec sway", content,
+                       ".bash_profile must exec sway for software rendering")
+        self.assertIn("exec Hyprland", content,
+                       ".bash_profile must exec Hyprland for hardware rendering")
+
+    def test_zlogin_uses_select_compositor(self):
+        """zlogin should use select-compositor for dynamic selection."""
+        path = os.path.join(AIROOTFS, "home", "mados", ".zlogin")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("select-compositor", content,
+                       ".zlogin must use select-compositor script")
+
+    def test_hyprland_in_installer_packages(self):
+        """Installer PACKAGES must include hyprland."""
+        from mados_installer.config import PACKAGES
+        self.assertIn("hyprland", PACKAGES,
+                       "hyprland must be in installer PACKAGES")
+
+    def test_hyprland_session_script_execs_hyprland(self):
+        """hyprland-session must exec Hyprland."""
+        path = os.path.join(BIN_DIR, "hyprland-session")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("exec Hyprland", content,
+                       "hyprland-session must exec Hyprland")
+
+    def test_hyprland_session_sets_desktop(self):
+        """hyprland-session must set XDG_CURRENT_DESKTOP."""
+        path = os.path.join(BIN_DIR, "hyprland-session")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("XDG_CURRENT_DESKTOP=Hyprland", content,
+                       "hyprland-session must set XDG_CURRENT_DESKTOP")
+
+    def test_profiledef_includes_new_scripts(self):
+        """profiledef.sh must set permissions for compositor scripts."""
+        profiledef = os.path.join(REPO_DIR, "profiledef.sh")
+        with open(profiledef) as f:
+            content = f.read()
+        for script in ['hyprland-session', 'select-compositor']:
+            with self.subTest(script=script):
+                self.assertIn(script, content,
+                               f"profiledef.sh must include {script}")
+
+    def test_waybar_supports_both_compositors(self):
+        """Waybar config must include modules for both Sway and Hyprland."""
+        path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
+        )
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("sway/workspaces", content,
+                       "Waybar must include sway/workspaces module")
+        self.assertIn("hyprland/workspaces", content,
+                       "Waybar must include hyprland/workspaces module")
+
+    def test_installer_copies_compositor_scripts(self):
+        """Installer must copy compositor selection scripts."""
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        with open(install_py) as f:
+            content = f.read()
+        for script in ['hyprland-session', 'select-compositor']:
+            with self.subTest(script=script):
+                self.assertIn(script, content,
+                               f"Installer must copy {script}")
 
 
 if __name__ == "__main__":

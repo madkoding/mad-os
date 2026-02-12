@@ -56,4 +56,6 @@ file_permissions=(
   ["/usr/local/bin/detect-legacy-hardware"]="0:0:755"
   ["/usr/local/bin/cage-greeter"]="0:0:755"
   ["/usr/local/bin/sway-session"]="0:0:755"
+  ["/usr/local/bin/hyprland-session"]="0:0:755"
+  ["/usr/local/bin/select-compositor"]="0:0:755"
 )

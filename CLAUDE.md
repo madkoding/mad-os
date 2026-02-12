@@ -65,7 +65,7 @@ Files copied into the live environment root:
   - `skel/`: Default user files (copied to new user homes)
     - `.config/sway/`: Sway compositor configuration (Nord theme)
     - `.config/waybar/`: Status bar configuration
-    - `.config/foot/`, `.config/alacritty/`: Terminal configs
+    - `.config/foot/`: Terminal config
     - `.config/wofi/`: Application launcher config
 
 - **`airootfs/usr/local/bin/`**: Custom scripts
@@ -235,7 +235,7 @@ qemu-system-x86_64 \
 ## Key Features
 
 - **Compositor**: Sway (i3-compatible Wayland compositor, ~67MB RAM)
-- **Terminal**: Foot (default) and Alacritty
+- **Terminal**: Foot
 - **Browser**: Chromium
 - **Editor**: VS Code, vim, nano
 - **Development**: Node.js 24.x, npm, git
