@@ -197,7 +197,7 @@ class TestSystemConfigFiles(unittest.TestCase):
             content = f.read()
         self.assertIn("[zram0]", content, "Must define [zram0] section")
         self.assertIn(
-            "zram-size", content.lower().replace("-", "-"),
+            "zram-size", content.lower(),
             "Must configure zram-size",
         )
 
