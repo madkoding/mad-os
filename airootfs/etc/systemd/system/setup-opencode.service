@@ -2,13 +2,12 @@
 Description=Install OpenCode if not already present
 After=network-online.target pacman-init.service
 Wants=network-online.target
-# Only run if opencode binary is not found
-ConditionPathExists=!/usr/bin/opencode
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 Environment=HOME=/home/mados
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 ExecStart=/usr/local/bin/setup-opencode.sh
 StandardOutput=journal+console
 StandardError=journal+console
