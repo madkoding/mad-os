@@ -233,6 +233,15 @@ class TestSetupClaudeCode(unittest.TestCase):
         """setup-opencode.sh must NOT use set -euo pipefail (must never crash service)."""
         self.assertNotIn("set -euo pipefail", self.content)
 
+    def test_always_exits_zero(self):
+        """setup-opencode.sh must always exit 0 to not crash the systemd service."""
+        # All exit statements in the script should be exit 0
+        import re
+        exits = re.findall(r'exit\s+(\d+)', self.content)
+        for code in exits:
+            self.assertEqual(code, "0",
+                             "All exit codes in setup-opencode.sh must be 0")
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Systemd service files
