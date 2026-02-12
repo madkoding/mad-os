@@ -1,0 +1,4 @@
+#!/bin/bash
+# madOS Bluetooth Configuration - Launcher script
+export PYTHONPATH="/usr/local/lib${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m mados_bluetooth "$@"

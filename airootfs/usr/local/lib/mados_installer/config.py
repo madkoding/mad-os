@@ -72,6 +72,7 @@ PACKAGES = [
     'foot', 'chromium', 'code', 'vim', 'nano', 'git', 'htop', 'fastfetch', 'openssh', 'wget', 'jq',
     'grim', 'slurp', 'wl-clipboard', 'xdg-desktop-portal-wlr',
     'earlyoom', 'zram-generator', 'iwd',
+    'bluez', 'bluez-utils',
     'pipewire', 'pipewire-pulse', 'pipewire-alsa', 'wireplumber',
     'alsa-utils', 'pavucontrol',
     'intel-media-driver', 'vulkan-intel', 'mesa', 'mesa-utils',

@@ -75,6 +75,10 @@ xf86-video-nouveau
 mesa
 mesa-utils
 
+# Bluetooth
+bluez
+bluez-utils
+
 # Audio
 pipewire
 pipewire-pulse
