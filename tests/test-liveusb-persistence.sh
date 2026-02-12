@@ -41,11 +41,11 @@ OVERLAY_DIRS="etc usr var opt"
 cleanup() {
     step "Cleanup"
 
-    # Unmount overlays
-    for dir in $OVERLAY_DIRS; do
+    # Unmount overlays in reverse order
+    umount /home 2>/dev/null || true
+    for dir in $(echo $OVERLAY_DIRS | tr ' ' '\n' | tac | tr '\n' ' '); do
         umount "/$dir" 2>/dev/null || true
     done
-    umount /home 2>/dev/null || true
     umount "$PERSIST_MOUNT" 2>/dev/null || true
 
     [ -n "${LOOP_DEV:-}" ] && losetup -d "$LOOP_DEV" 2>/dev/null || true
@@ -195,8 +195,13 @@ chmod 755 "$PERSIST_MOUNT"
 ok "Overlay directories created"
 
 # Run setup-persistence.sh functions to install init script and service.
-# We source everything except the bottom auto-execution guard.
-GUARD_LINE=$(grep -n "^# Only run in live environment" /usr/local/bin/setup-persistence.sh | head -1 | cut -d: -f1)
+# We source all function definitions but skip the auto-execution block at the
+# bottom by truncating before the "# Only run in live environment" guard.
+GUARD_LINE=$(grep -n "^if \[" /usr/local/bin/setup-persistence.sh | tail -1 | cut -d: -f1)
+if [ -z "$GUARD_LINE" ]; then
+    # Fallback: find the guard comment
+    GUARD_LINE=$(grep -n "^# Only run" /usr/local/bin/setup-persistence.sh | head -1 | cut -d: -f1)
+fi
 head -n "$((GUARD_LINE - 1))" /usr/local/bin/setup-persistence.sh > /tmp/_persist_funcs.sh
 echo "install_persist_files" >> /tmp/_persist_funcs.sh
 bash /tmp/_persist_funcs.sh
@@ -309,9 +314,9 @@ fi
 # =============================================================================
 step "Phase 8 – Simulating reboot (unmount + re-mount)"
 
-# Unmount in correct order
+# Unmount in correct order (reverse of OVERLAY_DIRS)
 umount /home 2>/dev/null || true
-for dir in opt var usr etc; do
+for dir in $(echo $OVERLAY_DIRS | tr ' ' '\n' | tac | tr '\n' ' '); do
     umount "/$dir" 2>/dev/null || true
 done
 umount "$PERSIST_MOUNT" 2>/dev/null || true

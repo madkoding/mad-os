@@ -198,7 +198,7 @@ INITEOF
 Description=madOS Overlayfs Persistence
 DefaultDependencies=no
 After=local-fs.target
-Before=sysinit.target display-manager.service multi-user.target
+Before=display-manager.service multi-user.target
 ConditionPathExists=/run/archiso
 
 [Service]
