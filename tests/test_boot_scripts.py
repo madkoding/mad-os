@@ -74,8 +74,16 @@ class TestBootScriptSyntax(unittest.TestCase):
                 )
 
     def test_boot_scripts_use_strict_mode(self):
-        """Every boot script should use set -euo pipefail for safety."""
+        """Boot scripts should use set -euo pipefail for safety.
+
+        Exception: setup-opencode.sh intentionally avoids strict mode
+        because it must never crash the systemd service – it uses its own
+        graceful error handling and always exits 0.
+        """
+        STRICT_MODE_EXCEPTIONS = {"setup-opencode.sh"}
         for script in self.BOOT_SCRIPTS:
+            if script in STRICT_MODE_EXCEPTIONS:
+                continue
             path = os.path.join(BIN_DIR, script)
             if not os.path.isfile(path):
                 continue
@@ -212,6 +220,18 @@ class TestSetupClaudeCode(unittest.TestCase):
         """Script should exit 0 (not fail) when network is unavailable."""
         # After the connectivity check, script should exit 0
         self.assertIn("exit 0", self.content)
+
+    def test_uses_curl_install_method(self):
+        """Script should use curl install (opencode.ai/install) as primary method."""
+        self.assertIn("opencode.ai/install", self.content)
+
+    def test_npm_uses_unsafe_perm(self):
+        """npm install must use --unsafe-perm to allow postinstall scripts as root."""
+        self.assertIn("--unsafe-perm", self.content)
+
+    def test_no_strict_mode(self):
+        """setup-opencode.sh must NOT use set -euo pipefail (must never crash service)."""
+        self.assertNotIn("set -euo pipefail", self.content)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

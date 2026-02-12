@@ -883,7 +883,7 @@ echo '{username}:{_escape_shell(data['password'])}' | chpasswd
 
 # Sudo
 echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
-echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/opencode,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/opencode-nopasswd
+echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/opencode,/usr/local/bin/opencode,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/opencode-nopasswd
 chmod 440 /etc/sudoers.d/opencode-nopasswd
 
 echo '[PROGRESS 3/9] Installing GRUB bootloader...'
@@ -1446,13 +1446,65 @@ systemctl enable setup-ohmyzsh.service 2>/dev/null || true
 
 # ── Step 5: Install OpenCode ─────────────────────────────────────────
 log "Installing OpenCode..."
-if command -v npm &>/dev/null; then
-    if npm install -g opencode-ai 2>&1; then
+OPENCODE_INSTALL_DIR="/usr/local/bin"
+export OPENCODE_INSTALL_DIR
+# Method 1: curl install script (downloads binary directly, most reliable)
+if curl -fsSL https://opencode.ai/install | bash; then
+    if command -v opencode &>/dev/null; then
         log "OpenCode installed successfully"
     else
-        log "Warning: Could not install OpenCode"
+        log "Warning: curl install completed but opencode not found in PATH"
+    fi
+else
+    log "Warning: curl install failed"
+fi
+# Method 2: npm fallback
+if ! command -v opencode &>/dev/null; then
+    if command -v npm &>/dev/null; then
+        if npm install -g --unsafe-perm opencode-ai 2>&1; then
+            log "OpenCode installed via npm"
+        else
+            log "Warning: npm install also failed"
+        fi
     fi
 fi
+
+# Copy setup script for manual retry
+cat > /usr/local/bin/setup-opencode.sh <<'EOFSETUP'
+#!/bin/bash
+OPENCODE_CMD="opencode"
+INSTALL_DIR="/usr/local/bin"
+if command -v "$OPENCODE_CMD" &>/dev/null; then
+    echo "✓ OpenCode ya está instalado:"
+    "$OPENCODE_CMD" --version 2>/dev/null || true
+    exit 0
+fi
+if ! curl -sf --connect-timeout 5 https://opencode.ai/ >/dev/null 2>&1; then
+    echo "⚠ No hay conexión a Internet."
+    echo "  Conecta a la red y ejecuta de nuevo: sudo setup-opencode.sh"
+    exit 0
+fi
+echo "Instalando OpenCode..."
+if curl -fsSL https://opencode.ai/install | OPENCODE_INSTALL_DIR="$INSTALL_DIR" bash; then
+    if command -v "$OPENCODE_CMD" &>/dev/null; then
+        echo "✓ OpenCode instalado correctamente."
+        "$OPENCODE_CMD" --version 2>/dev/null || true
+        exit 0
+    fi
+fi
+echo "⚠ Método curl falló, intentando con npm..."
+if command -v npm &>/dev/null; then
+    if npm install -g --unsafe-perm opencode-ai; then
+        if command -v "$OPENCODE_CMD" &>/dev/null; then
+            echo "✓ OpenCode instalado correctamente via npm."
+            exit 0
+        fi
+    fi
+fi
+echo "⚠ No se pudo instalar OpenCode."
+exit 0
+EOFSETUP
+chmod 755 /usr/local/bin/setup-opencode.sh
 
 # OpenCode fallback service
 cat > /etc/systemd/system/setup-opencode.service <<'EOFSVC'
@@ -1460,13 +1512,13 @@ cat > /etc/systemd/system/setup-opencode.service <<'EOFSVC'
 Description=Install OpenCode if not already present
 After=network-online.target
 Wants=network-online.target
-ConditionPathExists=!/usr/bin/opencode
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 Environment=HOME=/root
-ExecStart=/bin/bash -c 'npm install -g opencode-ai && echo "OpenCode installed successfully" || echo "Failed to install OpenCode"'
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+ExecStart=/usr/local/bin/setup-opencode.sh
 StandardOutput=journal+console
 StandardError=journal+console
 TimeoutStartSec=300
