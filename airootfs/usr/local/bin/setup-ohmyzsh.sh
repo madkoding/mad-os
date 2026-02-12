@@ -35,11 +35,11 @@ git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$OMZ_DIR" 2>&1 || {
 echo "✓ Oh My Zsh installed in /etc/skel"
 
 # Copy to existing user homes that have zsh as shell
-while IFS=: read -r username _ uid _ _ home shell; do
+while IFS=: read -r username _ uid gid _ home shell; do
     if [ "$shell" = "/usr/bin/zsh" ] && [ -d "$home" ] && [ "$uid" -ge 1000 ] 2>/dev/null; then
         if [ ! -d "$home/.oh-my-zsh" ]; then
             cp -a "$OMZ_DIR" "$home/.oh-my-zsh"
-            chown -R "$username:$username" "$home/.oh-my-zsh"
+            chown -R "$username:$gid" "$home/.oh-my-zsh"
             echo "  → Installed for user $username"
         fi
     fi
