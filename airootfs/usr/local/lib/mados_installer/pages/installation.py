@@ -1187,7 +1187,7 @@ After=getty@tty1.service
 EOFOVERRIDE
 
 # Copy configs to user home
-su - {username} -c "mkdir -p ~/.config/{{sway,hypr,waybar,foot,wofi,alacritty,gtk-3.0,gtk-4.0}}"
+su - {username} -c "mkdir -p ~/.config/{{sway,hypr,waybar,foot,wofi,gtk-3.0,gtk-4.0}}"
 su - {username} -c "mkdir -p ~/Pictures/{{Wallpapers,Screenshots}}"
 cp -r /etc/skel/.config/* /home/{username}/.config/ 2>/dev/null || true
 cp -r /etc/skel/Pictures/* /home/{username}/Pictures/ 2>/dev/null || true
