@@ -146,7 +146,6 @@
         "tooltip-format": "Bluetooth",
         "on-click": "mados-bluetooth",
         "interval": 30,
-        "exec": "echo ''",
-        "return-type": ""
+        "exec": "echo ''"
     }
 }
