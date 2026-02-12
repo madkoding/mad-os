@@ -422,7 +422,7 @@ class BluetoothApp(Gtk.Window):
 
         def _quick_refresh(devices):
             self._populate_device_list(devices)
-            self._update_status_bar()
+            self._refresh_adapter_state()
             self._refresh_in_flight = False
 
         def _worker():
