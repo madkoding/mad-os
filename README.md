@@ -397,7 +397,6 @@ Contributions are welcome. Areas for contribution:
 
 - **Arch Linux** - Base distribution
 - **archiso** - ISO building framework
-- **Anthropic** - Claude Code AI
 - **OpenCode** - AI coding assistant
 - **Sway** - Wayland compositor
 - **Nord Theme** - Color scheme

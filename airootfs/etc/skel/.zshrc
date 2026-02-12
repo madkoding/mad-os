@@ -42,7 +42,7 @@ if [ -f /etc/hostname ] && grep -q "mados" /etc/hostname 2>/dev/null; then
 ║     ╚═╝     ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚══════╝ ║
 ║                                                   ║
 ║         AI-Orchestrated Arch Linux System        ║
-║              Powered by OpenCode               ║
+║               Powered by OpenCode                ║
 ║                                                   ║
 ╚═══════════════════════════════════════════════════╝
 
