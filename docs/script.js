@@ -217,7 +217,7 @@ document.querySelectorAll('.feature-card, .installer-card').forEach(card => {
 });
 
 console.log('%c🤖 madOS - AI-Orchestrated Arch Linux', 'font-size: 20px; font-weight: bold; color: #88c0d0;');
-console.log('%cPowered by Claude Code', 'font-size: 14px; color: #81a1c1;');
+console.log('%cPowered by OpenCode', 'font-size: 14px; color: #81a1c1;');
 console.log('%c\nVisit: https://github.com/madkoding/mad-os', 'color: #a3be8c;');
 
 // Language Selector
