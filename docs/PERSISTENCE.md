@@ -6,11 +6,61 @@ madOS live USB can be configured with persistent storage, allowing you to save c
 
 ## Overview
 
-Persistent storage creates a partition on your USB drive that stores:
-- Installed packages and applications
-- User files and documents
-- System configuration changes
+Persistent storage creates a partition on your USB drive (labeled `persistence`) that stores all system changes using **overlayfs** and a **bind mount**:
+
+| Directory | Method | What persists |
+|-----------|--------|---------------|
+| `/etc` | overlayfs | System configuration |
+| `/usr` | overlayfs | Installed packages, binaries, libraries |
+| `/var` | overlayfs | Package cache, logs, databases |
+| `/opt` | overlayfs | Optional packages |
+| `/home` | bind mount | User files, dotfiles, application data |
+
+## How It Works
+
+### Architecture
+
+```
+USB Drive:
+├── Partition 1: ISO Data (read-only, iso9660)
+├── Partition 2: EFI System Partition (vfat)
+└── Partition 3: persistence (ext4) ← Your persistent storage
+    ├── mados-persist-init.sh        ← Init script (runs on every boot)
+    ├── mados-persistence.service    ← systemd unit (stored here)
+    ├── overlays/
+    │   ├── etc/upper/ + work/       ← overlayfs layers for /etc
+    │   ├── usr/upper/ + work/       ← overlayfs layers for /usr
+    │   ├── var/upper/ + work/       ← overlayfs layers for /var
+    │   └── opt/upper/ + work/       ← overlayfs layers for /opt
+    └── home/                        ← bind-mounted to /home
+```
+
+### Boot Sequence
+
+1. systemd starts `mados-persistence.service` (before display-manager)
+2. Service runs `setup-persistence.sh`:
+   - Detects USB device and persistence partition
+   - On first boot: creates partition, formats ext4, installs init script
+   - On subsequent boots: mounts partition, runs init script
+3. Init script (`/mnt/persistence/mados-persist-init.sh`):
+   - Mounts persistence partition at `/mnt/persistence`
+   - Sets up overlayfs for `/etc`, `/usr`, `/var`, `/opt`
+   - Runs `ldconfig` after `/usr` overlay
+   - Bind-mounts `/home` from persistence partition
+
+### What's Persistent
+
+✓ **Persistent** (saved across reboots):
+- Installed packages via pacman (stored in /usr overlay)
+- System configuration changes (/etc overlay)
+- User files and documents (/home bind mount)
 - Application settings and preferences
+- Package cache and databases (/var overlay)
+
+✗ **Not Persistent** (reset each boot):
+- Running processes
+- Temporary files in `/tmp`
+- Kernel modules (ISO kernel is used)
 
 ## Enabling Persistence
 
@@ -19,7 +69,7 @@ Persistent storage creates a partition on your USB drive that stores:
 Persistence is automatically set up on first boot if there is free space on your USB drive:
 
 1. Boot from madOS USB
-2. Wait for the system to start
+2. Wait for the system to start (overlays are mounted before the display manager)
 3. Check persistence status:
    ```bash
    mados-persistence status
@@ -37,8 +87,10 @@ This will:
 - Detect your USB device
 - Check available free space
 - Create a persistence partition using all free space
-- Format it with ext4 filesystem
-- Mount it automatically
+- Format it with ext4 filesystem (label: `persistence`)
+- Set up overlayfs mounts for /etc, /usr, /var, /opt
+- Bind-mount /home
+- Install init script and service into the persistence partition
 
 ## Requirements
 
@@ -47,7 +99,7 @@ This will:
 - Running from live USB environment
 - Root privileges for setup
 
-**Important**: Persistence is not available when booting from ISO files in VMs or from CD/DVD media. The system automatically detects USB devices and only enables persistence for USB boot media.
+**Important**: Persistence is not available when booting from ISO files in VMs or from CD/DVD media.
 
 ## Usage
 
@@ -62,6 +114,8 @@ Shows:
 - Partition size and usage
 - Mount point
 - Available space
+- Overlay mount status for /etc, /usr, /var, /opt
+- Bind mount status for /home
 
 ### Disable for Current Session
 
@@ -93,7 +147,7 @@ When you write madOS to a USB drive and enable persistence:
 USB Drive:
 ├── Partition 1: ISO Data (read-only)
 ├── Partition 2: EFI System Partition
-└── Partition 3: MADOS_PERSIST (ext4) <- Your persistent storage
+└── Partition 3: persistence (ext4) <- Your persistent storage
 ```
 
 ### Dynamic Size
@@ -108,17 +162,15 @@ The persistence partition automatically uses **all remaining free space** on you
 ### What's Persistent
 
 ✓ **Persistent** (saved across reboots):
-- Installed packages via pacman
-- Files in home directory
-- System configuration changes
-- Sway/Waybar customizations
-- Application data
-- WiFi networks (if saved)
+- Installed packages via pacman (in /usr overlay)
+- System configuration changes (in /etc overlay)
+- Files in home directory (bind mount)
+- Package cache and databases (in /var overlay)
+- Optional software (in /opt overlay)
 
 ✗ **Not Persistent** (reset each boot):
 - Running processes
 - Temporary files in `/tmp`
-- System logs (unless explicitly saved)
 - Kernel modules (ISO kernel is used)
 
 ## Boot Options
@@ -135,7 +187,7 @@ madOS provides boot options for persistence:
 Advanced users can customize persistence behavior:
 
 - `cow_spacesize=512M` - RAM overlay size (default: 256M)
-- Label `MADOS_PERSIST` is used to identify the persistence partition
+- Label `persistence` is used to identify the persistence partition
 
 ## Troubleshooting
 
@@ -201,7 +253,7 @@ You should see: "Device /dev/sdX is not a USB device (likely ISO/CD/VM), skippin
 
 2. Manually mount:
    ```bash
-   sudo mount -L MADOS_PERSIST /mnt
+   sudo mount -L persistence /mnt
    ```
 
 3. Check systemd service:
@@ -295,9 +347,9 @@ sudo dd if=madOS.iso of=/dev/sdX bs=4M conv=fsync oflag=direct status=progress
 sudo parted /dev/sdX mkpart primary ext4 4GB 100%
 
 # 3. Format with label
-sudo mkfs.ext4 -L MADOS_PERSIST /dev/sdX3
+sudo mkfs.ext4 -L persistence /dev/sdX3
 
-# 4. Boot madOS - persistence will be auto-detected
+# 4. Boot madOS - persistence will be auto-detected and overlays configured
 ```
 
 ### Multiple USB Drives

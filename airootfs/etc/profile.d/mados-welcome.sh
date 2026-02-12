@@ -36,7 +36,7 @@ INNER_EOF
     
     # Show persistence status if configured
     if command -v mados-persistence >/dev/null 2>&1; then
-        if lsblk -nlo LABEL 2>/dev/null | grep -q "MADOS_PERSIST"; then
+        if lsblk -nlo LABEL 2>/dev/null | grep -q "persistence"; then
             echo "✓ Persistent storage is enabled"
             echo ""
         fi
