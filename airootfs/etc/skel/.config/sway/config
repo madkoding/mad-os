@@ -232,5 +232,9 @@ for_window [app_id="mados-wifi"] resize set 700 550
 for_window [app_id="mados-equalizer"] floating enable
 for_window [app_id="mados-equalizer"] resize set 750 450
 
+# Bluetooth Configuration - floating utility
+for_window [app_id="mados-bluetooth"] floating enable
+for_window [app_id="mados-bluetooth"] resize set 700 500
+
 ### System includes
 include /etc/sway/config.d/*

@@ -21,6 +21,7 @@
         "cpu",
         "memory",
         "network",
+        "custom/bluetooth",
         "pulseaudio",
         "backlight",
         "battery"
@@ -138,5 +139,13 @@
         "format-alt": "<span size='x-large'>{icon}</span>  {time}",
         "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
         "tooltip-format": "{capacity}% • {timeTo}"
+    },
+
+    "custom/bluetooth": {
+        "format": "󰂯",
+        "tooltip-format": "Bluetooth",
+        "on-click": "mados-bluetooth",
+        "interval": 30,
+        "exec": "echo ''"
     }
 }

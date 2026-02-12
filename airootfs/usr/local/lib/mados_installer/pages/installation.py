@@ -1060,6 +1060,7 @@ systemctl enable systemd-resolved
 systemctl enable earlyoom
 systemctl enable systemd-timesyncd
 systemctl enable greetd
+systemctl enable bluetooth
 
 # Audio: Enable PipeWire for all user sessions (socket-activated)
 systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service
