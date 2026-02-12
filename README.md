@@ -12,11 +12,11 @@
 
 </div>
 
-madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB), featuring integrated Claude Code AI assistance for intelligent system management and orchestration. Includes open source drivers for Intel, AMD, and NVIDIA GPUs.
+madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB), featuring integrated OpenCode AI assistance for intelligent system management and orchestration. Includes open source drivers for Intel, AMD, and NVIDIA GPUs.
 
 ## Overview
 
-- **Claude Code Integration** - AI-powered system orchestration and assistance
+- **OpenCode Integration** - AI-powered system orchestration and assistance
 - **Low-RAM Optimized** - Designed for 1.9GB+ RAM systems with any x86_64 processor
 - **Lightweight Desktop** - Sway Wayland compositor (~67MB RAM footprint)
 - **Developer Ready** - Node.js, npm, Git, VS Code pre-installed
@@ -63,7 +63,7 @@ madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB),
 - **Full Data Persistence** - Saves packages, files, and configurations across reboots
 
 ### Developer Tools
-- **Claude Code** - AI assistant (`claude` command)
+- **OpenCode** - AI assistant (`opencode` command)
 - **Node.js 24.x** & npm
 - **Git** - Version control
 - **fastfetch** - System information tool
@@ -255,19 +255,19 @@ Edit `airootfs/usr/local/bin/install-mados.sh` to customize:
 - Default packages
 - Installation flow
 
-## Using Claude Code
+## Using OpenCode
 
-After installation, Claude Code is available globally:
+After installation, OpenCode is available globally:
 
 ```bash
 # Start interactive session
-claude
+opencode
 
 # Send direct message
-claude --message "optimize system performance"
+opencode --message "optimize system performance"
 
 # Get help with commands
-claude --message "how to check disk usage?"
+opencode --message "how to check disk usage?"
 ```
 
 ### Capabilities
@@ -288,7 +288,7 @@ madOS Architecture
 ├── Display (Wayland via Sway)
 ├── Desktop (Sway, Waybar, Wofi, Nord theme)
 ├── Applications (Chromium, VS Code, dev tools)
-└── AI Layer (Claude Code system orchestration)
+└── AI Layer (OpenCode system orchestration)
 ```
 
 ## Post-Installation
@@ -298,7 +298,7 @@ madOS Architecture
 1. System auto-logs into TTY1 and starts Sway
 2. Waybar displays system status
 3. Press `Super+Enter` to open terminal
-4. Run `claude` to start AI assistant
+4. Run `opencode` to start AI assistant
 
 ### Key Bindings
 
@@ -319,8 +319,8 @@ sudo pacman -S <package>
 # Update system
 sudo pacman -Syu
 
-# Update Claude Code
-npm update -g @anthropic-ai/claude-code
+# Update OpenCode
+npm update -g opencode-ai
 ```
 
 ## Performance Monitoring
@@ -398,6 +398,7 @@ Contributions are welcome. Areas for contribution:
 - **Arch Linux** - Base distribution
 - **archiso** - ISO building framework
 - **Anthropic** - Claude Code AI
+- **OpenCode** - AI coding assistant
 - **Sway** - Wayland compositor
 - **Nord Theme** - Color scheme
 

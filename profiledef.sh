@@ -22,7 +22,7 @@ bootstrap_tarball_compression=('zstd' '-c' '-T0' '--auto-threads=logical' '--lon
 file_permissions=(
   ["/etc/shadow"]="0:0:400"
   ["/etc/profile.d/mados-welcome.sh"]="0:0:755"
-  ["/etc/sudoers.d/99-claude-nopasswd"]="0:0:440"
+  ["/etc/sudoers.d/99-opencode-nopasswd"]="0:0:440"
   ["/root"]="0:0:750"
   ["/root/.automated_script.sh"]="0:0:755"
   ["/root/.zlogin"]="0:0:644"
@@ -37,7 +37,7 @@ file_permissions=(
   ["/usr/local/bin/install-mados-gtk.py"]="0:0:755"
   ["/usr/local/bin/install-mados"]="0:0:755"
   ["/usr/local/lib/mados_installer/"]="0:0:755"
-  ["/usr/local/bin/setup-claude-code.sh"]="0:0:755"
+  ["/usr/local/bin/setup-opencode.sh"]="0:0:755"
   ["/usr/local/bin/setup-ohmyzsh.sh"]="0:0:755"
   ["/usr/local/bin/setup-persistence.sh"]="0:0:755"
   ["/usr/local/bin/toggle-demo-mode.sh"]="0:0:755"

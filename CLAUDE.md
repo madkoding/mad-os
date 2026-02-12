@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is **madOS** - an AI-orchestrated Arch Linux distribution built using `archiso`. It's optimized for low-RAM systems (1.9GB) with Intel Atom processors and features **Claude Code** as an integrated AI assistant for system management and orchestration.
+This is **madOS** - an AI-orchestrated Arch Linux distribution built using `archiso`. It's optimized for low-RAM systems (1.9GB) with Intel Atom processors and features **OpenCode** as an integrated AI assistant for system management and orchestration.
 
 The project uses archiso to build a custom live/installer ISO with a beautiful TUI installer and pre-configured development environment.
 
@@ -45,7 +45,7 @@ The ISO is built automatically on push to main via `.github/workflows/build-iso.
 - **`profiledef.sh`**: ISO metadata (name: "madOS", publisher, version) and file permissions
 - **`packages.x86_64`**: Package list for the ISO (one per line)
   - Includes `dialog` for the TUI installer
-  - Node.js, npm for Claude Code
+  - Node.js, npm for OpenCode
   - Sway, Waybar, Wofi for desktop
 - **`pacman.conf`**: Pacman configuration for the build
 
@@ -71,7 +71,7 @@ Files copied into the live environment root:
 - **`airootfs/usr/local/bin/`**: Custom scripts
   - `install-mados`: Launcher (runs the GTK installer)
   - `install-mados-gtk.py`: **GTK installer** (graphical, Python + GTK3, Nord theme)
-  - `setup-claude-code.sh`: Installs Claude Code via npm
+  - `setup-opencode.sh`: Installs OpenCode via npm
 
 ## The Installer
 
@@ -125,7 +125,7 @@ sudo install-mados
 - Base system: Full package install via pacstrap
 - Configuration: User, locale, GRUB, services
 - Optimizations: ZRAM, kernel tuning, EarlyOOM
-- Claude Code: Installed globally via npm
+- OpenCode: Installed globally via npm
 
 ## System Optimizations
 
@@ -152,7 +152,7 @@ madOS includes aggressive RAM optimizations for 1.9GB systems:
 ### Auto-start Features
 - TTY1 autologin (configured user)
 - Sway auto-start from `.bash_profile`
-- Passwordless sudo for Claude Code operations
+- Passwordless sudo for OpenCode operations
 
 ## Modifying the ISO
 
@@ -218,7 +218,7 @@ qemu-system-x86_64 \
 
 **System Name**: madOS (all lowercase in filenames, styled in display)
 
-**Tagline**: "AI-Orchestrated Arch Linux System - Powered by Claude Code"
+**Tagline**: "AI-Orchestrated Arch Linux System - Powered by OpenCode"
 
 **Visual Identity**:
 - ASCII art logo (see README.md and installer)
@@ -239,9 +239,9 @@ qemu-system-x86_64 \
 - **Browser**: Chromium
 - **Editor**: VS Code, vim, nano
 - **Development**: Node.js 24.x, npm, git
-- **AI Integration**: Claude Code pre-installed globally
+- **AI Integration**: OpenCode pre-installed globally
 - **Autologin**: TTY1 autologin to user, auto-starts Sway
-- **Passwordless sudo**: Configured for Claude Code operations
+- **Passwordless sudo**: Configured for OpenCode operations
 - **Persistent Storage**: Dynamic persistence on live USB using free space
 
 ## Persistent Storage
@@ -294,44 +294,44 @@ sudo mados-persistence remove
 - **Disk**: 32GB+ recommended for installation (1GB EFI + 32GB root + home)
 - **Network**: WiFi support via iwd
 
-## Claude Code Integration
+## OpenCode Integration
 
-Claude Code is available in both the live ISO and installed system. The system is designed for Claude Code to help with:
+OpenCode is available in both the live ISO and installed system. The system is designed for OpenCode to help with:
 - System configuration and troubleshooting
 - Package management
 - Service management
 - Code development and debugging
 - Learning and documentation
 
-Claude Code has passwordless sudo access for seamless system orchestration.
+OpenCode has passwordless sudo access for seamless system orchestration.
 
 ### Installation in Live ISO
 
-Claude Code is automatically installed in the live ISO environment via systemd service:
+OpenCode is automatically installed in the live ISO environment via systemd service:
 
-- **Service**: `airootfs/etc/systemd/system/setup-claude-code.service` - Runs at boot
-- **Script**: `airootfs/usr/local/bin/setup-claude-code.sh` - Installation script
+- **Service**: `airootfs/etc/systemd/system/setup-opencode.service` - Runs at boot
+- **Script**: `airootfs/usr/local/bin/setup-opencode.sh` - Installation script
 - **Requirements**: Network connectivity (curl, npm)
 
 **How it works:**
 1. Service runs after `network-online.target` and `pacman-init.service`
-2. Checks if `claude` binary exists (skips if present)
+2. Checks if `opencode` binary exists (skips if present)
 3. Verifies npm is available and network is accessible
-4. Installs via `npm install -g @anthropic-ai/claude-code`
+4. Installs via `npm install -g opencode-ai`
 5. Exits gracefully if network unavailable (can be run manually later)
 
 **Manual installation:**
 ```bash
 # If auto-install didn't run (no network at boot)
-sudo setup-claude-code.sh
+sudo setup-opencode.sh
 
 # Verify installation
-claude --version
+opencode --version
 ```
 
 ### Installation in Installed System
 
-During system installation, Claude Code is installed via:
+During system installation, OpenCode is installed via:
 1. The installer attempts npm install (non-fatal if fails)
 2. A systemd service installs it on first boot if not present
 3. Same mechanism as live ISO ensures it's always available

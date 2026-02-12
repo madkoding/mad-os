@@ -32,7 +32,7 @@ pcmanfm
 lxappearance
 plymouth
 
-# Herramientas de desarrollo (para Claude Code)
+# Herramientas de desarrollo (para OpenCode)
 nodejs
 npm
 git

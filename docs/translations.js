@@ -24,7 +24,7 @@ const translations = {
         'nav.download': 'Descargar',
         
         // Hero
-        'hero.badge': '🤖 Powered by Claude Code',
+        'hero.badge': '🤖 Powered by OpenCode',
         'hero.title': 'AI-Orchestrated Arch Linux',
         'hero.subtitle': 'Una distribución Arch Linux optimizada para sistemas con poca RAM, con inteligencia artificial integrada para gestión inteligente del sistema.',
         'hero.download': 'Descargar madOS',
@@ -36,7 +36,7 @@ const translations = {
         // Features
         'features.title': 'Características Destacadas',
         'features.subtitle': 'Todo lo que necesitas en un sistema operativo ligero y potente',
-        'feature.ai.title': 'Claude Code Integration',
+        'feature.ai.title': 'OpenCode Integration',
         'feature.ai.desc': 'Asistente de IA integrado para orquestación inteligente del sistema y asistencia avanzada.',
         'feature.ram.title': 'Optimizado para Poca RAM',
         'feature.ram.desc': 'Diseñado específicamente para sistemas con 1.9GB RAM (Intel Atom) con ZRAM y EarlyOOM.',
@@ -53,7 +53,7 @@ const translations = {
         'feature.installer.title': 'Instalador Hermoso',
         'feature.installer.desc': 'Instalador gráfico GTK con tema Nord, navegación intuitiva, progreso en tiempo real y boot splash animado.',
         'feature.security.title': 'Seguro por Defecto',
-        'feature.security.desc': 'Root bloqueado, bootloader UEFI dual (NVRAM + fallback), contraseñas seguras y Claude Code aislado por usuario.',
+        'feature.security.desc': 'Root bloqueado, bootloader UEFI dual (NVRAM + fallback), contraseñas seguras y OpenCode aislado por usuario.',
         
         // Installers
         'installers.title': 'Instalador Gráfico',
@@ -125,7 +125,7 @@ const translations = {
         
         // Footer
         'footer.tagline': 'AI-Orchestrated Arch Linux System',
-        'footer.powered': 'Powered by Claude Code',
+        'footer.powered': 'Powered by OpenCode',
         'footer.project': 'Proyecto',
         'footer.project.github': 'GitHub',
         'footer.project.issues': 'Issues',
@@ -140,9 +140,9 @@ const translations = {
         'footer.copyright': '2026 madOS. Distribuido bajo licencia GPL-3.0. Hecho con ❤️ para la comunidad open source.',
         
         // Meta
-        'meta.title': 'madOS - AI-Orchestrated Arch Linux | Linux ligero con Claude Code',
-        'meta.description': 'madOS: distribución Arch Linux optimizada para sistemas con poca RAM (1.9GB), con Claude Code integrado para orquestación inteligente. Sway, Nord theme, ~67MB RAM.',
-        'meta.og.description': 'Distribución Arch Linux optimizada para poca RAM (1.9GB) con Claude Code integrado para orquestación inteligente del sistema. Sway + Nord theme, ~67MB RAM.',
+        'meta.title': 'madOS - AI-Orchestrated Arch Linux | Linux ligero con OpenCode',
+        'meta.description': 'madOS: distribución Arch Linux optimizada para sistemas con poca RAM (1.9GB), con OpenCode integrado para orquestación inteligente. Sway, Nord theme, ~67MB RAM.',
+        'meta.og.description': 'Distribución Arch Linux optimizada para poca RAM (1.9GB) con OpenCode integrado para orquestación inteligente del sistema. Sway + Nord theme, ~67MB RAM.',
         'meta.og.image.alt': 'madOS - Distribución Arch Linux con IA integrada, vista previa de terminal y estadísticas clave',
         'meta.og.locale': 'es_ES'
     },
@@ -154,7 +154,7 @@ const translations = {
         'nav.download': 'Download',
         
         // Hero
-        'hero.badge': '🤖 Powered by Claude Code',
+        'hero.badge': '🤖 Powered by OpenCode',
         'hero.title': 'AI-Orchestrated Arch Linux',
         'hero.subtitle': 'An Arch Linux distribution optimized for low-RAM systems, with integrated artificial intelligence for smart system management.',
         'hero.download': 'Download madOS',
@@ -166,7 +166,7 @@ const translations = {
         // Features
         'features.title': 'Key Features',
         'features.subtitle': 'Everything you need in a lightweight and powerful operating system',
-        'feature.ai.title': 'Claude Code Integration',
+        'feature.ai.title': 'OpenCode Integration',
         'feature.ai.desc': 'Integrated AI assistant for intelligent system orchestration and advanced assistance.',
         'feature.ram.title': 'Optimized for Low RAM',
         'feature.ram.desc': 'Specifically designed for systems with 1.9GB RAM (Intel Atom) with ZRAM and EarlyOOM.',
@@ -183,7 +183,7 @@ const translations = {
         'feature.installer.title': 'Beautiful Installer',
         'feature.installer.desc': 'GTK graphical installer with Nord theme, intuitive navigation, real-time progress and animated boot splash.',
         'feature.security.title': 'Secure by Default',
-        'feature.security.desc': 'Locked root, dual UEFI bootloader (NVRAM + fallback), secure passwords and per-user Claude Code isolation.',
+        'feature.security.desc': 'Locked root, dual UEFI bootloader (NVRAM + fallback), secure passwords and per-user OpenCode isolation.',
         
         // Installers
         'installers.title': 'Graphical Installer',
@@ -255,7 +255,7 @@ const translations = {
         
         // Footer
         'footer.tagline': 'AI-Orchestrated Arch Linux System',
-        'footer.powered': 'Powered by Claude Code',
+        'footer.powered': 'Powered by OpenCode',
         'footer.project': 'Project',
         'footer.project.github': 'GitHub',
         'footer.project.issues': 'Issues',
@@ -270,9 +270,9 @@ const translations = {
         'footer.copyright': '2026 madOS. Licensed under GPL-3.0. Made with ❤️ for the open source community.',
         
         // Meta
-        'meta.title': 'madOS - AI-Orchestrated Arch Linux | Lightweight Linux with Claude Code',
-        'meta.description': 'madOS: Arch Linux distribution optimized for low-RAM systems (1.9GB), with Claude Code integrated for intelligent system orchestration. Sway, Nord theme, ~67MB RAM.',
-        'meta.og.description': 'Arch Linux distribution optimized for low-RAM systems (1.9GB) with Claude Code integrated for intelligent system orchestration. Sway + Nord theme, ~67MB RAM.',
+        'meta.title': 'madOS - AI-Orchestrated Arch Linux | Lightweight Linux with OpenCode',
+        'meta.description': 'madOS: Arch Linux distribution optimized for low-RAM systems (1.9GB), with OpenCode integrated for intelligent system orchestration. Sway, Nord theme, ~67MB RAM.',
+        'meta.og.description': 'Arch Linux distribution optimized for low-RAM systems (1.9GB) with OpenCode integrated for intelligent system orchestration. Sway + Nord theme, ~67MB RAM.',
         'meta.og.image.alt': 'madOS - AI-Orchestrated Arch Linux distribution with terminal preview and key stats',
         'meta.og.locale': 'en_US'
     }

@@ -1,15 +1,15 @@
 [Unit]
-Description=Install Claude Code if not already present
+Description=Install OpenCode if not already present
 After=network-online.target pacman-init.service
 Wants=network-online.target
-# Only run if claude binary is not found
-ConditionPathExists=!/usr/bin/claude
+# Only run if opencode binary is not found
+ConditionPathExists=!/usr/bin/opencode
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 Environment=HOME=/home/mados
-ExecStart=/usr/local/bin/setup-claude-code.sh
+ExecStart=/usr/local/bin/setup-opencode.sh
 StandardOutput=journal+console
 StandardError=journal+console
 TimeoutStartSec=300

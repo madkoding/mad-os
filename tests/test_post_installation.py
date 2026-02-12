@@ -200,12 +200,12 @@ class TestLiveISOPackages(unittest.TestCase):
         self.assertIn("git", self._read_packages())
 
     def test_nodejs_or_npm_included(self):
-        """Live ISO must include nodejs (needed by setup-claude-code.sh)."""
+        """Live ISO must include nodejs (needed by setup-opencode.sh)."""
         packages = self._read_packages()
         has_node = "nodejs" in packages or "npm" in packages
         self.assertTrue(
             has_node,
-            "Live ISO must include nodejs or npm for Claude Code setup",
+            "Live ISO must include nodejs or npm for OpenCode setup",
         )
 
     def test_sway_included(self):
@@ -424,16 +424,16 @@ class TestSudoersConfig(unittest.TestCase):
     """Verify sudoers configuration for live environment."""
 
     def test_claude_nopasswd_exists(self):
-        """Claude Code NOPASSWD sudoers file must exist."""
+        """OpenCode NOPASSWD sudoers file must exist."""
         path = os.path.join(
-            AIROOTFS, "etc", "sudoers.d", "99-claude-nopasswd"
+            AIROOTFS, "etc", "sudoers.d", "99-opencode-nopasswd"
         )
-        self.assertTrue(os.path.isfile(path), "99-claude-nopasswd missing")
+        self.assertTrue(os.path.isfile(path), "99-opencode-nopasswd missing")
 
     def test_mados_has_nopasswd(self):
         """mados user should have NOPASSWD sudo access."""
         path = os.path.join(
-            AIROOTFS, "etc", "sudoers.d", "99-claude-nopasswd"
+            AIROOTFS, "etc", "sudoers.d", "99-opencode-nopasswd"
         )
         with open(path) as f:
             content = f.read()

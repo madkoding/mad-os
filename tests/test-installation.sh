@@ -371,7 +371,7 @@ fi
 
 # Sudoers
 check_file "Sudoers wheel config" "/etc/sudoers.d/wheel"
-check_file "Sudoers claude-nopasswd config" "/etc/sudoers.d/claude-nopasswd"
+check_file "Sudoers opencode-nopasswd config" "/etc/sudoers.d/opencode-nopasswd"
 
 # GRUB config defaults
 check_content "GRUB distributor set to madOS" "/etc/default/grub" "madOS"

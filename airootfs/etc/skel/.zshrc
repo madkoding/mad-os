@@ -42,7 +42,7 @@ if [ -f /etc/hostname ] && grep -q "mados" /etc/hostname 2>/dev/null; then
 ║     ╚═╝     ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚══════╝ ║
 ║                                                   ║
 ║         AI-Orchestrated Arch Linux System        ║
-║              Powered by Claude Code              ║
+║              Powered by OpenCode               ║
 ║                                                   ║
 ╚═══════════════════════════════════════════════════╝
 
@@ -55,7 +55,7 @@ Welcome to madOS Live Environment!
    nmtui                    (Network Manager TUI)
 
 💻 Type 'fastfetch' to see system info
-💻 Type 'claude' to start the AI assistant
+💻 Type 'opencode' to start the AI assistant
 
 EOF
     fi

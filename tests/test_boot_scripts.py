@@ -2,7 +2,7 @@
 """
 Tests for madOS boot-time scripts and services.
 
-Validates that boot scripts (setup-ohmyzsh.sh, setup-claude-code.sh) and their
+Validates that boot scripts (setup-ohmyzsh.sh, setup-opencode.sh) and their
 corresponding systemd service units are properly configured for the live USB
 environment.
 
@@ -35,7 +35,7 @@ class TestBootScriptSyntax(unittest.TestCase):
 
     BOOT_SCRIPTS = [
         "setup-ohmyzsh.sh",
-        "setup-claude-code.sh",
+        "setup-opencode.sh",
         "setup-persistence.sh",
     ]
 
@@ -185,19 +185,19 @@ class TestSetupOhmyzsh(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# setup-claude-code.sh
+# setup-opencode.sh
 # ═══════════════════════════════════════════════════════════════════════════
 class TestSetupClaudeCode(unittest.TestCase):
-    """Verify setup-claude-code.sh is properly configured."""
+    """Verify setup-opencode.sh is properly configured."""
 
     def setUp(self):
-        self.script_path = os.path.join(BIN_DIR, "setup-claude-code.sh")
+        self.script_path = os.path.join(BIN_DIR, "setup-opencode.sh")
         if os.path.isfile(self.script_path):
             with open(self.script_path) as f:
                 self.content = f.read()
 
     def test_script_exists(self):
-        """setup-claude-code.sh must exist."""
+        """setup-opencode.sh must exist."""
         self.assertTrue(os.path.isfile(self.script_path))
 
     def test_checks_npm_availability(self):
@@ -226,8 +226,8 @@ class TestSystemdServices(unittest.TestCase):
             "after": "network-online.target",
             "type": "oneshot",
         },
-        "setup-claude-code.service": {
-            "exec": "/usr/local/bin/setup-claude-code.sh",
+        "setup-opencode.service": {
+            "exec": "/usr/local/bin/setup-opencode.sh",
             "after": "network-online.target",
             "type": "oneshot",
         },
@@ -406,7 +406,7 @@ class TestProfiledefPermissions(unittest.TestCase):
 
     BOOT_SCRIPTS = [
         "setup-ohmyzsh.sh",
-        "setup-claude-code.sh",
+        "setup-opencode.sh",
         "setup-persistence.sh",
     ]
 

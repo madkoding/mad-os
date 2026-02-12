@@ -28,7 +28,7 @@ if [ -f /etc/hostname ] && grep -q "mados" /etc/hostname 2>/dev/null; then
 ║     ╚═╝     ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚══════╝ ║
 ║                                                   ║
 ║         AI-Orchestrated Arch Linux System        ║
-║              Powered by Claude Code              ║
+║              Powered by OpenCode               ║
 ║                                                   ║
 ╚═══════════════════════════════════════════════════╝
 
@@ -50,7 +50,7 @@ Welcome to madOS Live Environment!
 
 💻 System specs:
    • Sway Wayland compositor
-   • Claude Code AI assistant
+   • OpenCode AI assistant
    • Optimized for 1.9GB RAM
    • Intel Atom support
 
@@ -65,7 +65,7 @@ Welcome to madOS Live Environment!
    mados-debug apps         (Python app diagnostics)
    less /usr/share/doc/madOS/DEBUGGING.md
 
-Type 'claude' to start the AI assistant (after installation)
+Type 'opencode' to start the AI assistant (after installation)
 
 EOF
     fi

@@ -407,7 +407,7 @@ For issues with persistence:
 1. Check logs: `/var/log/mados-persistence.log`
 2. Check service: `systemctl status mados-persistence.service`
 3. Report issues: GitHub Issues
-4. Ask Claude: `claude` (madOS AI assistant)
+4. Ask OpenCode: `opencode` (madOS AI assistant)
 
 ## See Also
 

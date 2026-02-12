@@ -875,8 +875,8 @@ echo '{username}:{_escape_shell(data['password'])}' | chpasswd
 
 # Sudo
 echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
-echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/claude,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/claude-nopasswd
-chmod 440 /etc/sudoers.d/claude-nopasswd
+echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/opencode,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/opencode-nopasswd
+chmod 440 /etc/sudoers.d/opencode-nopasswd
 
 echo '[PROGRESS 3/9] Installing GRUB bootloader...'
 # GRUB - Auto-detect UEFI or BIOS
@@ -1243,7 +1243,7 @@ def _build_first_boot_script(data):
 
     This script runs on the first boot from the installed disk. It installs
     remaining packages, configures audio/bluetooth/desktop services, installs
-    Oh My Zsh and Claude Code, then disables itself.
+    Oh My Zsh and OpenCode, then disables itself.
     """
     username = data['username']
     locale = data['locale']
@@ -1431,29 +1431,29 @@ WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-ohmyzsh.service 2>/dev/null || true
 
-# ── Step 5: Install Claude Code ─────────────────────────────────────────
-log "Installing Claude Code..."
+# ── Step 5: Install OpenCode ─────────────────────────────────────────
+log "Installing OpenCode..."
 if command -v npm &>/dev/null; then
-    if npm install -g @anthropic-ai/claude-code 2>&1; then
-        log "Claude Code installed successfully"
+    if npm install -g opencode-ai 2>&1; then
+        log "OpenCode installed successfully"
     else
-        log "Warning: Could not install Claude Code"
+        log "Warning: Could not install OpenCode"
     fi
 fi
 
-# Claude Code fallback service
-cat > /etc/systemd/system/setup-claude-code.service <<'EOFSVC'
+# OpenCode fallback service
+cat > /etc/systemd/system/setup-opencode.service <<'EOFSVC'
 [Unit]
-Description=Install Claude Code if not already present
+Description=Install OpenCode if not already present
 After=network-online.target
 Wants=network-online.target
-ConditionPathExists=!/usr/bin/claude
+ConditionPathExists=!/usr/bin/opencode
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 Environment=HOME=/root
-ExecStart=/bin/bash -c 'npm install -g @anthropic-ai/claude-code && echo "Claude Code installed successfully" || echo "Failed to install Claude Code"'
+ExecStart=/bin/bash -c 'npm install -g opencode-ai && echo "OpenCode installed successfully" || echo "Failed to install OpenCode"'
 StandardOutput=journal+console
 StandardError=journal+console
 TimeoutStartSec=300
@@ -1461,7 +1461,7 @@ TimeoutStartSec=300
 [Install]
 WantedBy=multi-user.target
 EOFSVC
-systemctl enable setup-claude-code.service 2>/dev/null || true
+systemctl enable setup-opencode.service 2>/dev/null || true
 
 # ── Step 6: Cleanup ─────────────────────────────────────────────────────
 log "Phase 2 setup complete! Disabling first-boot service..."
