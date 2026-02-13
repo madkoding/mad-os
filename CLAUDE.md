@@ -31,12 +31,14 @@ sudo mkarchiso -v -w work/ -o out/ .
 
 ### GitHub Actions Build
 
-The ISO is built automatically on push to main via `.github/workflows/build-iso.yml`:
-1. Uses Docker with `archlinux:latest` image
-2. Installs archiso
-3. Runs mkarchiso in privileged mode
-4. Generates SHA256 checksums
-5. Uploads ISO and checksums as artifacts (90-day retention)
+The CI/CD pipeline runs via `.github/workflows/ci-cd.yml`:
+1. **Stage 1** - Unit tests (pytest) and integration tests (USB persistence) run in parallel
+2. **Stage 2** - Installer validation in Arch container (requires all tests to pass)
+3. **Stage 3** - ISO build with mkarchiso (only on tags or manual trigger)
+4. **Stage 4** - Upload to Internet Archive
+5. **Stage 5** - Create GitHub Release and update website (stable releases only)
+
+GitHub Pages deployment remains in a separate workflow (`.github/workflows/pages.yml`).
 
 ## Repository Structure
 
