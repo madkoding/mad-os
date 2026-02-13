@@ -15,7 +15,10 @@ on:
       - 'tests/test_boot_scripts.py'
       - 'tests/test_post_installation.py'
       - 'tests/test_opencode.py'
+      - 'tests/test_hyprland_config.py'
       - 'airootfs/etc/systemd/system/multi-user.target.wants/**'
+      - 'airootfs/usr/local/bin/hyprland-session'
+      - 'airootfs/etc/skel/.config/hypr/**'
       - '.github/workflows/test-scripts.yml'
   pull_request:
     paths:
@@ -31,7 +34,10 @@ on:
       - 'tests/test_boot_scripts.py'
       - 'tests/test_post_installation.py'
       - 'tests/test_opencode.py'
+      - 'tests/test_hyprland_config.py'
       - 'airootfs/etc/systemd/system/multi-user.target.wants/**'
+      - 'airootfs/usr/local/bin/hyprland-session'
+      - 'airootfs/etc/skel/.config/hypr/**'
       - '.github/workflows/test-scripts.yml'
   workflow_dispatch:
 
@@ -77,3 +83,16 @@ jobs:
 
     - name: Run OpenCode availability tests
       run: python3 -m pytest tests/test_opencode.py -v
+
+  test-hyprland-config:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install test dependencies
+      run: python3 -m pip install pytest
+
+    - name: Run Hyprland configuration tests
+      run: python3 -m pytest tests/test_hyprland_config.py -v
