@@ -15,6 +15,7 @@ These tests verify:
 
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -166,7 +167,6 @@ class TestConfigGeneration(unittest.TestCase):
 
     def tearDown(self):
         """Clean up temporary directory."""
-        import shutil
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_can_execute_script_help(self):
@@ -353,7 +353,7 @@ class TestQuantumCalculation(unittest.TestCase):
         with open(AUDIO_QUALITY_SCRIPT) as f:
             content = f.read()
         
-        # Should have different quantums for different rates (allow multi-line)
+        # Verify that quantum sizes increase with sample rate
         self.assertIn("192000", content)
         self.assertIn("quantum=1024", content)
         self.assertIn("96000", content)
