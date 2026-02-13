@@ -743,7 +743,6 @@ class TestHyprlandDispatchers(unittest.TestCase):
         "pseudo", "togglesplit",
         "layoutmsg", "submap",
         "global",
-        "movetoworkspacesilent",
         "sendshortcut",
         "event",
         # Mouse-specific dispatchers (used with bindm)
@@ -755,9 +754,9 @@ class TestHyprlandDispatchers(unittest.TestCase):
         lines = _config_lines()
         dispatchers = []
         for line in lines:
-            match = re.match(r'^bind\w*\s*=\s*(.+)', line)
+            match = re.match(r'^(bind[emlrn]*)\s*=\s*(.+)', line)
             if match:
-                parts = [p.strip() for p in match.group(1).split(",")]
+                parts = [p.strip() for p in match.group(2).split(",")]
                 if len(parts) >= 3:
                     dispatchers.append((parts[2], line))
         return dispatchers
