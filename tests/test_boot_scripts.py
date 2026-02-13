@@ -474,5 +474,76 @@ class TestProfiledefPermissions(unittest.TestCase):
                 )
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# customize_airootfs.sh – pre-installs Oh My Zsh and OpenCode during build
+# ═══════════════════════════════════════════════════════════════════════════
+class TestCustomizeAirootfs(unittest.TestCase):
+    """Verify customize_airootfs.sh pre-installs Oh My Zsh and OpenCode."""
+
+    def setUp(self):
+        self.script_path = os.path.join(AIROOTFS, "root", "customize_airootfs.sh")
+        if os.path.isfile(self.script_path):
+            with open(self.script_path) as f:
+                self.content = f.read()
+
+    def test_script_exists(self):
+        """customize_airootfs.sh must exist."""
+        self.assertTrue(os.path.isfile(self.script_path))
+
+    def test_has_bash_shebang(self):
+        """customize_airootfs.sh must start with a bash shebang."""
+        with open(self.script_path) as f:
+            first_line = f.readline().strip()
+        self.assertTrue(first_line.startswith("#!"))
+        self.assertIn("bash", first_line)
+
+    def test_valid_syntax(self):
+        """customize_airootfs.sh must have valid bash syntax."""
+        result = subprocess.run(
+            ["bash", "-n", self.script_path],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(
+            result.returncode, 0,
+            f"Bash syntax error: {result.stderr}",
+        )
+
+    def test_installs_ohmyzsh_to_skel(self):
+        """Script must install Oh My Zsh to /etc/skel."""
+        self.assertIn("/etc/skel/.oh-my-zsh", self.content)
+        self.assertIn("git clone", self.content)
+        self.assertIn("ohmyzsh", self.content)
+
+    def test_installs_opencode(self):
+        """Script must install OpenCode."""
+        self.assertIn("opencode.ai/install", self.content)
+        self.assertIn("opencode", self.content)
+
+    def test_has_npm_fallback_for_opencode(self):
+        """Script must have npm fallback for OpenCode installation."""
+        self.assertIn("npm", self.content)
+        self.assertIn("opencode-ai", self.content)
+
+    def test_copies_ohmyzsh_to_mados_user(self):
+        """Script must copy Oh My Zsh to /home/mados."""
+        self.assertIn("/home/mados/.oh-my-zsh", self.content)
+
+    def test_copies_ohmyzsh_to_root(self):
+        """Script must copy Oh My Zsh to /root."""
+        self.assertIn("/root/.oh-my-zsh", self.content)
+
+    def test_profiledef_has_permissions(self):
+        """profiledef.sh must set permissions for customize_airootfs.sh."""
+        profiledef = os.path.join(REPO_DIR, "profiledef.sh")
+        with open(profiledef) as f:
+            content = f.read()
+        self.assertIn("customize_airootfs.sh", content)
+        self.assertRegex(
+            content,
+            r'\["/root/customize_airootfs.sh"\]="0:0:755"',
+            "customize_airootfs.sh must have 0:0:755 permissions",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

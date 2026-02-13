@@ -24,6 +24,7 @@ file_permissions=(
   ["/etc/profile.d/mados-welcome.sh"]="0:0:755"
   ["/etc/sudoers.d/99-opencode-nopasswd"]="0:0:440"
   ["/root"]="0:0:750"
+  ["/root/customize_airootfs.sh"]="0:0:755"
   ["/root/.automated_script.sh"]="0:0:755"
   ["/root/.zlogin"]="0:0:644"
   ["/root/.gnupg"]="0:0:700"
