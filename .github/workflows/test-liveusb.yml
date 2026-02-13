@@ -1,4 +1,4 @@
-name: Test Live USB Persistence
+name: "Tests: Live USB Persistence"
 
 on:
   push:
@@ -20,17 +20,22 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: tests-liveusb-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-persistence:
+    name: USB Persistence
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Test Live USB persistence in Arch container
-      run: |
-        docker run --privileged --rm \
-          --dns 8.8.8.8 --dns 8.8.4.4 \
-          -v ${{ github.workspace }}:/build \
-          archlinux:latest bash /build/tests/test-liveusb-persistence.sh
+      - name: Test Live USB persistence in Arch container
+        run: |
+          docker run --privileged --rm \
+            --dns 8.8.8.8 --dns 8.8.4.4 \
+            -v ${{ github.workspace }}:/build \
+            archlinux:latest bash /build/tests/test-liveusb-persistence.sh
