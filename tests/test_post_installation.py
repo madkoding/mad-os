@@ -519,9 +519,9 @@ class TestCompositorSelection(unittest.TestCase):
             content = f.read()
         self.assertIn("exec sway", content,
                        ".bash_profile must exec sway for software rendering")
-        # Hyprland is launched without exec so fallback to sway works if it fails
-        self.assertIn("Hyprland ||", content,
-                       ".bash_profile must launch Hyprland with fallback for hardware rendering")
+        # Hyprland is launched via start-hyprland without exec so fallback to sway works if it fails
+        self.assertIn("start-hyprland ||", content,
+                       ".bash_profile must launch Hyprland via start-hyprland with fallback for hardware rendering")
 
     def test_zlogin_uses_select_compositor(self):
         """zlogin should use select-compositor for dynamic selection."""
@@ -538,12 +538,12 @@ class TestCompositorSelection(unittest.TestCase):
                        "hyprland must be in installer PACKAGES")
 
     def test_hyprland_session_script_execs_hyprland(self):
-        """hyprland-session must exec Hyprland."""
+        """hyprland-session must exec start-hyprland."""
         path = os.path.join(BIN_DIR, "hyprland-session")
         with open(path) as f:
             content = f.read()
-        self.assertIn("exec Hyprland", content,
-                       "hyprland-session must exec Hyprland")
+        self.assertIn("exec start-hyprland", content,
+                       "hyprland-session must exec start-hyprland")
 
     def test_hyprland_session_sets_desktop(self):
         """hyprland-session must set XDG_CURRENT_DESKTOP."""

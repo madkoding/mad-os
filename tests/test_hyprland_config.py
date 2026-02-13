@@ -753,10 +753,10 @@ class TestHyprlandSessionScript(unittest.TestCase):
         )
 
     def test_execs_hyprland(self):
-        """hyprland-session must exec Hyprland."""
+        """hyprland-session must exec start-hyprland."""
         self.assertIn(
-            "exec Hyprland", self.content,
-            "Must exec Hyprland at the end",
+            "exec start-hyprland", self.content,
+            "Must exec start-hyprland at the end",
         )
 
     def test_has_shebang(self):

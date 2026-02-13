@@ -368,14 +368,14 @@ class TestSessionWrappers(unittest.TestCase):
                        "Hyprland session must set wayland session type")
 
     def test_hyprland_session_execs_hyprland(self):
-        """hyprland-session must exec Hyprland compositor."""
+        """hyprland-session must exec start-hyprland compositor."""
         path = os.path.join(BIN_DIR, "hyprland-session")
         if not os.path.isfile(path):
             self.skipTest("hyprland-session not found")
         with open(path) as f:
             content = f.read()
-        self.assertIn("exec Hyprland", content,
-                       "hyprland-session must exec Hyprland")
+        self.assertIn("exec start-hyprland", content,
+                       "hyprland-session must exec start-hyprland")
 
     def test_sway_session_disables_gpu_for_chromium(self):
         """sway-session must disable GPU for Chromium on legacy hardware."""
@@ -414,16 +414,16 @@ class TestLoginShellIntegration(unittest.TestCase):
                        ".bash_profile must set pixman renderer for sway")
 
     def test_bash_profile_hyprland_for_3d(self):
-        """.bash_profile must launch Hyprland when 3D acceleration is available."""
+        """.bash_profile must launch Hyprland via start-hyprland when 3D acceleration is available."""
         path = os.path.join(SKEL_DIR, ".bash_profile")
         with open(path) as f:
             content = f.read()
-        # Hyprland is launched without exec so fallback to sway works if it fails
-        self.assertIn("Hyprland", content,
-                       ".bash_profile must launch Hyprland for 3D-capable hardware")
+        # Hyprland is launched via start-hyprland without exec so fallback to sway works if it fails
+        self.assertIn("start-hyprland", content,
+                       ".bash_profile must launch Hyprland via start-hyprland for 3D-capable hardware")
         # Must have fallback to sway if Hyprland fails
-        self.assertIn("Hyprland ||", content,
-                       ".bash_profile must fall back to sway if Hyprland fails")
+        self.assertIn("start-hyprland ||", content,
+                       ".bash_profile must fall back to sway if start-hyprland fails")
 
     def test_zlogin_selects_compositor(self):
         """.zlogin must call select-compositor for hardware detection."""
@@ -444,16 +444,16 @@ class TestLoginShellIntegration(unittest.TestCase):
                        ".zlogin must set pixman renderer for sway")
 
     def test_zlogin_hyprland_for_3d(self):
-        """.zlogin must launch Hyprland when 3D acceleration is available."""
+        """.zlogin must launch Hyprland via start-hyprland when 3D acceleration is available."""
         path = os.path.join(AIROOTFS, "home", "mados", ".zlogin")
         with open(path) as f:
             content = f.read()
-        # Hyprland is launched without exec so fallback to sway works if it fails
-        self.assertIn("Hyprland", content,
-                       ".zlogin must launch Hyprland for 3D-capable hardware")
+        # Hyprland is launched via start-hyprland without exec so fallback to sway works if it fails
+        self.assertIn("start-hyprland", content,
+                       ".zlogin must launch Hyprland via start-hyprland for 3D-capable hardware")
         # Must have fallback to sway if Hyprland fails
-        self.assertIn("Hyprland ||", content,
-                       ".zlogin must fall back to sway if Hyprland fails")
+        self.assertIn("start-hyprland ||", content,
+                       ".zlogin must fall back to sway if start-hyprland fails")
 
     def test_bash_profile_compositor_before_exec(self):
         """.bash_profile must determine compositor before launching it."""
@@ -462,8 +462,8 @@ class TestLoginShellIntegration(unittest.TestCase):
             content = f.read()
         compositor_pos = content.find("select-compositor")
         sway_pos = content.find("exec sway")
-        # Hyprland is launched without exec (fallback pattern: Hyprland || { exec sway })
-        hyprland_pos = content.find("Hyprland ||")
+        # Hyprland is launched via start-hyprland without exec (fallback pattern: start-hyprland || { exec sway })
+        hyprland_pos = content.find("start-hyprland ||")
         self.assertLess(compositor_pos, sway_pos,
                          "Compositor selection must happen before exec sway")
         self.assertLess(compositor_pos, hyprland_pos,
@@ -760,11 +760,11 @@ class TestHyprlandFallback(unittest.TestCase):
         path = os.path.join(SKEL_DIR, ".bash_profile")
         with open(path) as f:
             content = f.read()
-        # Must use Hyprland || { ... exec sway } pattern
-        self.assertIn("Hyprland ||", content,
-                       ".bash_profile must try Hyprland with fallback operator")
+        # Must use start-hyprland || { ... exec sway } pattern
+        self.assertIn("start-hyprland ||", content,
+                       ".bash_profile must try start-hyprland with fallback operator")
         # Fallback block must set software rendering and exec sway
-        fallback_pos = content.find("Hyprland ||")
+        fallback_pos = content.find("start-hyprland ||")
         after_fallback = content[fallback_pos:]
         self.assertIn("exec sway", after_fallback,
                        "Fallback block must exec sway")
@@ -776,9 +776,9 @@ class TestHyprlandFallback(unittest.TestCase):
         path = os.path.join(AIROOTFS, "home", "mados", ".zlogin")
         with open(path) as f:
             content = f.read()
-        self.assertIn("Hyprland ||", content,
-                       ".zlogin must try Hyprland with fallback operator")
-        fallback_pos = content.find("Hyprland ||")
+        self.assertIn("start-hyprland ||", content,
+                       ".zlogin must try start-hyprland with fallback operator")
+        fallback_pos = content.find("start-hyprland ||")
         after_fallback = content[fallback_pos:]
         self.assertIn("exec sway", after_fallback,
                        "Fallback block must exec sway")
