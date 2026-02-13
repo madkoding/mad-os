@@ -36,6 +36,28 @@ is_usb_device() {
     return 1
 }
 
+is_optical_device() {
+    local device=${1#/dev/}
+
+    # Check if device name matches optical drive pattern (sr0, sr1, etc.)
+    [[ "$device" == sr* ]] && return 0
+
+    # Check SCSI device type (type 5 = CD-ROM)
+    if [ -f "/sys/block/$device/device/type" ]; then
+        [ "$(cat "/sys/block/$device/device/type" 2>/dev/null)" = "5" ] && return 0
+    fi
+
+    # Check via udevadm for CD-ROM flag
+    if command -v udevadm >/dev/null 2>&1; then
+        local id_cdrom
+        id_cdrom=$(udevadm info --query=property --name="/dev/$device" 2>/dev/null \
+                   | grep "^ID_CDROM=" | cut -d= -f2)
+        [ "$id_cdrom" = "1" ] && return 0
+    fi
+
+    return 1
+}
+
 find_iso_device() {
     local iso_device=""
 
@@ -242,8 +264,14 @@ setup_persistence() {
     fi
     log "ISO device: $iso_device"
 
+    if is_optical_device "$iso_device"; then
+        log "Device $iso_device is optical media (DVD/CD) – persistence not possible"
+        log "To use persistence, boot from USB or install to disk: sudo install-mados"
+        return 0
+    fi
+
     if ! is_usb_device "$iso_device"; then
-        log "Device $iso_device is not USB (likely ISO/CD/VM), skipping"
+        log "Device $iso_device is not USB (likely VM), skipping"
         return 0
     fi
     log "Confirmed USB device"

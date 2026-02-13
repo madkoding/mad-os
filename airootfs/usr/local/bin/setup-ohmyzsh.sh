@@ -5,6 +5,19 @@
 set -euo pipefail
 
 OMZ_DIR="/etc/skel/.oh-my-zsh"
+MEDIA_HELPER="/usr/local/lib/mados-media-helper.sh"
+
+# Check if running on read-only media (DVD/CD) without persistence
+if [ -f "$MEDIA_HELPER" ]; then
+    # shellcheck source=/dev/null
+    source "$MEDIA_HELPER"
+    if ! can_install_software; then
+        echo "⚠ Medio óptico (DVD/CD) detectado sin almacenamiento persistente."
+        echo "  Las instalaciones no sobrevivirán un reinicio."
+        echo "  Para usar Oh My Zsh, instala madOS en disco con: sudo install-mados"
+        exit 0
+    fi
+fi
 
 # Check if Oh My Zsh is already installed in skel
 if [ -d "$OMZ_DIR" ]; then
