@@ -11,6 +11,7 @@
 # focuses on the heavy I/O and chroot phases.
 #
 # Phases:
+#   0. Environment setup (DNS, mirrors, dependencies)
 #   1. Disk partitioning & formatting on a loopback device
 #   2. pacstrap – installs every package the real installer uses
 #   3. fstab generation
