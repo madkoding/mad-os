@@ -383,6 +383,12 @@ def _run_installation(app):
                 log_message(app, "Copying Oh My Zsh from live environment...")
                 subprocess.run(['cp', '-a', '/etc/skel/.oh-my-zsh', '/mnt/etc/skel/'], check=False)
 
+            # Copy OpenCode binary from live ISO if already installed
+            if os.path.isfile('/usr/local/bin/opencode'):
+                log_message(app, "Copying OpenCode from live environment...")
+                subprocess.run(['cp', '-a', '/usr/local/bin/opencode',
+                                '/mnt/usr/local/bin/opencode'], check=False)
+
             # Copy setup-ohmyzsh.sh script for first-boot fallback
             set_progress(app, 0.53, "Copying system scripts...")
             log_message(app, "Copying system scripts...")
