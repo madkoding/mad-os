@@ -713,5 +713,237 @@ class TestHyprlandSessionScript(unittest.TestCase):
         )
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Dispatcher validation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestHyprlandDispatchers(unittest.TestCase):
+    """Verify bind dispatchers are valid Hyprland dispatchers."""
+
+    # Known valid dispatchers in Hyprland (verified against v0.53 source)
+    VALID_DISPATCHERS = {
+        "exec", "execr", "pass", "killactive", "closewindow",
+        "workspace", "movetoworkspace", "movetoworkspacesilent",
+        "togglefloating", "fullscreen", "fakefullscreen",
+        "dpms", "pin", "movefocus", "movewindow", "swapwindow",
+        "centerwindow", "resizeactive", "moveactive",
+        "resizewindowpixel", "movewindowpixel",
+        "cyclenext", "swapnext", "focuswindow",
+        "focusmonitor", "splitratio", "toggleopaque",
+        "movecursortocorner", "movecursor",
+        "renameworkspace", "exit", "forcerendererreload",
+        "movecurrentworkspacetomonitor", "focusworkspaceoncurrentmonitor",
+        "moveworkspacetomonitor", "swapactiveworkspaces",
+        "bringactivetotop", "alterzorder",
+        "togglespecialworkspace", "focusurgentorlast",
+        "togglegroup", "changegroupactive", "focuscurrentorlast",
+        "lockgroups", "lockactivegroup", "moveintogroup",
+        "moveoutofgroup", "movewindoworgroup", "movegroupwindow",
+        "denywindowfromgroup",
+        "setfloating", "settiled",
+        "pseudo", "togglesplit",
+        "layoutmsg", "submap",
+        "global",
+        "movetoworkspacesilent",
+        "sendshortcut",
+        "event",
+        # Mouse-specific dispatchers (used with bindm)
+        "resizewindow",
+    }
+
+    def _get_dispatchers_used(self):
+        """Extract all dispatchers used in bind commands."""
+        lines = _config_lines()
+        dispatchers = []
+        for line in lines:
+            match = re.match(r'^bind\w*\s*=\s*(.+)', line)
+            if match:
+                parts = [p.strip() for p in match.group(1).split(",")]
+                if len(parts) >= 3:
+                    dispatchers.append((parts[2], line))
+        return dispatchers
+
+    def test_all_dispatchers_valid(self):
+        """Every dispatcher used in a bind must be a known Hyprland dispatcher."""
+        dispatchers = self._get_dispatchers_used()
+        for dispatcher, line in dispatchers:
+            with self.subTest(dispatcher=dispatcher, line=line[:60]):
+                self.assertIn(
+                    dispatcher, self.VALID_DISPATCHERS,
+                    f"Unknown dispatcher '{dispatcher}' in: {line}",
+                )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Config variable validation against known Hyprland options
+# ═══════════════════════════════════════════════════════════════════════════
+class TestHyprlandConfigVariables(unittest.TestCase):
+    """Verify all config variables inside sections are known Hyprland options.
+
+    Cross-referenced against Hyprland v0.53 source code
+    (src/config/ConfigManager.cpp registerConfigVar calls).
+    """
+
+    # Valid config variables registered in Hyprland v0.53 source code
+    VALID_SECTION_VARS = {
+        # input section
+        "input:kb_layout", "input:kb_variant", "input:kb_model",
+        "input:kb_options", "input:kb_rules", "input:kb_file",
+        "input:numlock_by_default", "input:resolve_binds_by_sym",
+        "input:repeat_rate", "input:repeat_delay",
+        "input:sensitivity", "input:accel_profile",
+        "input:force_no_accel", "input:left_handed",
+        "input:scroll_points", "input:scroll_method",
+        "input:scroll_button", "input:scroll_button_lock",
+        "input:scroll_factor", "input:natural_scroll",
+        "input:follow_mouse", "input:mouse_refocus",
+        "input:float_switch_override_focus",
+        "input:special_fallthrough", "input:off_window_axis_events",
+        "input:emulate_discrete_scroll",
+        # input:touchpad
+        "input:touchpad:natural_scroll", "input:touchpad:disable_while_typing",
+        "input:touchpad:clickfinger_behavior", "input:touchpad:tap_button_map",
+        "input:touchpad:middle_button_emulation", "input:touchpad:tap-to-click",
+        "input:touchpad:tap-and-drag", "input:touchpad:drag_lock",
+        "input:touchpad:scroll_factor", "input:touchpad:flip_x",
+        "input:touchpad:flip_y", "input:touchpad:drag_3fg",
+        # input:touchdevice
+        "input:touchdevice:transform", "input:touchdevice:output",
+        "input:touchdevice:enabled",
+        # input:tablet
+        "input:tablet:transform", "input:tablet:output",
+        "input:tablet:region_position", "input:tablet:region_size",
+        "input:tablet:relative_input", "input:tablet:left_handed",
+        "input:tablet:active_area_size", "input:tablet:active_area_position",
+        # general section
+        "general:border_size", "general:gaps_in", "general:gaps_out",
+        "general:float_gaps", "general:gaps_workspaces",
+        "general:no_focus_fallback", "general:resize_on_border",
+        "general:extend_border_grab_area", "general:hover_icon_on_border",
+        "general:layout", "general:allow_tearing", "general:resize_corner",
+        "general:col.active_border", "general:col.inactive_border",
+        "general:col.nogroup_border", "general:col.nogroup_border_active",
+        "general:modal_parent_blocking", "general:locale",
+        "general:snap:enabled", "general:snap:window_gap",
+        "general:snap:monitor_gap", "general:snap:border_overlap",
+        "general:snap:respect_gaps",
+        # decoration section
+        "decoration:rounding", "decoration:rounding_power",
+        "decoration:active_opacity", "decoration:inactive_opacity",
+        "decoration:fullscreen_opacity",
+        "decoration:blur:enabled", "decoration:blur:size",
+        "decoration:blur:passes", "decoration:blur:ignore_opacity",
+        "decoration:blur:new_optimizations", "decoration:blur:xray",
+        "decoration:blur:contrast", "decoration:blur:brightness",
+        "decoration:blur:vibrancy", "decoration:blur:vibrancy_darkness",
+        "decoration:blur:noise", "decoration:blur:special",
+        "decoration:blur:popups", "decoration:blur:popups_ignorealpha",
+        "decoration:blur:input_methods", "decoration:blur:input_methods_ignorealpha",
+        "decoration:shadow:enabled", "decoration:shadow:range",
+        "decoration:shadow:render_power", "decoration:shadow:ignore_window",
+        "decoration:shadow:offset", "decoration:shadow:scale",
+        "decoration:shadow:sharp", "decoration:shadow:color",
+        "decoration:shadow:color_inactive",
+        # animations section
+        "animations:enabled", "animations:first_launch_animation",
+        # misc section
+        "misc:disable_hyprland_logo", "misc:disable_splash_rendering",
+        "misc:col.splash", "misc:splash_font_family", "misc:font_family",
+        "misc:force_default_wallpaper", "misc:vfr", "misc:vrr",
+        "misc:mouse_move_enables_dpms", "misc:key_press_enables_dpms",
+        "misc:always_follow_on_dnd", "misc:layers_hog_keyboard_focus",
+        "misc:animate_manual_resizes", "misc:animate_mouse_windowdragging",
+        "misc:disable_autoreload", "misc:enable_swallow",
+        "misc:swallow_regex", "misc:swallow_exception_regex",
+        "misc:focus_on_activate", "misc:mouse_move_focuses_monitor",
+        "misc:render_ahead_of_time", "misc:render_ahead_safezone",
+        "misc:allow_session_lock_restore", "misc:background_color",
+        "misc:close_special_on_empty", "misc:new_window_takes_over_fullscreen",
+        "misc:exit_window_retains_fullscreen",
+        "misc:initial_workspace_tracking",
+        "misc:middle_click_paste",
+        # dwindle section
+        "dwindle:pseudotile", "dwindle:force_split",
+        "dwindle:preserve_split", "dwindle:smart_split",
+        "dwindle:smart_resizing", "dwindle:permanent_direction_override",
+        "dwindle:special_scale_factor", "dwindle:split_width_multiplier",
+        "dwindle:use_active_for_splits", "dwindle:default_split_ratio",
+        "dwindle:split_bias",
+        # master section
+        "master:new_status", "master:new_on_top",
+        "master:new_on_active", "master:no_gaps_when_only",
+        "master:special_scale_factor", "master:slave_count_for_center_master",
+        "master:orientation", "master:inherit_fullscreen",
+        "master:always_center_master", "master:smart_resizing",
+        "master:mfact", "master:center_ignores_reserved",
+        # xwayland section
+        "xwayland:force_zero_scaling", "xwayland:use_nearest_neighbor",
+        "xwayland:enabled",
+        # gestures section
+        "gestures:workspace_swipe", "gestures:workspace_swipe_fingers",
+        "gestures:workspace_swipe_min_fingers", "gestures:workspace_swipe_distance",
+        "gestures:workspace_swipe_touch", "gestures:workspace_swipe_invert",
+        "gestures:workspace_swipe_min_speed_to_force",
+        "gestures:workspace_swipe_cancel_ratio",
+        "gestures:workspace_swipe_create_new",
+        "gestures:workspace_swipe_direction_lock",
+        "gestures:workspace_swipe_direction_lock_threshold",
+        "gestures:workspace_swipe_forever",
+        "gestures:workspace_swipe_use_r",
+        # cursor section
+        "cursor:no_hardware_cursors", "cursor:no_break_fs_vrr",
+        "cursor:min_refresh_rate", "cursor:hotspot_padding",
+        "cursor:inactive_timeout", "cursor:no_warps",
+        "cursor:persistent_warps", "cursor:warp_on_change_workspace",
+        "cursor:default_monitor", "cursor:zoom_factor",
+        "cursor:zoom_rigid", "cursor:enable_hyprcursor",
+        "cursor:hide_on_key_press", "cursor:hide_on_touch",
+        "cursor:allow_dumb_copy",
+    }
+
+    def _get_section_variables(self):
+        """Extract section:variable pairs from the config."""
+        content = _read_config()
+        lines = content.splitlines()
+        section_stack = []
+        variables = []
+
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+
+            if "{" in stripped:
+                name = stripped.split("{")[0].strip()
+                section_stack.append(name)
+            elif "}" in stripped:
+                if section_stack:
+                    section_stack.pop()
+            elif "=" in stripped and section_stack:
+                key = stripped.split("=")[0].strip()
+                full_path = ":".join(section_stack) + ":" + key
+                variables.append((full_path, i, stripped))
+
+        return variables
+
+    def test_all_section_variables_valid(self):
+        """Every variable inside a config section must be a known Hyprland option.
+
+        This catches deprecated, misspelled, or non-existent config variables
+        that would cause Hyprland to log errors at startup.
+        """
+        variables = self._get_section_variables()
+        for full_path, lineno, line in variables:
+            # Skip animation/bezier definitions (these are keywords, not variables)
+            if full_path.startswith("animations:bezier") or full_path.startswith("animations:animation"):
+                continue
+            with self.subTest(variable=full_path, line=lineno):
+                self.assertIn(
+                    full_path, self.VALID_SECTION_VARS,
+                    f"L{lineno}: Unknown config variable '{full_path}' – "
+                    f"may be deprecated, misspelled, or not valid for Hyprland v0.53+. "
+                    f"Line: {line}",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()
