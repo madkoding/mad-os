@@ -446,11 +446,11 @@ class TestHyprlandWindowRules(unittest.TestCase):
                 with self.subTest(rule=rule[:60]):
                     # Detect bare class:/title: without match: prefix
                     bare = re.search(r'(?<!\w)(?<!match:)(class|title|initial_class|initial_title):', match_str)
-                    self.assertIsNone(
-                        bare,
-                        f"Use 'match:{bare.group(1)}' instead of bare '{bare.group(1)}:' "
-                        f"(Hyprland v0.53+ syntax): {rule}" if bare else "",
-                    )
+                    if bare:
+                        self.fail(
+                            f"Use 'match:{bare.group(1)}' instead of bare '{bare.group(1)}:' "
+                            f"(Hyprland v0.53+ syntax): {rule}"
+                        )
 
     def test_window_rule_effects_have_values(self):
         """Static effects like 'float', 'tile', etc. must have a value in v0.53+.
