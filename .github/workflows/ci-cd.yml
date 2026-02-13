@@ -103,9 +103,10 @@ jobs:
 
   # ================================================================
   # Stage 2: Installer Validation (after all tests pass)
+  # Split into three parallel sub-jobs for faster feedback.
   # ================================================================
-  test-installer:
-    name: "Validate: Installer"
+  test-installer-python:
+    name: "Validate: Installer Python Modules"
     needs: [test-scripts, test-persistence]
     runs-on: ubuntu-latest
 
@@ -113,12 +114,44 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Test installation process in Arch container
+      - name: Validate Python installer modules in Arch container
         run: |
           docker run --privileged --rm \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
             -v ${{ github.workspace }}:/build \
-            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-installation.sh
+            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-installer-python-validation.sh
+
+  test-installer-config:
+    name: "Validate: Installer Config Script"
+    needs: [test-scripts, test-persistence]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate and validate config script in Arch container
+        run: |
+          docker run --privileged --rm \
+            --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
+            -v ${{ github.workspace }}:/build \
+            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-installer-config-generation.sh
+
+  test-installer-disk:
+    name: "Validate: Installer Disk Install"
+    needs: [test-scripts, test-persistence]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test disk installation process in Arch container
+        run: |
+          docker run --privileged --rm \
+            --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
+            -v ${{ github.workspace }}:/build \
+            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-installer-disk-install.sh
 
   # ================================================================
   # Stage 3: Build ISO (only on tags or manual trigger)
@@ -126,7 +159,7 @@ jobs:
   # ================================================================
   build:
     name: "Build: ISO"
-    needs: test-installer
+    needs: [test-installer-python, test-installer-config, test-installer-disk]
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
