@@ -31,20 +31,27 @@ USER_CONFIG_DIR="${HOME}/.config/pipewire"
 detect_max_sample_rate() {
     local max_rate=$DEFAULT_SAMPLE_RATE
     
-    # Try to detect from ALSA cards
     if [[ -d /proc/asound ]]; then
-        for card in /proc/asound/card*/pcm*/sub*/hw_params; do
-            if [[ -f "$card" ]]; then
-                # Parse hardware parameters
-                local rates
-                rates=$(grep -A1 "^rate:" "$card" 2>/dev/null | tail -1 || echo "")
-                if [[ -n "$rates" ]]; then
-                    # Extract maximum rate from range (e.g., "44100 (44100, 192000)")
-                    local detected_rate
-                    detected_rate=$(echo "$rates" | grep -o '[0-9]\+' | sort -n | tail -1)
-                    if [[ -n "$detected_rate" && "$detected_rate" -gt "$max_rate" ]]; then
-                        max_rate=$detected_rate
-                    fi
+        # Primary: read from codec files (always available, even when idle)
+        for codec in /proc/asound/card*/codec*; do
+            if [[ -f "$codec" ]]; then
+                local detected_rate
+                detected_rate=$(grep -i "rates:" "$codec" 2>/dev/null \
+                    | grep -o '[0-9]\+' | sort -n | tail -1 || echo "")
+                if [[ -n "$detected_rate" && "$detected_rate" -gt "$max_rate" ]]; then
+                    max_rate=$detected_rate
+                fi
+            fi
+        done
+        
+        # Secondary: read from stream files (static hardware info)
+        for stream in /proc/asound/card*/stream*; do
+            if [[ -f "$stream" ]]; then
+                local detected_rate
+                detected_rate=$(grep -i "rates:" "$stream" 2>/dev/null \
+                    | grep -o '[0-9]\+' | sort -n | tail -1 || echo "")
+                if [[ -n "$detected_rate" && "$detected_rate" -gt "$max_rate" ]]; then
+                    max_rate=$detected_rate
                 fi
             fi
         done
@@ -72,17 +79,31 @@ detect_max_bit_depth() {
     local max_depth=16
     
     if [[ -d /proc/asound ]]; then
-        for card in /proc/asound/card*/pcm*/sub*/hw_params; do
-            if [[ -f "$card" ]]; then
-                # Check for S32_LE (32-bit) or S24_LE (24-bit) support
-                if grep -q "S32_LE" "$card" 2>/dev/null; then
+        # Primary: read from codec files (always available, even when idle)
+        for codec in /proc/asound/card*/codec*; do
+            if [[ -f "$codec" ]]; then
+                if grep -qi "S32" "$codec" 2>/dev/null || grep -qi "32 bit" "$codec" 2>/dev/null; then
                     max_depth=32
                     break
-                elif grep -q "S24" "$card" 2>/dev/null; then
-                    max_depth=24
+                elif grep -qi "S24" "$codec" 2>/dev/null || grep -qi "24 bit" "$codec" 2>/dev/null; then
+                    [[ $max_depth -lt 24 ]] && max_depth=24
                 fi
             fi
         done
+        
+        # Secondary: read from stream files (static hardware info)
+        if [[ $max_depth -lt 32 ]]; then
+            for stream in /proc/asound/card*/stream*; do
+                if [[ -f "$stream" ]]; then
+                    if grep -qi "S32" "$stream" 2>/dev/null; then
+                        max_depth=32
+                        break
+                    elif grep -qi "S24" "$stream" 2>/dev/null; then
+                        [[ $max_depth -lt 24 ]] && max_depth=24
+                    fi
+                fi
+            done
+        fi
     fi
     
     echo "$max_depth"
@@ -117,6 +138,22 @@ calculate_quantum() {
     echo "$quantum $min_quantum $max_quantum"
 }
 
+# Build list of allowed rates up to the detected maximum
+build_allowed_rates() {
+    local sample_rate=$1
+    local allowed_rates="44100 48000"
+    if [[ $sample_rate -ge 88200 ]]; then
+        allowed_rates="44100 48000 88200"
+    fi
+    if [[ $sample_rate -ge 96000 ]]; then
+        allowed_rates="44100 48000 88200 96000"
+    fi
+    if [[ $sample_rate -ge 192000 ]]; then
+        allowed_rates="44100 48000 88200 96000 176400 192000"
+    fi
+    echo "$allowed_rates"
+}
+
 # Create PipeWire configuration
 create_pipewire_config() {
     local sample_rate=$1
@@ -125,6 +162,7 @@ create_pipewire_config() {
     local min_quantum=$4
     local max_quantum=$5
     local config_dir=$6
+    local allowed_rates=$7
     
     mkdir -p "$config_dir/pipewire.conf.d"
     
@@ -149,7 +187,7 @@ create_pipewire_config() {
 context.properties = {
     # Core timing settings
     default.clock.rate          = ${sample_rate}
-    default.clock.allowed-rates = [ ${sample_rate} ]
+    default.clock.allowed-rates = [ ${allowed_rates} ]
     default.clock.quantum       = ${quantum}
     default.clock.min-quantum   = ${min_quantum}
     default.clock.max-quantum   = ${max_quantum}
@@ -177,7 +215,7 @@ stream.properties = {
     # Audio format preferences
     audio.rate            = ${sample_rate}
     audio.format          = "${audio_format}"
-    audio.allowed-rates   = [ ${sample_rate} ]
+    audio.allowed-rates   = [ ${allowed_rates} ]
     
     # Disable session management interference with quality
     node.force-quantum    = 0
@@ -191,7 +229,8 @@ EOF
 # Create WirePlumber configuration for device quality
 create_wireplumber_config() {
     local sample_rate=$1
-    local config_dir=$2
+    local allowed_rates=$2
+    local config_dir=$3
     
     mkdir -p "$config_dir/wireplumber.conf.d"
     
@@ -216,7 +255,7 @@ monitor.alsa.rules = [
         
         # High quality settings
         audio.rate              = ${sample_rate}
-        audio.allowed-rates     = [ ${sample_rate} ]
+        audio.allowed-rates     = [ ${allowed_rates} ]
         audio.channels          = 2
         
         # Period/buffer settings for quality
@@ -258,10 +297,11 @@ apply_system_config() {
     local quantum=$3
     local min_quantum=$4
     local max_quantum=$5
+    local allowed_rates=$6
     
     if [[ $EUID -eq 0 ]]; then
-        create_pipewire_config "$sample_rate" "$bit_depth" "$quantum" "$min_quantum" "$max_quantum" "$SYSTEM_CONFIG_DIR"
-        create_wireplumber_config "$sample_rate" "$SYSTEM_CONFIG_DIR"
+        create_pipewire_config "$sample_rate" "$bit_depth" "$quantum" "$min_quantum" "$max_quantum" "$SYSTEM_CONFIG_DIR" "$allowed_rates"
+        create_wireplumber_config "$sample_rate" "$allowed_rates" "$SYSTEM_CONFIG_DIR"
         log "System-wide configuration applied"
     else
         log "Not running as root, skipping system-wide configuration"
@@ -275,11 +315,12 @@ apply_user_config() {
     local quantum=$3
     local min_quantum=$4
     local max_quantum=$5
+    local allowed_rates=$6
     
     # Create user config if HOME is set and we're not root
     if [[ -n "${HOME:-}" && $EUID -ne 0 ]]; then
-        create_pipewire_config "$sample_rate" "$bit_depth" "$quantum" "$min_quantum" "$max_quantum" "$USER_CONFIG_DIR"
-        create_wireplumber_config "$sample_rate" "$USER_CONFIG_DIR"
+        create_pipewire_config "$sample_rate" "$bit_depth" "$quantum" "$min_quantum" "$max_quantum" "$USER_CONFIG_DIR" "$allowed_rates"
+        create_wireplumber_config "$sample_rate" "$allowed_rates" "$USER_CONFIG_DIR"
         log "User configuration applied to $USER_CONFIG_DIR"
     fi
 }
@@ -334,9 +375,14 @@ main() {
     read -r quantum min_quantum max_quantum <<< "$(calculate_quantum "$sample_rate")"
     log "Calculated quantum: $quantum (range: $min_quantum-$max_quantum)"
     
+    # Build allowed rates list
+    local allowed_rates
+    allowed_rates=$(build_allowed_rates "$sample_rate")
+    log "Allowed sample rates: $allowed_rates"
+    
     # Apply configurations
-    apply_system_config "$sample_rate" "$bit_depth" "$quantum" "$min_quantum" "$max_quantum"
-    apply_user_config "$sample_rate" "$bit_depth" "$quantum" "$min_quantum" "$max_quantum"
+    apply_system_config "$sample_rate" "$bit_depth" "$quantum" "$min_quantum" "$max_quantum" "$allowed_rates"
+    apply_user_config "$sample_rate" "$bit_depth" "$quantum" "$min_quantum" "$max_quantum" "$allowed_rates"
     copy_to_skel
     
     # Restart services to apply changes
