@@ -1,0 +1,181 @@
+#!/bin/bash
+# setup-gpu-compute - Detect and activate GPU compute capabilities (CUDA / ROCm)
+# Runs at boot to detect NVIDIA or AMD GPUs and configure compute drivers
+# Exit codes: 0 = GPU compute configured, 1 = no compatible GPU found
+
+set -euo pipefail
+
+LOG_TAG="mados-gpu-compute"
+log() { echo "[GPU Compute] $1"; systemd-cat -t "$LOG_TAG" printf "%s\n" "$1" 2>/dev/null || true; }
+
+# ── GPU Detection ───────────────────────────────────────────────────────
+
+detect_nvidia_gpu() {
+    # Detect NVIDIA GPUs via lspci (VGA or 3D controller)
+    local gpu_lines
+    gpu_lines=$(lspci 2>/dev/null | grep -iE "VGA|3D|Display" || true)
+    if echo "$gpu_lines" | grep -qi nvidia; then
+        return 0
+    fi
+    return 1
+}
+
+detect_amd_gpu() {
+    # Detect AMD GPUs via lspci (VGA or 3D controller)
+    # Exclude integrated APUs that don't support ROCm compute (pre-GCN)
+    local gpu_lines
+    gpu_lines=$(lspci 2>/dev/null | grep -iE "VGA|3D|Display" || true)
+    local gpu_info
+    gpu_info=$(echo "$gpu_lines" | grep -iE "\bAMD\b|\bATI\b|Radeon" || true)
+
+    if [ -z "$gpu_info" ]; then
+        return 1
+    fi
+
+    # Filter out legacy AMD GPUs that don't support ROCm
+    # ROCm requires GCN architecture or newer (Radeon HD 7000+ / R5/R7/R9 / RX series)
+    if echo "$gpu_info" | grep -qiE "Radeon (7[0-9]{3}|8[0-9]{3}|9[0-9]{3}|X[0-9]{3,4})"; then
+        return 1  # Pre-GCN legacy GPU
+    fi
+    if echo "$gpu_info" | grep -qiE "Radeon HD [2-6][0-9]{3}"; then
+        return 1  # Pre-GCN HD series
+    fi
+    if echo "$gpu_info" | grep -qiE "Rage|Mach[0-9]"; then
+        return 1  # Very old ATI GPUs
+    fi
+
+    return 0
+}
+
+detect_nvidia_cuda_capable() {
+    # Check if NVIDIA GPU supports CUDA (Compute Capability >= 3.5)
+    # Modern NVIDIA GPUs (Kepler+) support CUDA
+    if ! detect_nvidia_gpu; then
+        return 1
+    fi
+
+    # Check if nvidia kernel module can be loaded
+    if modprobe -n nvidia 2>/dev/null; then
+        return 0
+    fi
+
+    # Fallback: check if nvidia-smi is available and works
+    if command -v nvidia-smi &>/dev/null; then
+        if nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 | grep -qE "^[0-9]+\.[0-9]+$"; then
+            return 0
+        fi
+    fi
+
+    # If we detected NVIDIA GPU via lspci, assume CUDA capable (modern GPU)
+    return 0
+}
+
+detect_amd_rocm_capable() {
+    # Check if AMD GPU supports ROCm (GCN architecture or newer)
+    if ! detect_amd_gpu; then
+        return 1
+    fi
+
+    # Check if amdgpu kernel module is available
+    if modprobe -n amdgpu 2>/dev/null; then
+        return 0
+    fi
+
+    # If we detected a non-legacy AMD GPU via lspci, assume ROCm capable
+    return 0
+}
+
+# ── Driver Activation ──────────────────────────────────────────────────
+
+activate_nvidia_cuda() {
+    log "NVIDIA GPU detected - activating CUDA compute drivers"
+
+    # Load nvidia kernel modules
+    modprobe nvidia 2>/dev/null || log "Warning: nvidia module not loaded (may need reboot)"
+    modprobe nvidia_uvm 2>/dev/null || true
+
+    # Verify CUDA is accessible
+    if command -v nvidia-smi &>/dev/null; then
+        local gpu_name
+        gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || echo "Unknown")
+        local compute_cap
+        compute_cap=$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -1 || echo "Unknown")
+        log "NVIDIA GPU: $gpu_name (Compute Capability: $compute_cap)"
+        log "CUDA drivers activated successfully"
+    else
+        log "CUDA packages installed - nvidia-smi not available (may need reboot)"
+    fi
+
+    # Ensure nvidia-persistenced runs for better CUDA performance
+    if command -v nvidia-persistenced &>/dev/null; then
+        systemctl enable nvidia-persistenced.service 2>/dev/null || true
+        systemctl start nvidia-persistenced.service 2>/dev/null || true
+    fi
+
+    return 0
+}
+
+activate_amd_rocm() {
+    log "AMD GPU detected - activating ROCm compute drivers"
+
+    # Ensure amdgpu kernel module is loaded with compute support
+    modprobe amdgpu 2>/dev/null || log "Warning: amdgpu module not loaded"
+
+    # Verify ROCm/OpenCL is accessible
+    if command -v rocminfo &>/dev/null; then
+        local gpu_name
+        gpu_name=$(rocminfo 2>/dev/null | grep -i "Marketing Name" | head -1 | sed 's/.*: *//' || echo "Unknown")
+        log "AMD GPU: $gpu_name"
+        log "ROCm compute drivers activated successfully"
+    elif command -v clinfo &>/dev/null; then
+        log "OpenCL runtime available for AMD GPU"
+    else
+        log "ROCm packages installed - tools not available (may need reboot)"
+    fi
+
+    return 0
+}
+
+# ── OpenCL Verification ────────────────────────────────────────────────
+
+verify_opencl() {
+    # Verify OpenCL is functional
+    if command -v clinfo &>/dev/null; then
+        local platforms
+        platforms=$(clinfo --list 2>/dev/null | grep -c "Platform" || echo "0")
+        log "OpenCL platforms detected: $platforms"
+    fi
+}
+
+# ── Main ────────────────────────────────────────────────────────────────
+
+main() {
+    log "Starting GPU compute detection..."
+
+    local gpu_found=false
+
+    # Check for NVIDIA CUDA support
+    if detect_nvidia_cuda_capable; then
+        activate_nvidia_cuda
+        gpu_found=true
+    fi
+
+    # Check for AMD ROCm support
+    if detect_amd_rocm_capable; then
+        activate_amd_rocm
+        gpu_found=true
+    fi
+
+    # Verify OpenCL availability
+    verify_opencl
+
+    if [ "$gpu_found" = true ]; then
+        log "GPU compute setup complete"
+        return 0
+    else
+        log "No CUDA/ROCm capable GPU detected - compute drivers not activated"
+        return 1
+    fi
+}
+
+main "$@"

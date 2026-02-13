@@ -1310,6 +1310,9 @@ fi
 log "Enabling additional services..."
 systemctl enable bluetooth 2>/dev/null || true
 
+# GPU Compute: Enable auto-detection and activation of CUDA/ROCm drivers
+systemctl enable mados-gpu-compute.service 2>/dev/null || true
+
 # Audio: Enable PipeWire for all user sessions (socket-activated)
 systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true
 

@@ -92,6 +92,10 @@ PACKAGES_PHASE2 = [
     'intel-media-driver', 'vulkan-intel', 'mesa-utils',
     'xf86-video-amdgpu', 'vulkan-radeon',
     'xf86-video-nouveau',
+    # GPU Compute drivers (CUDA / ROCm) - auto-detected and activated by setup-gpu-compute
+    'nvidia-utils', 'opencl-nvidia', 'cuda',
+    'rocm-hip-runtime', 'rocm-opencl-runtime',
+    'opencl-headers', 'ocl-icd',
     'ttf-jetbrains-mono-nerd', 'noto-fonts-emoji',
     'pcmanfm', 'lxappearance', 'materia-gtk-theme',
     'brightnessctl',

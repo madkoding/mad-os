@@ -76,6 +76,8 @@ jobs:
             test_file: tests/test_persistence_scripts.py
           - name: GPU Detection
             test_file: tests/test_gpu_detection.py
+          - name: GPU Compute
+            test_file: tests/test_gpu_compute.py
 
     steps:
       - name: Checkout

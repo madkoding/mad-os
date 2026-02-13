@@ -53,6 +53,8 @@ const translations = {
         'feature.installer.desc': 'Instalador gráfico GTK con tema Nord, navegación intuitiva, progreso en tiempo real y boot splash animado.',
         'feature.security.title': 'Seguro por Defecto',
         'feature.security.desc': 'Root bloqueado, bootloader UEFI dual (NVRAM + fallback), contraseñas seguras y OpenCode aislado por usuario.',
+        'feature.gpu.title': 'GPU Compute (CUDA / ROCm)',
+        'feature.gpu.desc': 'Drivers NVIDIA CUDA y AMD ROCm pre-instalados. Auto-detección al arrancar y activación automática de compute para IA y cálculo paralelo.',
 
         // Showcase
         'showcase.label': 'Entorno',
@@ -87,7 +89,7 @@ const translations = {
         'hardware.ram': 'RAM',
         'hardware.ram.desc': '1.9GB mínimo (optimizado para memoria limitada)',
         'hardware.gpu': 'GPU',
-        'hardware.gpu.desc': 'Con aceleración 3D: Hyprland. Sin ella: Sway (renderizado por software)',
+        'hardware.gpu.desc': 'Drivers NVIDIA CUDA y AMD ROCm pre-instalados. Auto-detección de GPU compute al arrancar. Con aceleración 3D: Hyprland. Sin ella: Sway.',
         'hardware.storage': 'Almacenamiento',
         'hardware.storage.desc': '32GB+ recomendado',
         'hardware.boot': 'Arranque',
@@ -180,6 +182,8 @@ const translations = {
         'feature.installer.desc': 'GTK graphical installer with Nord theme, intuitive navigation, real-time progress and animated boot splash.',
         'feature.security.title': 'Secure by Default',
         'feature.security.desc': 'Locked root, dual UEFI bootloader (NVRAM + fallback), secure passwords and per-user OpenCode isolation.',
+        'feature.gpu.title': 'GPU Compute (CUDA / ROCm)',
+        'feature.gpu.desc': 'Pre-installed NVIDIA CUDA and AMD ROCm drivers. Auto-detection at boot with automatic compute activation for AI and parallel computing.',
 
         // Showcase
         'showcase.label': 'Environment',
@@ -214,7 +218,7 @@ const translations = {
         'hardware.ram': 'RAM',
         'hardware.ram.desc': '1.9GB minimum (optimized for limited memory)',
         'hardware.gpu': 'GPU',
-        'hardware.gpu.desc': 'With 3D acceleration: Hyprland. Without: Sway (software rendering)',
+        'hardware.gpu.desc': 'Pre-installed NVIDIA CUDA and AMD ROCm drivers. GPU compute auto-detection at boot. With 3D acceleration: Hyprland. Without: Sway.',
         'hardware.storage': 'Storage',
         'hardware.storage.desc': '32GB+ recommended',
         'hardware.boot': 'Boot',

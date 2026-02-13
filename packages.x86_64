@@ -77,6 +77,15 @@ xf86-video-nouveau
 mesa
 mesa-utils
 
+# GPU Compute drivers (CUDA / ROCm)
+nvidia-utils
+opencl-nvidia
+cuda
+rocm-hip-runtime
+rocm-opencl-runtime
+opencl-headers
+ocl-icd
+
 # Bluetooth
 bluez
 bluez-utils
