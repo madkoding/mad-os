@@ -262,12 +262,16 @@ systemctl() { echo "[STUB] systemctl $*"; return 0; }
 git() { echo "[STUB] git $*"; return 0; }
 curl() { echo "[STUB] curl $*"; return 0; }
 mkdir() { echo "[STUB] mkdir $*"; return 0; }
-cat() { 
-    if [[ "$1" == ">" ]]; then
-        echo "[STUB] cat > $2"
-        return 0
+cat() {
+    # When used for reading files, use real cat
+    # When used with redirection (e.g., cat > file), shell handles it
+    if [[ $# -eq 0 ]] || [[ "$1" != "-" && -f "$1" ]]; then
+        command cat "$@"
+    else
+        # For other cases, just echo the stub message
+        echo "[STUB] cat $*"
     fi
-    command cat "$@"
+    return 0
 }
 chmod() { echo "[STUB] chmod $*"; return 0; }
 chown() { echo "[STUB] chown $*"; return 0; }

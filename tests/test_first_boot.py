@@ -18,46 +18,16 @@ import os
 import re
 import subprocess
 import sys
-import types
 import unittest
 
 # ---------------------------------------------------------------------------
 # Mock gi / gi.repository so installer modules can be imported headlessly.
 # ---------------------------------------------------------------------------
-gi_mock = types.ModuleType("gi")
-gi_mock.require_version = lambda *a, **kw: None
+# Import from test_helpers instead of duplicating
+sys.path.insert(0, os.path.dirname(__file__))
+from test_helpers import create_gtk_mocks
 
-repo_mock = types.ModuleType("gi.repository")
-
-
-class _StubMeta(type):
-    def __getattr__(cls, name):
-        return _StubWidget
-
-
-class _StubWidget(metaclass=_StubMeta):
-    def __init__(self, *a, **kw):
-        pass
-
-    def __init_subclass__(cls, **kw):
-        pass
-
-    def __getattr__(self, name):
-        return _stub_func
-
-
-def _stub_func(*a, **kw):
-    return _StubWidget()
-
-
-class _StubModule:
-    def __getattr__(self, name):
-        return _StubWidget
-
-
-for name in ("Gtk", "GLib", "GdkPixbuf", "Gdk", "Pango"):
-    setattr(repo_mock, name, _StubModule())
-
+gi_mock, repo_mock = create_gtk_mocks()
 sys.modules["gi"] = gi_mock
 sys.modules["gi.repository"] = repo_mock
 
