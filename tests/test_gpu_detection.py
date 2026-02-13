@@ -90,11 +90,15 @@ class TestDetect3DAcceleration(unittest.TestCase):
         )
 
     def test_checks_egl_support(self):
-        """3D detection must verify EGL/OpenGL capability."""
+        """3D detection must verify EGL/OpenGL capability via eglinfo."""
+        # Must use eglinfo to check for OpenGL support as a real 3D test
         self.assertIn("eglinfo", self.content,
                        "Must check eglinfo for EGL support")
-        self.assertIn("OpenGL", self.content,
-                       "Must verify OpenGL support via eglinfo")
+        # eglinfo output is piped through grep for OpenGL
+        self.assertRegex(
+            self.content, r'eglinfo.*OpenGL',
+            "Must verify OpenGL support by parsing eglinfo output",
+        )
 
     def test_checks_drm_drivers(self):
         """3D detection must check DRM drivers for known 3D-capable drivers."""
@@ -496,50 +500,32 @@ class TestGPUDetectionPackages(unittest.TestCase):
 class TestCompositorSelectionLogic(unittest.TestCase):
     """Verify the compositor selection logic via bash simulation.
 
-    These tests source the select-compositor script with mocked commands
-    to verify it returns 'sway' or 'hyprland' under different hardware
-    scenarios.
+    These tests source the real select-compositor script with mocked
+    external commands to verify it returns 'sway' or 'hyprland' under
+    different hardware scenarios.
     """
 
-    def _run_with_mock(self, mock_setup):
-        """Run select-compositor with mocked commands and return output."""
-        script_path = os.path.join(BIN_DIR, "select-compositor")
-        # Create a bash snippet that mocks the external commands,
-        # then sources the select-compositor script
-        bash_code = f"""
-{mock_setup}
-source "{script_path}"
-"""
-        result = subprocess.run(
-            ["bash", "-c", bash_code],
-            capture_output=True, text=True,
-        )
-        return result.stdout.strip(), result.returncode
+    SCRIPT_PATH = os.path.join(BIN_DIR, "select-compositor")
 
     def test_legacy_hardware_selects_sway(self):
         """When detect-legacy-hardware returns 0 (legacy), select sway."""
-        # Mock detect-legacy-hardware to return 0 (legacy detected)
-        mock = """
-detect-legacy-hardware() { return 0; }
-export -f detect-legacy-hardware
-# Mock the -x test to succeed by creating a temporary script
-TMPSCRIPT=$(mktemp /tmp/detect-legacy-hardware.XXXXXX)
-echo '#!/bin/bash' > "$TMPSCRIPT"
-echo 'exit 0' >> "$TMPSCRIPT"
-chmod +x "$TMPSCRIPT"
-# Override the path check
-eval 'original_test=$(which test)'
-"""
-        # Use a simpler approach: inline the function and call it
-        script_path = os.path.join(BIN_DIR, "select-compositor")
+        # Create a mock detect-legacy-hardware that returns 0 (legacy)
+        # and source the real select-compositor script
         bash_code = f"""
-# Define the function with mocked detect-legacy-hardware
-select_compositor() {{
-    # Mock: detect-legacy-hardware returns 0 (legacy)
-    echo "sway"
-    return
-}}
-select_compositor
+# Create mock detect-legacy-hardware that returns 0 (legacy detected)
+MOCK_DIR=$(mktemp -d)
+cat > "$MOCK_DIR/detect-legacy-hardware" << 'SCRIPT'
+#!/bin/bash
+exit 0
+SCRIPT
+chmod +x "$MOCK_DIR/detect-legacy-hardware"
+
+# Rewrite select-compositor to use our mock path
+sed 's|/usr/local/bin/detect-legacy-hardware|'"$MOCK_DIR"'/detect-legacy-hardware|g' \
+    "{self.SCRIPT_PATH}" > "$MOCK_DIR/select-compositor"
+chmod +x "$MOCK_DIR/select-compositor"
+bash "$MOCK_DIR/select-compositor"
+rm -rf "$MOCK_DIR"
 """
         result = subprocess.run(
             ["bash", "-c", bash_code],
@@ -549,15 +535,29 @@ select_compositor
                           "Legacy hardware (no 3D) must select sway")
 
     def test_modern_hardware_selects_hyprland(self):
-        """When detect-legacy-hardware returns 1 (modern), select hyprland."""
-        bash_code = """
-select_compositor() {
-    # Mock: detect-legacy-hardware returns 1 (modern)
-    # and Hyprland is available
-    echo "hyprland"
-    return
-}
-select_compositor
+        """When detect-legacy-hardware returns 1 (modern) and Hyprland is installed, select hyprland."""
+        bash_code = f"""
+# Create mock detect-legacy-hardware that returns 1 (modern)
+MOCK_DIR=$(mktemp -d)
+cat > "$MOCK_DIR/detect-legacy-hardware" << 'SCRIPT'
+#!/bin/bash
+exit 1
+SCRIPT
+chmod +x "$MOCK_DIR/detect-legacy-hardware"
+
+# Create mock Hyprland binary
+cat > "$MOCK_DIR/Hyprland" << 'SCRIPT'
+#!/bin/bash
+echo "mock Hyprland"
+SCRIPT
+chmod +x "$MOCK_DIR/Hyprland"
+
+# Rewrite select-compositor to use our mock path and add mock to PATH
+sed 's|/usr/local/bin/detect-legacy-hardware|'"$MOCK_DIR"'/detect-legacy-hardware|g' \
+    "{self.SCRIPT_PATH}" > "$MOCK_DIR/select-compositor"
+chmod +x "$MOCK_DIR/select-compositor"
+PATH="$MOCK_DIR:$PATH" bash "$MOCK_DIR/select-compositor"
+rm -rf "$MOCK_DIR"
 """
         result = subprocess.run(
             ["bash", "-c", bash_code],
@@ -568,14 +568,23 @@ select_compositor
 
     def test_no_hyprland_falls_back_to_sway(self):
         """When Hyprland is not installed, must fall back to sway."""
-        bash_code = """
-select_compositor() {
-    # Mock: modern hardware but no Hyprland installed
-    if ! command -v Hyprland >/dev/null 2>&1; then
-        echo "sway"
-    fi
-}
-select_compositor
+        bash_code = f"""
+# Create mock detect-legacy-hardware that returns 1 (modern)
+MOCK_DIR=$(mktemp -d)
+cat > "$MOCK_DIR/detect-legacy-hardware" << 'SCRIPT'
+#!/bin/bash
+exit 1
+SCRIPT
+chmod +x "$MOCK_DIR/detect-legacy-hardware"
+
+# Rewrite select-compositor to use our mock path (no Hyprland in PATH)
+sed 's|/usr/local/bin/detect-legacy-hardware|'"$MOCK_DIR"'/detect-legacy-hardware|g' \
+    "{self.SCRIPT_PATH}" > "$MOCK_DIR/select-compositor"
+chmod +x "$MOCK_DIR/select-compositor"
+
+# Run with a PATH that does NOT include Hyprland
+PATH="$MOCK_DIR:/usr/bin:/bin" bash "$MOCK_DIR/select-compositor"
+rm -rf "$MOCK_DIR"
 """
         result = subprocess.run(
             ["bash", "-c", bash_code],
@@ -586,8 +595,7 @@ select_compositor
 
     def test_select_compositor_only_outputs_valid_values(self):
         """select-compositor must only ever output 'sway' or 'hyprland'."""
-        script_path = os.path.join(BIN_DIR, "select-compositor")
-        with open(script_path) as f:
+        with open(self.SCRIPT_PATH) as f:
             content = f.read()
         # Find all echo statements in the script
         echo_matches = re.findall(r'echo\s+"([^"]+)"', content)
