@@ -1,0 +1,15 @@
+[Unit]
+Description=madOS GPU Compute Detection and Activation (CUDA / ROCm)
+After=systemd-modules-load.service systemd-udev-settle.service
+Wants=systemd-udev-settle.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/setup-gpu-compute
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target
