@@ -404,6 +404,10 @@ def _run_installation(app):
             subprocess.run(['cp', '-a', '/usr/local/bin/select-compositor',
                             '/mnt/usr/local/bin/select-compositor'], check=False)
 
+            # Copy audio quality auto-detection script
+            subprocess.run(['cp', '-a', '/usr/local/bin/mados-audio-quality.sh',
+                            '/mnt/usr/local/bin/mados-audio-quality.sh'], check=False)
+
             # Copy custom Python application launchers
             for launcher in ['mados-photo-viewer', 'mados-pdf-viewer',
                              'mados-equalizer', 'mados-wifi', 'mados-debug']:
@@ -1374,6 +1378,45 @@ ExecStart=/usr/local/bin/mados-audio-init.sh
 WantedBy=multi-user.target
 EOFSVC
 systemctl enable mados-audio-init.service 2>/dev/null || true
+
+# Audio: Create and enable high-quality audio auto-detection service
+cat > /etc/systemd/system/mados-audio-quality.service <<'EOFSVC'
+[Unit]
+Description=madOS Audio Quality Auto-Configuration
+Documentation=man:pipewire(1)
+Wants=systemd-udev-settle.service sound.target
+After=systemd-udev-settle.service sound.target mados-audio-init.service
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/mados-audio-quality.sh
+Nice=-5
+
+[Install]
+WantedBy=multi-user.target
+EOFSVC
+systemctl enable mados-audio-quality.service 2>/dev/null || true
+
+# Audio: Set up user-level audio quality service
+mkdir -p /home/{username}/.config/systemd/user/default.target.wants
+cat > /home/{username}/.config/systemd/user/mados-audio-quality.service <<'EOFUSRSVC'
+[Unit]
+Description=madOS Audio Quality User Configuration
+Documentation=man:pipewire(1)
+Before=pipewire.service pipewire-pulse.service wireplumber.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/mados-audio-quality.sh
+
+[Install]
+WantedBy=default.target
+EOFUSRSVC
+ln -sf ../mados-audio-quality.service /home/{username}/.config/systemd/user/default.target.wants/mados-audio-quality.service
+chown -R {username}:{username} /home/{username}/.config/systemd
 
 # ── Step 3: Configure Chromium ──────────────────────────────────────────
 log "Configuring Chromium..."

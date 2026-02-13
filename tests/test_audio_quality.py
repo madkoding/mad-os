@@ -460,5 +460,64 @@ class TestUserServiceEnabled(unittest.TestCase):
         self.assertIn("mados-audio-quality.service", target)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Installer integration for post-installation
+# ═══════════════════════════════════════════════════════════════════════════
+INSTALLER_DIR = os.path.join(AIROOTFS, "usr", "local", "lib", "mados_installer")
+INSTALLATION_PY = os.path.join(INSTALLER_DIR, "pages", "installation.py")
+
+
+class TestInstallerAudioQualityIntegration(unittest.TestCase):
+    """Verify the installer sets up audio quality for the installed system."""
+
+    def setUp(self):
+        with open(INSTALLATION_PY) as f:
+            self.content = f.read()
+
+    def test_installer_copies_audio_quality_script(self):
+        """Installer must copy mados-audio-quality.sh to installed system."""
+        self.assertIn("mados-audio-quality.sh", self.content)
+        self.assertIn(
+            "/mnt/usr/local/bin/mados-audio-quality.sh",
+            self.content,
+            "Installer must copy audio quality script to /mnt"
+        )
+
+    def test_installer_creates_system_service(self):
+        """First-boot script must create mados-audio-quality.service."""
+        self.assertIn("mados-audio-quality.service", self.content)
+        self.assertIn(
+            "systemctl enable mados-audio-quality.service",
+            self.content,
+            "Installer must enable mados-audio-quality.service"
+        )
+
+    def test_installer_creates_user_service(self):
+        """First-boot script must set up user-level audio quality service."""
+        self.assertIn(
+            "mados-audio-quality.service",
+            self.content,
+        )
+        self.assertIn(
+            "default.target.wants/mados-audio-quality.service",
+            self.content,
+            "Installer must enable user audio quality service via symlink"
+        )
+
+    def test_system_service_runs_after_audio_init(self):
+        """System service in installer must depend on mados-audio-init."""
+        self.assertIn(
+            "After=systemd-udev-settle.service sound.target mados-audio-init.service",
+            self.content,
+        )
+
+    def test_user_service_runs_before_pipewire(self):
+        """User service must run before PipeWire starts."""
+        self.assertIn(
+            "Before=pipewire.service pipewire-pulse.service wireplumber.service",
+            self.content,
+        )
+
+
 if __name__ == '__main__':
     unittest.main()
