@@ -89,6 +89,17 @@ wireplumber
 alsa-utils
 pavucontrol
 
+# Reproductores multimedia
+mpv
+fftw
+chafa
+taglib
+faad2
+opus
+opusfile
+libvorbis
+libogg
+
 # Tema GTK oscuro
 materia-gtk-theme
 
