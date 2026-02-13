@@ -371,7 +371,20 @@ class TestHyprlandNoDuplicateBinds(unittest.TestCase):
 # Window rule validation
 # ═══════════════════════════════════════════════════════════════════════════
 class TestHyprlandWindowRules(unittest.TestCase):
-    """Verify window rules use correct syntax."""
+    """Verify window rules use correct Hyprland v0.53+ syntax.
+
+    Since Hyprland 0.53 the window-rule system was rewritten:
+      - ``windowrulev2`` is removed; use ``windowrule`` only.
+      - Match props use ``match:class``, ``match:title``, etc.
+      - Static effects like ``float``, ``tile``, ``center``, ``pseudo``
+        require a value (e.g. ``float 1``).
+    """
+
+    # Static effects that require a value in Hyprland v0.53+
+    EFFECTS_REQUIRING_VALUE = {
+        "float", "tile", "fullscreen", "maximize", "center",
+        "pseudo", "pin", "no_initial_focus",
+    }
 
     def _get_window_rules(self):
         """Return all windowrule lines."""
@@ -418,6 +431,47 @@ class TestHyprlandWindowRules(unittest.TestCase):
                         f"Empty match criteria in windowrule: {rule}",
                     )
 
+    def test_window_rule_uses_match_prefix(self):
+        """Match props must use 'match:' prefix (v0.53+ syntax).
+
+        The old ``class:`` / ``title:`` syntax (without ``match:`` prefix)
+        is no longer valid.  All match criteria must use ``match:class``,
+        ``match:title``, etc.
+        """
+        rules = self._get_window_rules()
+        for rule in rules:
+            parts = [p.strip() for p in rule.split(",", 1)]
+            if len(parts) == 2:
+                match_str = parts[1]
+                with self.subTest(rule=rule[:60]):
+                    # Detect bare class:/title: without match: prefix
+                    bare = re.search(r'(?<!\w)(?<!match:)(class|title|initial_class|initial_title):', match_str)
+                    if bare:
+                        self.fail(
+                            f"Use 'match:{bare.group(1)}' instead of bare '{bare.group(1)}:' "
+                            f"(Hyprland v0.53+ syntax): {rule}"
+                        )
+
+    def test_window_rule_effects_have_values(self):
+        """Static effects like 'float', 'tile', etc. must have a value in v0.53+.
+
+        For example ``float 1`` is valid, but bare ``float`` is not.
+        """
+        rules = self._get_window_rules()
+        for rule in rules:
+            parts = [p.strip() for p in rule.split(",", 1)]
+            if len(parts) == 2:
+                effect_str = parts[0]
+                effect_parts = effect_str.split()
+                effect_name = effect_parts[0] if effect_parts else ""
+                with self.subTest(rule=rule[:60]):
+                    if effect_name in self.EFFECTS_REQUIRING_VALUE:
+                        self.assertGreater(
+                            len(effect_parts), 1,
+                            f"Effect '{effect_name}' requires a value (e.g. '{effect_name} 1') "
+                            f"in Hyprland v0.53+: {rule}",
+                        )
+
     def test_window_rule_regex_valid(self):
         """Regex patterns in windowrule match criteria should be valid."""
         rules = self._get_window_rules()
@@ -425,8 +479,8 @@ class TestHyprlandWindowRules(unittest.TestCase):
             parts = [p.strip() for p in rule.split(",", 1)]
             if len(parts) == 2:
                 match_str = parts[1]
-                # Extract regex from class:^(...)$ pattern
-                regex_match = re.search(r'class:\^?\(?([^)]*)\)?\$?', match_str)
+                # Extract regex from match:class ^(...)$ pattern (v0.53+ syntax)
+                regex_match = re.search(r'match:class\s+\^?\(?([^)]*)\)?\$?', match_str)
                 if regex_match:
                     pattern = regex_match.group(1)
                     with self.subTest(pattern=pattern):
