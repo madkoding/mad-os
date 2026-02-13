@@ -46,6 +46,26 @@ cleanup() {
 trap cleanup EXIT
 
 # =============================================================================
+# Phase 0: Environment setup (only needed in container environments)
+# =============================================================================
+# Check if we're in a container without python3 (e.g., fresh Arch Linux image)
+if ! command -v python3 &>/dev/null; then
+    step "Phase 0 – Setting up environment"
+    
+    # Configure DNS for network access
+    echo 'nameserver 8.8.8.8' > /etc/resolv.conf
+    echo 'nameserver 8.8.4.4' >> /etc/resolv.conf
+    
+    info "Initializing pacman keyring..."
+    pacman-key --init
+    
+    info "Installing Python..."
+    pacman -Syu --noconfirm python
+    
+    ok "Environment ready"
+fi
+
+# =============================================================================
 # Phase 1: Generate the first-boot script
 # =============================================================================
 step "Phase 1 – Generating first-boot script"
