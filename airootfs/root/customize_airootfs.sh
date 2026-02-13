@@ -28,7 +28,7 @@ else
     else
         echo "⚠ Failed to clone kew (will not be available)"
     fi
-    rm -rf "$KEW_BUILD_DIR"
+    [ -n "$KEW_BUILD_DIR" ] && rm -rf "$KEW_BUILD_DIR"
 fi
 
 # ── Oh My Zsh ────────────────────────────────────────────────────────────

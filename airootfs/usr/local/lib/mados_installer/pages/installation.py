@@ -1600,7 +1600,7 @@ else
     else
         log "Warning: Failed to clone kew"
     fi
-    rm -rf "$KEW_BUILD_DIR"
+    [ -n "$KEW_BUILD_DIR" ] && rm -rf "$KEW_BUILD_DIR"
 fi
 
 # ── Step 6: Install Ollama ───────────────────────────────────────────
