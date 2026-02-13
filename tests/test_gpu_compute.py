@@ -362,7 +362,7 @@ rm -rf "$MOCK_DIR"
     def test_detects_amd_gpu(self):
         """Must detect AMD GPU from lspci output and return 0."""
         output = self._run_with_mock_lspci(
-            "06:00.0 VGA compatible controller: Advanced Micro Devices, Inc. [AMD/ATI] Navi 10 [Radeon RX 5600 OXT]",
+            "06:00.0 VGA compatible controller: Advanced Micro Devices, Inc. [AMD/ATI] Navi 10 [Radeon RX 5600 XT]",
         )
         self.assertIn("AMD GPU detected", output,
                        "Must detect AMD GPU")
@@ -522,9 +522,6 @@ class TestGPUComputeEndToEnd(unittest.TestCase):
         script_path = os.path.join(BIN_DIR, "setup-gpu-compute")
         with open(script_path) as f:
             content = f.read()
-        # Detection must happen before activation
-        detect_pos = content.find("detect_nvidia_cuda_capable")
-        activate_pos = content.find("activate_nvidia_cuda")
         # The main() function calls detect first, then activate
         main_pos = content.find("main()")
         self.assertGreater(main_pos, 0, "Must have main() function")
