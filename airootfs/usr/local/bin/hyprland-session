@@ -7,4 +7,4 @@ export MOZ_ENABLE_WAYLAND=1
 export LIBSEAT_BACKEND=logind
 
 logger -p user.info -t mados-hyprland "Launching Hyprland compositor"
-exec Hyprland
+exec start-hyprland

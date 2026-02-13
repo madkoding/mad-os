@@ -50,8 +50,8 @@ if [ -z "${WAYLAND_DISPLAY}" ] && [ "$(tty)" = "/dev/tty1" ]; then
         export XDG_CURRENT_DESKTOP=Hyprland
         echo "Hardware rendering enabled - using Hyprland"
         logger -p user.info -t mados-session "Compositor selected: hyprland (hardware rendering)"
-        # Try Hyprland, fall back to Sway if it fails
-        Hyprland || {
+        # Try Hyprland via start-hyprland wrapper, fall back to Sway if it fails
+        start-hyprland || {
             logger -p user.warning -t mados-session "Hyprland failed, falling back to Sway"
             echo "Hyprland failed - falling back to Sway with software rendering"
             export XDG_CURRENT_DESKTOP=sway
