@@ -1,0 +1,389 @@
+name: "CI/CD Pipeline"
+
+on:
+  push:
+    branches: ["main"]
+    tags:
+      - 'v*'
+    paths:
+      - 'airootfs/**'
+      - 'packages.x86_64'
+      - 'profiledef.sh'
+      - 'pacman.conf'
+      - 'grub/**'
+      - 'syslinux/**'
+      - 'efiboot/**'
+      - 'tests/**'
+      - '.github/workflows/ci-cd.yml'
+  pull_request:
+    paths:
+      - 'airootfs/**'
+      - 'packages.x86_64'
+      - 'profiledef.sh'
+      - 'pacman.conf'
+      - 'grub/**'
+      - 'syslinux/**'
+      - 'efiboot/**'
+      - 'tests/**'
+      - '.github/workflows/ci-cd.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  ARCHLINUX_IMAGE: archlinux:latest
+  DNS_PRIMARY: "8.8.8.8"
+  DNS_SECONDARY: "8.8.4.4"
+
+jobs:
+  # ================================================================
+  # Stage 1: Unit Tests (parallel)
+  # ================================================================
+  test-scripts:
+    name: "Tests: ${{ matrix.name }}"
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Boot Scripts
+            test_file: tests/test_boot_scripts.py
+          - name: Post-Installation
+            test_file: tests/test_post_installation.py
+          - name: OpenCode
+            test_file: tests/test_opencode.py
+          - name: Hyprland Config
+            test_file: tests/test_hyprland_config.py
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        run: python3 -m pip install pytest
+
+      - name: Run tests
+        run: python3 -m pytest ${{ matrix.test_file }} -v
+
+  # ================================================================
+  # Stage 1: Integration Tests (parallel with unit tests)
+  # ================================================================
+  test-persistence:
+    name: "Tests: USB Persistence"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test Live USB persistence in Arch container
+        run: |
+          docker run --privileged --rm \
+            --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
+            -v ${{ github.workspace }}:/build \
+            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-liveusb-persistence.sh
+
+  # ================================================================
+  # Stage 2: Installer Validation (after all tests pass)
+  # ================================================================
+  test-installer:
+    name: "Validate: Installer"
+    needs: [test-scripts, test-persistence]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test installation process in Arch container
+        run: |
+          docker run --privileged --rm \
+            --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
+            -v ${{ github.workspace }}:/build \
+            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-installation.sh
+
+  # ================================================================
+  # Stage 3: Build ISO (only on tags or manual trigger)
+  # ================================================================
+  build:
+    name: "Build: ISO"
+    needs: test-installer
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    outputs:
+      iso_file: ${{ steps.iso_info.outputs.iso_file }}
+      iso_name: ${{ steps.iso_info.outputs.iso_name }}
+      version: ${{ steps.iso_info.outputs.version }}
+      build_date: ${{ steps.iso_info.outputs.build_date }}
+      iso_size_mb: ${{ steps.iso_info.outputs.iso_size_mb }}
+      short_sha: ${{ steps.iso_info.outputs.short_sha }}
+      is_release: ${{ steps.build_type.outputs.is_release }}
+      is_prerelease: ${{ steps.build_type.outputs.is_prerelease }}
+      release_type: ${{ steps.build_type.outputs.release_type }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine build type
+        id: build_type
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta$ ]]; then
+              echo "is_release=false" >> "$GITHUB_OUTPUT"
+              echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+              echo "release_type=beta" >> "$GITHUB_OUTPUT"
+            elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha$ ]]; then
+              echo "is_release=false" >> "$GITHUB_OUTPUT"
+              echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+              echo "release_type=alpha" >> "$GITHUB_OUTPUT"
+            elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "is_release=true" >> "$GITHUB_OUTPUT"
+              echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+              echo "release_type=stable" >> "$GITHUB_OUTPUT"
+            else
+              echo "is_release=false" >> "$GITHUB_OUTPUT"
+              echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+              echo "release_type=dev" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "release_type=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build ISO in Arch container
+        run: |
+          docker run --privileged --rm \
+            --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
+            -v ${{ github.workspace }}:/build \
+            ${{ env.ARCHLINUX_IMAGE }} bash -c "
+              echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
+              echo 'nameserver ${{ env.DNS_SECONDARY }}' >> /etc/resolv.conf
+              pacman-key --init
+              pacman -Syu --noconfirm archiso
+              cd /build
+              mkarchiso -v -w /tmp/work -o /build/out .
+              cd /build/out
+              sha256sum *.iso > SHA256SUMS
+              chmod -R 777 /build/out
+            "
+
+      - name: Extract build metadata
+        id: iso_info
+        run: |
+          ISO_FILE=$(ls out/*.iso | head -1)
+          ISO_NAME=$(basename "$ISO_FILE")
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="dev-$(date +%Y%m%d)"
+          fi
+          BUILD_DATE=$(date +%Y.%m.%d)
+          ISO_SIZE=$(stat --format=%s "$ISO_FILE")
+          ISO_SIZE_MB=$((ISO_SIZE / 1024 / 1024))
+          SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+          echo "iso_file=$ISO_FILE" >> "$GITHUB_OUTPUT"
+          echo "iso_name=$ISO_NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
+          echo "iso_size_mb=$ISO_SIZE_MB" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mados-iso
+          path: |
+            out/*.iso
+            out/SHA256SUMS
+          retention-days: 7
+
+  # ================================================================
+  # Stage 4: Upload to Internet Archive (after build succeeds)
+  # ================================================================
+  upload:
+    name: "Upload: Internet Archive"
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    outputs:
+      download_url: ${{ steps.upload_ia.outputs.download_url }}
+      identifier: ${{ steps.upload_ia.outputs.identifier }}
+
+    steps:
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mados-iso
+          path: out
+
+      - name: Install Internet Archive CLI
+        run: pip install internetarchive
+
+      - name: Upload to Internet Archive
+        id: upload_ia
+        env:
+          IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+          IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+        run: |
+          ISO_NAME="${{ needs.build.outputs.iso_name }}"
+          VERSION="${{ needs.build.outputs.version }}"
+          BUILD_DATE="${{ needs.build.outputs.build_date }}"
+          RELEASE_TYPE="${{ needs.build.outputs.release_type }}"
+
+          mkdir -p ~/.config/internetarchive
+          cat > ~/.config/internetarchive/ia.ini <<EOF
+          [s3]
+          access = ${IAS3_ACCESS_KEY}
+          secret = ${IAS3_SECRET_KEY}
+          EOF
+          chmod 600 ~/.config/internetarchive/ia.ini
+
+          if [[ "$RELEASE_TYPE" == "stable" ]]; then
+            IDENTIFIER="mados-${VERSION}"
+            TITLE="madOS ${VERSION}"
+          else
+            SHORT_SHA="${{ needs.build.outputs.short_sha }}"
+            IDENTIFIER="mados-${RELEASE_TYPE}-${VERSION}-${SHORT_SHA}"
+            TYPE_LABEL=$(echo "${RELEASE_TYPE}" | sed 's/./\U&/')
+            TITLE="madOS ${TYPE_LABEL} ${VERSION}"
+          fi
+
+          ISO_FILE=$(ls out/*.iso | head -1)
+
+          ia upload "$IDENTIFIER" \
+            "$ISO_FILE" \
+            out/SHA256SUMS \
+            --retries 3 \
+            --metadata="title:${TITLE}" \
+            --metadata="mediatype:software" \
+            --metadata="collection:opensource" \
+            --metadata="description:madOS - AI-Orchestrated Arch Linux Live ISO" \
+            --metadata="subject:linux;arch;live-iso;open-source" \
+            --metadata="creator:madOS Project" \
+            --metadata="date:${BUILD_DATE}"
+
+          DOWNLOAD_URL="https://archive.org/download/${IDENTIFIER}/${ISO_NAME}"
+          echo "download_url=$DOWNLOAD_URL" >> "$GITHUB_OUTPUT"
+          echo "identifier=$IDENTIFIER" >> "$GITHUB_OUTPUT"
+
+  # ================================================================
+  # Stage 5: Create GitHub Release (after upload succeeds)
+  # ================================================================
+  release:
+    name: "Release: GitHub"
+    needs: [build, upload]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mados-iso
+          path: out
+
+      - name: Create Release
+        if: needs.build.outputs.is_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: madOS ${{ needs.build.outputs.version }}
+          append_body: true
+          body: |
+
+            ---
+
+            **ISO:** `${{ needs.build.outputs.iso_name }}`  
+            **Tamaño:** ${{ needs.build.outputs.iso_size_mb }} MB
+
+            ### 📥 Descarga
+
+            🌐 **[Descargar ISO desde Internet Archive](${{ needs.upload.outputs.download_url }})**
+
+            _El ISO está alojado en Internet Archive para mejor disponibilidad y velocidad de descarga._
+
+            ### ✅ Verificación
+
+            Descarga también el archivo `SHA256SUMS` y verifica:
+            ```bash
+            sha256sum -c SHA256SUMS
+            ```
+          files: |
+            out/SHA256SUMS
+          make_latest: true
+
+      - name: Create Pre-release
+        if: needs.build.outputs.is_prerelease == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "madOS ${{ needs.build.outputs.version }} (${{ needs.build.outputs.release_type }})"
+          prerelease: true
+          append_body: true
+          body: |
+
+            ---
+
+            **Versión:** `${{ needs.build.outputs.version }}`
+            **Commit:** `${{ github.sha }}`
+            **ISO:** `${{ needs.build.outputs.iso_name }}`
+            **Tamaño:** ${{ needs.build.outputs.iso_size_mb }} MB
+
+            ### 📥 Descarga
+
+            🌐 **[Descargar ISO desde Internet Archive](${{ needs.upload.outputs.download_url }})**
+
+            > ⚠️ Esta es una build de prueba (${{ needs.build.outputs.release_type }}). Para la versión estable, consulta la [última release](https://github.com/${{ github.repository }}/releases/latest).
+
+            ### ✅ Verificación
+
+            ```bash
+            sha256sum -c SHA256SUMS
+            ```
+          files: |
+            out/SHA256SUMS
+          make_latest: false
+
+  # ================================================================
+  # Stage 5: Update website download link (stable releases only)
+  # ================================================================
+  update-website:
+    name: "Deploy: Update Website Link"
+    needs: [build, upload]
+    if: needs.build.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update download link in website
+        run: |
+          DOWNLOAD_URL="${{ needs.upload.outputs.download_url }}"
+          ISO_NAME="${{ needs.build.outputs.iso_name }}"
+
+          git fetch origin main
+          git checkout main
+
+          sed -i "s|https://archive.org/download/mados-[^/]*/madOS-[^\"]*\.iso|$DOWNLOAD_URL|g" docs/index.html
+
+          if git diff --quiet docs/index.html; then
+            echo "No changes needed in website"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add docs/index.html
+            git commit -m "Update download link to $ISO_NAME [skip ci]"
+            git push origin main
+          fi

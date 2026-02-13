@@ -6,7 +6,7 @@
 
 **AI-Orchestrated Arch Linux System**
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/madkoding/mad-os/build-iso.yml?branch=main&style=flat-square)](https://github.com/madkoding/mad-os/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/madkoding/mad-os/ci-cd.yml?branch=main&style=flat-square)](https://github.com/madkoding/mad-os/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Arch Linux](https://img.shields.io/badge/Arch-Linux-blue?style=flat-square)](https://archlinux.org)
 
