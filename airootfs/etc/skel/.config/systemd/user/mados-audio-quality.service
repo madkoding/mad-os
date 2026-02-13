@@ -1,0 +1,13 @@
+[Unit]
+Description=madOS Audio Quality User Configuration
+Documentation=man:pipewire(1)
+# Run before PipeWire starts
+Before=pipewire.service pipewire-pulse.service wireplumber.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/mados-audio-quality.sh
+
+[Install]
+WantedBy=default.target
