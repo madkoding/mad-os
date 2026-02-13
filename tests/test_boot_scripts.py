@@ -36,6 +36,7 @@ class TestBootScriptSyntax(unittest.TestCase):
     BOOT_SCRIPTS = [
         "setup-ohmyzsh.sh",
         "setup-opencode.sh",
+        "setup-ollama.sh",
         "setup-persistence.sh",
     ]
 
@@ -80,7 +81,7 @@ class TestBootScriptSyntax(unittest.TestCase):
         because it must never crash the systemd service – it uses its own
         graceful error handling and always exits 0.
         """
-        STRICT_MODE_EXCEPTIONS = {"setup-opencode.sh"}
+        STRICT_MODE_EXCEPTIONS = {"setup-opencode.sh", "setup-ollama.sh"}
         for script in self.BOOT_SCRIPTS:
             if script in STRICT_MODE_EXCEPTIONS:
                 continue
@@ -260,6 +261,11 @@ class TestSystemdServices(unittest.TestCase):
             "after": "network-online.target",
             "type": "oneshot",
         },
+        "setup-ollama.service": {
+            "exec": "/usr/local/bin/setup-ollama.sh",
+            "after": "network-online.target",
+            "type": "oneshot",
+        },
     }
 
     def test_service_files_exist(self):
@@ -436,6 +442,7 @@ class TestProfiledefPermissions(unittest.TestCase):
     BOOT_SCRIPTS = [
         "setup-ohmyzsh.sh",
         "setup-opencode.sh",
+        "setup-ollama.sh",
         "setup-persistence.sh",
     ]
 

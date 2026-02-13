@@ -1528,7 +1528,70 @@ WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-opencode.service 2>/dev/null || true
 
-# ── Step 6: Cleanup ─────────────────────────────────────────────────────
+# ── Step 6: Install Ollama ───────────────────────────────────────────
+log "Installing Ollama..."
+
+# Method: curl install script (official installer from ollama.com)
+if curl -fsSL https://ollama.com/install.sh | sh; then
+    if command -v ollama &>/dev/null; then
+        log "Ollama installed successfully"
+    else
+        log "Warning: curl install completed but ollama not found in PATH"
+    fi
+else
+    log "Warning: Ollama install failed"
+fi
+
+# Copy setup script for manual retry
+cat > /usr/local/bin/setup-ollama.sh <<'EOFSETUP'
+#!/bin/bash
+OLLAMA_CMD="ollama"
+if command -v "$OLLAMA_CMD" &>/dev/null; then
+    echo "✓ Ollama ya está instalado:"
+    "$OLLAMA_CMD" --version 2>/dev/null || true
+    exit 0
+fi
+if ! curl -sf --connect-timeout 5 https://ollama.com/ >/dev/null 2>&1; then
+    echo "⚠ No hay conexión a Internet."
+    echo "  Conecta a la red y ejecuta de nuevo: sudo setup-ollama.sh"
+    exit 0
+fi
+echo "Instalando Ollama..."
+if curl -fsSL https://ollama.com/install.sh | sh; then
+    if command -v "$OLLAMA_CMD" &>/dev/null; then
+        echo "✓ Ollama instalado correctamente."
+        "$OLLAMA_CMD" --version 2>/dev/null || true
+        exit 0
+    fi
+fi
+echo "⚠ No se pudo instalar Ollama."
+exit 0
+EOFSETUP
+chmod 755 /usr/local/bin/setup-ollama.sh
+
+# Ollama fallback service
+cat > /etc/systemd/system/setup-ollama.service <<'EOFSVC'
+[Unit]
+Description=Install Ollama if not already present
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=HOME=/root
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+ExecStart=/usr/local/bin/setup-ollama.sh
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
+EOFSVC
+systemctl enable setup-ollama.service 2>/dev/null || true
+
+# ── Step 7: Cleanup ─────────────────────────────────────────────────────
 log "Phase 2 setup complete! Disabling first-boot service..."
 systemctl disable mados-first-boot.service 2>/dev/null || true
 rm -f /usr/local/bin/mados-first-boot.sh

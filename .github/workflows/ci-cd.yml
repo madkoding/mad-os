@@ -58,6 +58,8 @@ jobs:
             test_file: tests/test_post_installation.py
           - name: OpenCode
             test_file: tests/test_opencode.py
+          - name: Ollama
+            test_file: tests/test_ollama.py
           - name: Hyprland Config
             test_file: tests/test_hyprland_config.py
           - name: WiFi Backend
