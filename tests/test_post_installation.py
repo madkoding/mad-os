@@ -415,6 +415,7 @@ class TestPostInstallServices(unittest.TestCase):
         "earlyoom",
         "NetworkManager",
         "iwd",
+        "bluetooth",
     ]
 
     def test_required_services_enabled(self):
