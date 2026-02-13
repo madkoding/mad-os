@@ -56,6 +56,13 @@ madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB),
 - **madOS WiFi** (`mados-wifi`) - NetworkManager-based WiFi configuration tool
 - **madOS Persistence** (`mados-persistence`) - Persistent storage manager for live USB
 
+### Audio Quality
+- **Auto-Detection** - Automatically detects and applies maximum audio quality (up to 192kHz/32-bit)
+- **High-Quality Resampling** - PipeWire configured with quality level 10 (maximum)
+- **Hardware Optimization** - Optimal buffer sizes and sample rates for your audio hardware
+- **Persistent Configuration** - Quality settings survive reboots in both live and installed systems
+- See [Audio Quality Documentation](docs/AUDIO_QUALITY.md) for details
+
 ### Persistent Storage
 - **Dynamic Persistence** - Automatically uses free USB space for persistent storage
 - **Auto-Configuration** - Persistence partition created on first boot if space available
