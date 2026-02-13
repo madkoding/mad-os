@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=madOS
-Description=madOS boot splash with Nord theme
+Description=madOS boot splash with shader-inspired tunnel effect and Nord theme
 ModuleName=script
 
 [script]

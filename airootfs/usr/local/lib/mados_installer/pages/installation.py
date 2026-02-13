@@ -1014,7 +1014,7 @@ mkdir -p /usr/share/plymouth/themes/mados
 cat > /usr/share/plymouth/themes/mados/mados.plymouth <<EOFPLY
 [Plymouth Theme]
 Name=madOS
-Description=madOS boot splash with Nord theme
+Description=madOS boot splash with shader-inspired tunnel effect and Nord theme
 ModuleName=script
 
 [script]
@@ -1023,30 +1023,76 @@ ScriptFile=/usr/share/plymouth/themes/mados/mados.script
 EOFPLY
 
 cat > /usr/share/plymouth/themes/mados/mados.script <<'EOFSCRIPT'
-Window.SetBackgroundTopColor(0.18, 0.20, 0.25);
-Window.SetBackgroundBottomColor(0.13, 0.15, 0.19);
+Window.SetBackgroundTopColor(0.05, 0.08, 0.14);
+Window.SetBackgroundBottomColor(0.02, 0.04, 0.08);
+screen_w = Window.GetWidth();
+screen_h = Window.GetHeight();
+center_x = screen_w / 2;
+center_y = screen_h / 2;
+NUM_RINGS = 6;
+PI = 3.14159;
+for (r = 0; r < NUM_RINGS; r++) {{
+    base_radius = 60 + r * 45;
+    dots_per_ring = 10 + r * 4;
+    for (d = 0; d < dots_per_ring; d++) {{
+        ring[r].dot[d].sprite = Sprite(Image("dot.png"));
+        ring[r].dot[d].sprite.SetZ(1);
+        angle = d * 2 * PI / dots_per_ring;
+        ring[r].dot[d].base_angle = angle;
+        ring[r].dot[d].base_radius = base_radius;
+        dx = center_x + base_radius * Math.Sin(angle) - 4;
+        dy = center_y + base_radius * Math.Cos(angle) - 4;
+        ring[r].dot[d].sprite.SetX(dx);
+        ring[r].dot[d].sprite.SetY(dy);
+        depth_factor = 1.0 / (1.0 + r * r * 0.15);
+        ring[r].dot[d].sprite.SetOpacity(depth_factor * 0.6);
+    }}
+    ring[r].num_dots = dots_per_ring;
+}}
 logo.image = Image("logo.png");
 logo.sprite = Sprite(logo.image);
-logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
-logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 50);
+logo.sprite.SetX(center_x - logo.image.GetWidth() / 2);
+logo.sprite.SetY(center_y - logo.image.GetHeight() / 2 - 50);
 logo.sprite.SetZ(10);
 logo.sprite.SetOpacity(1);
 NUM_DOTS = 8;
 SPINNER_RADIUS = 25;
-spinner_x = Window.GetWidth() / 2;
-spinner_y = Window.GetHeight() / 2 + logo.image.GetHeight() / 2;
+spinner_x = center_x;
+spinner_y = center_y + logo.image.GetHeight() / 2;
 dot_image = Image("dot.png");
 for (i = 0; i < NUM_DOTS; i++) {{
     dot[i].sprite = Sprite(dot_image);
     dot[i].sprite.SetZ(10);
-    angle = i * 2 * 3.14159 / NUM_DOTS;
+    angle = i * 2 * PI / NUM_DOTS;
     dot[i].sprite.SetX(spinner_x + SPINNER_RADIUS * Math.Sin(angle) - dot_image.GetWidth() / 2);
     dot[i].sprite.SetY(spinner_y - SPINNER_RADIUS * Math.Cos(angle) - dot_image.GetHeight() / 2);
     dot[i].sprite.SetOpacity(0.2);
 }}
+status_text.sprite = Sprite();
+status_text.sprite.SetZ(10);
 frame = 0;
 fun refresh_callback() {{
     frame++;
+    time_val = frame * 0.03;
+    for (r = 0; r < NUM_RINGS; r++) {{
+        ring_phase = time_val + r * 0.8;
+        radius_mod = 1.0 + Math.Sin(ring_phase) * 0.15;
+        current_radius = ring[r].dot[0].base_radius * radius_mod;
+        rotation_offset = time_val * (0.3 - r * 0.03);
+        sphere_pulse = Math.Abs(Math.Sin(ring_phase * 1.5)) * 0.3;
+        depth_factor = 1.0 / (1.0 + r * r * 0.15);
+        base_opacity = depth_factor * 0.5 + sphere_pulse * depth_factor;
+        for (d = 0; d < ring[r].num_dots; d++) {{
+            angle = ring[r].dot[d].base_angle + rotation_offset;
+            dx = center_x + current_radius * Math.Sin(angle) - 4;
+            dy = center_y + current_radius * Math.Cos(angle) - 4;
+            ring[r].dot[d].sprite.SetX(dx);
+            ring[r].dot[d].sprite.SetY(dy);
+            dot_phase = ring_phase + d * 0.5;
+            flicker = Math.Abs(Math.Sin(dot_phase)) * 0.2;
+            ring[r].dot[d].sprite.SetOpacity(base_opacity + flicker);
+        }}
+    }}
     active_dot = Math.Int(frame / 4) % NUM_DOTS;
     for (i = 0; i < NUM_DOTS; i++) {{
         dist = active_dot - i;
@@ -1067,6 +1113,11 @@ fun display_message_callback(text) {{}}
 Plymouth.SetDisplayNormalFunction(display_normal_callback);
 Plymouth.SetMessageFunction(display_message_callback);
 fun quit_callback() {{
+    for (r = 0; r < NUM_RINGS; r++) {{
+        for (d = 0; d < ring[r].num_dots; d++) {{
+            ring[r].dot[d].sprite.SetOpacity(0);
+        }}
+    }}
     for (i = 0; i < NUM_DOTS; i++) {{ dot[i].sprite.SetOpacity(0); }}
     logo.sprite.SetOpacity(1);
 }}

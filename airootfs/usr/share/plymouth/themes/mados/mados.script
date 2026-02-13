@@ -1,38 +1,72 @@
 // madOS Plymouth Theme Script
-// Nord-themed boot splash with logo and animated spinner
+// Shader-inspired boot splash: raymarched tunnel/sphere effect with Nord theme
+// Adapted from GLSL raymarching shader to Plymouth scripting
 
 // ============ Background ============
-Window.SetBackgroundTopColor(0.18, 0.20, 0.25);    // #2E3440 Nord Polar Night
-Window.SetBackgroundBottomColor(0.13, 0.15, 0.19);  // Slightly darker at bottom
+Window.SetBackgroundTopColor(0.05, 0.08, 0.14);    // Deep dark blue (tunnel depth)
+Window.SetBackgroundBottomColor(0.02, 0.04, 0.08);  // Near-black at bottom
 
-// ============ Logo ============
+// ============ Screen dimensions ============
+screen_w = Window.GetWidth();
+screen_h = Window.GetHeight();
+center_x = screen_w / 2;
+center_y = screen_h / 2;
+
+// ============ Tunnel rings (raymarched tunnel approximation) ============
+// The GLSL shader creates a tunnel via: 1.0 - length(p.xy) + sin(p.z*0.5)*0.2
+// We approximate this with concentric rings that pulse and shift in depth
+NUM_RINGS = 6;
+PI = 3.14159;
+
+for (r = 0; r < NUM_RINGS; r++) {
+    // Each ring is composed of dot sprites arranged in a circle
+    // Outer rings = "farther away" in the tunnel
+    base_radius = 60 + r * 45;
+    dots_per_ring = 10 + r * 4;
+
+    for (d = 0; d < dots_per_ring; d++) {
+        ring[r].dot[d].sprite = Sprite(Image("dot.png"));
+        ring[r].dot[d].sprite.SetZ(1);
+
+        angle = d * 2 * PI / dots_per_ring;
+        ring[r].dot[d].base_angle = angle;
+        ring[r].dot[d].base_radius = base_radius;
+
+        dx = center_x + base_radius * Math.Sin(angle) - 4;
+        dy = center_y + base_radius * Math.Cos(angle) - 4;
+        ring[r].dot[d].sprite.SetX(dx);
+        ring[r].dot[d].sprite.SetY(dy);
+
+        // Depth-based opacity: inner rings brighter (closer), outer dimmer (farther)
+        // Mirrors shader: col / (1.0 + t*t*0.1) depth attenuation
+        depth_factor = 1.0 / (1.0 + r * r * 0.15);
+        ring[r].dot[d].sprite.SetOpacity(depth_factor * 0.6);
+    }
+
+    ring[r].num_dots = dots_per_ring;
+}
+
+// ============ Logo (centered, on top of tunnel effect) ============
 logo.image = Image("logo.png");
 logo.sprite = Sprite(logo.image);
-logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
-logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2 - 50);
+logo.sprite.SetX(center_x - logo.image.GetWidth() / 2);
+logo.sprite.SetY(center_y - logo.image.GetHeight() / 2 - 50);
 logo.sprite.SetZ(10);
 logo.sprite.SetOpacity(1);
 
 // ============ Animated Spinner (dots) ============
-// Nord accent colors for spinner dots
-// #88C0D0 = 0.533, 0.753, 0.816
-// #81A1C1 = 0.506, 0.631, 0.757
-// #5E81AC = 0.369, 0.506, 0.675
-
 NUM_DOTS = 8;
 SPINNER_RADIUS = 25;
 
-spinner_x = Window.GetWidth() / 2;
-spinner_y = Window.GetHeight() / 2 + logo.image.GetHeight() / 2;
+spinner_x = center_x;
+spinner_y = center_y + logo.image.GetHeight() / 2;
 
-// Pre-create dot sprites using dot.png image
 dot_image = Image("dot.png");
 for (i = 0; i < NUM_DOTS; i++) {
     dot[i].sprite = Sprite(dot_image);
     dot[i].sprite.SetZ(10);
 
-    // Position dots in a circle
-    angle = i * 2 * 3.14159 / NUM_DOTS;
+    angle = i * 2 * PI / NUM_DOTS;
     dot_x = spinner_x + SPINNER_RADIUS * Math.Sin(angle) - dot_image.GetWidth() / 2;
     dot_y = spinner_y - SPINNER_RADIUS * Math.Cos(angle) - dot_image.GetHeight() / 2;
     dot[i].sprite.SetX(dot_x);
@@ -50,15 +84,48 @@ frame = 0;
 fun refresh_callback() {
     frame++;
 
-    // Animate spinner: one dot at a time lights up brightly, trailing dots fade
+    // ---- Tunnel ring animation ----
+    // Simulates the shader's forward movement: p.z += iTime * 0.5
+    // and the repeating geometry: fract(p) - 0.5
+    time_val = frame * 0.03;
+
+    for (r = 0; r < NUM_RINGS; r++) {
+        // Each ring pulsates at different phase (simulates depth layers)
+        // Mirrors shader: sin(p.z * 0.5) * 0.2 modulating tunnel radius
+        ring_phase = time_val + r * 0.8;
+        radius_mod = 1.0 + Math.Sin(ring_phase) * 0.15;
+        current_radius = ring[r].dot[0].base_radius * radius_mod;
+
+        // Ring rotation (simulates the forward movement through tunnel)
+        rotation_offset = time_val * (0.3 - r * 0.03);
+
+        // Depth-based opacity pulse (simulates sphere intersection glow)
+        // Shader: length(fract(p) - 0.5) - 0.1 creates periodic bright points
+        sphere_pulse = Math.Abs(Math.Sin(ring_phase * 1.5)) * 0.3;
+        depth_factor = 1.0 / (1.0 + r * r * 0.15);
+        base_opacity = depth_factor * 0.5 + sphere_pulse * depth_factor;
+
+        for (d = 0; d < ring[r].num_dots; d++) {
+            angle = ring[r].dot[d].base_angle + rotation_offset;
+            dx = center_x + current_radius * Math.Sin(angle) - 4;
+            dy = center_y + current_radius * Math.Cos(angle) - 4;
+            ring[r].dot[d].sprite.SetX(dx);
+            ring[r].dot[d].sprite.SetY(dy);
+
+            // Per-dot flicker (simulates fract grid intersection)
+            dot_phase = ring_phase + d * 0.5;
+            flicker = Math.Abs(Math.Sin(dot_phase)) * 0.2;
+            ring[r].dot[d].sprite.SetOpacity(base_opacity + flicker);
+        }
+    }
+
+    // ---- Spinner animation (unchanged) ----
     active_dot = Math.Int(frame / 4) % NUM_DOTS;
 
     for (i = 0; i < NUM_DOTS; i++) {
-        // Calculate distance from active dot (with wrapping)
         dist = active_dot - i;
         if (dist < 0) dist = dist + NUM_DOTS;
 
-        // Trailing fade: active=1.0, trail fades out
         if (dist == 0)
             opacity = 1.0;
         else if (dist == 1)
@@ -97,7 +164,7 @@ fun display_message_callback(text) {
     if (text != "") {
         msg_image = Image.Text(text, 0.85, 0.87, 0.91);  // #D8DEE9
         status_text.sprite.SetImage(msg_image);
-        status_text.sprite.SetX(Window.GetWidth() / 2 - msg_image.GetWidth() / 2);
+        status_text.sprite.SetX(center_x - msg_image.GetWidth() / 2);
         status_text.sprite.SetY(spinner_y + SPINNER_RADIUS + 30);
     }
 }
@@ -113,7 +180,7 @@ fun display_password_callback(prompt_text, bullets) {
     // Prompt label
     msg = Image.Text(prompt_text, 0.93, 0.94, 0.96);  // #ECEFF4
     prompt_sprite.SetImage(msg);
-    prompt_sprite.SetX(Window.GetWidth() / 2 - msg.GetWidth() / 2);
+    prompt_sprite.SetX(center_x - msg.GetWidth() / 2);
     prompt_sprite.SetY(Window.GetHeight() - 120);
     prompt_sprite.SetZ(12);
 
@@ -125,7 +192,7 @@ fun display_password_callback(prompt_text, bullets) {
     if (bullet_str != "") {
         bullet_img = Image.Text(bullet_str, 0.53, 0.75, 0.82);  // #88C0D0
         bullet_sprite.SetImage(bullet_img);
-        bullet_sprite.SetX(Window.GetWidth() / 2 - bullet_img.GetWidth() / 2);
+        bullet_sprite.SetX(center_x - bullet_img.GetWidth() / 2);
         bullet_sprite.SetY(Window.GetHeight() - 80);
         bullet_sprite.SetZ(12);
     } else {
@@ -138,6 +205,12 @@ Plymouth.SetDisplayPasswordFunction(display_password_callback);
 
 // ============ Quit callback ============
 fun quit_callback() {
+    // Fade out tunnel rings
+    for (r = 0; r < NUM_RINGS; r++) {
+        for (d = 0; d < ring[r].num_dots; d++) {
+            ring[r].dot[d].sprite.SetOpacity(0);
+        }
+    }
     // Fade out spinner
     for (i = 0; i < NUM_DOTS; i++) {
         dot[i].sprite.SetOpacity(0);
