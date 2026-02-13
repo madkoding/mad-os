@@ -60,6 +60,16 @@ jobs:
             test_file: tests/test_opencode.py
           - name: Hyprland Config
             test_file: tests/test_hyprland_config.py
+          - name: WiFi Backend
+            test_file: tests/test_wifi_backend.py
+          - name: Installer Config
+            test_file: tests/test_installer_config.py
+          - name: Equalizer Presets
+            test_file: tests/test_equalizer_presets.py
+          - name: Photo Navigator
+            test_file: tests/test_photo_navigator.py
+          - name: Persistence Scripts
+            test_file: tests/test_persistence_scripts.py
 
     steps:
       - name: Checkout
