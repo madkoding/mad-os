@@ -17,7 +17,7 @@ layout: none
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="author" content="madkoding">
     <meta name="generator" content="madOS Project">
-    <meta name="keywords" content="madOS, Arch Linux, OpenCode, AI, Linux, distribución, low RAM, lightweight, Sway, Hyprland, Wayland, Nord theme, AI orchestrated, operating system, open source, ZRAM, EarlyOOM, Intel Atom, GTK installer, persistent USB, live USB">
+    <meta name="keywords" content="madOS, Arch Linux, OpenCode, AI, Linux, distribución, low RAM, lightweight, Sway, Hyprland, Wayland, Nord theme, AI orchestrated, operating system, open source, ZRAM, EarlyOOM, Intel Atom, GTK installer, persistent USB, live USB, CUDA, ROCm, GPU compute, NVIDIA, AMD, OpenCL">
     <meta name="theme-color" content="#88c0d0">
     <meta name="color-scheme" content="dark">
 
@@ -304,6 +304,13 @@ layout: none
                     <h3 data-i18n="feature.security.title">Seguro por Defecto</h3>
                     <p data-i18n="feature.security.desc">Root bloqueado, bootloader UEFI dual (NVRAM + fallback), contraseñas seguras y OpenCode aislado por usuario.</p>
                 </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M12 7V3"/><path d="M2 11h20"/><path d="M7 11v4"/><path d="M12 11v4"/><path d="M17 11v4"/></svg>
+                    </div>
+                    <h3 data-i18n="feature.gpu.title">GPU Compute (CUDA / ROCm)</h3>
+                    <p data-i18n="feature.gpu.desc">Drivers NVIDIA CUDA y AMD ROCm pre-instalados. Auto-detección al arrancar y activación automática de compute para IA y cálculo paralelo.</p>
+                </div>
             </div>
         </div>
     </section>
@@ -441,7 +448,7 @@ layout: none
                         </div>
                         <div>
                             <strong data-i18n="hardware.gpu">GPU</strong>
-                            <p data-i18n="hardware.gpu.desc">Con aceleración 3D: Hyprland. Sin ella: Sway (renderizado por software)</p>
+                            <p data-i18n="hardware.gpu.desc">Drivers NVIDIA CUDA y AMD ROCm pre-instalados. Auto-detección de GPU compute al arrancar. Con aceleración 3D: Hyprland. Sin ella: Sway.</p>
                         </div>
                     </div>
                     <div class="spec-item">
