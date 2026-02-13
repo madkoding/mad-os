@@ -110,6 +110,7 @@ jobs:
 
   # ================================================================
   # Stage 3: Build ISO (only on tags or manual trigger)
+  # Manual trigger still requires all tests to pass (via 'needs')
   # ================================================================
   build:
     name: "Build: ISO"
