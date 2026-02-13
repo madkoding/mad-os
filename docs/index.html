@@ -7,7 +7,7 @@ layout: none
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>madOS - AI-Orchestrated Arch Linux | Lightweight Linux with OpenCode</title>
-    <meta name="description" content="madOS: distribución Arch Linux optimizada para sistemas con poca RAM (1.9GB), con OpenCode integrado para orquestación inteligente. Sway, Nord theme, ~67MB RAM.">
+    <meta name="description" content="madOS: distribución Arch Linux optimizada para sistemas con poca RAM (1.9GB), con OpenCode integrado para orquestación inteligente. Sway/Hyprland, Nord theme, ~300MB RAM. USB persistente.">
 
     <!-- SEO -->
     <link rel="canonical" href="https://madkoding.github.io/mad-os/">
@@ -17,7 +17,7 @@ layout: none
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="author" content="madkoding">
     <meta name="generator" content="madOS Project">
-    <meta name="keywords" content="madOS, Arch Linux, OpenCode, AI, Linux, distribución, low RAM, lightweight, Sway, Wayland, Nord theme, AI orchestrated, operating system, open source, ZRAM, EarlyOOM, Intel Atom, GTK installer">
+    <meta name="keywords" content="madOS, Arch Linux, OpenCode, AI, Linux, distribución, low RAM, lightweight, Sway, Hyprland, Wayland, Nord theme, AI orchestrated, operating system, open source, ZRAM, EarlyOOM, Intel Atom, GTK installer, persistent USB, live USB">
     <meta name="theme-color" content="#88c0d0">
     <meta name="color-scheme" content="dark">
 
@@ -29,7 +29,7 @@ layout: none
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://madkoding.github.io/mad-os/">
     <meta property="og:title" content="madOS - AI-Orchestrated Arch Linux">
-    <meta property="og:description" content="Distribución Arch Linux optimizada para poca RAM (1.9GB) con OpenCode integrado para orquestación inteligente del sistema. Sway + Nord theme, ~67MB RAM.">
+    <meta property="og:description" content="Distribución Arch Linux optimizada para poca RAM (1.9GB) con OpenCode integrado para orquestación inteligente del sistema. Sway/Hyprland + Nord theme, ~300MB RAM. USB persistente.">
     <meta property="og:image" content="https://madkoding.github.io/mad-os/og-image.png">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
@@ -83,14 +83,15 @@ layout: none
         "featureList": [
             "OpenCode AI integration",
             "Optimized for 1.9GB RAM systems",
-            "Sway compositor with Nord theme (~67MB RAM)",
+            "Sway or Hyprland compositor with Nord theme (~300MB RAM)",
+            "Persistent USB live environment with auto-configured storage",
             "GTK graphical installer with 6 languages",
             "ZRAM and EarlyOOM memory optimization",
             "Built-in WiFi configuration",
             "UEFI and BIOS boot support",
             "Pre-installed development tools"
         ],
-        "keywords": "Arch Linux, AI, OpenCode, lightweight, low RAM, Sway, Wayland"
+        "keywords": "Arch Linux, AI, OpenCode, lightweight, low RAM, Sway, Hyprland, Wayland, persistent USB"
     }
     </script>
     <script type="application/ld+json">
@@ -175,7 +176,7 @@ layout: none
                     </div>
                     <div class="hero-stats">
                         <div class="stat">
-                            <span class="stat-value">~67<span class="stat-unit">MB</span></span>
+                            <span class="stat-value">~300<span class="stat-unit">MB</span></span>
                             <span class="stat-label" data-i18n="hero.stat.ram">Uso de RAM</span>
                         </div>
                         <div class="stat-divider"></div>
@@ -208,10 +209,10 @@ layout: none
                                 <pre class="neofetch-output">      /\        <span class="t-accent">user@madOS</span>
      /  \       <span class="t-muted">-----------</span>
     /\   \      <span class="t-label">OS:</span> madOS (Arch Linux)
-   /      \     <span class="t-label">WM:</span> Sway (Wayland)
+   /      \     <span class="t-label">WM:</span> Sway / Hyprland
   /   ,,   \    <span class="t-label">Theme:</span> Nord
  /   |  |   \   <span class="t-label">Terminal:</span> foot
-/_-''    ''-_\  <span class="t-label">RAM:</span> <span class="t-success">67MB</span> / 1.9GB</pre>
+/_-''    ''-_\  <span class="t-label">RAM:</span> <span class="t-success">300MB</span> / 1.9GB</pre>
                             </div>
                             <div class="terminal-line">
                                 <span class="t-prompt">$</span> <span class="t-cmd">sudo install-mados</span>
@@ -258,8 +259,8 @@ layout: none
                     <div class="feature-icon">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                     </div>
-                    <h3 data-i18n="feature.lightweight.title">Escritorio Ligero</h3>
-                    <p data-i18n="feature.lightweight.desc">Compositor Sway con tema Nord consume solo ~67MB de RAM para máximo rendimiento.</p>
+                    <h3 data-i18n="feature.lightweight.title">Escritorio Adaptable</h3>
+                    <p data-i18n="feature.lightweight.desc">Sway o Hyprland según tu hardware. Si hay aceleración 3D usa Hyprland, si no, Sway. Ambos con tema Nord y ~300MB de RAM.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
@@ -284,10 +285,10 @@ layout: none
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                     </div>
-                    <h3 data-i18n="feature.tuned.title">Ajustado al Máximo</h3>
-                    <p data-i18n="feature.tuned.desc">Optimizaciones de kernel, red y memoria para extraer el máximo rendimiento.</p>
+                    <h3 data-i18n="feature.persistent.title">USB Persistente</h3>
+                    <p data-i18n="feature.persistent.desc">Graba la ISO en un USB y úsala directo sin instalar. El espacio libre se autoconfigura como almacenamiento persistente.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
@@ -312,8 +313,8 @@ layout: none
         <div class="container">
             <div class="section-header">
                 <span class="section-label" data-i18n="showcase.label">Entorno</span>
-                <h2 data-i18n="showcase.title">Escritorio Sway + Nord</h2>
-                <p data-i18n="showcase.subtitle">Un escritorio Wayland minimalista y elegante, diseñado para productividad</p>
+                <h2 data-i18n="showcase.title">Escritorio Wayland + Nord</h2>
+                <p data-i18n="showcase.subtitle">Sway o Hyprland según tu hardware, con tema Nord y configuración optimizada para productividad</p>
             </div>
             <div class="showcase-preview">
                 <div class="preview-frame">
@@ -321,7 +322,7 @@ layout: none
                         <div class="preview-dots">
                             <span></span><span></span><span></span>
                         </div>
-                        <span class="preview-title">Sway — madOS Desktop</span>
+                        <span class="preview-title">Sway / Hyprland — madOS Desktop</span>
                     </div>
                     <img src="mad-os-wallpaper.jpg" alt="madOS Desktop" class="preview-image" loading="lazy">
                 </div>
@@ -332,7 +333,11 @@ layout: none
                     <div class="app-list">
                         <div class="app-item">
                             <strong>Sway</strong>
-                            <span data-i18n="apps.desktop.sway">Compositor Wayland compatible con i3</span>
+                            <span data-i18n="apps.desktop.sway">Compositor Wayland (sin aceleración 3D)</span>
+                        </div>
+                        <div class="app-item">
+                            <strong>Hyprland</strong>
+                            <span data-i18n="apps.desktop.hyprland">Compositor Wayland (con aceleración 3D)</span>
                         </div>
                         <div class="app-item">
                             <strong>Waybar</strong>
@@ -436,7 +441,7 @@ layout: none
                         </div>
                         <div>
                             <strong data-i18n="hardware.gpu">GPU</strong>
-                            <p data-i18n="hardware.gpu.desc">Intel integrada (soporte para renderizado por software)</p>
+                            <p data-i18n="hardware.gpu.desc">Con aceleración 3D: Hyprland. Sin ella: Sway (renderizado por software)</p>
                         </div>
                     </div>
                     <div class="spec-item">
@@ -467,10 +472,10 @@ layout: none
                         <div class="monitor-stat">
                             <div class="monitor-meta">
                                 <span class="monitor-label" data-i18n="hardware.monitor.ram">RAM en uso</span>
-                                <span class="monitor-value">67MB / 1.9GB</span>
+                                <span class="monitor-value">300MB / 1.9GB</span>
                             </div>
                             <div class="monitor-bar">
-                                <div class="monitor-bar-fill" style="width: 3.5%"></div>
+                                <div class="monitor-bar-fill" style="width: 15.8%"></div>
                             </div>
                         </div>
                         <div class="monitor-stat">
@@ -559,21 +564,21 @@ layout: none
                         <div class="step-number">2</div>
                         <div class="step-content">
                             <h4 data-i18n="download.step2.title">Arrancar desde USB</h4>
-                            <p data-i18n="download.step2.desc">Espera a que Sway inicie automáticamente</p>
+                            <p data-i18n="download.step2.desc">El escritorio inicia automáticamente con almacenamiento persistente</p>
                         </div>
                     </div>
                     <div class="step">
                         <div class="step-number">3</div>
                         <div class="step-content">
-                            <h4 data-i18n="download.step3.title">Ejecutar Instalador</h4>
-                            <code>sudo install-mados</code>
+                            <h4 data-i18n="download.step3.title">Usar o Instalar</h4>
+                            <p data-i18n="download.step3.desc">Usa directo desde el USB o instala con el instalador GTK</p>
                         </div>
                     </div>
                     <div class="step">
                         <div class="step-number">4</div>
                         <div class="step-content">
                             <h4 data-i18n="download.step4.title">¡Disfruta madOS!</h4>
-                            <p data-i18n="download.step4.desc">Reinicia y comienza a usar tu sistema</p>
+                            <p data-i18n="download.step4.desc">Tus cambios persisten entre reinicios en el USB</p>
                         </div>
                     </div>
                 </div>
