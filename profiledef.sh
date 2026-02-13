@@ -60,5 +60,6 @@ file_permissions=(
   ["/usr/local/bin/sway-session"]="0:0:755"
   ["/usr/local/bin/hyprland-session"]="0:0:755"
   ["/usr/local/bin/select-compositor"]="0:0:755"
+  ["/usr/local/bin/mados-logs"]="0:0:755"
   ["/usr/local/lib/mados-media-helper.sh"]="0:0:755"
 )

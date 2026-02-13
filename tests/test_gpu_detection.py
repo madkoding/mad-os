@@ -418,8 +418,12 @@ class TestLoginShellIntegration(unittest.TestCase):
         path = os.path.join(SKEL_DIR, ".bash_profile")
         with open(path) as f:
             content = f.read()
-        self.assertIn("exec Hyprland", content,
-                       ".bash_profile must exec Hyprland for 3D-capable hardware")
+        # Hyprland is launched without exec so fallback to sway works if it fails
+        self.assertIn("Hyprland", content,
+                       ".bash_profile must launch Hyprland for 3D-capable hardware")
+        # Must have fallback to sway if Hyprland fails
+        self.assertIn("Hyprland ||", content,
+                       ".bash_profile must fall back to sway if Hyprland fails")
 
     def test_zlogin_selects_compositor(self):
         """.zlogin must call select-compositor for hardware detection."""
@@ -444,21 +448,26 @@ class TestLoginShellIntegration(unittest.TestCase):
         path = os.path.join(AIROOTFS, "home", "mados", ".zlogin")
         with open(path) as f:
             content = f.read()
-        self.assertIn("exec Hyprland", content,
-                       ".zlogin must exec Hyprland for 3D-capable hardware")
+        # Hyprland is launched without exec so fallback to sway works if it fails
+        self.assertIn("Hyprland", content,
+                       ".zlogin must launch Hyprland for 3D-capable hardware")
+        # Must have fallback to sway if Hyprland fails
+        self.assertIn("Hyprland ||", content,
+                       ".zlogin must fall back to sway if Hyprland fails")
 
     def test_bash_profile_compositor_before_exec(self):
-        """.bash_profile must determine compositor before exec-ing it."""
+        """.bash_profile must determine compositor before launching it."""
         path = os.path.join(SKEL_DIR, ".bash_profile")
         with open(path) as f:
             content = f.read()
         compositor_pos = content.find("select-compositor")
         sway_pos = content.find("exec sway")
-        hyprland_pos = content.find("exec Hyprland")
+        # Hyprland is launched without exec (fallback pattern: Hyprland || { exec sway })
+        hyprland_pos = content.find("Hyprland ||")
         self.assertLess(compositor_pos, sway_pos,
                          "Compositor selection must happen before exec sway")
         self.assertLess(compositor_pos, hyprland_pos,
-                         "Compositor selection must happen before exec Hyprland")
+                         "Compositor selection must happen before launching Hyprland")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -678,6 +687,265 @@ class TestDetectionToSessionChain(unittest.TestCase):
             content = f.read()
         self.assertIn("sway-session", content,
                        "profiledef.sh must include sway-session")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Physical hardware 3D acceleration check
+# ═══════════════════════════════════════════════════════════════════════════
+class TestPhysicalHardware3DCheck(unittest.TestCase):
+    """Verify detect-legacy-hardware checks 3D acceleration on physical hardware."""
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, "detect-legacy-hardware")
+        if not os.path.isfile(self.script_path):
+            self.skipTest("detect-legacy-hardware script not found")
+        with open(self.script_path) as f:
+            self.content = f.read()
+
+    def test_checks_3d_on_physical_hardware(self):
+        """Script must check 3D acceleration on physical (non-VM) hardware."""
+        # After legacy checks, if hardware is not detected as legacy,
+        # must still verify 3D acceleration is available
+        self.assertIn(
+            "No 3D acceleration detected", self.content,
+            "Must detect and report when no 3D acceleration is available on physical hardware",
+        )
+
+    def test_physical_no_3d_returns_legacy(self):
+        """Physical hardware without 3D must be treated as legacy."""
+        # The detect_3d_acceleration function is used for physical hardware too
+        # Find the section after legacy checks but before "Modern hardware"
+        modern_pos = self.content.find("Modern hardware detected")
+        no_3d_pos = self.content.find("No 3D acceleration detected")
+        self.assertGreater(no_3d_pos, -1,
+                            "Must have 'No 3D acceleration detected' message")
+        self.assertLess(no_3d_pos, modern_pos,
+                         "3D check must come before declaring modern hardware")
+
+    def test_no_3d_simulated_selects_sway(self):
+        """When no 3D acceleration on physical hardware, select-compositor must return sway."""
+        select_path = os.path.join(BIN_DIR, "select-compositor")
+        bash_code = f"""
+# Create mock detect-legacy-hardware that returns 0 (no 3D = legacy)
+MOCK_DIR=$(mktemp -d)
+cat > "$MOCK_DIR/detect-legacy-hardware" << 'SCRIPT'
+#!/bin/bash
+echo "No 3D acceleration detected"
+exit 0
+SCRIPT
+chmod +x "$MOCK_DIR/detect-legacy-hardware"
+
+sed 's|/usr/local/bin/detect-legacy-hardware|'"$MOCK_DIR"'/detect-legacy-hardware|g' \
+    "{select_path}" > "$MOCK_DIR/select-compositor"
+chmod +x "$MOCK_DIR/select-compositor"
+bash "$MOCK_DIR/select-compositor"
+rm -rf "$MOCK_DIR"
+"""
+        result = subprocess.run(
+            ["bash", "-c", bash_code],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(result.stdout.strip(), "sway",
+                          "Physical hardware without 3D must select sway")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Hyprland fallback mechanism
+# ═══════════════════════════════════════════════════════════════════════════
+class TestHyprlandFallback(unittest.TestCase):
+    """Verify that if Hyprland fails, the system falls back to Sway."""
+
+    def test_bash_profile_has_hyprland_fallback(self):
+        """.bash_profile must have fallback to sway if Hyprland fails."""
+        path = os.path.join(SKEL_DIR, ".bash_profile")
+        with open(path) as f:
+            content = f.read()
+        # Must use Hyprland || { ... exec sway } pattern
+        self.assertIn("Hyprland ||", content,
+                       ".bash_profile must try Hyprland with fallback operator")
+        # Fallback block must set software rendering and exec sway
+        fallback_pos = content.find("Hyprland ||")
+        after_fallback = content[fallback_pos:]
+        self.assertIn("exec sway", after_fallback,
+                       "Fallback block must exec sway")
+        self.assertIn("WLR_RENDERER=pixman", after_fallback,
+                       "Fallback block must set pixman renderer")
+
+    def test_zlogin_has_hyprland_fallback(self):
+        """.zlogin must have fallback to sway if Hyprland fails."""
+        path = os.path.join(AIROOTFS, "home", "mados", ".zlogin")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("Hyprland ||", content,
+                       ".zlogin must try Hyprland with fallback operator")
+        fallback_pos = content.find("Hyprland ||")
+        after_fallback = content[fallback_pos:]
+        self.assertIn("exec sway", after_fallback,
+                       "Fallback block must exec sway")
+        self.assertIn("WLR_RENDERER=pixman", after_fallback,
+                       "Fallback block must set pixman renderer")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Session logging
+# ═══════════════════════════════════════════════════════════════════════════
+class TestSessionLogging(unittest.TestCase):
+    """Verify that compositor selection and session launch are logged."""
+
+    def test_bash_profile_logs_compositor_selection(self):
+        """.bash_profile must log compositor selection via logger."""
+        path = os.path.join(SKEL_DIR, ".bash_profile")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("logger", content,
+                       ".bash_profile must use logger for session logging")
+        self.assertIn("mados-session", content,
+                       ".bash_profile must log with mados-session tag")
+
+    def test_zlogin_logs_compositor_selection(self):
+        """.zlogin must log compositor selection via logger."""
+        path = os.path.join(AIROOTFS, "home", "mados", ".zlogin")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("logger", content,
+                       ".zlogin must use logger for session logging")
+        self.assertIn("mados-session", content,
+                       ".zlogin must log with mados-session tag")
+
+    def test_select_compositor_logs(self):
+        """select-compositor must log its decisions."""
+        path = os.path.join(BIN_DIR, "select-compositor")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("logger", content,
+                       "select-compositor must use logger")
+        self.assertIn("mados-compositor", content,
+                       "select-compositor must log with mados-compositor tag")
+
+    def test_sway_session_logs(self):
+        """sway-session must log its launch."""
+        path = os.path.join(BIN_DIR, "sway-session")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("logger", content,
+                       "sway-session must use logger")
+        self.assertIn("mados-sway", content,
+                       "sway-session must log with mados-sway tag")
+
+    def test_hyprland_session_logs(self):
+        """hyprland-session must log its launch."""
+        path = os.path.join(BIN_DIR, "hyprland-session")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("logger", content,
+                       "hyprland-session must use logger")
+        self.assertIn("mados-hyprland", content,
+                       "hyprland-session must log with mados-hyprland tag")
+
+    def test_hyprland_fallback_logs_warning(self):
+        """.bash_profile must log a warning when Hyprland fails."""
+        path = os.path.join(SKEL_DIR, ".bash_profile")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("user.warning", content,
+                       ".bash_profile must log warning level when Hyprland fails")
+        self.assertIn("Hyprland failed", content,
+                       ".bash_profile must log Hyprland failure message")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Global logging configuration
+# ═══════════════════════════════════════════════════════════════════════════
+class TestGlobalLogging(unittest.TestCase):
+    """Verify journald is configured for warnings/errors with size limits."""
+
+    def setUp(self):
+        self.journald_conf = os.path.join(
+            AIROOTFS, "etc", "systemd", "journald.conf.d", "volatile-storage.conf"
+        )
+        if not os.path.isfile(self.journald_conf):
+            self.skipTest("journald config not found")
+        with open(self.journald_conf) as f:
+            self.content = f.read()
+
+    def test_volatile_storage(self):
+        """Journal must use volatile (RAM) storage."""
+        self.assertIn("Storage=volatile", self.content,
+                       "Journal must use volatile storage")
+
+    def test_max_level_warning(self):
+        """Journal must only store warnings and errors (MaxLevelStore=warning)."""
+        self.assertIn("MaxLevelStore=warning", self.content,
+                       "Journal must limit stored log level to warning")
+
+    def test_runtime_size_limit(self):
+        """Journal must have size limits to prevent RAM exhaustion."""
+        self.assertIn("RuntimeMaxUse=", self.content,
+                       "Journal must set RuntimeMaxUse size limit")
+
+    def test_runtime_keep_free(self):
+        """Journal must keep free RAM available."""
+        self.assertIn("RuntimeKeepFree=", self.content,
+                       "Journal must set RuntimeKeepFree")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# mados-logs convenience script
+# ═══════════════════════════════════════════════════════════════════════════
+class TestMadosLogsScript(unittest.TestCase):
+    """Verify the mados-logs convenience script for accessing system logs."""
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, "mados-logs")
+        if not os.path.isfile(self.script_path):
+            self.skipTest("mados-logs script not found")
+        with open(self.script_path) as f:
+            self.content = f.read()
+
+    def test_script_exists(self):
+        """mados-logs must exist."""
+        self.assertTrue(os.path.isfile(self.script_path))
+
+    def test_valid_bash_syntax(self):
+        """mados-logs must have valid bash syntax."""
+        result = subprocess.run(
+            ["bash", "-n", self.script_path],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(
+            result.returncode, 0,
+            f"Bash syntax error: {result.stderr}",
+        )
+
+    def test_uses_journalctl(self):
+        """mados-logs must use journalctl to access logs."""
+        self.assertIn("journalctl", self.content,
+                       "mados-logs must use journalctl")
+
+    def test_filters_warning_level(self):
+        """mados-logs must filter for warnings and errors by default."""
+        self.assertIn("-p warning", self.content,
+                       "mados-logs must filter by priority warning")
+
+    def test_has_follow_mode(self):
+        """mados-logs must support real-time log following."""
+        self.assertIn("-f", self.content,
+                       "mados-logs must support follow mode")
+
+    def test_has_compositor_filter(self):
+        """mados-logs must support filtering compositor-related logs."""
+        self.assertIn("--compositor", self.content,
+                       "mados-logs must support compositor log filter")
+        self.assertIn("mados-session", self.content,
+                       "mados-logs must filter for mados-session tag")
+
+    def test_profiledef_includes_mados_logs(self):
+        """profiledef.sh must set permissions for mados-logs."""
+        profiledef = os.path.join(REPO_DIR, "profiledef.sh")
+        with open(profiledef) as f:
+            content = f.read()
+        self.assertIn("mados-logs", content,
+                       "profiledef.sh must include mados-logs")
 
 
 if __name__ == "__main__":

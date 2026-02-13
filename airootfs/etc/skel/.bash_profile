@@ -20,6 +20,7 @@ if [ -z "$WAYLAND_DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
       # Software rendering: use Sway with pixman renderer
       export XDG_CURRENT_DESKTOP=sway
       echo "Software rendering enabled - using Sway"
+      logger -p user.info -t mados-session "Compositor selected: sway (software rendering)"
       export WLR_RENDERER=pixman
       export WLR_NO_HARDWARE_CURSORS=1
       export LIBGL_ALWAYS_SOFTWARE=1
@@ -39,6 +40,22 @@ if [ -z "$WAYLAND_DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
       # Hardware rendering: use Hyprland
       export XDG_CURRENT_DESKTOP=Hyprland
       echo "Hardware rendering enabled - using Hyprland"
-      exec Hyprland
+      logger -p user.info -t mados-session "Compositor selected: hyprland (hardware rendering)"
+      # Try Hyprland, fall back to Sway if it fails
+      Hyprland || {
+          logger -p user.warning -t mados-session "Hyprland failed, falling back to Sway"
+          echo "Hyprland failed - falling back to Sway with software rendering"
+          export XDG_CURRENT_DESKTOP=sway
+          export WLR_RENDERER=pixman
+          export WLR_NO_HARDWARE_CURSORS=1
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export MESA_GL_VERSION_OVERRIDE=3.3
+          export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:-} --disable-gpu"
+          if systemd-detect-virt --vm --quiet 2>/dev/null; then
+              export WLR_DRM_NO_ATOMIC=1
+              export WLR_DRM_NO_MODIFIERS=1
+          fi
+          exec sway
+      }
   fi
 fi

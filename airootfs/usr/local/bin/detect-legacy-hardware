@@ -207,6 +207,13 @@ main() {
         return 0
     fi
     
+    # Verificar aceleración 3D en hardware físico (no solo en VMs)
+    # Si no hay aceleración 3D disponible, tratar como legacy
+    if ! detect_3d_acceleration; then
+        echo "No 3D acceleration detected"
+        return 0
+    fi
+    
     # Hardware moderno
     echo "Modern hardware detected"
     return 1
