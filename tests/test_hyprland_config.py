@@ -174,13 +174,18 @@ class TestHyprlandKeywords(unittest.TestCase):
                 )
 
     def test_no_windowrulev2_used(self):
-        """windowrulev2 is deprecated; windowrule should be used instead."""
+        """windowrulev2 is deprecated since Hyprland 0.53; windowrule should be used.
+
+        Starting with Hyprland 0.53 (current in Arch repos), the config
+        system was rewritten and windowrulev2 was removed.  All window
+        rules must now use the unified 'windowrule' keyword.
+        """
         content = _read_config()
         clean = re.sub(r'#.*$', '', content, flags=re.MULTILINE)
         self.assertNotIn(
             "windowrulev2",
             clean,
-            "windowrulev2 is deprecated – use windowrule instead",
+            "windowrulev2 is deprecated since Hyprland 0.53 – use windowrule instead",
         )
 
 
@@ -249,7 +254,7 @@ class TestHyprlandVariables(unittest.TestCase):
 class TestHyprlandBindSyntax(unittest.TestCase):
     """Verify keybindings use correct syntax."""
 
-    VALID_BIND_TYPES = {"bind", "binde", "bindel", "bindm", "bindr", "bindl", "bindn"}
+    VALID_BIND_TYPES = {"bind", "binde", "bindel", "bindm", "bindr", "bindl", "bindn", "bindrl"}
 
     def _get_bind_lines(self):
         """Return all bind lines from the config."""
