@@ -56,6 +56,8 @@ jobs:
             test_file: tests/test_boot_scripts.py
           - name: Post-Installation
             test_file: tests/test_post_installation.py
+          - name: First-Boot
+            test_file: tests/test_first_boot.py
           - name: OpenCode
             test_file: tests/test_opencode.py
           - name: Ollama
@@ -101,13 +103,28 @@ jobs:
             -v ${{ github.workspace }}:/build \
             ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-liveusb-persistence.sh
 
+  test-first-boot-simulation:
+    name: "Tests: First-Boot Simulation"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test first-boot script generation and validation
+        run: |
+          docker run --privileged --rm \
+            --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
+            -v ${{ github.workspace }}:/build \
+            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-first-boot-simulation.sh
+
   # ================================================================
   # Stage 2: Installer Validation (after all tests pass)
   # Split into three parallel sub-jobs for faster feedback.
   # ================================================================
   test-installer-python:
     name: "Validate: Installer Python Modules"
-    needs: [test-scripts, test-persistence]
+    needs: [test-scripts, test-persistence, test-first-boot-simulation]
     runs-on: ubuntu-latest
 
     steps:
@@ -123,7 +140,7 @@ jobs:
 
   test-installer-config:
     name: "Validate: Installer Config Script"
-    needs: [test-scripts, test-persistence]
+    needs: [test-scripts, test-persistence, test-first-boot-simulation]
     runs-on: ubuntu-latest
 
     steps:
@@ -139,7 +156,7 @@ jobs:
 
   test-installer-disk:
     name: "Validate: Installer Disk Install"
-    needs: [test-scripts, test-persistence]
+    needs: [test-scripts, test-persistence, test-first-boot-simulation]
     runs-on: ubuntu-latest
 
     steps:

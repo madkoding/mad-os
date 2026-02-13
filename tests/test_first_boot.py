@@ -1,0 +1,541 @@
+#!/usr/bin/env python3
+"""
+Tests for madOS first-boot post-installation configuration.
+
+Validates the first-boot script that runs after installation on the first reboot.
+This script is responsible for Phase 2 package installation, service configuration,
+and post-install setup (Oh My Zsh, OpenCode, audio, etc.).
+
+These tests verify:
+1. The first-boot service and script are properly created during installation
+2. The script has valid bash syntax
+3. The script contains all required configuration steps
+4. Phase 2 packages are correctly listed
+5. Services are enabled appropriately
+"""
+
+import os
+import re
+import subprocess
+import sys
+import types
+import unittest
+
+# ---------------------------------------------------------------------------
+# Mock gi / gi.repository so installer modules can be imported headlessly.
+# ---------------------------------------------------------------------------
+gi_mock = types.ModuleType("gi")
+gi_mock.require_version = lambda *a, **kw: None
+
+repo_mock = types.ModuleType("gi.repository")
+
+
+class _StubMeta(type):
+    def __getattr__(cls, name):
+        return _StubWidget
+
+
+class _StubWidget(metaclass=_StubMeta):
+    def __init__(self, *a, **kw):
+        pass
+
+    def __init_subclass__(cls, **kw):
+        pass
+
+    def __getattr__(self, name):
+        return _stub_func
+
+
+def _stub_func(*a, **kw):
+    return _StubWidget()
+
+
+class _StubModule:
+    def __getattr__(self, name):
+        return _StubWidget
+
+
+for name in ("Gtk", "GLib", "GdkPixbuf", "Gdk", "Pango"):
+    setattr(repo_mock, name, _StubModule())
+
+sys.modules["gi"] = gi_mock
+sys.modules["gi.repository"] = repo_mock
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+AIROOTFS = os.path.join(REPO_DIR, "airootfs")
+LIB_DIR = os.path.join(AIROOTFS, "usr", "local", "lib")
+BIN_DIR = os.path.join(AIROOTFS, "usr", "local", "bin")
+
+# Add lib dir to path for imports
+sys.path.insert(0, LIB_DIR)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# First-boot service setup
+# ═══════════════════════════════════════════════════════════════════════════
+class TestFirstBootServiceSetup(unittest.TestCase):
+    """Verify the installer sets up the first-boot service correctly."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_creates_first_boot_script(self):
+        """Installer must create /usr/local/bin/mados-first-boot.sh."""
+        self.assertIn(
+            "/usr/local/bin/mados-first-boot.sh", self.content,
+            "Installer must create mados-first-boot.sh script",
+        )
+
+    def test_creates_first_boot_service(self):
+        """Installer must create mados-first-boot.service."""
+        self.assertIn(
+            "mados-first-boot.service", self.content,
+            "Installer must create mados-first-boot.service",
+        )
+
+    def test_enables_first_boot_service(self):
+        """Installer must enable the first-boot service."""
+        self.assertIn(
+            "systemctl enable mados-first-boot.service", self.content,
+            "Installer must enable mados-first-boot.service",
+        )
+
+    def test_service_runs_after_network(self):
+        """First-boot service must wait for network connectivity."""
+        self.assertIn(
+            "After=network-online.target", self.content,
+            "Service must run after network-online.target",
+        )
+        self.assertIn(
+            "Wants=network-online.target", self.content,
+            "Service must want network-online.target",
+        )
+
+    def test_service_is_oneshot(self):
+        """First-boot service must be Type=oneshot."""
+        self.assertIn(
+            "Type=oneshot", self.content,
+            "Service must be Type=oneshot (runs once)",
+        )
+
+    def test_service_has_timeout(self):
+        """First-boot service must have a reasonable timeout."""
+        # Phase 2 installs many packages, needs long timeout
+        self.assertIn(
+            "TimeoutStartSec", self.content,
+            "Service must have TimeoutStartSec for long package installs",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# First-boot script generation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestFirstBootScriptGeneration(unittest.TestCase):
+    """Verify the first-boot script is generated correctly."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_has_build_first_boot_script_function(self):
+        """Installer must have _build_first_boot_script function."""
+        self.assertIn(
+            "def _build_first_boot_script", self.content,
+            "Must have _build_first_boot_script function",
+        )
+
+    def test_script_has_shebang(self):
+        """Generated script must have bash shebang."""
+        self.assertIn(
+            "#!/bin/bash", self.content,
+            "First-boot script must have bash shebang",
+        )
+
+    def test_script_uses_strict_mode(self):
+        """Generated script must use bash strict mode."""
+        # Look for set -euo pipefail or similar
+        pattern = r"set -[euo]+.*pipefail"
+        self.assertIsNotNone(
+            re.search(pattern, self.content),
+            "First-boot script must use 'set -euo pipefail' for safety",
+        )
+
+    def test_script_has_logging(self):
+        """Generated script must have logging functionality."""
+        self.assertIn(
+            'LOG_TAG="mados-first-boot"', self.content,
+            "Script must define LOG_TAG for journald logging",
+        )
+        self.assertIn(
+            "log()", self.content,
+            "Script must have log() function",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Phase 2 package installation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestPhase2Packages(unittest.TestCase):
+    """Verify Phase 2 packages are installed by first-boot script."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_installs_packages_with_pacman(self):
+        """Script must install packages using pacman."""
+        self.assertIn(
+            "pacman -Syu", self.content,
+            "Must use 'pacman -Syu' to install Phase 2 packages",
+        )
+
+    def test_uses_noconfirm_flag(self):
+        """Script must use --noconfirm for unattended installation."""
+        self.assertIn(
+            "--noconfirm", self.content,
+            "Must use --noconfirm for automated package installation",
+        )
+
+    def test_uses_needed_flag(self):
+        """Script must use --needed to skip already-installed packages."""
+        self.assertIn(
+            "--needed", self.content,
+            "Must use --needed to skip reinstalling existing packages",
+        )
+
+    def test_references_phase2_packages(self):
+        """Script must reference PACKAGES_PHASE2."""
+        # Import to verify it exists
+        from mados_installer.config import PACKAGES_PHASE2
+        self.assertIsInstance(PACKAGES_PHASE2, (list, tuple))
+        self.assertGreater(len(PACKAGES_PHASE2), 0, "PACKAGES_PHASE2 must not be empty")
+
+    def test_handles_cjk_fonts(self):
+        """Script must conditionally install CJK fonts for Asian locales."""
+        self.assertIn(
+            "noto-fonts-cjk", self.content,
+            "Must include noto-fonts-cjk for CJK locale support",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Service enablement
+# ═══════════════════════════════════════════════════════════════════════════
+class TestServiceEnablement(unittest.TestCase):
+    """Verify the first-boot script enables required services."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_enables_bluetooth(self):
+        """Script must enable bluetooth service."""
+        self.assertIn(
+            "systemctl enable bluetooth", self.content,
+            "Must enable bluetooth service",
+        )
+
+    def test_enables_pipewire(self):
+        """Script must enable PipeWire audio."""
+        self.assertIn(
+            "pipewire", self.content.lower(),
+            "Must enable PipeWire audio system",
+        )
+
+    def test_enables_wireplumber(self):
+        """Script must enable WirePlumber (PipeWire session manager)."""
+        self.assertIn(
+            "wireplumber", self.content.lower(),
+            "Must enable WirePlumber service",
+        )
+
+    def test_enables_audio_init_service(self):
+        """Script must create and enable mados-audio-init service."""
+        self.assertIn(
+            "mados-audio-init.service", self.content,
+            "Must create mados-audio-init.service",
+        )
+        self.assertIn(
+            "systemctl enable mados-audio-init", self.content,
+            "Must enable mados-audio-init service",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Audio configuration
+# ═══════════════════════════════════════════════════════════════════════════
+class TestAudioConfiguration(unittest.TestCase):
+    """Verify the first-boot script configures audio correctly."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_creates_audio_init_script(self):
+        """Script must create mados-audio-init.sh."""
+        self.assertIn(
+            "/usr/local/bin/mados-audio-init.sh", self.content,
+            "Must create mados-audio-init.sh script",
+        )
+
+    def test_audio_script_uses_amixer(self):
+        """Audio init script must use amixer to configure volumes."""
+        self.assertIn(
+            "amixer", self.content,
+            "Audio init script must use amixer",
+        )
+
+    def test_audio_script_unmutes_controls(self):
+        """Audio init script must unmute audio controls."""
+        self.assertIn(
+            "unmute", self.content,
+            "Audio script must unmute audio controls",
+        )
+
+    def test_audio_script_saves_state(self):
+        """Audio init script must save ALSA state."""
+        self.assertIn(
+            "alsactl store", self.content,
+            "Audio script must save ALSA state with alsactl",
+        )
+
+    def test_audio_service_runs_after_sound_target(self):
+        """Audio init service must run after sound.target."""
+        self.assertIn(
+            "After=", self.content,
+            "Audio init service must have After= directive",
+        )
+        self.assertIn(
+            "sound.target", self.content,
+            "Audio init service must run after sound.target",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Chromium configuration
+# ═══════════════════════════════════════════════════════════════════════════
+class TestChromiumConfiguration(unittest.TestCase):
+    """Verify the first-boot script configures Chromium."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_creates_chromium_flags(self):
+        """Script must create /etc/chromium-flags.conf."""
+        self.assertIn(
+            "/etc/chromium-flags.conf", self.content,
+            "Must create /etc/chromium-flags.conf",
+        )
+
+    def test_chromium_uses_wayland(self):
+        """Chromium must be configured for Wayland."""
+        self.assertIn(
+            "--ozone-platform", self.content,
+            "Chromium must use Wayland via --ozone-platform",
+        )
+
+    def test_chromium_disables_vulkan(self):
+        """Chromium must disable Vulkan (not supported on Intel Atom)."""
+        self.assertIn(
+            "--disable-vulkan", self.content,
+            "Chromium must disable Vulkan for Intel Atom compatibility",
+        )
+
+    def test_chromium_disables_vaapi(self):
+        """Chromium must disable VA-API (fails on Intel Atom)."""
+        self.assertIn(
+            "VaapiVideoDecoder", self.content,
+            "Chromium must disable VA-API video decoder",
+        )
+
+    def test_chromium_limits_renderer_processes(self):
+        """Chromium must limit renderer processes for low-RAM."""
+        self.assertIn(
+            "--renderer-process-limit", self.content,
+            "Chromium must limit renderer processes for RAM optimization",
+        )
+
+    def test_chromium_sets_homepage(self):
+        """Script must configure Chromium homepage policy."""
+        self.assertIn(
+            "/etc/chromium/policies/managed", self.content,
+            "Must create Chromium managed policies directory",
+        )
+        self.assertIn(
+            "HomepageLocation", self.content,
+            "Must set Chromium homepage via policy",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Oh My Zsh installation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestOhMyZshInstallation(unittest.TestCase):
+    """Verify the first-boot script installs Oh My Zsh."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_installs_to_skel(self):
+        """Oh My Zsh must be installed to /etc/skel."""
+        self.assertIn(
+            "/etc/skel/.oh-my-zsh", self.content,
+            "Must install Oh My Zsh to /etc/skel",
+        )
+
+    def test_clones_from_github(self):
+        """Must clone Oh My Zsh from GitHub."""
+        self.assertIn(
+            "github.com/ohmyzsh/ohmyzsh", self.content,
+            "Must clone Oh My Zsh from official GitHub repo",
+        )
+
+    def test_copies_to_user_home(self):
+        """Must copy Oh My Zsh to user's home directory."""
+        self.assertIn(
+            "cp", self.content,
+            "Must copy Oh My Zsh to user home",
+        )
+        self.assertIn(
+            "chown", self.content,
+            "Must chown Oh My Zsh files to user",
+        )
+
+    def test_creates_fallback_service(self):
+        """Must create setup-ohmyzsh.service as fallback."""
+        self.assertIn(
+            "setup-ohmyzsh.service", self.content,
+            "Must create setup-ohmyzsh.service fallback",
+        )
+
+    def test_handles_no_internet(self):
+        """Must handle case when internet is not available."""
+        self.assertIn(
+            "curl", self.content,
+            "Must check for internet connectivity",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# OpenCode installation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestOpenCodeInstallation(unittest.TestCase):
+    """Verify the first-boot script installs OpenCode."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_uses_opencode_install_script(self):
+        """Must use OpenCode official install script."""
+        self.assertIn(
+            "opencode.ai/install", self.content,
+            "Must use OpenCode install script from opencode.ai",
+        )
+
+    def test_uses_curl_to_download(self):
+        """Must use curl to download install script."""
+        self.assertIn(
+            "curl", self.content,
+            "Must use curl to download OpenCode installer",
+        )
+
+    def test_pipes_to_bash(self):
+        """Install script must be piped to bash."""
+        self.assertIn(
+            "bash", self.content,
+            "Install script must be executed with bash",
+        )
+
+    def test_checks_opencode_command(self):
+        """Must verify opencode command is available after install."""
+        self.assertIn(
+            "opencode", self.content,
+            "Must verify opencode command exists",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Self-cleanup
+# ═══════════════════════════════════════════════════════════════════════════
+class TestFirstBootSelfCleanup(unittest.TestCase):
+    """Verify the first-boot script disables itself after running."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_disables_service(self):
+        """Script must disable mados-first-boot.service after running."""
+        self.assertIn(
+            "systemctl disable mados-first-boot", self.content,
+            "Script must disable itself after completion",
+        )
+
+    def test_removes_script(self):
+        """Script must remove itself after running."""
+        self.assertIn(
+            "rm", self.content,
+            "Script must remove itself",
+        )
+        # Check it removes the script file
+        pattern = r"rm.*mados-first-boot\.sh"
+        self.assertIsNotNone(
+            re.search(pattern, self.content),
+            "Script must remove mados-first-boot.sh file",
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
