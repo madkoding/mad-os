@@ -6,14 +6,18 @@
 select_compositor() {
     # Check if detect-legacy-hardware script exists and run it
     if [ -x /usr/local/bin/detect-legacy-hardware ]; then
+        local detect_output
+        detect_output=$(/usr/local/bin/detect-legacy-hardware 2>&1)
         if /usr/local/bin/detect-legacy-hardware >/dev/null 2>&1; then
             # Legacy hardware detected: use Sway (better software rendering support via wlroots/pixman)
+            logger -p user.info -t mados-compositor "Legacy hardware detected: $detect_output - selecting sway"
             echo "sway"
             return
         fi
     else
         # Fallback: if no detection script, check for VM or nomodeset
         if systemd-detect-virt --vm --quiet 2>/dev/null || grep -q 'nomodeset' /proc/cmdline 2>/dev/null; then
+            logger -p user.info -t mados-compositor "Fallback detection (VM/nomodeset) - selecting sway"
             echo "sway"
             return
         fi
@@ -22,8 +26,10 @@ select_compositor() {
     # Modern hardware: use Hyprland (GPU-accelerated compositor)
     # Verify Hyprland is installed, fall back to Sway if not
     if command -v Hyprland >/dev/null 2>&1; then
+        logger -p user.info -t mados-compositor "Modern hardware detected - selecting hyprland"
         echo "hyprland"
     else
+        logger -p user.warning -t mados-compositor "Hyprland not found - falling back to sway"
         echo "sway"
     fi
 }

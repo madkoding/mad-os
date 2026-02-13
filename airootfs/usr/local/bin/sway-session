@@ -14,6 +14,7 @@ if [ -x /usr/local/bin/detect-legacy-hardware ]; then
         export MESA_GL_VERSION_OVERRIDE=3.3
         # Chromium: force software rendering on legacy hardware
         export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:-} --disable-gpu"
+        logger -p user.info -t mados-sway "Starting sway with software rendering (pixman)"
     fi
 else
     if systemd-detect-virt --vm --quiet 2>/dev/null; then
@@ -23,6 +24,7 @@ else
         export MESA_GL_VERSION_OVERRIDE=3.3
         # Chromium: force software rendering in VMs without 3D
         export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:-} --disable-gpu"
+        logger -p user.info -t mados-sway "Starting sway with software rendering (VM fallback)"
     fi
 fi
 
@@ -33,4 +35,5 @@ if systemd-detect-virt --vm --quiet 2>/dev/null; then
     export WLR_NO_HARDWARE_CURSORS=1
 fi
 
+logger -p user.info -t mados-sway "Launching sway compositor"
 exec sway

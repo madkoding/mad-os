@@ -1,0 +1,33 @@
+#!/bin/bash
+# mados-logs - Easy access to madOS system warnings and errors
+# Usage: mados-logs [options]
+#   mados-logs          - Show recent warnings and errors
+#   mados-logs -f       - Follow log in real time
+#   mados-logs -a       - Show all log entries (not just warnings/errors)
+#   mados-logs --compositor - Show compositor-related logs only
+
+case "${1:-}" in
+    -f|--follow)
+        journalctl -p warning --no-pager -f
+        ;;
+    -a|--all)
+        journalctl --no-pager -b
+        ;;
+    --compositor)
+        journalctl -t mados-session -t mados-compositor -t mados-sway -t mados-hyprland --no-pager -b
+        ;;
+    -h|--help)
+        echo "madOS Log Viewer"
+        echo "Usage: mados-logs [option]"
+        echo ""
+        echo "Options:"
+        echo "  (none)        Show recent warnings and errors"
+        echo "  -f, --follow  Follow log in real time"
+        echo "  -a, --all     Show all log entries"
+        echo "  --compositor  Show compositor-related logs only"
+        echo "  -h, --help    Show this help"
+        ;;
+    *)
+        journalctl -p warning --no-pager -b
+        ;;
+esac

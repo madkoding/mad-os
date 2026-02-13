@@ -519,8 +519,9 @@ class TestCompositorSelection(unittest.TestCase):
             content = f.read()
         self.assertIn("exec sway", content,
                        ".bash_profile must exec sway for software rendering")
-        self.assertIn("exec Hyprland", content,
-                       ".bash_profile must exec Hyprland for hardware rendering")
+        # Hyprland is launched without exec so fallback to sway works if it fails
+        self.assertIn("Hyprland ||", content,
+                       ".bash_profile must launch Hyprland with fallback for hardware rendering")
 
     def test_zlogin_uses_select_compositor(self):
         """zlogin should use select-compositor for dynamic selection."""
