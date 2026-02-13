@@ -112,25 +112,28 @@ layout: none
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="translations.js"></script>
 </head>
 <body>
     <!-- Navigation -->
     <nav class="navbar">
         <div class="container">
-            <div class="nav-brand">
+            <a href="#" class="nav-brand">
                 <img src="mados-logo.png" alt="madOS" class="logo-img">
-            </div>
+            </a>
             <ul class="nav-menu">
                 <li><a href="#features" data-i18n="nav.features">Características</a></li>
-                <li><a href="#installers" data-i18n="nav.installers">Instaladores</a></li>
+                <li><a href="#showcase" data-i18n="nav.showcase">Escritorio</a></li>
                 <li><a href="#hardware" data-i18n="nav.hardware">Hardware</a></li>
                 <li><a href="#download" data-i18n="nav.download">Descargar</a></li>
-                <li><a href="https://github.com/madkoding/mad-os" target="_blank" class="btn-github">GitHub</a></li>
+                <li><a href="https://github.com/madkoding/mad-os" target="_blank" rel="noopener" class="nav-github">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    <span>GitHub</span>
+                </a></li>
                 <li class="lang-selector">
-                    <button class="lang-option active" data-lang="es" title="Español">🇪🇸</button>
-                    <button class="lang-option" data-lang="en" title="English">🇬🇧</button>
+                    <button class="lang-option active" data-lang="es" title="Español">ES</button>
+                    <button class="lang-option" data-lang="en" title="English">EN</button>
                 </li>
             </ul>
             <button class="mobile-menu-toggle" aria-label="Toggle menu">
@@ -143,64 +146,85 @@ layout: none
 
     <!-- Hero Section -->
     <section class="hero">
+        <div class="hero-glow"></div>
         <div class="container">
-            <div class="hero-content">
-                <div class="hero-badge" data-i18n="hero.badge">🤖 Powered by OpenCode</div>
-                <h1 class="hero-title">
-                    <img src="mados-logo.png" alt="madOS" class="hero-logo">
-                    <span class="hero-subtitle-text" data-i18n="hero.title">AI-Orchestrated Arch Linux</span>
-                </h1>
-                <p class="hero-subtitle" data-i18n="hero.subtitle">
-                    Una distribución Arch Linux optimizada para sistemas con poca RAM, 
-                    con inteligencia artificial integrada para gestión inteligente del sistema.
-                </p>
-                <div class="hero-cta">
-                    <a href="#download" class="btn btn-primary">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                        <span data-i18n="hero.download">Descargar madOS</span>
-                    </a>
-                    <a href="https://github.com/madkoding/mad-os" target="_blank" class="btn btn-secondary">
-                        <span data-i18n="hero.github">Ver en GitHub</span>
-                    </a>
+            <div class="hero-grid">
+                <div class="hero-content">
+                    <div class="hero-badge" data-i18n="hero.badge">Powered by OpenCode</div>
+                    <h1 class="hero-title">
+                        <img src="mados-logo.png" alt="madOS" class="hero-logo">
+                    </h1>
+                    <p class="hero-tagline" data-i18n="hero.title">AI-Orchestrated Arch Linux</p>
+                    <p class="hero-subtitle" data-i18n="hero.subtitle">
+                        Una distribución Arch Linux optimizada para sistemas con poca RAM,
+                        con inteligencia artificial integrada para gestión inteligente del sistema.
+                    </p>
+                    <div class="hero-cta">
+                        <a href="#download" class="btn btn-primary">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            <span data-i18n="hero.download">Descargar madOS</span>
+                        </a>
+                        <a href="https://github.com/madkoding/mad-os" target="_blank" rel="noopener" class="btn btn-outline">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                            <span data-i18n="hero.github">Ver en GitHub</span>
+                        </a>
+                    </div>
+                    <div class="hero-stats">
+                        <div class="stat">
+                            <span class="stat-value">~67<span class="stat-unit">MB</span></span>
+                            <span class="stat-label" data-i18n="hero.stat.ram">Uso de RAM</span>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat">
+                            <span class="stat-value">1.9<span class="stat-unit">GB</span></span>
+                            <span class="stat-label" data-i18n="hero.stat.minram">RAM mínima</span>
+                        </div>
+                        <div class="stat-divider"></div>
+                        <div class="stat">
+                            <span class="stat-value">100<span class="stat-unit">%</span></span>
+                            <span class="stat-label" data-i18n="hero.stat.opensource">Open Source</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="hero-stats">
-                    <div class="stat">
-                        <span class="stat-value">~67MB</span>
-                        <span class="stat-label" data-i18n="hero.stat.ram">Uso de RAM</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-value">1.9GB</span>
-                        <span class="stat-label" data-i18n="hero.stat.minram">RAM mínima</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-value">100%</span>
-                        <span class="stat-label" data-i18n="hero.stat.opensource">Open Source</span>
-                    </div>
-                </div>
-            </div>
-            <div class="hero-visual">
-                <div class="terminal-window">
-                    <div class="terminal-header">
-                        <span class="terminal-dot"></span>
-                        <span class="terminal-dot"></span>
-                        <span class="terminal-dot"></span>
-                        <span class="terminal-title">madOS Terminal</span>
-                    </div>
-                    <div class="terminal-body">
-                        <pre><code><span class="terminal-prompt">$</span> <span class="terminal-command">sudo install-mados</span>
-<span class="terminal-output">╔══════════════════════════════════════╗
-║    madOS Installation Manager        ║
-╚══════════════════════════════════════╝
-
-<span class="terminal-success">✓</span> Detecting environment...
-<span class="terminal-success">✓</span> Starting GTK installer
-<span class="terminal-success">✓</span> AI optimization enabled
-
-<span class="terminal-info">→ Ready to install madOS!</span></span></code></pre>
+                <div class="hero-visual">
+                    <div class="terminal-window">
+                        <div class="terminal-header">
+                            <div class="terminal-dots">
+                                <span class="dot dot-red"></span>
+                                <span class="dot dot-yellow"></span>
+                                <span class="dot dot-green"></span>
+                            </div>
+                            <span class="terminal-title">foot ~ madOS</span>
+                        </div>
+                        <div class="terminal-body" id="terminal">
+                            <div class="terminal-line">
+                                <span class="t-prompt">$</span> <span class="t-cmd">neofetch</span>
+                            </div>
+                            <div class="terminal-line t-output">
+                                <pre class="neofetch-output">      /\        <span class="t-accent">user@madOS</span>
+     /  \       <span class="t-muted">-----------</span>
+    /\   \      <span class="t-label">OS:</span> madOS (Arch Linux)
+   /      \     <span class="t-label">WM:</span> Sway (Wayland)
+  /   ,,   \    <span class="t-label">Theme:</span> Nord
+ /   |  |   \   <span class="t-label">Terminal:</span> foot
+/_-''    ''-_\  <span class="t-label">RAM:</span> <span class="t-success">67MB</span> / 1.9GB</pre>
+                            </div>
+                            <div class="terminal-line">
+                                <span class="t-prompt">$</span> <span class="t-cmd">sudo install-mados</span>
+                            </div>
+                            <div class="terminal-line t-output">
+<span class="t-success">&#10003;</span> Starting GTK installer...
+<span class="t-success">&#10003;</span> AI optimization enabled
+<span class="t-info">&#10140; Ready to install madOS!</span>
+                            </div>
+                            <div class="terminal-line">
+                                <span class="t-prompt">$</span> <span class="t-cursor"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -211,52 +235,71 @@ layout: none
     <section id="features" class="features">
         <div class="container">
             <div class="section-header">
+                <span class="section-label" data-i18n="features.label">Capacidades</span>
                 <h2 data-i18n="features.title">Características Destacadas</h2>
                 <p data-i18n="features.subtitle">Todo lo que necesitas en un sistema operativo ligero y potente</p>
             </div>
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">🤖</div>
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.58-3.25 3.93L12 22"/><path d="M12 2a4 4 0 0 0-4 4c0 1.95 1.4 3.58 3.25 3.93"/><path d="M8.56 13.68C5.09 14.9 3 17.2 3 20h18c0-2.8-2.09-5.1-5.56-6.32"/></svg>
+                    </div>
                     <h3 data-i18n="feature.ai.title">OpenCode Integration</h3>
-                    <p data-i18n="feature.ai.desc">Asistente de IA integrado por usuario para orquestación inteligente del sistema y asistencia avanzada.</p>
+                    <p data-i18n="feature.ai.desc">Asistente de IA integrado para orquestación inteligente del sistema y asistencia avanzada.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">💾</div>
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M6 12h.01"/><path d="M10 12h.01"/><path d="M14 12h.01"/><path d="M18 12h.01"/><path d="M6 16h12"/></svg>
+                    </div>
                     <h3 data-i18n="feature.ram.title">Optimizado para Poca RAM</h3>
                     <p data-i18n="feature.ram.desc">Diseñado específicamente para sistemas con 1.9GB RAM (Intel Atom) con ZRAM y EarlyOOM.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🚀</div>
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    </div>
                     <h3 data-i18n="feature.lightweight.title">Escritorio Ligero</h3>
                     <p data-i18n="feature.lightweight.desc">Compositor Sway con tema Nord consume solo ~67MB de RAM para máximo rendimiento.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🌐</div>
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                    </div>
                     <h3 data-i18n="feature.wifi.title">Configuración WiFi Integrada</h3>
                     <p data-i18n="feature.wifi.desc">Conecta a tu red WiFi directamente desde el instalador. Escaneo automático de redes con soporte WPA2.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🌍</div>
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    </div>
                     <h3 data-i18n="feature.multilang.title">6 Idiomas</h3>
                     <p data-i18n="feature.multilang.desc">Instalador disponible en inglés, español, francés, alemán, chino y japonés con layout de teclado automático.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🛠️</div>
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/><line x1="14" y1="4" x2="10" y2="20"/></svg>
+                    </div>
                     <h3 data-i18n="feature.dev.title">Listo para Desarrollar</h3>
                     <p data-i18n="feature.dev.desc">Node.js, npm, Git y VS Code pre-instalados para comenzar a programar inmediatamente.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    </div>
                     <h3 data-i18n="feature.tuned.title">Ajustado al Máximo</h3>
                     <p data-i18n="feature.tuned.desc">Optimizaciones de kernel, red y memoria para extraer el máximo rendimiento.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🎨</div>
-                    <h3 data-i18n="feature.installer.title">Instalador Hermoso</h3>
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    </div>
+                    <h3 data-i18n="feature.installer.title">Instalador GTK</h3>
                     <p data-i18n="feature.installer.desc">Instalador gráfico GTK con tema Nord, navegación intuitiva, progreso en tiempo real y boot splash animado.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🔒</div>
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
                     <h3 data-i18n="feature.security.title">Seguro por Defecto</h3>
                     <p data-i18n="feature.security.desc">Root bloqueado, bootloader UEFI dual (NVRAM + fallback), contraseñas seguras y OpenCode aislado por usuario.</p>
                 </div>
@@ -264,102 +307,198 @@ layout: none
         </div>
     </section>
 
-    <!-- Installers Section -->
-    <section id="installers" class="installers">
+    <!-- Desktop Showcase Section -->
+    <section id="showcase" class="showcase">
         <div class="container">
             <div class="section-header">
-                <h2 data-i18n="installers.title">Instalador Gráfico</h2>
-                <p data-i18n="installers.subtitle">Instalación guiada con interfaz visual moderna</p>
+                <span class="section-label" data-i18n="showcase.label">Entorno</span>
+                <h2 data-i18n="showcase.title">Escritorio Sway + Nord</h2>
+                <p data-i18n="showcase.subtitle">Un escritorio Wayland minimalista y elegante, diseñado para productividad</p>
             </div>
-            <div class="installers-grid">
-                <div class="installer-card featured">
-                    <div class="installer-icon">🎨</div>
-                    <h3 data-i18n="installer.gtk.title">GTK Installer</h3>
-                    <p class="installer-subtitle" data-i18n="installer.gtk.subtitle">Interfaz gráfica hermosa</p>
-                    <ul class="installer-features">
-                        <li data-i18n="installer.gtk.feat1">✓ Interfaz gráfica con tema Nord</li>
-                        <li data-i18n="installer.gtk.feat2">✓ Configuración WiFi integrada</li>
-                        <li data-i18n="installer.gtk.feat3">✓ 6 idiomas (ES, EN, FR, DE, ZH, JA)</li>
-                        <li data-i18n="installer.gtk.feat4">✓ Progreso en tiempo real paquete a paquete</li>
-                        <li data-i18n="installer.gtk.feat5">✓ Soporte Intel + AMD con bootloader UEFI dual</li>
-                        <li data-i18n="installer.gtk.feat6">✓ Boot splash animado con tema Nord</li>
-                    </ul>
-                    <div class="installer-command">
-                        <code>sudo install-mados</code>
+            <div class="showcase-preview">
+                <div class="preview-frame">
+                    <div class="preview-bar">
+                        <div class="preview-dots">
+                            <span></span><span></span><span></span>
+                        </div>
+                        <span class="preview-title">Sway — madOS Desktop</span>
+                    </div>
+                    <img src="mad-os-wallpaper.jpg" alt="madOS Desktop" class="preview-image" loading="lazy">
+                </div>
+            </div>
+            <div class="showcase-apps">
+                <div class="app-group">
+                    <h3 data-i18n="apps.desktop">Entorno de Escritorio</h3>
+                    <div class="app-list">
+                        <div class="app-item">
+                            <strong>Sway</strong>
+                            <span data-i18n="apps.desktop.sway">Compositor Wayland compatible con i3</span>
+                        </div>
+                        <div class="app-item">
+                            <strong>Waybar</strong>
+                            <span data-i18n="apps.desktop.waybar">Barra de estado personalizable</span>
+                        </div>
+                        <div class="app-item">
+                            <strong>Wofi</strong>
+                            <span data-i18n="apps.desktop.wofi">Lanzador de aplicaciones</span>
+                        </div>
+                        <div class="app-item">
+                            <strong>Foot</strong>
+                            <span data-i18n="apps.desktop.foot">Emulador de terminal rápido</span>
+                        </div>
+                        <div class="app-item">
+                            <strong>Mako</strong>
+                            <span data-i18n="apps.desktop.mako">Daemon de notificaciones</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="app-group">
+                    <h3 data-i18n="apps.applications">Aplicaciones</h3>
+                    <div class="app-list">
+                        <div class="app-item">
+                            <strong>Chromium</strong>
+                            <span data-i18n="apps.applications.chromium">Navegador web</span>
+                        </div>
+                        <div class="app-item">
+                            <strong>VS Code</strong>
+                            <span data-i18n="apps.applications.vscode">Editor de código</span>
+                        </div>
+                        <div class="app-item">
+                            <strong>PCManFM</strong>
+                            <span data-i18n="apps.applications.pcmanfm">Gestor de archivos</span>
+                        </div>
+                        <div class="app-item">
+                            <strong>LXAppearance</strong>
+                            <span data-i18n="apps.applications.lxappearance">Configurador de temas</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="app-group">
+                    <h3 data-i18n="apps.dev">Herramientas de Desarrollo</h3>
+                    <div class="app-list">
+                        <div class="app-item">
+                            <strong>OpenCode</strong>
+                            <span data-i18n="apps.dev.opencode">Asistente IA</span>
+                        </div>
+                        <div class="app-item">
+                            <strong>Node.js</strong>
+                            <span>v24.x & npm</span>
+                        </div>
+                        <div class="app-item">
+                            <strong>Git</strong>
+                            <span data-i18n="apps.dev.git">Control de versiones</span>
+                        </div>
+                        <div class="app-item">
+                            <strong>htop</strong>
+                            <span data-i18n="apps.dev.htop">Monitor del sistema</span>
+                        </div>
+                        <div class="app-item">
+                            <strong>Vim & Nano</strong>
+                            <span data-i18n="apps.dev.editors">Editores de texto</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Hardware Section -->
+    <!-- Hardware & Performance Section -->
     <section id="hardware" class="hardware">
         <div class="container">
-            <div class="hardware-content">
-                <div class="hardware-info">
-                    <h2 data-i18n="hardware.title">Hardware Objetivo</h2>
-                    <p data-i18n="hardware.subtitle">madOS está optimizado para dar nueva vida a hardware modesto</p>
-                    <div class="specs-list">
-                        <div class="spec-item">
-                            <span class="spec-icon">🔧</span>
-                            <div>
-                                <strong data-i18n="hardware.cpu">CPU</strong>
-                                <p data-i18n="hardware.cpu.desc">Intel Atom / AMD o equivalente (x86_64)</p>
-                            </div>
+            <div class="section-header">
+                <span class="section-label" data-i18n="hardware.label">Rendimiento</span>
+                <h2 data-i18n="hardware.title">Hardware Objetivo</h2>
+                <p data-i18n="hardware.subtitle">madOS está optimizado para dar nueva vida a hardware modesto</p>
+            </div>
+            <div class="hardware-grid">
+                <div class="hardware-specs">
+                    <div class="spec-item">
+                        <div class="spec-icon-wrap">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
                         </div>
-                        <div class="spec-item">
-                            <span class="spec-icon">💾</span>
-                            <div>
-                                <strong data-i18n="hardware.ram">RAM</strong>
-                                <p data-i18n="hardware.ram.desc">1.9GB mínimo (optimizado para memoria limitada)</p>
-                            </div>
+                        <div>
+                            <strong data-i18n="hardware.cpu">CPU</strong>
+                            <p data-i18n="hardware.cpu.desc">Intel Atom / AMD o equivalente (x86_64)</p>
                         </div>
-                        <div class="spec-item">
-                            <span class="spec-icon">🎮</span>
-                            <div>
-                                <strong data-i18n="hardware.gpu">GPU</strong>
-                                <p data-i18n="hardware.gpu.desc">Intel integrada (soporte para renderizado por software)</p>
-                            </div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-icon-wrap">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01"/><path d="M10 10h.01"/><path d="M14 10h.01"/><path d="M18 10h.01"/><path d="M6 14h12"/></svg>
                         </div>
-                        <div class="spec-item">
-                            <span class="spec-icon">💿</span>
-                            <div>
-                                <strong data-i18n="hardware.storage">Almacenamiento</strong>
-                                <p data-i18n="hardware.storage.desc">32GB+ recomendado</p>
-                            </div>
+                        <div>
+                            <strong data-i18n="hardware.ram">RAM</strong>
+                            <p data-i18n="hardware.ram.desc">1.9GB mínimo (optimizado para memoria limitada)</p>
                         </div>
-                        <div class="spec-item">
-                            <span class="spec-icon">⚙️</span>
-                            <div>
-                                <strong data-i18n="hardware.boot">Arranque</strong>
-                                <p data-i18n="hardware.boot.desc">Soporte UEFI y BIOS</p>
-                            </div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-icon-wrap">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        </div>
+                        <div>
+                            <strong data-i18n="hardware.gpu">GPU</strong>
+                            <p data-i18n="hardware.gpu.desc">Intel integrada (soporte para renderizado por software)</p>
+                        </div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-icon-wrap">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                        </div>
+                        <div>
+                            <strong data-i18n="hardware.storage">Almacenamiento</strong>
+                            <p data-i18n="hardware.storage.desc">32GB+ recomendado</p>
+                        </div>
+                    </div>
+                    <div class="spec-item">
+                        <div class="spec-icon-wrap">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+                        </div>
+                        <div>
+                            <strong data-i18n="hardware.boot">Arranque</strong>
+                            <p data-i18n="hardware.boot.desc">Soporte UEFI y BIOS</p>
                         </div>
                     </div>
                 </div>
-                <div class="hardware-visual">
+                <div class="hardware-monitor">
                     <div class="system-monitor">
-                        <h4 data-i18n="hardware.monitor.title">Monitor del Sistema</h4>
+                        <div class="monitor-header">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            <span data-i18n="hardware.monitor.title">Monitor del Sistema</span>
+                        </div>
                         <div class="monitor-stat">
-                            <span class="monitor-label" data-i18n="hardware.monitor.ram">RAM en uso</span>
+                            <div class="monitor-meta">
+                                <span class="monitor-label" data-i18n="hardware.monitor.ram">RAM en uso</span>
+                                <span class="monitor-value">67MB / 1.9GB</span>
+                            </div>
                             <div class="monitor-bar">
                                 <div class="monitor-bar-fill" style="width: 3.5%"></div>
                             </div>
-                            <span class="monitor-value">67MB / 1.9GB</span>
                         </div>
                         <div class="monitor-stat">
-                            <span class="monitor-label" data-i18n="hardware.monitor.cpu">CPU (promedio)</span>
+                            <div class="monitor-meta">
+                                <span class="monitor-label" data-i18n="hardware.monitor.cpu">CPU (promedio)</span>
+                                <span class="monitor-value">15%</span>
+                            </div>
                             <div class="monitor-bar">
                                 <div class="monitor-bar-fill" style="width: 15%"></div>
                             </div>
-                            <span class="monitor-value">15%</span>
                         </div>
                         <div class="monitor-stat">
-                            <span class="monitor-label" data-i18n="hardware.monitor.zram">ZRAM Compresión</span>
+                            <div class="monitor-meta">
+                                <span class="monitor-label" data-i18n="hardware.monitor.zram">ZRAM Compresión</span>
+                                <span class="monitor-value" data-i18n="hardware.monitor.zram.value">50% ratio (zstd)</span>
+                            </div>
                             <div class="monitor-bar">
                                 <div class="monitor-bar-fill monitor-bar-success" style="width: 50%"></div>
                             </div>
-                            <span class="monitor-value" data-i18n="hardware.monitor.zram.value">50% ratio (zstd)</span>
+                        </div>
+                        <div class="monitor-stat">
+                            <div class="monitor-meta">
+                                <span class="monitor-label" data-i18n="hardware.monitor.disk">Disco</span>
+                                <span class="monitor-value">2.1GB / 32GB</span>
+                            </div>
+                            <div class="monitor-bar">
+                                <div class="monitor-bar-fill monitor-bar-warning" style="width: 6.5%"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -371,90 +510,72 @@ layout: none
     <section id="download" class="download">
         <div class="container">
             <div class="section-header">
+                <span class="section-label" data-i18n="download.label">Obtener</span>
                 <h2 data-i18n="download.title">Descarga madOS</h2>
                 <p data-i18n="download.subtitle">Comienza tu experiencia con madOS hoy</p>
             </div>
-            <div class="download-options">
+            <div class="download-hero">
                 <div class="download-card">
-                    <h3 data-i18n="download.iso.title">Descargar ISO</h3>
-                    <p data-i18n="download.iso.desc">Obtén la última versión oficial</p>
-                    <a href="https://archive.org/download/mados-0.8.6/madOS-dev-2026.02.11-1839-x86_64.iso" target="_blank" class="btn btn-primary btn-large">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                        <span data-i18n="download.iso.button">Descargar desde Internet Archive</span>
-                    </a>
-                    <p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.8;">
-                        <a href="https://github.com/madkoding/mad-os/releases/latest" target="_blank" style="color: inherit; text-decoration: underline;" data-i18n="download.iso.checksums">Ver checksums en GitHub</a>
-                    </p>
+                    <div class="download-info">
+                        <h3 data-i18n="download.iso.title">Descargar ISO</h3>
+                        <p data-i18n="download.iso.desc">Obtén la última versión oficial</p>
+                        <a href="https://archive.org/download/mados-0.8.6/madOS-dev-2026.02.11-1839-x86_64.iso" target="_blank" rel="noopener" class="btn btn-primary btn-download">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            <span data-i18n="download.iso.button">Descargar desde Internet Archive</span>
+                        </a>
+                        <a href="https://github.com/madkoding/mad-os/releases/latest" target="_blank" rel="noopener" class="download-checksums" data-i18n="download.iso.checksums">Ver checksums en GitHub</a>
+                    </div>
+                    <div class="download-meta">
+                        <div class="meta-item">
+                            <span class="meta-label" data-i18n="download.meta.arch">Arquitectura</span>
+                            <span class="meta-value">x86_64</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label" data-i18n="download.meta.format">Formato</span>
+                            <span class="meta-value">ISO (Live USB)</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label" data-i18n="download.meta.license">Licencia</span>
+                            <span class="meta-value">GPL-3.0</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="installation-steps">
+            <div class="install-steps">
                 <h3 data-i18n="download.steps.title">Pasos de Instalación</h3>
-                <div class="steps-grid">
+                <div class="steps-timeline">
                     <div class="step">
                         <div class="step-number">1</div>
-                        <h4 data-i18n="download.step1.title">Crear USB Booteable</h4>
-                        <code>sudo dd if=madOS-*.iso of=/dev/sdX bs=4M status=progress</code>
+                        <div class="step-content">
+                            <h4 data-i18n="download.step1.title">Crear USB Booteable</h4>
+                            <code>sudo dd if=madOS-*.iso of=/dev/sdX bs=4M status=progress</code>
+                        </div>
                     </div>
                     <div class="step">
                         <div class="step-number">2</div>
-                        <h4 data-i18n="download.step2.title">Arrancar desde USB</h4>
-                        <p data-i18n="download.step2.desc">Espera a que Sway inicie automáticamente</p>
+                        <div class="step-content">
+                            <h4 data-i18n="download.step2.title">Arrancar desde USB</h4>
+                            <p data-i18n="download.step2.desc">Espera a que Sway inicie automáticamente</p>
+                        </div>
                     </div>
                     <div class="step">
                         <div class="step-number">3</div>
-                        <h4 data-i18n="download.step3.title">Ejecutar Instalador</h4>
-                        <code>sudo install-mados</code>
+                        <div class="step-content">
+                            <h4 data-i18n="download.step3.title">Ejecutar Instalador</h4>
+                            <code>sudo install-mados</code>
+                        </div>
                     </div>
                     <div class="step">
                         <div class="step-number">4</div>
-                        <h4 data-i18n="download.step4.title">¡Disfruta madOS!</h4>
-                        <p data-i18n="download.step4.desc">Reinicia y comienza a usar tu sistema</p>
+                        <div class="step-content">
+                            <h4 data-i18n="download.step4.title">¡Disfruta madOS!</h4>
+                            <p data-i18n="download.step4.desc">Reinicia y comienza a usar tu sistema</p>
+                        </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Applications Section -->
-    <section class="applications">
-        <div class="container">
-            <div class="section-header">
-                <h2 data-i18n="apps.title">Aplicaciones Incluidas</h2>
-                <p data-i18n="apps.subtitle">Todo lo que necesitas, pre-instalado</p>
-            </div>
-            <div class="apps-grid">
-                <div class="app-category">
-                    <h3 data-i18n="apps.desktop">Entorno de Escritorio</h3>
-                    <ul>
-                        <li><strong>Sway</strong> - <span data-i18n="apps.desktop.sway">Compositor Wayland compatible con i3</span></li>
-                        <li><strong>Waybar</strong> - <span data-i18n="apps.desktop.waybar">Barra de estado personalizable</span></li>
-                        <li><strong>Wofi</strong> - <span data-i18n="apps.desktop.wofi">Lanzador de aplicaciones</span></li>
-                        <li><strong>Foot</strong> - <span data-i18n="apps.desktop.foot">Emulador de terminal rápido</span></li>
-                        <li><strong>Mako</strong> - <span data-i18n="apps.desktop.mako">Daemon de notificaciones</span></li>
-                    </ul>
-                </div>
-                <div class="app-category">
-                    <h3 data-i18n="apps.applications">Aplicaciones</h3>
-                    <ul>
-                        <li><strong>Chromium</strong> - <span data-i18n="apps.applications.chromium">Navegador web</span></li>
-                        <li><strong>VS Code</strong> - <span data-i18n="apps.applications.vscode">Editor de código</span></li>
-                        <li><strong>PCManFM</strong> - <span data-i18n="apps.applications.pcmanfm">Gestor de archivos</span></li>
-                        <li><strong>LXAppearance</strong> - <span data-i18n="apps.applications.lxappearance">Configurador de temas</span></li>
-                    </ul>
-                </div>
-                <div class="app-category">
-                    <h3 data-i18n="apps.dev">Herramientas de Desarrollo</h3>
-                    <ul>
-                        <li><strong>OpenCode</strong> - <span data-i18n="apps.dev.opencode">Asistente IA</span></li>
-                        <li><strong>Node.js</strong> (v24.x) & npm</li>
-                        <li><strong>Git</strong> - <span data-i18n="apps.dev.git">Control de versiones</span></li>
-                        <li><strong>htop</strong> - <span data-i18n="apps.dev.htop">Monitor del sistema</span></li>
-                        <li><strong>Vim & Nano</strong> - <span data-i18n="apps.dev.editors">Editores de texto</span></li>
-                    </ul>
                 </div>
             </div>
         </div>
@@ -463,40 +584,33 @@ layout: none
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
-            <div class="footer-content">
+            <div class="footer-top">
                 <div class="footer-brand">
                     <img src="mados-logo.png" alt="madOS" class="footer-logo">
                     <p data-i18n="footer.tagline">AI-Orchestrated Arch Linux System</p>
-                    <p class="footer-tagline" data-i18n="footer.powered">Powered by OpenCode</p>
                 </div>
                 <div class="footer-links">
-                    <div class="footer-section">
+                    <div class="footer-col">
                         <h4 data-i18n="footer.project">Proyecto</h4>
-                        <ul>
-                            <li><a href="https://github.com/madkoding/mad-os" target="_blank" data-i18n="footer.project.github">GitHub</a></li>
-                            <li><a href="https://github.com/madkoding/mad-os/issues" target="_blank" data-i18n="footer.project.issues">Issues</a></li>
-                            <li><a href="https://github.com/madkoding/mad-os/blob/main/README.md" target="_blank" data-i18n="footer.project.docs">Documentación</a></li>
-                        </ul>
+                        <a href="https://github.com/madkoding/mad-os" target="_blank" rel="noopener" data-i18n="footer.project.github">GitHub</a>
+                        <a href="https://github.com/madkoding/mad-os/issues" target="_blank" rel="noopener" data-i18n="footer.project.issues">Issues</a>
+                        <a href="https://github.com/madkoding/mad-os/blob/main/README.md" target="_blank" rel="noopener" data-i18n="footer.project.docs">Documentación</a>
                     </div>
-                    <div class="footer-section">
+                    <div class="footer-col">
                         <h4 data-i18n="footer.resources">Recursos</h4>
-                        <ul>
-                            <li><a href="#download" data-i18n="footer.resources.download">Descargar</a></li>
-                            <li><a href="#installers" data-i18n="footer.resources.installers">Instaladores</a></li>
-                            <li><a href="#features" data-i18n="footer.resources.features">Características</a></li>
-                        </ul>
+                        <a href="#download" data-i18n="footer.resources.download">Descargar</a>
+                        <a href="#features" data-i18n="footer.resources.features">Características</a>
+                        <a href="#showcase" data-i18n="footer.resources.showcase">Escritorio</a>
                     </div>
-                    <div class="footer-section">
+                    <div class="footer-col">
                         <h4 data-i18n="footer.community">Comunidad</h4>
-                        <ul>
-                            <li><a href="https://github.com/madkoding/mad-os/discussions" target="_blank" data-i18n="footer.community.discussions">Discussions</a></li>
-                            <li><a href="https://github.com/madkoding/mad-os/blob/main/CONTRIBUTING.md" target="_blank" data-i18n="footer.community.contribute">Contribuir</a></li>
-                        </ul>
+                        <a href="https://github.com/madkoding/mad-os/discussions" target="_blank" rel="noopener" data-i18n="footer.community.discussions">Discussions</a>
+                        <a href="https://github.com/madkoding/mad-os/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener" data-i18n="footer.community.contribute">Contribuir</a>
                     </div>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p data-i18n="footer.copyright">&copy; 2026 madOS. Distribuido bajo licencia GPL-3.0. Hecho con ❤️ para la comunidad open source.</p>
+                <p data-i18n="footer.copyright">&copy; 2026 madOS. Distribuido bajo licencia GPL-3.0.</p>
             </div>
         </div>
     </footer>
