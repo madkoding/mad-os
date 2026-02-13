@@ -54,7 +54,6 @@ if [ -z "$WAYLAND_DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
           if systemd-detect-virt --vm --quiet 2>/dev/null; then
               export WLR_DRM_NO_ATOMIC=1
               export WLR_DRM_NO_MODIFIERS=1
-              export WLR_NO_HARDWARE_CURSORS=1
           fi
           exec sway
       }
