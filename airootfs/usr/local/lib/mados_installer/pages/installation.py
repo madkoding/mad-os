@@ -389,6 +389,12 @@ def _run_installation(app):
                 subprocess.run(['cp', '-a', '/usr/local/bin/opencode',
                                 '/mnt/usr/local/bin/opencode'], check=False)
 
+            # Copy kew binary from live ISO if already installed
+            if os.path.isfile('/usr/local/bin/kew'):
+                log_message(app, "Copying kew from live environment...")
+                subprocess.run(['cp', '-a', '/usr/local/bin/kew',
+                                '/mnt/usr/local/bin/kew'], check=False)
+
             # Copy setup-ohmyzsh.sh script for first-boot fallback
             set_progress(app, 0.53, "Copying system scripts...")
             log_message(app, "Copying system scripts...")
@@ -1576,6 +1582,26 @@ TimeoutStartSec=300
 WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-opencode.service 2>/dev/null || true
+
+# ── Step 5b: Install kew (terminal music player) ────────────────────
+if command -v kew &>/dev/null; then
+    log "kew already installed"
+else
+    log "Building kew from source..."
+    KEW_BUILD_DIR=$(mktemp -d)
+    if git clone --depth=1 https://github.com/ravachol/kew.git "$KEW_BUILD_DIR/kew" 2>&1; then
+        cd "$KEW_BUILD_DIR/kew"
+        if make -j"$(nproc)" 2>&1 && make install 2>&1; then
+            log "kew installed from source"
+        else
+            log "Warning: Failed to build kew"
+        fi
+        cd /
+    else
+        log "Warning: Failed to clone kew"
+    fi
+    rm -rf "$KEW_BUILD_DIR"
+fi
 
 # ── Step 6: Install Ollama ───────────────────────────────────────────
 log "Installing Ollama..."
