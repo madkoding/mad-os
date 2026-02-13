@@ -74,6 +74,8 @@ jobs:
             test_file: tests/test_photo_navigator.py
           - name: Persistence Scripts
             test_file: tests/test_persistence_scripts.py
+          - name: GPU Detection
+            test_file: tests/test_gpu_detection.py
 
     steps:
       - name: Checkout
