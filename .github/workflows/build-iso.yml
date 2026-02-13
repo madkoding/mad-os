@@ -96,7 +96,7 @@ jobs:
               chmod -R 777 /build/out
             "
 
-      - name: Get ISO filename and metadata
+      - name: Extract build metadata
         id: iso_info
         run: |
           ISO_FILE=$(ls out/*.iso | head -1)
