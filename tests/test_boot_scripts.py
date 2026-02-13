@@ -485,6 +485,8 @@ class TestCustomizeAirootfs(unittest.TestCase):
         if os.path.isfile(self.script_path):
             with open(self.script_path) as f:
                 self.content = f.read()
+        else:
+            self.content = ""
 
     def test_script_exists(self):
         """customize_airootfs.sh must exist."""
