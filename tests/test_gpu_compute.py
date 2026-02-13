@@ -49,7 +49,8 @@ sys.path.insert(0, LIB_DIR)
 # GPU compute packages in packages.x86_64
 # ═══════════════════════════════════════════════════════════════════════════
 class TestGPUComputePackages(unittest.TestCase):
-    """Verify GPU compute packages are included in the ISO package list."""
+    """Verify GPU compute packages are NOT in the ISO (to save ~3-5GB) but
+    remain available via PACKAGES_PHASE2 for first-boot installation."""
 
     def _read_packages(self):
         pkg_file = os.path.join(REPO_DIR, "packages.x86_64")
@@ -59,35 +60,35 @@ class TestGPUComputePackages(unittest.TestCase):
                 if line.strip() and not line.strip().startswith("#")
             ]
 
-    def test_nvidia_utils_included(self):
-        """nvidia-utils must be in packages.x86_64 for NVIDIA driver support."""
-        self.assertIn("nvidia-utils", self._read_packages(),
-                       "nvidia-utils must be in packages.x86_64")
+    def test_nvidia_utils_not_in_iso(self):
+        """nvidia-utils must NOT be in packages.x86_64 (saves ISO space)."""
+        self.assertNotIn("nvidia-utils", self._read_packages(),
+                          "nvidia-utils should not be in ISO; it is in PACKAGES_PHASE2")
 
-    def test_opencl_nvidia_included(self):
-        """opencl-nvidia must be in packages.x86_64 for NVIDIA OpenCL support."""
-        self.assertIn("opencl-nvidia", self._read_packages(),
-                       "opencl-nvidia must be in packages.x86_64")
+    def test_opencl_nvidia_not_in_iso(self):
+        """opencl-nvidia must NOT be in packages.x86_64 (saves ISO space)."""
+        self.assertNotIn("opencl-nvidia", self._read_packages(),
+                          "opencl-nvidia should not be in ISO; it is in PACKAGES_PHASE2")
 
-    def test_cuda_included(self):
-        """cuda must be in packages.x86_64 for NVIDIA CUDA toolkit."""
-        self.assertIn("cuda", self._read_packages(),
-                       "cuda must be in packages.x86_64")
+    def test_cuda_not_in_iso(self):
+        """cuda must NOT be in packages.x86_64 (saves ISO space)."""
+        self.assertNotIn("cuda", self._read_packages(),
+                          "cuda should not be in ISO; it is in PACKAGES_PHASE2")
 
-    def test_rocm_hip_runtime_included(self):
-        """rocm-hip-runtime must be in packages.x86_64 for AMD GPU compute."""
-        self.assertIn("rocm-hip-runtime", self._read_packages(),
-                       "rocm-hip-runtime must be in packages.x86_64")
+    def test_rocm_hip_runtime_not_in_iso(self):
+        """rocm-hip-runtime must NOT be in packages.x86_64 (saves ISO space)."""
+        self.assertNotIn("rocm-hip-runtime", self._read_packages(),
+                          "rocm-hip-runtime should not be in ISO; it is in PACKAGES_PHASE2")
 
-    def test_rocm_opencl_runtime_included(self):
-        """rocm-opencl-runtime must be in packages.x86_64 for AMD OpenCL."""
-        self.assertIn("rocm-opencl-runtime", self._read_packages(),
-                       "rocm-opencl-runtime must be in packages.x86_64")
+    def test_rocm_opencl_runtime_not_in_iso(self):
+        """rocm-opencl-runtime must NOT be in packages.x86_64 (saves ISO space)."""
+        self.assertNotIn("rocm-opencl-runtime", self._read_packages(),
+                          "rocm-opencl-runtime should not be in ISO; it is in PACKAGES_PHASE2")
 
-    def test_opencl_headers_included(self):
-        """opencl-headers must be in packages.x86_64 for OpenCL development."""
-        self.assertIn("opencl-headers", self._read_packages(),
-                       "opencl-headers must be in packages.x86_64")
+    def test_opencl_headers_not_in_iso(self):
+        """opencl-headers must NOT be in packages.x86_64 (saves ISO space)."""
+        self.assertNotIn("opencl-headers", self._read_packages(),
+                          "opencl-headers should not be in ISO; it is in PACKAGES_PHASE2")
 
     def test_ocl_icd_included(self):
         """ocl-icd must be in packages.x86_64 for OpenCL ICD loader."""
