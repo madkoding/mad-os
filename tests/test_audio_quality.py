@@ -369,5 +369,96 @@ class TestQuantumCalculation(unittest.TestCase):
         self.assertIn("DEFAULT_QUANTUM", content)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Hardware detection source validation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestHardwareDetectionSources(unittest.TestCase):
+    """Verify detection reads from correct ALSA sources."""
+
+    def setUp(self):
+        with open(AUDIO_QUALITY_SCRIPT) as f:
+            self.content = f.read()
+
+    def test_reads_codec_files(self):
+        """Detection must read from /proc/asound/card*/codec* (static info)."""
+        self.assertIn("/proc/asound/card*/codec*", self.content)
+
+    def test_reads_stream_files(self):
+        """Detection must read from /proc/asound/card*/stream* (static info)."""
+        self.assertIn("/proc/asound/card*/stream*", self.content)
+
+    def test_does_not_read_hw_params(self):
+        """Detection must NOT read from hw_params (only shows active stream)."""
+        self.assertNotIn("hw_params", self.content)
+
+    def test_bit_depth_checks_codec_and_stream(self):
+        """Bit depth detection should check both codec and stream files."""
+        # Should grep for S32/S24 in codec files
+        self.assertIn('grep -qi "S32" "$codec"', self.content)
+        self.assertIn('grep -qi "S24" "$codec"', self.content)
+        # Should grep for S32/S24 in stream files
+        self.assertIn('grep -qi "S32" "$stream"', self.content)
+        self.assertIn('grep -qi "S24" "$stream"', self.content)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Allowed rates validation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestAllowedRates(unittest.TestCase):
+    """Verify PipeWire config uses multiple allowed rates."""
+
+    def setUp(self):
+        with open(AUDIO_QUALITY_SCRIPT) as f:
+            self.content = f.read()
+
+    def test_has_build_allowed_rates_function(self):
+        """Script must have build_allowed_rates function."""
+        self.assertIn("build_allowed_rates()", self.content)
+
+    def test_allowed_rates_includes_44100_and_48000(self):
+        """Allowed rates must always include 44100 and 48000."""
+        self.assertIn('allowed_rates="44100 48000"', self.content)
+
+    def test_allowed_rates_includes_high_rates(self):
+        """Allowed rates must include high sample rates for capable hardware."""
+        self.assertIn("96000", self.content)
+        self.assertIn("192000", self.content)
+        self.assertIn("176400", self.content)
+
+    def test_config_does_not_restrict_to_single_rate(self):
+        """PipeWire config must not restrict allowed-rates to a single value."""
+        # The old bug: allowed-rates = [ ${sample_rate} ]
+        # Ensure we use allowed_rates variable, not sample_rate alone
+        self.assertIn("[ ${allowed_rates} ]", self.content)
+        self.assertNotIn("[ ${sample_rate} ]", self.content)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# User service enablement
+# ═══════════════════════════════════════════════════════════════════════════
+class TestUserServiceEnabled(unittest.TestCase):
+    """Verify user service is enabled via symlink."""
+
+    def test_user_service_enabled_in_default_target(self):
+        """User service must be enabled in default.target.wants."""
+        wants_dir = os.path.join(
+            SKEL_DIR, ".config", "systemd", "user", "default.target.wants"
+        )
+        service_link = os.path.join(wants_dir, "mados-audio-quality.service")
+        self.assertTrue(
+            os.path.islink(service_link),
+            "User mados-audio-quality.service not enabled in default.target.wants"
+        )
+
+    def test_user_service_symlink_target(self):
+        """User service symlink must point to the correct service file."""
+        wants_dir = os.path.join(
+            SKEL_DIR, ".config", "systemd", "user", "default.target.wants"
+        )
+        service_link = os.path.join(wants_dir, "mados-audio-quality.service")
+        target = os.readlink(service_link)
+        self.assertIn("mados-audio-quality.service", target)
+
+
 if __name__ == '__main__':
     unittest.main()
