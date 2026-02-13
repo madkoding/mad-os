@@ -39,16 +39,16 @@ const translations = {
         'feature.ai.desc': 'Asistente de IA integrado para orquestación inteligente del sistema y asistencia avanzada.',
         'feature.ram.title': 'Optimizado para Poca RAM',
         'feature.ram.desc': 'Diseñado específicamente para sistemas con 1.9GB RAM (Intel Atom) con ZRAM y EarlyOOM.',
-        'feature.lightweight.title': 'Escritorio Ligero',
-        'feature.lightweight.desc': 'Compositor Sway con tema Nord consume solo ~67MB de RAM para máximo rendimiento.',
+        'feature.lightweight.title': 'Escritorio Adaptable',
+        'feature.lightweight.desc': 'Sway o Hyprland según tu hardware. Si hay aceleración 3D usa Hyprland, si no, Sway. Ambos con tema Nord y ~300MB de RAM.',
         'feature.wifi.title': 'Configuración WiFi Integrada',
         'feature.wifi.desc': 'Conecta a tu red WiFi directamente desde el instalador. Escaneo automático de redes con soporte WPA2.',
         'feature.multilang.title': '6 Idiomas',
         'feature.multilang.desc': 'Instalador disponible en inglés, español, francés, alemán, chino y japonés con layout de teclado automático.',
         'feature.dev.title': 'Listo para Desarrollar',
         'feature.dev.desc': 'Node.js, npm, Git y VS Code pre-instalados para comenzar a programar inmediatamente.',
-        'feature.tuned.title': 'Ajustado al Máximo',
-        'feature.tuned.desc': 'Optimizaciones de kernel, red y memoria para extraer el máximo rendimiento.',
+        'feature.persistent.title': 'USB Persistente',
+        'feature.persistent.desc': 'Graba la ISO en un USB y úsala directo sin instalar. El espacio libre se autoconfigura como almacenamiento persistente.',
         'feature.installer.title': 'Instalador GTK',
         'feature.installer.desc': 'Instalador gráfico GTK con tema Nord, navegación intuitiva, progreso en tiempo real y boot splash animado.',
         'feature.security.title': 'Seguro por Defecto',
@@ -56,12 +56,13 @@ const translations = {
 
         // Showcase
         'showcase.label': 'Entorno',
-        'showcase.title': 'Escritorio Sway + Nord',
-        'showcase.subtitle': 'Un escritorio Wayland minimalista y elegante, diseñado para productividad',
+        'showcase.title': 'Escritorio Wayland + Nord',
+        'showcase.subtitle': 'Sway o Hyprland según tu hardware, con tema Nord y configuración optimizada para productividad',
 
         // Applications
         'apps.desktop': 'Entorno de Escritorio',
-        'apps.desktop.sway': 'Compositor Wayland compatible con i3',
+        'apps.desktop.sway': 'Compositor Wayland (sin aceleración 3D)',
+        'apps.desktop.hyprland': 'Compositor Wayland (con aceleración 3D)',
         'apps.desktop.waybar': 'Barra de estado personalizable',
         'apps.desktop.wofi': 'Lanzador de aplicaciones',
         'apps.desktop.foot': 'Emulador de terminal rápido',
@@ -86,7 +87,7 @@ const translations = {
         'hardware.ram': 'RAM',
         'hardware.ram.desc': '1.9GB mínimo (optimizado para memoria limitada)',
         'hardware.gpu': 'GPU',
-        'hardware.gpu.desc': 'Intel integrada (soporte para renderizado por software)',
+        'hardware.gpu.desc': 'Con aceleración 3D: Hyprland. Sin ella: Sway (renderizado por software)',
         'hardware.storage': 'Almacenamiento',
         'hardware.storage.desc': '32GB+ recomendado',
         'hardware.boot': 'Arranque',
@@ -112,10 +113,11 @@ const translations = {
         'download.steps.title': 'Pasos de Instalación',
         'download.step1.title': 'Crear USB Booteable',
         'download.step2.title': 'Arrancar desde USB',
-        'download.step2.desc': 'Espera a que Sway inicie automáticamente',
-        'download.step3.title': 'Ejecutar Instalador',
+        'download.step2.desc': 'El escritorio inicia automáticamente con almacenamiento persistente',
+        'download.step3.title': 'Usar o Instalar',
+        'download.step3.desc': 'Usa directo desde el USB o instala con el instalador GTK',
         'download.step4.title': '¡Disfruta madOS!',
-        'download.step4.desc': 'Reinicia y comienza a usar tu sistema',
+        'download.step4.desc': 'Tus cambios persisten entre reinicios en el USB',
 
         // Footer
         'footer.tagline': 'AI-Orchestrated Arch Linux System',
@@ -134,8 +136,8 @@ const translations = {
 
         // Meta
         'meta.title': 'madOS - AI-Orchestrated Arch Linux | Linux ligero con OpenCode',
-        'meta.description': 'madOS: distribución Arch Linux optimizada para sistemas con poca RAM (1.9GB), con OpenCode integrado para orquestación inteligente. Sway, Nord theme, ~67MB RAM.',
-        'meta.og.description': 'Distribución Arch Linux optimizada para poca RAM (1.9GB) con OpenCode integrado para orquestación inteligente del sistema. Sway + Nord theme, ~67MB RAM.',
+        'meta.description': 'madOS: distribución Arch Linux optimizada para sistemas con poca RAM (1.9GB), con OpenCode integrado para orquestación inteligente. Sway/Hyprland, Nord theme, ~300MB RAM. USB persistente.',
+        'meta.og.description': 'Distribución Arch Linux optimizada para poca RAM (1.9GB) con OpenCode integrado. Sway/Hyprland + Nord theme, ~300MB RAM. USB persistente auto-configurado.',
         'meta.og.image.alt': 'madOS - Distribución Arch Linux con IA integrada, vista previa de terminal y estadísticas clave',
         'meta.og.locale': 'es_ES'
     },
@@ -164,16 +166,16 @@ const translations = {
         'feature.ai.desc': 'Integrated AI assistant for intelligent system orchestration and advanced assistance.',
         'feature.ram.title': 'Optimized for Low RAM',
         'feature.ram.desc': 'Specifically designed for systems with 1.9GB RAM (Intel Atom) with ZRAM and EarlyOOM.',
-        'feature.lightweight.title': 'Lightweight Desktop',
-        'feature.lightweight.desc': 'Sway compositor with Nord theme uses only ~67MB RAM for maximum performance.',
+        'feature.lightweight.title': 'Adaptive Desktop',
+        'feature.lightweight.desc': 'Sway or Hyprland depending on your hardware. With 3D acceleration: Hyprland. Without: Sway. Both with Nord theme and ~300MB RAM.',
         'feature.wifi.title': 'Built-in WiFi Setup',
         'feature.wifi.desc': 'Connect to your WiFi network directly from the installer. Automatic network scanning with WPA2 support.',
         'feature.multilang.title': '6 Languages',
         'feature.multilang.desc': 'Installer available in English, Spanish, French, German, Chinese and Japanese with automatic keyboard layout.',
         'feature.dev.title': 'Ready to Develop',
         'feature.dev.desc': 'Node.js, npm, Git, and VS Code pre-installed to start coding immediately.',
-        'feature.tuned.title': 'Fully Tuned',
-        'feature.tuned.desc': 'Kernel, network, and memory optimizations to extract maximum performance.',
+        'feature.persistent.title': 'Persistent USB',
+        'feature.persistent.desc': 'Flash the ISO to a USB and use it directly without installing. Free space is auto-configured as persistent storage.',
         'feature.installer.title': 'GTK Installer',
         'feature.installer.desc': 'GTK graphical installer with Nord theme, intuitive navigation, real-time progress and animated boot splash.',
         'feature.security.title': 'Secure by Default',
@@ -181,12 +183,13 @@ const translations = {
 
         // Showcase
         'showcase.label': 'Environment',
-        'showcase.title': 'Sway + Nord Desktop',
-        'showcase.subtitle': 'A minimalist and elegant Wayland desktop, designed for productivity',
+        'showcase.title': 'Wayland + Nord Desktop',
+        'showcase.subtitle': 'Sway or Hyprland depending on your hardware, with Nord theme and optimized configuration for productivity',
 
         // Applications
         'apps.desktop': 'Desktop Environment',
-        'apps.desktop.sway': 'i3-compatible Wayland compositor',
+        'apps.desktop.sway': 'Wayland compositor (no 3D acceleration)',
+        'apps.desktop.hyprland': 'Wayland compositor (with 3D acceleration)',
         'apps.desktop.waybar': 'Customizable status bar',
         'apps.desktop.wofi': 'Application launcher',
         'apps.desktop.foot': 'Fast terminal emulator',
@@ -211,7 +214,7 @@ const translations = {
         'hardware.ram': 'RAM',
         'hardware.ram.desc': '1.9GB minimum (optimized for limited memory)',
         'hardware.gpu': 'GPU',
-        'hardware.gpu.desc': 'Intel integrated (software rendering support)',
+        'hardware.gpu.desc': 'With 3D acceleration: Hyprland. Without: Sway (software rendering)',
         'hardware.storage': 'Storage',
         'hardware.storage.desc': '32GB+ recommended',
         'hardware.boot': 'Boot',
@@ -237,10 +240,11 @@ const translations = {
         'download.steps.title': 'Installation Steps',
         'download.step1.title': 'Create Bootable USB',
         'download.step2.title': 'Boot from USB',
-        'download.step2.desc': 'Wait for Sway to start automatically',
-        'download.step3.title': 'Run Installer',
+        'download.step2.desc': 'Desktop starts automatically with persistent storage',
+        'download.step3.title': 'Use or Install',
+        'download.step3.desc': 'Use directly from USB or install with the GTK installer',
         'download.step4.title': 'Enjoy madOS!',
-        'download.step4.desc': 'Reboot and start using your system',
+        'download.step4.desc': 'Your changes persist across reboots on the USB',
 
         // Footer
         'footer.tagline': 'AI-Orchestrated Arch Linux System',
@@ -259,8 +263,8 @@ const translations = {
 
         // Meta
         'meta.title': 'madOS - AI-Orchestrated Arch Linux | Lightweight Linux with OpenCode',
-        'meta.description': 'madOS: Arch Linux distribution optimized for low-RAM systems (1.9GB), with OpenCode integrated for intelligent system orchestration. Sway, Nord theme, ~67MB RAM.',
-        'meta.og.description': 'Arch Linux distribution optimized for low-RAM systems (1.9GB) with OpenCode integrated for intelligent system orchestration. Sway + Nord theme, ~67MB RAM.',
+        'meta.description': 'madOS: Arch Linux distribution optimized for low-RAM systems (1.9GB), with OpenCode integrated for intelligent orchestration. Sway/Hyprland, Nord theme, ~300MB RAM. Persistent USB.',
+        'meta.og.description': 'Arch Linux distribution optimized for low-RAM systems (1.9GB) with OpenCode integrated. Sway/Hyprland + Nord theme, ~300MB RAM. Auto-configured persistent USB.',
         'meta.og.image.alt': 'madOS - AI-Orchestrated Arch Linux distribution with terminal preview and key stats',
         'meta.og.locale': 'en_US'
     }
