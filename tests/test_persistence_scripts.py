@@ -36,6 +36,7 @@ class TestShellScriptSyntax(unittest.TestCase):
         os.path.join(BIN_DIR, 'setup-opencode.sh'),
         os.path.join(BIN_DIR, 'mados-audio-init.sh'),
         os.path.join(BIN_DIR, 'toggle-demo-mode.sh'),
+        os.path.join(AIROOTFS, 'usr', 'local', 'lib', 'mados-media-helper.sh'),
     ]
 
     def test_all_scripts_compile(self):
@@ -135,6 +136,29 @@ class TestSetupPersistenceScript(unittest.TestCase):
     def test_references_archiso(self):
         """Should check for archiso boot mount point."""
         self.assertIn('/run/archiso', self.content)
+
+    def test_has_is_optical_device_function(self):
+        """Should have is_optical_device() to detect DVD/CD media."""
+        self.assertRegex(self.content, r'is_optical_device\(\)\s*\{')
+
+    def test_optical_device_checks_sr_pattern(self):
+        """is_optical_device should check for /dev/sr* device names."""
+        self.assertIn('sr*', self.content)
+
+    def test_optical_device_checks_scsi_type(self):
+        """is_optical_device should check SCSI device type 5 (CD-ROM)."""
+        self.assertIn('"5"', self.content)
+
+    def test_optical_detection_before_usb_check(self):
+        """Optical media detection should happen before USB check in setup_persistence."""
+        optical_pos = self.content.find('is_optical_device')
+        usb_pos = self.content.find('is_usb_device "$iso_device"')
+        self.assertNotEqual(optical_pos, -1, "Must have is_optical_device check")
+        self.assertNotEqual(usb_pos, -1, "Must have is_usb_device check")
+        self.assertLess(
+            optical_pos, usb_pos,
+            "Optical media detection must occur before USB check in setup_persistence",
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -412,6 +436,169 @@ class TestPackagesFile(unittest.TestCase):
                 with self.subTest(line=i):
                     self.assertEqual(line.rstrip('\n'), line.rstrip(),
                                      f"Line {i} has trailing whitespace")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# mados-media-helper.sh validation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestMediaHelperScript(unittest.TestCase):
+    """Validate structure and content of mados-media-helper.sh."""
+
+    def setUp(self):
+        self.script_path = os.path.join(
+            AIROOTFS, 'usr', 'local', 'lib', 'mados-media-helper.sh'
+        )
+        if os.path.exists(self.script_path):
+            with open(self.script_path) as f:
+                self.content = f.read()
+        else:
+            self.content = ''
+
+    def test_file_exists(self):
+        self.assertTrue(os.path.exists(self.script_path))
+
+    def test_valid_bash_syntax(self):
+        """Should pass bash -n syntax check."""
+        result = subprocess.run(
+            ['bash', '-n', self.script_path],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(
+            result.returncode, 0,
+            f"Syntax error in mados-media-helper.sh:\n{result.stderr}"
+        )
+
+    def test_has_is_optical_media_function(self):
+        """Should have is_optical_media() function."""
+        self.assertRegex(self.content, r'is_optical_media\(\)\s*\{')
+
+    def test_has_has_persistence_function(self):
+        """Should have has_persistence() function."""
+        self.assertRegex(self.content, r'has_persistence\(\)\s*\{')
+
+    def test_has_can_install_software_function(self):
+        """Should have can_install_software() function."""
+        self.assertRegex(self.content, r'can_install_software\(\)\s*\{')
+
+    def test_optical_media_checks_sr_devices(self):
+        """is_optical_media should detect /dev/sr* devices."""
+        self.assertIn('/dev/sr', self.content)
+
+    def test_optical_media_checks_scsi_type(self):
+        """is_optical_media should check SCSI type 5 (CD-ROM)."""
+        self.assertIn('"5"', self.content)
+
+    def test_optical_media_checks_udevadm(self):
+        """is_optical_media should check ID_CDROM via udevadm."""
+        self.assertIn('ID_CDROM', self.content)
+
+    def test_can_install_checks_persistence(self):
+        """can_install_software should check has_persistence."""
+        self.assertIn('has_persistence', self.content)
+
+    def test_can_install_checks_optical(self):
+        """can_install_software should check is_optical_media."""
+        self.assertIn('is_optical_media', self.content)
+
+    def test_allows_install_outside_live_env(self):
+        """can_install_software should allow installs outside live environment."""
+        self.assertIn('/run/archiso', self.content)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Setup scripts DVD/CD detection validation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestSetupScriptsDvdDetection(unittest.TestCase):
+    """Validate that setup scripts check for optical media before installing."""
+
+    SETUP_SCRIPTS = [
+        'setup-opencode.sh',
+        'setup-ollama.sh',
+        'setup-ohmyzsh.sh',
+    ]
+
+    def _read_script(self, name):
+        path = os.path.join(BIN_DIR, name)
+        if os.path.exists(path):
+            with open(path) as f:
+                return f.read()
+        return ''
+
+    def test_scripts_source_media_helper(self):
+        """Setup scripts should source mados-media-helper.sh."""
+        for script in self.SETUP_SCRIPTS:
+            with self.subTest(script=script):
+                content = self._read_script(script)
+                self.assertIn(
+                    'mados-media-helper.sh', content,
+                    f"{script} must reference mados-media-helper.sh",
+                )
+
+    def test_scripts_check_can_install_software(self):
+        """Setup scripts should call can_install_software before installing."""
+        for script in self.SETUP_SCRIPTS:
+            with self.subTest(script=script):
+                content = self._read_script(script)
+                self.assertIn(
+                    'can_install_software', content,
+                    f"{script} must check can_install_software",
+                )
+
+    def test_scripts_exit_zero_on_dvd(self):
+        """Setup scripts should exit 0 (not fail) when on DVD."""
+        for script in self.SETUP_SCRIPTS:
+            with self.subTest(script=script):
+                content = self._read_script(script)
+                # The DVD check block should end with exit 0
+                self.assertIn(
+                    'exit 0', content,
+                    f"{script} must exit 0 when skipping DVD install",
+                )
+
+    def test_dvd_check_before_install(self):
+        """DVD media check must happen before any install attempt."""
+        for script in self.SETUP_SCRIPTS:
+            with self.subTest(script=script):
+                content = self._read_script(script)
+                dvd_pos = content.find('can_install_software')
+                install_pos = content.find('curl')
+                if install_pos == -1:
+                    install_pos = content.find('git clone')
+                self.assertNotEqual(dvd_pos, -1, f"{script} must check can_install_software")
+                self.assertNotEqual(install_pos, -1, f"{script} must have install logic")
+                self.assertLess(
+                    dvd_pos, install_pos,
+                    f"{script}: DVD check must come before install attempt",
+                )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# profiledef.sh media helper permissions
+# ═══════════════════════════════════════════════════════════════════════════
+class TestProfiledefMediaHelperPermissions(unittest.TestCase):
+    """Validate profiledef.sh includes permissions for mados-media-helper.sh."""
+
+    def setUp(self):
+        profiledef = os.path.join(REPO_DIR, 'profiledef.sh')
+        with open(profiledef) as f:
+            self.content = f.read()
+
+    def test_media_helper_has_permissions(self):
+        """profiledef.sh should set permissions for mados-media-helper.sh."""
+        self.assertIn(
+            'mados-media-helper.sh', self.content,
+            "profiledef.sh must include permissions for mados-media-helper.sh",
+        )
+
+    def test_media_helper_executable(self):
+        """mados-media-helper.sh should have executable permissions."""
+        pattern = re.compile(
+            r'\["/usr/local/lib/mados-media-helper\.sh"\]="0:0:755"'
+        )
+        self.assertRegex(
+            self.content, pattern,
+            "mados-media-helper.sh must have 0:0:755 permissions",
+        )
 
 
 if __name__ == '__main__':

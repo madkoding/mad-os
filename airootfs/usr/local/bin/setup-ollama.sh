@@ -3,6 +3,19 @@
 # Usado como fallback si no se instaló durante el build de la ISO
 
 OLLAMA_CMD="ollama"
+MEDIA_HELPER="/usr/local/lib/mados-media-helper.sh"
+
+# Check if running on read-only media (DVD/CD) without persistence
+if [ -f "$MEDIA_HELPER" ]; then
+    # shellcheck source=/dev/null
+    source "$MEDIA_HELPER"
+    if ! can_install_software; then
+        echo "⚠ Medio óptico (DVD/CD) detectado sin almacenamiento persistente."
+        echo "  Las instalaciones no sobrevivirán un reinicio."
+        echo "  Para usar Ollama, instala madOS en disco con: sudo install-mados"
+        exit 0
+    fi
+fi
 
 if command -v "$OLLAMA_CMD" &>/dev/null; then
     echo "✓ Ollama ya está instalado:"
