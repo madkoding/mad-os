@@ -586,5 +586,80 @@ class TestCompositorSelection(unittest.TestCase):
                                f"Installer must copy {script}")
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Audio quality configuration
+# ═══════════════════════════════════════════════════════════════════════════
+class TestAudioQualityPostInstall(unittest.TestCase):
+    """Verify audio quality auto-detection is configured for installed system."""
+
+    def test_audio_quality_script_exists(self):
+        """Audio quality script must exist."""
+        path = os.path.join(BIN_DIR, "mados-audio-quality.sh")
+        self.assertTrue(
+            os.path.isfile(path),
+            "mados-audio-quality.sh script missing"
+        )
+
+    def test_audio_quality_service_exists(self):
+        """Audio quality systemd service must exist."""
+        path = os.path.join(
+            AIROOTFS, "etc", "systemd", "system", "mados-audio-quality.service"
+        )
+        self.assertTrue(
+            os.path.isfile(path),
+            "mados-audio-quality.service missing"
+        )
+
+    def test_audio_quality_service_enabled(self):
+        """Audio quality service must be enabled."""
+        wants = os.path.join(
+            AIROOTFS, "etc", "systemd", "system",
+            "multi-user.target.wants", "mados-audio-quality.service"
+        )
+        self.assertTrue(
+            os.path.islink(wants),
+            "mados-audio-quality.service not enabled"
+        )
+
+    def test_audio_quality_user_service_in_skel(self):
+        """User audio quality service must be in skel."""
+        path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config",
+            "systemd", "user", "mados-audio-quality.service"
+        )
+        self.assertTrue(
+            os.path.isfile(path),
+            "User audio quality service missing from skel"
+        )
+
+    def test_audio_quality_runs_after_audio_init(self):
+        """Audio quality service must run after basic audio init."""
+        path = os.path.join(
+            AIROOTFS, "etc", "systemd", "system", "mados-audio-quality.service"
+        )
+        with open(path) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-audio-init.service", content,
+            "Must run after mados-audio-init.service"
+        )
+
+    def test_script_has_pipewire_config(self):
+        """Script must generate PipeWire configuration."""
+        path = os.path.join(BIN_DIR, "mados-audio-quality.sh")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("pipewire.conf.d", content)
+        self.assertIn("default.clock.rate", content)
+
+    def test_script_has_wireplumber_config(self):
+        """Script must generate WirePlumber configuration."""
+        path = os.path.join(BIN_DIR, "mados-audio-quality.sh")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("wireplumber.conf.d", content)
+        self.assertIn("monitor.alsa.rules", content)
+
+
 if __name__ == "__main__":
     unittest.main()

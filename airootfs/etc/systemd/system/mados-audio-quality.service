@@ -1,0 +1,17 @@
+[Unit]
+Description=madOS Audio Quality Auto-Configuration
+Documentation=man:pipewire(1)
+# Run after audio hardware is ready but before user sessions start
+Wants=systemd-udev-settle.service sound.target
+After=systemd-udev-settle.service sound.target mados-audio-init.service
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/mados-audio-quality.sh
+# Run with higher priority to ensure audio quality is set early
+Nice=-5
+
+[Install]
+WantedBy=multi-user.target
