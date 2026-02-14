@@ -118,7 +118,7 @@ def _ensure_bluetooth_ready() -> None:
                 capture_output=True, text=True, timeout=10,
             )
             import time
-            time.sleep(1)
+            time.sleep(3)  # Wait for service and adapter initialization
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
 
@@ -130,11 +130,21 @@ def _ensure_bluetooth_ready() -> None:
 def check_bluetooth_available() -> bool:
     """Return True if the Bluetooth controller is available."""
     _ensure_bluetooth_ready()
-    try:
-        output = _run_btctl_check(['show'])
-        return 'Controller' in output
-    except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
-        return False
+    
+    # Try multiple times with delay to handle adapter initialization
+    import time
+    for attempt in range(3):
+        try:
+            output = _run_btctl_check(['show'])
+            if 'Controller' in output:
+                return True
+        except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+        
+        if attempt < 2:  # Don't sleep on last attempt
+            time.sleep(1)
+    
+    return False
 
 
 def is_adapter_powered() -> bool:
