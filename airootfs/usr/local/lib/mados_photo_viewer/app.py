@@ -583,8 +583,22 @@ class PhotoViewerApp(Gtk.Window):
         except GLib.Error as e:
             self._show_error(f"Save failed: {e.message}")
 
+    @staticmethod
+    def _detect_compositor():
+        """Detect the running Wayland compositor.
+
+        Returns:
+            'hyprland' if Hyprland is running, 'sway' otherwise.
+        """
+        if os.environ.get('HYPRLAND_INSTANCE_SIGNATURE'):
+            return 'hyprland'
+        return 'sway'
+
     def _on_set_wallpaper(self):
-        """Set the current image as the Sway desktop wallpaper."""
+        """Set the current image as the desktop wallpaper.
+
+        Supports both Sway (via swaymsg) and Hyprland (via swaybg).
+        """
         if self._current_mode != 'image':
             return
 
@@ -606,6 +620,14 @@ class PhotoViewerApp(Gtk.Window):
 
         filepath = os.path.abspath(filepath)
 
+        compositor = self._detect_compositor()
+        if compositor == 'hyprland':
+            self._set_wallpaper_hyprland(filepath)
+        else:
+            self._set_wallpaper_sway(filepath)
+
+    def _set_wallpaper_sway(self, filepath):
+        """Set wallpaper on Sway using swaymsg."""
         try:
             result = subprocess.run(
                 ['swaymsg', 'output', '*', 'bg', filepath, 'fill'],
@@ -613,12 +635,32 @@ class PhotoViewerApp(Gtk.Window):
             )
             if result.returncode == 0:
                 self._status_filename.set_text(self._t('wallpaper_set'))
-                # Try to update sway config
                 self._update_sway_config(filepath)
             else:
                 self._show_error(self._t('wallpaper_error') + f" ({result.stderr.strip()})")
         except FileNotFoundError:
             self._show_error(self._t('wallpaper_error') + " (swaymsg not found)")
+        except subprocess.TimeoutExpired:
+            self._show_error(self._t('wallpaper_error') + " (timeout)")
+
+    def _set_wallpaper_hyprland(self, filepath):
+        """Set wallpaper on Hyprland by restarting swaybg."""
+        try:
+            # Kill any existing swaybg process
+            subprocess.run(
+                ['pkill', '-x', 'swaybg'],
+                capture_output=True, timeout=5
+            )
+            # Start swaybg with the new wallpaper
+            subprocess.Popen(
+                ['swaybg', '-i', filepath, '-m', 'fill'],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                start_new_session=True
+            )
+            self._status_filename.set_text(self._t('wallpaper_set'))
+            self._update_hyprland_config(filepath)
+        except FileNotFoundError:
+            self._show_error(self._t('wallpaper_error') + " (swaybg not found)")
         except subprocess.TimeoutExpired:
             self._show_error(self._t('wallpaper_error') + " (timeout)")
 
@@ -644,6 +686,40 @@ class PhotoViewerApp(Gtk.Window):
             for i, line in enumerate(lines):
                 stripped = line.strip()
                 if stripped.startswith('output') and ' bg ' in stripped:
+                    lines[i] = new_line
+                    found = True
+                    break
+
+            if not found:
+                lines.append('\n' + new_line)
+
+            with open(config_path, 'w') as f:
+                f.writelines(lines)
+        except (IOError, OSError):
+            pass  # Silently fail if we can't update the config
+
+    def _update_hyprland_config(self, filepath):
+        """Attempt to update the Hyprland config with the new wallpaper path.
+
+        Looks for an existing 'exec-once = swaybg' line and replaces it,
+        or appends one at the end.
+
+        Args:
+            filepath: Absolute path to the wallpaper image.
+        """
+        config_path = os.path.expanduser('~/.config/hypr/hyprland.conf')
+        if not os.path.isfile(config_path):
+            return
+
+        try:
+            with open(config_path, 'r') as f:
+                lines = f.readlines()
+
+            new_line = f"exec-once = swaybg -i {filepath} -m fill\n"
+            found = False
+            for i, line in enumerate(lines):
+                stripped = line.strip()
+                if 'swaybg' in stripped and stripped.startswith('exec-once'):
                     lines[i] = new_line
                     found = True
                     break
