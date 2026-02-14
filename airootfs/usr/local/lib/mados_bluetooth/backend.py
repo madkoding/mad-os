@@ -9,12 +9,21 @@ via GLib.idle_add.
 import subprocess
 import threading
 import re
+import time
 from dataclasses import dataclass
 from typing import List, Optional, Callable
 
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import GLib
+
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+# Maximum number of attempts to detect Bluetooth adapter on startup
+_ADAPTER_DETECTION_ATTEMPTS = 3
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +126,6 @@ def _ensure_bluetooth_ready() -> None:
                 ['sudo', 'systemctl', 'start', 'bluetooth.service'],
                 capture_output=True, text=True, timeout=10,
             )
-            import time
             time.sleep(3)  # Wait for service and adapter initialization
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
@@ -132,8 +140,7 @@ def check_bluetooth_available() -> bool:
     _ensure_bluetooth_ready()
     
     # Try multiple times with delay to handle adapter initialization
-    import time
-    for attempt in range(3):
+    for attempt in range(_ADAPTER_DETECTION_ATTEMPTS):
         try:
             output = _run_btctl_check(['show'])
             if 'Controller' in output:
@@ -141,7 +148,7 @@ def check_bluetooth_available() -> bool:
         except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
             pass
         
-        if attempt < 2:  # Don't sleep on last attempt
+        if attempt < _ADAPTER_DETECTION_ATTEMPTS - 1:
             time.sleep(1)
     
     return False
@@ -357,7 +364,6 @@ def async_scan(callback: Callable[[List[BluetoothDevice]], None],
     """
     def _worker():
         start_scan()
-        import time
         time.sleep(scan_duration)
         stop_scan()
         devices = get_devices()
