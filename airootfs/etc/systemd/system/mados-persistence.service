@@ -1,7 +1,7 @@
 [Unit]
 Description=madOS Overlayfs Persistence
-DefaultDependencies=no
-After=local-fs.target systemd-udevd.service
+After=local-fs.target systemd-udevd.service systemd-udev-settle.service
+Wants=systemd-udev-settle.service
 Before=display-manager.service multi-user.target
 ConditionPathExists=/run/archiso
 
@@ -14,4 +14,4 @@ StandardError=journal+console
 TimeoutStartSec=180
 
 [Install]
-WantedBy=sysinit.target
+WantedBy=multi-user.target

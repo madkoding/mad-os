@@ -382,9 +382,9 @@ grep -q "Before=.*display-manager.service" "$SERVICE_FILE" \
 grep -q "ConditionPathExists=/run/archiso" "$SERVICE_FILE" \
     && ok "ConditionPathExists=/run/archiso" \
     || fail "Missing ConditionPathExists"
-grep -q "WantedBy=sysinit.target" "$SERVICE_FILE" \
-    && ok "WantedBy=sysinit.target" \
-    || fail "Missing WantedBy=sysinit.target"
+grep -q "WantedBy=multi-user.target" "$SERVICE_FILE" \
+    && ok "WantedBy=multi-user.target" \
+    || fail "Missing WantedBy=multi-user.target"
 
 # =============================================================================
 # Phase 10: Validate script syntax
