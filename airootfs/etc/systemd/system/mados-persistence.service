@@ -1,7 +1,7 @@
 [Unit]
 Description=madOS Overlayfs Persistence
 DefaultDependencies=no
-After=local-fs.target
+After=local-fs.target systemd-udevd.service
 Before=display-manager.service multi-user.target
 ConditionPathExists=/run/archiso
 
@@ -9,8 +9,9 @@ ConditionPathExists=/run/archiso
 Type=oneshot
 ExecStart=/usr/local/bin/setup-persistence.sh
 RemainAfterExit=yes
-StandardOutput=journal
-StandardError=journal
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=180
 
 [Install]
 WantedBy=sysinit.target

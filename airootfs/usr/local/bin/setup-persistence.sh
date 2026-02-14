@@ -33,6 +33,14 @@ is_usb_device() {
                  | grep "^ID_BUS=" | cut -d= -f2)
         [ "$id_bus" = "usb" ] && return 0
     fi
+
+    # Fallback: check sysfs removable flag (some USB controllers don't
+    # expose "usb" in the device path or udevadm, but the kernel still
+    # marks the device as removable)
+    if [ -f "/sys/block/$device/removable" ]; then
+        [ "$(cat "/sys/block/$device/removable" 2>/dev/null)" = "1" ] && return 0
+    fi
+
     return 1
 }
 
@@ -58,19 +66,50 @@ is_optical_device() {
     return 1
 }
 
+# Strip partition number from a block device path to get the base device.
+# Handles standard disks (/dev/sda1 → /dev/sda), nvme (/dev/nvme0n1p2 →
+# /dev/nvme0n1), and mmcblk (/dev/mmcblk0p1 → /dev/mmcblk0).
+strip_partition() {
+    local dev=$1
+    if [[ "$dev" == *"nvme"*p[0-9]* || "$dev" == *"mmcblk"*p[0-9]* ]]; then
+        echo "$dev" | sed 's/p[0-9]*$//'
+    else
+        echo "$dev" | sed 's/[0-9]*$//'
+    fi
+}
+
 find_iso_device() {
     local iso_device=""
 
     if [ -d /run/archiso/bootmnt ]; then
-        iso_device=$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null \
-                     | sed 's/\[.*\]//' | sed 's/p\?[0-9]*$//')
+        local raw_source
+        raw_source=$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null \
+                     | sed 's/\[.*\]//')
+
+        if [ -n "$raw_source" ] && [ -b "$raw_source" ]; then
+            # If findmnt returned a loop device, resolve its backing file
+            # to find the real block device
+            if [[ "$raw_source" == /dev/loop* ]]; then
+                local backing
+                backing=$(losetup -nO BACK-FILE "$raw_source" 2>/dev/null | head -1)
+                if [ -n "$backing" ]; then
+                    # Find which block device hosts the backing file
+                    local back_dev
+                    back_dev=$(df --output=source "$backing" 2>/dev/null | tail -1)
+                    [ -n "$back_dev" ] && [ -b "$back_dev" ] && raw_source="$back_dev"
+                fi
+            fi
+            iso_device=$(strip_partition "$raw_source")
+        fi
     fi
 
     if [ -z "$iso_device" ]; then
         iso_device=$(lsblk -nlo NAME,LABEL 2>/dev/null \
                      | grep -iE "(ARCHISO|MADOS)" | head -1 \
-                     | awk '{print $1}' | sed 's/[0-9]*$//')
-        [ -n "$iso_device" ] && iso_device="/dev/$iso_device"
+                     | awk '{print $1}')
+        if [ -n "$iso_device" ]; then
+            iso_device=$(strip_partition "/dev/$iso_device")
+        fi
     fi
     echo "$iso_device"
 }
@@ -255,14 +294,25 @@ UNITEOF
 setup_persistence() {
     log "Starting madOS persistence setup..."
 
+    # Wait for udev to settle so device nodes are available
+    udevadm settle --timeout=10 2>/dev/null || true
+
     local iso_device
     iso_device=$(find_iso_device)
 
     if [ -z "$iso_device" ]; then
         log "Could not determine ISO device, skipping"
+        log "Debug: /run/archiso/bootmnt exists=$([ -d /run/archiso/bootmnt ] && echo yes || echo no)"
+        log "Debug: findmnt output=$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null || echo 'N/A')"
+        log "Debug: lsblk labels=$(lsblk -nlo NAME,LABEL 2>/dev/null | grep -iE '(ARCHISO|MADOS)' || echo 'none')"
         return 1
     fi
     log "ISO device: $iso_device"
+
+    if ! [ -b "$iso_device" ]; then
+        log "Device $iso_device is not a block device, skipping"
+        return 1
+    fi
 
     if is_optical_device "$iso_device"; then
         log "Device $iso_device is optical media (DVD/CD) – persistence not possible"
@@ -272,6 +322,8 @@ setup_persistence() {
 
     if ! is_usb_device "$iso_device"; then
         log "Device $iso_device is not USB (likely VM), skipping"
+        log "Debug: sysfs path=$(readlink -f "/sys/block/${iso_device#/dev/}" 2>/dev/null || echo 'N/A')"
+        log "Debug: removable=$(cat "/sys/block/${iso_device#/dev/}/removable" 2>/dev/null || echo 'N/A')"
         return 0
     fi
     log "Confirmed USB device"
