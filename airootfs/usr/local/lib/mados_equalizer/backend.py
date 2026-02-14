@@ -73,6 +73,7 @@ class AudioBackend:
         self.active_sink_name = ''
         self._apply_lock = threading.Lock()
         self._eq_process = None  # Subprocess running 'pipewire -c'
+        self._last_error = ''  # Last error message from PipeWire
 
         # Detect available audio systems
         self.has_pipewire = self._check_command('pw-cli')
@@ -303,8 +304,8 @@ context.properties = {{
 }}
 
 context.spa-libs = {{
-    audio/convert/* = audioconvert/libspa-audioconvert
-    support/*       = support/libspa-support
+    audio.convert.* = audioconvert/libspa-audioconvert
+    support.*       = support/libspa-support
 }}
 
 context.modules = [
@@ -413,14 +414,24 @@ context.modules = [
             self._eq_process = subprocess.Popen(
                 ['pipewire', '-c', str(EQ_CONFIG_FILE)],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
             )
             # Brief wait for the node to appear in the PipeWire graph
-            time.sleep(0.1)
+            time.sleep(0.3)
 
             # Verify the process is still running
             if self._eq_process.poll() is not None:
+                stderr_output = ''
+                try:
+                    stderr_output = self._eq_process.stderr.read().decode(
+                        'utf-8', errors='replace'
+                    ).strip()
+                except Exception:
+                    pass
                 self._eq_process = None
+                if stderr_output:
+                    self._last_error = stderr_output
+                    print(f"EQ process failed: {stderr_output}")
                 return False
 
             return True
@@ -463,7 +474,8 @@ context.modules = [
                 return False, 'Failed to write filter-chain configuration'
 
             if not self._start_eq_process():
-                return False, 'Failed to start filter-chain'
+                detail = self._last_error or 'unknown error'
+                return False, f'Failed to start filter-chain: {detail}'
 
             return True, 'eq_applied'
 

@@ -140,11 +140,19 @@ class WiFiApp(Gtk.Window):
         self._hidden_btn.set_margin_bottom(4)
         panel.pack_start(self._hidden_btn, False, False, 0)
 
-        # Spinner for scanning
+        # Spinner and status label for scanning
+        scan_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        scan_box.set_halign(Gtk.Align.CENTER)
+        scan_box.set_margin_top(4)
+        scan_box.set_margin_bottom(4)
+
         self._scan_spinner = Gtk.Spinner()
-        self._scan_spinner.set_margin_top(4)
-        self._scan_spinner.set_margin_bottom(4)
-        panel.pack_start(self._scan_spinner, False, False, 0)
+        scan_box.pack_start(self._scan_spinner, False, False, 0)
+
+        self._scan_status_label = Gtk.Label(label="")
+        scan_box.pack_start(self._scan_status_label, False, False, 0)
+
+        panel.pack_start(scan_box, False, False, 0)
 
         return panel
 

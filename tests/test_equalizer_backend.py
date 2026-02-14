@@ -227,6 +227,17 @@ class TestGenerateFilterChainConfig(unittest.TestCase):
         self.assertIn('context.spa-libs', config)
         self.assertIn('audioconvert', config)
 
+    def test_config_spa_libs_use_dot_notation(self):
+        """SPA lib keys must use dot notation (factory names), not slashes."""
+        config = self.backend._generate_filter_chain_config()
+        self.assertIn('audio.convert.*', config)
+        self.assertIn('support.*', config)
+        # Must NOT use path-style key patterns (old/broken format)
+        self.assertNotIn('audio/convert/', config)
+        # 'support/' in values (e.g. support/libspa-support) is fine;
+        # only the key 'support/*' pattern was wrong.
+        self.assertNotIn('support/*', config)
+
     def test_config_targets_active_sink(self):
         """Generated config should target the active audio sink."""
         config = self.backend._generate_filter_chain_config()
