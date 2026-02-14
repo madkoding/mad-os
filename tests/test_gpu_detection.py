@@ -334,6 +334,8 @@ class TestSessionWrappers(unittest.TestCase):
                        "Sway session must force software OpenGL")
         self.assertIn("WLR_NO_HARDWARE_CURSORS=1", content,
                        "Sway session must disable hardware cursors")
+        self.assertIn("GSK_RENDERER=cairo", content,
+                       "Sway session must disable GTK Vulkan renderer")
 
     def test_sway_session_uses_detect_legacy_hardware(self):
         """sway-session must use detect-legacy-hardware for conditional setup."""
@@ -412,6 +414,8 @@ class TestLoginShellIntegration(unittest.TestCase):
         # Must set software rendering vars before launching sway
         self.assertIn("WLR_RENDERER=pixman", content,
                        ".bash_profile must set pixman renderer for sway")
+        self.assertIn("GSK_RENDERER=cairo", content,
+                       ".bash_profile must disable GTK Vulkan renderer")
 
     def test_bash_profile_hyprland_for_3d(self):
         """.bash_profile must launch Hyprland via start-hyprland when 3D acceleration is available."""
@@ -442,6 +446,8 @@ class TestLoginShellIntegration(unittest.TestCase):
                        ".zlogin must exec sway for no-3D/legacy hardware")
         self.assertIn("WLR_RENDERER=pixman", content,
                        ".zlogin must set pixman renderer for sway")
+        self.assertIn("GSK_RENDERER=cairo", content,
+                       ".zlogin must disable GTK Vulkan renderer")
 
     def test_zlogin_hyprland_for_3d(self):
         """.zlogin must launch Hyprland via start-hyprland when 3D acceleration is available."""

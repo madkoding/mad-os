@@ -34,6 +34,8 @@ if [ -z "${WAYLAND_DISPLAY}" ] && [ "$(tty)" = "/dev/tty1" ]; then
         export WLR_NO_HARDWARE_CURSORS=1
         export LIBGL_ALWAYS_SOFTWARE=1
         export MESA_GL_VERSION_OVERRIDE=3.3
+        # GTK: disable Vulkan renderer to avoid GPU probe errors
+        export GSK_RENDERER=cairo
         # Chromium: force software rendering on legacy hardware
         export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:-} --disable-gpu"
 
@@ -98,6 +100,8 @@ VMCONF
             export WLR_NO_HARDWARE_CURSORS=1
             export LIBGL_ALWAYS_SOFTWARE=1
             export MESA_GL_VERSION_OVERRIDE=3.3
+            # GTK: disable Vulkan renderer to avoid GPU probe errors
+            export GSK_RENDERER=cairo
             export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:-} --disable-gpu"
             if systemd-detect-virt --vm --quiet 2>/dev/null; then
                 export WLR_DRM_NO_ATOMIC=1
