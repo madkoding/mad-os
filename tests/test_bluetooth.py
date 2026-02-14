@@ -754,5 +754,89 @@ class TestWifiLauncherRfkill(unittest.TestCase):
                          f"Bash syntax error: {result.stderr}")
 
 
+class TestBluetoothSudoUsage(unittest.TestCase):
+    """Verify Bluetooth scripts use sudo for privileged commands."""
+
+    def test_launcher_uses_sudo_for_modprobe(self):
+        """mados-bluetooth launcher should use sudo for modprobe commands."""
+        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
+        with open(launcher) as f:
+            content = f.read()
+        self.assertIn('sudo modprobe', content,
+                      "mados-bluetooth launcher must use sudo for modprobe")
+
+    def test_launcher_uses_sudo_for_rfkill(self):
+        """mados-bluetooth launcher should use sudo for rfkill commands."""
+        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
+        with open(launcher) as f:
+            content = f.read()
+        self.assertIn('sudo rfkill', content,
+                      "mados-bluetooth launcher must use sudo for rfkill")
+
+    def test_launcher_uses_sudo_for_systemctl(self):
+        """mados-bluetooth launcher should use sudo for systemctl start/restart."""
+        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
+        with open(launcher) as f:
+            content = f.read()
+        self.assertIn('sudo systemctl start', content,
+                      "mados-bluetooth launcher must use sudo for systemctl start")
+        self.assertIn('sudo systemctl restart', content,
+                      "mados-bluetooth launcher must use sudo for systemctl restart")
+
+    def test_bluetooth_check_script_uses_sudo(self):
+        """bluetooth-check.sh should use sudo for privileged commands."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-check.sh"
+        )
+        with open(script_path) as f:
+            content = f.read()
+        self.assertIn('sudo rfkill', content,
+                      "bluetooth-check.sh must use sudo for rfkill")
+        self.assertIn('sudo modprobe', content,
+                      "bluetooth-check.sh must use sudo for modprobe")
+        self.assertIn('sudo systemctl', content,
+                      "bluetooth-check.sh must use sudo for systemctl")
+
+    def test_bluetooth_status_script_uses_sudo(self):
+        """bluetooth-status.sh should use sudo for privileged commands."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-status.sh"
+        )
+        with open(script_path) as f:
+            content = f.read()
+        self.assertIn('sudo rfkill', content,
+                      "bluetooth-status.sh must use sudo for rfkill")
+        self.assertIn('sudo systemctl', content,
+                      "bluetooth-status.sh must use sudo for systemctl")
+
+    def test_backend_uses_sudo_for_rfkill(self):
+        """Backend module should use sudo for rfkill commands."""
+        backend_path = os.path.join(LIB_DIR, "mados_bluetooth", "backend.py")
+        with open(backend_path) as f:
+            content = f.read()
+        # Check for sudo usage in subprocess.run calls
+        # Should find: ['sudo', 'rfkill', 'unblock', 'bluetooth']
+        self.assertIn("'sudo', 'rfkill'", content,
+                      "backend.py must use sudo for rfkill")
+
+    def test_backend_uses_sudo_for_modprobe(self):
+        """Backend module should use sudo for modprobe commands."""
+        backend_path = os.path.join(LIB_DIR, "mados_bluetooth", "backend.py")
+        with open(backend_path) as f:
+            content = f.read()
+        self.assertIn("'sudo', 'modprobe'", content,
+                      "backend.py must use sudo for modprobe")
+
+    def test_backend_uses_sudo_for_systemctl_start(self):
+        """Backend module should use sudo for systemctl start commands."""
+        backend_path = os.path.join(LIB_DIR, "mados_bluetooth", "backend.py")
+        with open(backend_path) as f:
+            content = f.read()
+        self.assertIn("'sudo', 'systemctl', 'start'", content,
+                      "backend.py must use sudo for systemctl start")
+
+
 if __name__ == "__main__":
     unittest.main()

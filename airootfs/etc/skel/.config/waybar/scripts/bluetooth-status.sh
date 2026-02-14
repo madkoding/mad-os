@@ -4,11 +4,11 @@
 # Only runs if exec-if detects a Bluetooth controller
 
 # Unblock Bluetooth rfkill (common on MT7921 combo adapters)
-rfkill unblock bluetooth 2>/dev/null
+sudo rfkill unblock bluetooth 2>/dev/null
 
 # Ensure bluetooth.service is running (needed for adapters like MediaTek MT7921)
 if ! systemctl is-active --quiet bluetooth.service 2>/dev/null; then
-    systemctl start bluetooth.service 2>/dev/null
+    sudo systemctl start bluetooth.service 2>/dev/null
     sleep 2
 fi
 
