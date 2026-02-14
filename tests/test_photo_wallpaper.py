@@ -60,14 +60,12 @@ class TestDetectCompositor(unittest.TestCase):
             result = PhotoViewerApp._detect_compositor()
             self.assertEqual(result, 'hyprland')
 
-    def test_returns_hyprland_with_empty_string(self):
-        """Should return 'hyprland' even if env var is empty string."""
+    def test_returns_sway_with_empty_string(self):
+        """Should return 'sway' when env var is set to empty string."""
         with patch.dict(os.environ, {'HYPRLAND_INSTANCE_SIGNATURE': ''}):
             result = PhotoViewerApp._detect_compositor()
-            # Empty string is still truthy in the context of env var existence
-            # but os.environ.get() would return empty string which is falsy
-            # Let's verify the actual behavior
-            self.assertEqual(result, 'sway')  # Empty string is falsy
+            # Empty string env vars are falsy in Python, so this returns 'sway'
+            self.assertEqual(result, 'sway')
 
 
 # ═══════════════════════════════════════════════════════════════════════════

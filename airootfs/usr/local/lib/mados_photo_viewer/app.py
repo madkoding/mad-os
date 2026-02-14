@@ -719,7 +719,7 @@ class PhotoViewerApp(Gtk.Window):
             found = False
             for i, line in enumerate(lines):
                 stripped = line.strip()
-                if 'swaybg' in stripped and stripped.startswith('exec-once'):
+                if stripped.startswith('exec-once') and 'swaybg' in stripped:
                     lines[i] = new_line
                     found = True
                     break
