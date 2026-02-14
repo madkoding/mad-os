@@ -298,6 +298,15 @@ remove_persistence() {
         print_warning "Persistence not configured"
         return
     fi
+
+    # Safety: verify the partition actually has the persistence label before removing.
+    local actual_label
+    actual_label=$(blkid -s LABEL -o value "$persist_dev" 2>/dev/null)
+    if [ "$actual_label" != "$PERSIST_LABEL" ]; then
+        print_error "Safety check failed: $persist_dev label is '$actual_label', expected '$PERSIST_LABEL'"
+        print_error "Refusing to remove – this may not be the persistence partition"
+        return 1
+    fi
     
     print_warning "This will PERMANENTLY DELETE the persistence partition!"
     print_warning "All persistent data will be LOST!"

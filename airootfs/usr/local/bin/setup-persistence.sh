@@ -170,7 +170,7 @@ create_persist_partition() {
     local device=$1
     log "Creating persistence partition on $device"
 
-    # Safety check: verify the target device is the ISO boot device.
+    # Safety check 1: verify the target device is the ISO boot device.
     # This prevents accidentally writing to a different disk.
     local expected_iso_device
     expected_iso_device=$(find_iso_device)
@@ -178,6 +178,12 @@ create_persist_partition() {
         log "SAFETY: Refusing to create partition on $device (ISO device is $expected_iso_device)"
         return 1
     fi
+
+    # Safety check 2: detect partition table type and enforce limits.
+    # MBR (msdos) supports at most 4 primary partitions.
+    local table_type
+    table_type=$(parted -s "$device" print 2>/dev/null \
+                 | grep -i "^Partition Table:" | awk '{print $3}')
 
     local part_suffix=""
     [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* ]] && part_suffix="p"
@@ -188,6 +194,18 @@ create_persist_partition() {
     [ -z "$last_part_num" ] && { log "Cannot determine last partition"; return 1; }
 
     local new_part_num=$((last_part_num + 1))
+
+    if [ "$table_type" = "msdos" ] && [ "$new_part_num" -gt 4 ]; then
+        log "SAFETY: MBR partition table on $device already has $last_part_num partitions (max 4)"
+        return 1
+    fi
+
+    # Safety check 3: snapshot existing partition boundaries so we can
+    # verify they were not altered after creating the new partition.
+    local pre_parts
+    pre_parts=$(parted -s "$device" unit MB print 2>/dev/null \
+                | grep "^ [0-9]" | awk '{print $1 ":" $2 ":" $3}')
+
     local persist_dev="${device}${part_suffix}${new_part_num}"
     local last_part_end
     last_part_end=$(parted -s "$device" unit MB print 2>/dev/null \
@@ -200,13 +218,42 @@ create_persist_partition() {
     sleep 2; partprobe "$device" 2>/dev/null || true; sleep 1
     udevadm settle 2>/dev/null || true
 
+    # Safety check 4: verify the new partition actually appears in the table.
+    local post_part_count
+    post_part_count=$(parted -s "$device" print 2>/dev/null \
+                      | grep -c "^ [0-9]")
+    if [ "${post_part_count:-0}" -le "$last_part_num" ]; then
+        log "SAFETY: Partition table unchanged after mkpart – creation may have failed"
+        return 1
+    fi
+
+    # Safety check 5: verify existing partitions were not modified.
+    local post_pre_parts
+    post_pre_parts=$(parted -s "$device" unit MB print 2>/dev/null \
+                     | grep "^ [0-9]" | head -n "$last_part_num" \
+                     | awk '{print $1 ":" $2 ":" $3}')
+    if [ "$pre_parts" != "$post_pre_parts" ]; then
+        log "SAFETY: Existing partition boundaries changed after mkpart!"
+        log "Before: $pre_parts"
+        log "After:  $post_pre_parts"
+        return 1
+    fi
+
     [ -b "$persist_dev" ] || { log "$persist_dev not found"; return 1; }
 
     log "Formatting ${persist_dev} as ext4 with label '$PERSIST_LABEL'"
     mkfs.ext4 -F -L "$PERSIST_LABEL" "$persist_dev" >/dev/null 2>&1 \
         || { log "mkfs.ext4 failed"; return 1; }
 
-    log "Created $persist_dev"
+    # Safety check 6: verify the label was written correctly.
+    local written_label
+    written_label=$(blkid -s LABEL -o value "$persist_dev" 2>/dev/null)
+    if [ "$written_label" != "$PERSIST_LABEL" ]; then
+        log "SAFETY: Label verification failed (expected '$PERSIST_LABEL', got '$written_label')"
+        return 1
+    fi
+
+    log "Created and verified $persist_dev"
     echo "$persist_dev"
 }
 

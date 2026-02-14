@@ -318,6 +318,125 @@ class TestSetupPersistenceScript(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Partition protection safety checks
+# ═══════════════════════════════════════════════════════════════════════════
+class TestPartitionProtection(unittest.TestCase):
+    """Verify create_persist_partition has guards to avoid damaging other partitions."""
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, 'setup-persistence.sh')
+        with open(self.script_path) as f:
+            self.content = f.read()
+        # Extract create_persist_partition function body
+        start = self.content.find('create_persist_partition()')
+        self.assertNotEqual(start, -1)
+        self.create_fn = self.content[start:start + 4000]
+
+    def test_checks_partition_table_type(self):
+        """Must detect MBR partition table to enforce 4-partition limit."""
+        self.assertIn(
+            'Partition Table:',
+            self.create_fn,
+            "Must read partition table type (MBR/GPT) from parted output",
+        )
+
+    def test_enforces_mbr_partition_limit(self):
+        """Must refuse to create partition 5+ on MBR (msdos) disks."""
+        self.assertIn(
+            'msdos',
+            self.create_fn,
+            "Must check for 'msdos' (MBR) partition table type",
+        )
+        self.assertRegex(
+            self.create_fn,
+            r'new_part_num.*-gt\s*4',
+            "Must check new_part_num > 4 for MBR",
+        )
+
+    def test_snapshots_partition_boundaries_before_create(self):
+        """Must record existing partition boundaries before calling mkpart."""
+        self.assertIn(
+            'pre_parts',
+            self.create_fn,
+            "Must snapshot existing partitions before mkpart",
+        )
+
+    def test_verifies_partition_count_after_create(self):
+        """Must verify partition count increased after mkpart."""
+        self.assertIn(
+            'post_part_count',
+            self.create_fn,
+            "Must check partition count after mkpart",
+        )
+
+    def test_verifies_existing_partitions_unchanged(self):
+        """Must verify pre-existing partition boundaries are unchanged after mkpart."""
+        self.assertIn(
+            'post_pre_parts',
+            self.create_fn,
+            "Must compare existing partitions after mkpart",
+        )
+        self.assertIn(
+            'Existing partition boundaries changed',
+            self.create_fn,
+            "Must log error if existing partitions changed",
+        )
+
+    def test_verifies_label_after_format(self):
+        """Must verify the ext4 label was written correctly after mkfs."""
+        self.assertIn(
+            'written_label',
+            self.create_fn,
+            "Must read back label after mkfs.ext4",
+        )
+        self.assertIn(
+            'Label verification failed',
+            self.create_fn,
+            "Must log error if label doesn't match",
+        )
+
+
+class TestRemovePartitionSafety(unittest.TestCase):
+    """Verify remove_persistence verifies label before deleting a partition."""
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, 'mados-persistence')
+        with open(self.script_path) as f:
+            self.content = f.read()
+        # Extract remove_persistence function body
+        start = self.content.find('remove_persistence()')
+        self.assertNotEqual(start, -1)
+        self.remove_fn = self.content[start:start + 2000]
+
+    def test_verifies_label_before_remove(self):
+        """Must verify partition has the persistence label before deleting."""
+        self.assertIn(
+            'blkid -s LABEL',
+            self.remove_fn,
+            "Must check partition label via blkid before removing",
+        )
+
+    def test_refuses_wrong_label(self):
+        """Must refuse to delete partition if label doesn't match."""
+        self.assertIn(
+            'Safety check failed',
+            self.remove_fn,
+            "Must log safety check failure if label mismatches",
+        )
+
+    def test_label_check_before_confirmation(self):
+        """Label verification must happen before asking user to confirm."""
+        label_pos = self.remove_fn.find('blkid -s LABEL')
+        confirm_pos = self.remove_fn.find("Type 'yes' to confirm")
+        self.assertNotEqual(label_pos, -1, "Must have label check")
+        self.assertNotEqual(confirm_pos, -1, "Must have confirmation prompt")
+        self.assertLess(
+            label_pos, confirm_pos,
+            "Label verification must happen BEFORE user confirmation prompt",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Persistence service configuration validation
 # ═══════════════════════════════════════════════════════════════════════════
 class TestPersistenceServiceConfig(unittest.TestCase):
