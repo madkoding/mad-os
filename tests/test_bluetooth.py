@@ -386,6 +386,40 @@ class TestWaybarConfig(unittest.TestCase):
         self.assertIn('bluetoothctl', exec_if,
                        "exec-if must use bluetoothctl to detect hardware")
 
+    def test_waybar_bluetooth_exec_script(self):
+        """Waybar bluetooth module exec should reference the status script."""
+        config_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
+        )
+        with open(config_path) as f:
+            config = json.load(f)
+        bt_config = config.get('custom/bluetooth', {})
+        exec_cmd = bt_config.get('exec', '')
+        self.assertIn('bluetooth-status.sh', exec_cmd,
+                       "exec must reference bluetooth-status.sh script")
+
+    def test_bluetooth_status_script_exists(self):
+        """bluetooth-status.sh script should exist."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-status.sh"
+        )
+        self.assertTrue(os.path.isfile(script_path),
+                        "bluetooth-status.sh must exist")
+
+    def test_bluetooth_status_script_valid_bash(self):
+        """bluetooth-status.sh should have valid bash syntax."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-status.sh"
+        )
+        result = subprocess.run(
+            ['bash', '-n', script_path],
+            capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0,
+                         f"bluetooth-status.sh has syntax errors: {result.stderr}")
+
     def test_waybar_bluetooth_return_type(self):
         """Waybar bluetooth module should use JSON return type."""
         config_path = os.path.join(
