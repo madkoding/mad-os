@@ -47,13 +47,19 @@ def create_welcome_page(app):
     # ── Divider ──
     divider = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
     divider.get_style_context().add_class('welcome-divider')
-    divider.set_margin_start(80)
-    divider.set_margin_end(80)
+    divider.set_margin_start(40)
+    divider.set_margin_end(40)
     divider.set_margin_bottom(10)
     content.pack_start(divider, False, False, 0)
 
     # ── Features grid ──
-    features_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    features_box = Gtk.FlowBox()
+    features_box.set_selection_mode(Gtk.SelectionMode.NONE)
+    features_box.set_homogeneous(True)
+    features_box.set_max_children_per_line(4)
+    features_box.set_min_children_per_line(1)
+    features_box.set_column_spacing(8)
+    features_box.set_row_spacing(8)
     features_box.set_halign(Gtk.Align.CENTER)
 
     for f1, f2 in app.t('features'):
@@ -70,7 +76,7 @@ def create_welcome_page(app):
         lbl2.set_halign(Gtk.Align.START)
         card.pack_start(lbl2, False, False, 0)
 
-        features_box.pack_start(card, False, False, 0)
+        features_box.insert(card, -1)
 
     content.pack_start(features_box, False, False, 0)
 

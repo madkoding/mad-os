@@ -20,8 +20,9 @@ def create_locale_page(app):
     content.set_margin_start(30)
     content.set_margin_end(30)
     content.set_margin_bottom(14)
-    content.set_halign(Gtk.Align.CENTER)
+    content.set_halign(Gtk.Align.FILL)
     content.set_valign(Gtk.Align.CENTER)
+    content.set_hexpand(True)
 
     # Page header
     header = create_page_header(app, app.t('regional'), 5)
@@ -31,7 +32,7 @@ def create_locale_page(app):
     lang_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
     lang_card.get_style_context().add_class('content-card')
     lang_card.set_margin_top(10)
-    lang_card.set_size_request(380, -1)
+    lang_card.set_hexpand(True)
 
     lang_icon_label = Gtk.Label()
     lang_icon_label.set_markup(
@@ -64,7 +65,7 @@ def create_locale_page(app):
     tz_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
     tz_card.get_style_context().add_class('content-card')
     tz_card.set_margin_top(8)
-    tz_card.set_size_request(380, -1)
+    tz_card.set_hexpand(True)
 
     tz_label = Gtk.Label()
     tz_label.set_markup(
@@ -90,7 +91,7 @@ def create_locale_page(app):
         lambda x: app.notebook.prev_page(),
         lambda x: _on_locale_next(app)
     )
-    nav.set_size_request(380, -1)
+    nav.set_hexpand(True)
     content.pack_start(nav, False, False, 0)
 
     page.pack_start(content, True, False, 0)

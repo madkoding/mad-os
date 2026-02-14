@@ -69,7 +69,7 @@ class VideoPlayer(Gtk.Box):
         self._video_area = Gtk.DrawingArea()
         self._video_area.set_hexpand(True)
         self._video_area.set_vexpand(True)
-        self._video_area.set_size_request(640, 360)
+        self._video_area.set_size_request(320, 180)
         self._video_area.connect('realize', self._on_video_realize)
         self._video_area.connect('draw', self._on_video_draw)
         self.pack_start(self._video_area, True, True, 0)
@@ -121,7 +121,7 @@ class VideoPlayer(Gtk.Box):
         )
         self._volume_scale.set_draw_value(False)
         self._volume_scale.set_value(80)
-        self._volume_scale.set_size_request(100, -1)
+        self._volume_scale.set_size_request(80, -1)
         self._volume_scale.connect('value-changed', self._on_volume_changed)
         controls.pack_start(self._volume_scale, False, False, 0)
 

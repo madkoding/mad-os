@@ -140,6 +140,7 @@ def update_summary(app):
     part_info = Gtk.Label()
     part_info.set_markup(f'<span size="9000" font_family="monospace">{part_text}</span>')
     part_info.set_halign(Gtk.Align.START)
+    part_info.set_line_wrap(True)
     part_card.pack_start(part_info, False, False, 0)
     app.summary_container.pack_start(part_card, False, False, 0)
 
@@ -157,6 +158,7 @@ def update_summary(app):
     sw_info = Gtk.Label()
     sw_info.set_markup(f'<span size="9000">{app.t("software_list")}</span>')
     sw_info.set_halign(Gtk.Align.START)
+    sw_info.set_line_wrap(True)
     sw_card.pack_start(sw_info, False, False, 0)
     app.summary_container.pack_start(sw_card, False, False, 0)
 

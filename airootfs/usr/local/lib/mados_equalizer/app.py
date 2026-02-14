@@ -45,7 +45,7 @@ class GainIndicator(Gtk.DrawingArea):
         """Initialize the gain indicator with zero gain."""
         super().__init__()
         self.gain = 0.0
-        self.set_size_request(30, 120)
+        self.set_size_request(20, 80)
         self.connect('draw', self._on_draw)
 
     def set_gain(self, gain_db):
@@ -285,7 +285,7 @@ class EqualizerApp:
         self.enable_button = Gtk.Button(label=self._t('enable'))
         self.enable_button.get_style_context().add_class('toggle-disabled')
         self.enable_button.connect('clicked', self._on_toggle_eq)
-        self.enable_button.set_size_request(100, -1)
+        self.enable_button.set_size_request(80, -1)
         top_bar.pack_start(self.enable_button, False, False, 0)
 
         return top_bar
@@ -314,8 +314,9 @@ class EqualizerApp:
         self._populate_preset_combo()
         self.preset_combo.set_active(0)  # Start with "Flat"
         self.preset_combo.connect('changed', self._on_preset_changed)
-        self.preset_combo.set_size_request(180, -1)
-        preset_bar.pack_start(self.preset_combo, False, False, 0)
+        self.preset_combo.set_size_request(120, -1)
+        self.preset_combo.set_hexpand(True)
+        preset_bar.pack_start(self.preset_combo, True, True, 0)
 
         # Save preset button
         self.save_button = Gtk.Button(label=self._t('save_preset'))
@@ -377,8 +378,9 @@ class EqualizerApp:
 
             # Gain indicator (colored bar)
             indicator = GainIndicator()
-            indicator.set_size_request(30, -1)
+            indicator.set_size_request(20, -1)
             indicator.set_vexpand(False)
+            indicator.set_hexpand(True)
             indicator.set_valign(Gtk.Align.CENTER)
 
             # Vertical slider
@@ -399,7 +401,7 @@ class EqualizerApp:
             scale.set_draw_value(False)
             scale.set_digits(1)
             scale.set_vexpand(True)
-            scale.set_size_request(30, 120)
+            scale.set_size_request(20, 80)
 
             # Add marks at key positions
             scale.add_mark(12.0, Gtk.PositionType.RIGHT, None)
@@ -448,7 +450,7 @@ class EqualizerApp:
         """
         volume_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         volume_box.get_style_context().add_class('volume-box')
-        volume_box.set_size_request(80, -1)
+        volume_box.set_size_request(60, -1)
 
         # Volume title
         vol_title = Gtk.Label()
