@@ -587,6 +587,10 @@ class PhotoViewerApp(Gtk.Window):
     def _detect_compositor():
         """Detect the running Wayland compositor.
 
+        Checks the HYPRLAND_INSTANCE_SIGNATURE environment variable which
+        Hyprland sets automatically.  An empty or unset value is treated
+        as *not* running Hyprland.
+
         Returns:
             'hyprland' if Hyprland is running, 'sway' otherwise.
         """
@@ -646,11 +650,15 @@ class PhotoViewerApp(Gtk.Window):
     def _set_wallpaper_hyprland(self, filepath):
         """Set wallpaper on Hyprland by restarting swaybg."""
         try:
-            # Kill any existing swaybg process
+            # Kill any existing swaybg process (ignore errors — it may not
+            # be running yet, or pkill may be absent on minimal systems)
             subprocess.run(
                 ['pkill', '-x', 'swaybg'],
                 capture_output=True, timeout=5
             )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+        try:
             # Start swaybg with the new wallpaper
             subprocess.Popen(
                 ['swaybg', '-i', filepath, '-m', 'fill'],

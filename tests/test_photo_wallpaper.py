@@ -64,7 +64,6 @@ class TestDetectCompositor(unittest.TestCase):
         """Should return 'sway' when env var is set to empty string."""
         with patch.dict(os.environ, {'HYPRLAND_INSTANCE_SIGNATURE': ''}):
             result = PhotoViewerApp._detect_compositor()
-            # Empty string env vars are falsy in Python, so this returns 'sway'
             self.assertEqual(result, 'sway')
 
 
