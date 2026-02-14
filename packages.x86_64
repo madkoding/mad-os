@@ -108,8 +108,7 @@ opusfile
 libvorbis
 libogg
 
-# Tema GTK oscuro
-materia-gtk-theme
+# Tema GTK oscuro (Nordic theme installed from git in customize_airootfs.sh)
 
 # Fuentes
 ttf-jetbrains-mono-nerd

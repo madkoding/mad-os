@@ -97,7 +97,7 @@ PACKAGES_PHASE2 = [
     'rocm-hip-runtime', 'rocm-opencl-runtime',
     'opencl-headers', 'ocl-icd',
     'ttf-jetbrains-mono-nerd', 'noto-fonts-emoji',
-    'pcmanfm', 'lxappearance', 'materia-gtk-theme',
+    'pcmanfm', 'lxappearance',
     'brightnessctl',
     'python-cairo', 'gdk-pixbuf2', 'rsync',
     # Reproductores multimedia
