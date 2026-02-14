@@ -998,5 +998,60 @@ class TestHyprlandConfigVariables(unittest.TestCase):
                 )
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Wallpaper glitch script validation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestWallpaperGlitchScript(unittest.TestCase):
+    """Verify the wallpaper glitch script exists and is well-formed."""
+
+    SCRIPT_PATH = os.path.join(BIN_DIR, "mados-wallpaper-glitch")
+
+    def test_script_exists(self):
+        """mados-wallpaper-glitch script must exist."""
+        self.assertTrue(
+            os.path.isfile(self.SCRIPT_PATH),
+            "mados-wallpaper-glitch script missing from /usr/local/bin/",
+        )
+
+    def test_script_has_shebang(self):
+        """mados-wallpaper-glitch must have a bash shebang."""
+        with open(self.SCRIPT_PATH) as f:
+            first_line = f.readline().strip()
+        self.assertTrue(
+            first_line.startswith("#!") and "bash" in first_line,
+            f"Must start with bash shebang, got: {first_line}",
+        )
+
+    def test_script_uses_swww(self):
+        """mados-wallpaper-glitch must use swww for wallpaper transitions."""
+        with open(self.SCRIPT_PATH) as f:
+            content = f.read()
+        self.assertIn("swww", content, "Script must use swww for transitions")
+
+    def test_script_listens_for_workspace_events(self):
+        """mados-wallpaper-glitch must listen for workspace change events."""
+        with open(self.SCRIPT_PATH) as f:
+            content = f.read()
+        self.assertIn("workspace", content, "Script must handle workspace events")
+
+    def test_hyprland_conf_references_script(self):
+        """hyprland.conf must exec-once the wallpaper glitch script."""
+        content = _read_config()
+        self.assertIn(
+            "mados-wallpaper-glitch", content,
+            "hyprland.conf must launch mados-wallpaper-glitch via exec-once",
+        )
+
+    def test_profiledef_has_permissions(self):
+        """profiledef.sh must set permissions for mados-wallpaper-glitch."""
+        profiledef = os.path.join(REPO_DIR, "profiledef.sh")
+        with open(profiledef) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-wallpaper-glitch", content,
+            "profiledef.sh must include permissions for mados-wallpaper-glitch",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
