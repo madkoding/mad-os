@@ -513,6 +513,11 @@ class TestFirstBootSelfCleanup(unittest.TestCase):
 class TestXDGUserDirectories(unittest.TestCase):
     """Verify the installer creates standard XDG user directories."""
 
+    XDG_DIRS = [
+        "Documents", "Downloads", "Music", "Videos",
+        "Desktop", "Templates", "Public",
+    ]
+
     def setUp(self):
         install_py = os.path.join(
             LIB_DIR, "mados_installer", "pages", "installation.py"
@@ -524,11 +529,7 @@ class TestXDGUserDirectories(unittest.TestCase):
 
     def test_creates_xdg_directories(self):
         """Installer must create standard XDG user directories."""
-        xdg_dirs = [
-            "Documents", "Downloads", "Music", "Videos",
-            "Desktop", "Templates", "Public",
-        ]
-        for d in xdg_dirs:
+        for d in self.XDG_DIRS:
             with self.subTest(directory=d):
                 self.assertIn(
                     d, self.content,
@@ -538,11 +539,7 @@ class TestXDGUserDirectories(unittest.TestCase):
     def test_skel_has_xdg_directories(self):
         """Skel directory must contain XDG user directories."""
         skel_dir = os.path.join(AIROOTFS, "etc", "skel")
-        xdg_dirs = [
-            "Documents", "Downloads", "Music", "Videos",
-            "Desktop", "Templates", "Public", "Pictures",
-        ]
-        for d in xdg_dirs:
+        for d in self.XDG_DIRS + ["Pictures"]:
             with self.subTest(directory=d):
                 self.assertTrue(
                     os.path.isdir(os.path.join(skel_dir, d)),
