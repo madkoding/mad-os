@@ -165,9 +165,22 @@ class TestSetupPersistenceScript(unittest.TestCase):
         self.assertRegex(self.content, r'strip_partition\(\)\s*\{')
 
     def test_strip_partition_handles_nvme(self):
-        """strip_partition must handle nvme device names (nvme0n1p2 → nvme0n1)."""
+        """strip_partition must handle nvme and mmcblk device names correctly.
+
+        Expected behavior:
+          /dev/nvme0n1p2  → /dev/nvme0n1  (strips pN suffix)
+          /dev/mmcblk0p1  → /dev/mmcblk0  (strips pN suffix)
+          /dev/sda1       → /dev/sda      (strips trailing digits)
+        """
+        # Verify strip_partition uses the correct sed patterns for nvme/mmcblk
         self.assertIn('nvme', self.content)
         self.assertIn('mmcblk', self.content)
+        # The function must strip 'p' + digits for nvme/mmcblk
+        self.assertRegex(
+            self.content,
+            r"sed\s+'s/p\[0-9\]\*\$//'" ,
+            "strip_partition must use sed to remove pN suffix for nvme/mmcblk",
+        )
 
     def test_is_usb_device_checks_removable_flag(self):
         """is_usb_device should check sysfs removable flag as fallback."""
@@ -239,12 +252,14 @@ class TestPersistenceServiceConfig(unittest.TestCase):
                       "Service needs TimeoutStartSec for slow USB devices")
 
     def test_service_timeout_sufficient(self):
-        """TimeoutStartSec must be at least 120s for partition creation."""
+        """TimeoutStartSec must be at least 120s for partition creation on slow USB."""
         match = re.search(r'TimeoutStartSec=(\d+)', self.content)
-        self.assertIsNotNone(match, "TimeoutStartSec must have a numeric value")
+        if match is None:
+            self.fail("TimeoutStartSec must have a numeric value")
         timeout = int(match.group(1))
         self.assertGreaterEqual(timeout, 120,
-                                "TimeoutStartSec must be >= 120s for partition creation")
+                                "TimeoutStartSec must be >= 120s to allow "
+                                "partition creation and formatting on slow USB sticks")
 
     def test_service_after_udev(self):
         """Service should start after udev to ensure device nodes exist."""
