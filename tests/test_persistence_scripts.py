@@ -361,10 +361,9 @@ class TestPartitionProtection(unittest.TestCase):
     def test_partition_number_detection_uses_numeric_sort(self):
         """Must use 'sort -n' to find highest partition number, not rely on parted output order."""
         # This prevents bugs when parted lists partitions out of order (e.g., "2" then "1")
-        # Find the section that determines last_part_num
-        import re
-        last_part_pattern = r'last_part_num=\$\(parted.*?\)'
-        match = re.search(last_part_pattern, self.create_fn, re.DOTALL)
+        # Find the section that determines last_part_num - look for the complete assignment
+        last_part_pattern = r'last_part_num=\$\(parted[^)]+\)'
+        match = re.search(last_part_pattern, self.create_fn, re.MULTILINE)
         
         self.assertIsNotNone(
             match,
@@ -385,9 +384,8 @@ class TestPartitionProtection(unittest.TestCase):
             "Must snapshot existing partitions before mkpart",
         )
         # Verify that pre_parts uses sort -n to handle out-of-order partition numbers
-        import re
-        pre_parts_pattern = r'pre_parts=\$\(parted.*?\)'
-        match = re.search(pre_parts_pattern, self.create_fn, re.DOTALL)
+        pre_parts_pattern = r'pre_parts=\$\(parted[^)]+\)'
+        match = re.search(pre_parts_pattern, self.create_fn, re.MULTILINE)
         self.assertIsNotNone(
             match,
             "Must have a command that sets pre_parts from parted output",
@@ -420,9 +418,8 @@ class TestPartitionProtection(unittest.TestCase):
             "Must log error if existing partitions changed",
         )
         # Verify that post_pre_parts uses sort -n to match pre_parts ordering
-        import re
-        post_pre_parts_pattern = r'post_pre_parts=\$\(parted.*?\)'
-        match = re.search(post_pre_parts_pattern, self.create_fn, re.DOTALL)
+        post_pre_parts_pattern = r'post_pre_parts=\$\(parted[^)]+\)'
+        match = re.search(post_pre_parts_pattern, self.create_fn, re.MULTILINE)
         self.assertIsNotNone(
             match,
             "Must have a command that sets post_pre_parts from parted output",
