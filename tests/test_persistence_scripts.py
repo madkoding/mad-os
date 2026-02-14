@@ -226,6 +226,91 @@ class TestSetupPersistenceScript(unittest.TestCase):
         self.assertIn('Debug:', self.content,
                       "setup_persistence must include debug logging for diagnostics")
 
+    # ── Device-scoped persistence safety tests ──────────────────────────
+
+    def test_find_persist_partition_accepts_parent_device(self):
+        """find_persist_partition must accept a parent device to scope the search."""
+        self.assertRegex(
+            self.content,
+            r'find_persist_partition\(\)\s*\{[^}]*parent_device',
+            "find_persist_partition must use a parent_device parameter",
+        )
+
+    def test_find_persist_partition_uses_lsblk_with_device(self):
+        """When given a parent device, find_persist_partition must pass it to lsblk."""
+        self.assertIn(
+            'lsblk -nlo NAME,LABEL "$parent_device"',
+            self.content,
+            "find_persist_partition must scope lsblk search to parent device",
+        )
+
+    def test_setup_persistence_passes_iso_device_to_find(self):
+        """setup_persistence must pass iso_device to find_persist_partition."""
+        self.assertIn(
+            'find_persist_partition "$iso_device"',
+            self.content,
+            "setup_persistence must scope partition search to ISO device",
+        )
+
+    def test_create_partition_has_safety_check(self):
+        """create_persist_partition must verify target matches ISO device."""
+        self.assertIn(
+            'SAFETY',
+            self.content,
+            "create_persist_partition must have a SAFETY check",
+        )
+        # Verify it calls find_iso_device to compare
+        create_start = self.content.find('create_persist_partition()')
+        if create_start != -1:
+            create_body = self.content[create_start:self.content.find('\n}', create_start)]
+            self.assertIn(
+                'find_iso_device',
+                create_body,
+                "create_persist_partition must call find_iso_device for safety check",
+            )
+
+    def test_records_boot_device(self):
+        """setup_persistence must record boot device in .mados-boot-device."""
+        self.assertIn(
+            '.mados-boot-device',
+            self.content,
+            "Must record boot device in .mados-boot-device file",
+        )
+
+    def test_init_script_reads_boot_device(self):
+        """Embedded init script must read .mados-boot-device for scoped search."""
+        # The init script is embedded as a heredoc
+        init_start = self.content.find("cat > \"$PERSIST_MOUNT/mados-persist-init.sh\"")
+        self.assertNotEqual(init_start, -1, "Must have embedded init script")
+        init_content = self.content[init_start:]
+        self.assertIn(
+            '.mados-boot-device',
+            init_content,
+            "Init script must read .mados-boot-device for scoped partition search",
+        )
+
+    def test_init_script_has_parent_device_scoped_search(self):
+        """Embedded init script's find_persist_dev must accept parent device."""
+        init_start = self.content.find("cat > \"$PERSIST_MOUNT/mados-persist-init.sh\"")
+        self.assertNotEqual(init_start, -1, "Must have embedded init script")
+        init_content = self.content[init_start:]
+        self.assertIn(
+            'parent_device',
+            init_content,
+            "Init script's find_persist_dev must use parent_device parameter",
+        )
+
+    def test_init_script_has_safety_verification(self):
+        """Embedded init script must verify partition belongs to boot device."""
+        init_start = self.content.find("cat > \"$PERSIST_MOUNT/mados-persist-init.sh\"")
+        self.assertNotEqual(init_start, -1, "Must have embedded init script")
+        init_content = self.content[init_start:]
+        self.assertIn(
+            'SAFETY',
+            init_content,
+            "Init script must have SAFETY check verifying partition parent",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Persistence service configuration validation
@@ -358,6 +443,33 @@ class TestMadosPersistenceTool(unittest.TestCase):
 
     def test_supports_remove_command(self):
         self.assertIn('remove', self.content)
+
+    def test_has_find_iso_device_function(self):
+        """mados-persistence CLI must have find_iso_device to scope searches."""
+        self.assertRegex(self.content, r'find_iso_device\(\)\s*\{',
+                         "CLI tool must have find_iso_device() function")
+
+    def test_find_persist_scoped_to_iso_device(self):
+        """find_persist_partition must search only the ISO boot device."""
+        self.assertIn(
+            'find_iso_device',
+            self.content,
+            "find_persist_partition must use find_iso_device for scoping",
+        )
+        # Verify it passes iso device to lsblk
+        self.assertIn(
+            'lsblk -nlo NAME,LABEL "$iso_dev"',
+            self.content,
+            "find_persist_partition must scope lsblk to the ISO device",
+        )
+
+    def test_reads_boot_device_file(self):
+        """CLI tool should read .mados-boot-device for boot device fallback."""
+        self.assertIn(
+            '.mados-boot-device',
+            self.content,
+            "CLI tool must read .mados-boot-device file",
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -121,12 +121,37 @@ find_iso_partition() {
 }
 
 find_persist_partition() {
-    local dev
-    dev=$(lsblk -nlo NAME,LABEL 2>/dev/null \
-        | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
-    # Fallback: blkid works in containers where lsblk label cache is empty
-    if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
-        dev=$(blkid -L "$PERSIST_LABEL" 2>/dev/null)
+    local parent_device="${1:-}"
+    local dev=""
+
+    if [ -n "$parent_device" ] && [ -b "$parent_device" ]; then
+        # Only search partitions that belong to the specified parent device.
+        # This ensures we never accidentally use a persistence partition
+        # on a different disk.
+        dev=$(lsblk -nlo NAME,LABEL "$parent_device" 2>/dev/null \
+            | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
+        # Fallback: check each partition on the parent via blkid
+        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+            local part
+            for part in $(lsblk -nlo NAME "$parent_device" 2>/dev/null \
+                          | tail -n +2 | awk '{print "/dev/" $1}'); do
+                if [ -b "$part" ]; then
+                    local label
+                    label=$(blkid -s LABEL -o value "$part" 2>/dev/null)
+                    if [ "$label" = "$PERSIST_LABEL" ]; then
+                        dev="$part"
+                        break
+                    fi
+                fi
+            done
+        fi
+    else
+        # No parent device specified – search all devices (legacy fallback)
+        dev=$(lsblk -nlo NAME,LABEL 2>/dev/null \
+            | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
+        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+            dev=$(blkid -L "$PERSIST_LABEL" 2>/dev/null)
+        fi
     fi
     echo "$dev"
 }
@@ -144,6 +169,15 @@ get_free_space() {
 create_persist_partition() {
     local device=$1
     log "Creating persistence partition on $device"
+
+    # Safety check: verify the target device is the ISO boot device.
+    # This prevents accidentally writing to a different disk.
+    local expected_iso_device
+    expected_iso_device=$(find_iso_device)
+    if [ -n "$expected_iso_device" ] && [ "$device" != "$expected_iso_device" ]; then
+        log "SAFETY: Refusing to create partition on $device (ISO device is $expected_iso_device)"
+        return 1
+    fi
 
     local part_suffix=""
     [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* ]] && part_suffix="p"
@@ -187,6 +221,10 @@ install_persist_files() {
 # madOS Persistence Init – called by mados-persistence.service on every boot.
 # Mounts the persistence partition, sets up overlayfs for /etc /usr /var /opt,
 # and bind-mounts /home.
+#
+# SAFETY: Only searches the recorded boot device for the persistence partition.
+# The boot device is saved in /mnt/persistence/.mados-boot-device during first
+# setup so that we never accidentally mount a partition from another disk.
 set -euo pipefail
 
 PERSIST_LABEL="persistence"
@@ -196,19 +234,49 @@ LOG_FILE="/var/log/mados-persistence.log"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [init] $*" | tee -a "$LOG_FILE"; }
 
-# Find partition by label
+# Find partition by label, restricted to a specific parent device when provided.
 find_persist_dev() {
-    local dev
-    dev=$(lsblk -nlo NAME,LABEL 2>/dev/null \
-        | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
-    # Fallback: blkid works in containers where lsblk label cache is empty
-    if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
-        dev=$(blkid -L "$PERSIST_LABEL" 2>/dev/null)
+    local parent_device="${1:-}"
+    local dev=""
+
+    if [ -n "$parent_device" ] && [ -b "$parent_device" ]; then
+        # Only search partitions belonging to the parent device
+        dev=$(lsblk -nlo NAME,LABEL "$parent_device" 2>/dev/null \
+            | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
+        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+            local part
+            for part in $(lsblk -nlo NAME "$parent_device" 2>/dev/null \
+                          | tail -n +2 | awk '{print "/dev/" $1}'); do
+                if [ -b "$part" ]; then
+                    local label
+                    label=$(blkid -s LABEL -o value "$part" 2>/dev/null)
+                    if [ "$label" = "$PERSIST_LABEL" ]; then
+                        dev="$part"
+                        break
+                    fi
+                fi
+            done
+        fi
+    else
+        # No parent device specified – search all devices (fallback)
+        dev=$(lsblk -nlo NAME,LABEL 2>/dev/null \
+            | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
+        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+            dev=$(blkid -L "$PERSIST_LABEL" 2>/dev/null)
+        fi
     fi
     echo "$dev"
 }
 
-persist_dev=$(find_persist_dev)
+# Try to read the recorded boot device from a previously mounted persistence
+# partition, or from /run/mados.
+boot_device=""
+if mountpoint -q "$PERSIST_MOUNT" 2>/dev/null && \
+   [ -f "$PERSIST_MOUNT/.mados-boot-device" ]; then
+    boot_device=$(cat "$PERSIST_MOUNT/.mados-boot-device" 2>/dev/null)
+fi
+
+persist_dev=$(find_persist_dev "$boot_device")
 if [ -z "$persist_dev" ]; then
     log "No partition with label '$PERSIST_LABEL' found – skipping"
     exit 0
@@ -219,6 +287,19 @@ if ! mountpoint -q "$PERSIST_MOUNT" 2>/dev/null; then
     mkdir -p "$PERSIST_MOUNT"
     mount "$persist_dev" "$PERSIST_MOUNT" || { log "Failed to mount $persist_dev"; exit 1; }
     log "Mounted $persist_dev at $PERSIST_MOUNT"
+fi
+
+# Re-read boot device after mount (it's stored inside the partition)
+if [ -f "$PERSIST_MOUNT/.mados-boot-device" ]; then
+    boot_device=$(cat "$PERSIST_MOUNT/.mados-boot-device" 2>/dev/null)
+    # Verify the persistence partition actually belongs to the recorded boot device
+    local_parent=$(lsblk -ndo PKNAME "$persist_dev" 2>/dev/null)
+    if [ -n "$boot_device" ] && [ -n "$local_parent" ] && \
+       [ "/dev/$local_parent" != "$boot_device" ]; then
+        log "SAFETY: Persistence partition $persist_dev belongs to /dev/$local_parent but boot device is $boot_device – skipping"
+        umount "$PERSIST_MOUNT" 2>/dev/null || true
+        exit 0
+    fi
 fi
 
 # ── overlayfs for /etc /usr /var /opt ────────────────────────────────────
@@ -328,9 +409,9 @@ setup_persistence() {
     fi
     log "Confirmed USB device"
 
-    # Find or create persistence partition
+    # Find or create persistence partition – ONLY on the ISO device
     local persist_dev
-    persist_dev=$(find_persist_partition)
+    persist_dev=$(find_persist_partition "$iso_device")
 
     if [ -z "$persist_dev" ]; then
         log "No persistence partition found"
@@ -375,6 +456,12 @@ setup_persistence() {
     done
     mkdir -p "$PERSIST_MOUNT/home"
     chmod 755 "$PERSIST_MOUNT"
+
+    # Record the boot device inside the persistence partition so that on
+    # subsequent boots the init script only looks at this specific device.
+    echo "$iso_device" > "$PERSIST_MOUNT/.mados-boot-device"
+    chmod 644 "$PERSIST_MOUNT/.mados-boot-device"
+    log "Recorded boot device: $iso_device"
 
     # Install init script + service into persistence partition
     install_persist_files

@@ -44,13 +44,82 @@ check_live_env() {
     fi
 }
 
-# Find persistence partition
+# Find the ISO boot device (same logic as setup-persistence.sh)
+find_iso_device() {
+    local iso_device=""
+
+    if [ -d /run/archiso/bootmnt ]; then
+        local raw_source
+        raw_source=$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null \
+                     | sed 's/\[.*\]//')
+        if [ -n "$raw_source" ] && [ -b "$raw_source" ]; then
+            if [[ "$raw_source" == /dev/loop* ]]; then
+                local backing
+                backing=$(losetup -nO BACK-FILE "$raw_source" 2>/dev/null | head -1)
+                if [ -n "$backing" ]; then
+                    local back_dev
+                    back_dev=$(df --output=source "$backing" 2>/dev/null | tail -1)
+                    [ -n "$back_dev" ] && [ -b "$back_dev" ] && raw_source="$back_dev"
+                fi
+            fi
+            if [[ "$raw_source" == *"nvme"*p[0-9]* || "$raw_source" == *"mmcblk"*p[0-9]* ]]; then
+                iso_device=$(echo "$raw_source" | sed 's/p[0-9]*$//')
+            else
+                iso_device=$(echo "$raw_source" | sed 's/[0-9]*$//')
+            fi
+        fi
+    fi
+
+    if [ -z "$iso_device" ]; then
+        iso_device=$(lsblk -nlo NAME,LABEL 2>/dev/null \
+                     | grep -iE "(ARCHISO|MADOS)" | head -1 \
+                     | awk '{print $1}')
+        if [ -n "$iso_device" ]; then
+            if [[ "$iso_device" == *"nvme"*p[0-9]* || "$iso_device" == *"mmcblk"*p[0-9]* ]]; then
+                iso_device=$(echo "/dev/$iso_device" | sed 's/p[0-9]*$//')
+            else
+                iso_device=$(echo "/dev/$iso_device" | sed 's/[0-9]*$//')
+            fi
+        fi
+    fi
+    echo "$iso_device"
+}
+
+# Find persistence partition – ONLY on the ISO boot device
 find_persist_partition() {
-    local dev
-    dev=$(lsblk -nlo NAME,LABEL 2>/dev/null | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
-    # Fallback: blkid works in containers where lsblk label cache is empty
-    if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
-        dev=$(blkid -L "$PERSIST_LABEL" 2>/dev/null)
+    local iso_dev
+    iso_dev=$(find_iso_device)
+
+    # Also check recorded boot device from a mounted persistence partition
+    if [ -z "$iso_dev" ] && [ -f "$PERSIST_MOUNT/.mados-boot-device" ]; then
+        iso_dev=$(cat "$PERSIST_MOUNT/.mados-boot-device" 2>/dev/null)
+    fi
+
+    local dev=""
+    if [ -n "$iso_dev" ] && [ -b "$iso_dev" ]; then
+        dev=$(lsblk -nlo NAME,LABEL "$iso_dev" 2>/dev/null \
+            | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
+        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+            local part
+            for part in $(lsblk -nlo NAME "$iso_dev" 2>/dev/null \
+                          | tail -n +2 | awk '{print "/dev/" $1}'); do
+                if [ -b "$part" ]; then
+                    local label
+                    label=$(blkid -s LABEL -o value "$part" 2>/dev/null)
+                    if [ "$label" = "$PERSIST_LABEL" ]; then
+                        dev="$part"
+                        break
+                    fi
+                fi
+            done
+        fi
+    else
+        # Fallback: search all devices (should not happen in normal live boot)
+        dev=$(lsblk -nlo NAME,LABEL 2>/dev/null \
+            | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
+        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+            dev=$(blkid -L "$PERSIST_LABEL" 2>/dev/null)
+        fi
     fi
     echo "$dev"
 }
