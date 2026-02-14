@@ -73,7 +73,8 @@ decoration {
     rounding = 0
 }
 misc {
-    vfr = false
+    vfr = true
+    no_direct_scanout = true
 }
 VMCONF
       fi
