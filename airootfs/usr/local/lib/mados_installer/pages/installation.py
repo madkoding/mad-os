@@ -422,14 +422,15 @@ def _run_installation(app):
 
             # Copy custom Python application launchers
             for launcher in ['mados-photo-viewer', 'mados-pdf-viewer',
-                             'mados-equalizer', 'mados-wifi', 'mados-debug']:
+                             'mados-equalizer', 'mados-wifi', 'mados-bluetooth',
+                             'mados-debug']:
                 subprocess.run(['cp', '-a', f'/usr/local/bin/{launcher}',
                                 f'/mnt/usr/local/bin/{launcher}'], check=False)
 
             # Copy custom Python application libraries
             subprocess.run(['mkdir', '-p', '/mnt/usr/local/lib'], check=False)
             for lib in ['mados_photo_viewer', 'mados_pdf_viewer',
-                        'mados_equalizer', 'mados_wifi']:
+                        'mados_equalizer', 'mados_wifi', 'mados_bluetooth']:
                 if os.path.isdir(f'/usr/local/lib/{lib}'):
                     subprocess.run(['cp', '-a', f'/usr/local/lib/{lib}',
                                     '/mnt/usr/local/lib/'], check=False)
@@ -438,7 +439,8 @@ def _run_installation(app):
             for script in ['detect-legacy-hardware', 'cage-greeter', 'sway-session',
                            'hyprland-session', 'select-compositor',
                            'mados-photo-viewer', 'mados-pdf-viewer',
-                           'mados-equalizer', 'mados-wifi', 'mados-debug']:
+                           'mados-equalizer', 'mados-wifi', 'mados-bluetooth',
+                           'mados-debug']:
                 subprocess.run(['chmod', '+x', f'/mnt/usr/local/bin/{script}'], check=False)
 
             # Copy madOS session desktop files for ReGreet
@@ -459,7 +461,8 @@ def _run_installation(app):
             # Copy custom application desktop entries
             subprocess.run(['mkdir', '-p', '/mnt/usr/share/applications'], check=False)
             for desktop in ['mados-photo-viewer.desktop', 'mados-pdf-viewer.desktop',
-                            'mados-equalizer.desktop']:
+                            'mados-equalizer.desktop', 'mados-wifi.desktop',
+                            'mados-bluetooth.desktop']:
                 if os.path.isfile(f'/usr/share/applications/{desktop}'):
                     subprocess.run(['cp', '-a', f'/usr/share/applications/{desktop}',
                                     f'/mnt/usr/share/applications/{desktop}'], check=False)

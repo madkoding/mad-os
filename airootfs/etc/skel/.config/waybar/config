@@ -115,7 +115,7 @@
         "tooltip-format-wifi": "WiFi: {essid}\nSeñal: {signalStrength}%\nIP: {ipaddr}/{cidr}",
         "tooltip-format-ethernet": "Ethernet: {ifname}\nIP: {ipaddr}/{cidr}",
         "tooltip-format-disconnected": "Sin conexión",
-        "on-click": "",
+        "on-click": "mados-wifi",
         "interval": 30
     },
 
