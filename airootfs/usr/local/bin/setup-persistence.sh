@@ -397,9 +397,8 @@ INITEOF
     cat > "$PERSIST_MOUNT/mados-persistence.service" << 'UNITEOF'
 [Unit]
 Description=madOS Overlayfs Persistence
-DefaultDependencies=no
-After=local-fs.target
-Before=display-manager.service multi-user.target
+After=local-fs.target systemd-udevd.service
+Before=display-manager.service
 ConditionPathExists=/run/archiso
 
 [Service]
@@ -410,7 +409,7 @@ StandardOutput=journal
 StandardError=journal
 
 [Install]
-WantedBy=sysinit.target
+WantedBy=multi-user.target
 UNITEOF
     chmod 644 "$PERSIST_MOUNT/mados-persistence.service"
 
@@ -423,7 +422,7 @@ setup_persistence() {
     log "Starting madOS persistence setup..."
 
     # Wait for udev to settle so device nodes are available
-    udevadm settle --timeout=10 2>/dev/null || true
+    udevadm settle --timeout=30 2>/dev/null || true
 
     local iso_device
     iso_device=$(find_iso_device)
@@ -448,13 +447,23 @@ setup_persistence() {
         return 0
     fi
 
-    if ! is_usb_device "$iso_device"; then
-        log "Device $iso_device is not USB (likely VM), skipping"
-        log "Debug: sysfs path=$(readlink -f "/sys/block/${iso_device#/dev/}" 2>/dev/null || echo 'N/A')"
-        log "Debug: removable=$(cat "/sys/block/${iso_device#/dev/}/removable" 2>/dev/null || echo 'N/A')"
-        return 0
+    if is_usb_device "$iso_device"; then
+        log "Confirmed USB device"
+    else
+        # In archiso, some USB controllers don't expose "usb" in sysfs or
+        # udevadm output.  If the device is removable but not identified as
+        # USB we still allow persistence – only skip if we can positively
+        # confirm it is a fixed disk (removable=0 AND NOT usb).
+        local removable_flag
+        removable_flag=$(cat "/sys/block/${iso_device#/dev/}/removable" 2>/dev/null || echo "")
+        if [ "$removable_flag" = "0" ]; then
+            log "Device $iso_device is not USB and not removable (likely VM/HDD), skipping"
+            log "Debug: sysfs path=$(readlink -f "/sys/block/${iso_device#/dev/}" 2>/dev/null || echo 'N/A')"
+            log "Debug: removable=$removable_flag"
+            return 0
+        fi
+        log "Device $iso_device not positively identified as USB but appears removable – proceeding"
     fi
-    log "Confirmed USB device"
 
     # Find or create persistence partition – ONLY on the ISO device
     local persist_dev

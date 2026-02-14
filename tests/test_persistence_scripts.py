@@ -226,6 +226,11 @@ class TestSetupPersistenceScript(unittest.TestCase):
         self.assertIn('Debug:', self.content,
                       "setup_persistence must include debug logging for diagnostics")
 
+    def test_setup_persistence_has_removable_fallback(self):
+        """setup_persistence should proceed if device is removable but not detected as USB."""
+        self.assertIn('removable_flag', self.content,
+                      "setup_persistence must check removable flag as USB fallback")
+
     # ── Device-scoped persistence safety tests ──────────────────────────
 
     def _get_init_script_content(self):
@@ -494,20 +499,25 @@ class TestPersistenceServiceConfig(unittest.TestCase):
         self.assertIn('journal+console', self.content,
                       "Service must output to journal+console for boot-time debugging")
 
-    def test_service_wanted_by_sysinit(self):
-        """Service must be wanted by sysinit.target (early boot)."""
-        self.assertIn('WantedBy=sysinit.target', self.content)
+    def test_service_wanted_by_multi_user(self):
+        """Service must be wanted by multi-user.target for reliable device detection."""
+        self.assertIn('WantedBy=multi-user.target', self.content)
 
     def test_service_is_enabled(self):
-        """Service must have an enable symlink in sysinit.target.wants."""
+        """Service must have an enable symlink in multi-user.target.wants."""
         symlink = os.path.join(
             ETC_DIR, 'systemd', 'system',
-            'sysinit.target.wants', 'mados-persistence.service'
+            'multi-user.target.wants', 'mados-persistence.service'
         )
         self.assertTrue(
             os.path.islink(symlink),
-            "mados-persistence.service must be enabled in sysinit.target.wants"
+            "mados-persistence.service must be enabled in multi-user.target.wants"
         )
+
+    def test_service_after_udev_settle(self):
+        """Service should wait for udev to fully settle."""
+        self.assertIn('systemd-udev-settle.service', self.content,
+                       "Service must start after systemd-udev-settle.service")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
