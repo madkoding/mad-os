@@ -283,8 +283,24 @@ def scan_networks() -> List[WiFiNetwork]:
         return networks
 
     try:
+        # Ensure device is powered up (MT7921 and similar cards may power down)
+        try:
+            _run_command(['ip', 'link', 'set', device, 'up'], timeout=5)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+
         # Trigger a scan
-        _run_iwctl(['station', device, 'scan'], timeout=10)
+        result = _run_iwctl(['station', device, 'scan'], timeout=10)
+
+        # Check if scan command succeeded
+        if result.returncode != 0:
+            # Scan failed - try to recover by ensuring WiFi is unblocked
+            _ensure_wifi_ready()
+            # Retry scan once
+            result = _run_iwctl(['station', device, 'scan'], timeout=10)
+            if result.returncode != 0:
+                return networks
+
         # Wait for scan to complete
         time.sleep(SCAN_WAIT_SECONDS)
         # Get scan results
