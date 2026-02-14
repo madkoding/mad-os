@@ -25,6 +25,9 @@ from gi.repository import GLib
 # Maximum number of attempts to detect Bluetooth adapter on startup
 _ADAPTER_DETECTION_ATTEMPTS = 3
 
+# Delay in seconds between adapter detection retry attempts
+_ADAPTER_DETECTION_RETRY_DELAY_SECONDS = 1
+
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -149,7 +152,7 @@ def check_bluetooth_available() -> bool:
             pass
         
         if attempt < _ADAPTER_DETECTION_ATTEMPTS - 1:
-            time.sleep(1)
+            time.sleep(_ADAPTER_DETECTION_RETRY_DELAY_SECONDS)
     
     return False
 
