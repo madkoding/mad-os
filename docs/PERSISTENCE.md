@@ -287,6 +287,44 @@ You should see: "Device /dev/sdX is not a USB device (likely ISO/CD/VM), skippin
    rm -rf ~/.cache/*
    ```
 
+### Isohybrid Partition Layout Issues (Advanced)
+
+**Problem**: Partition creation fails or ISO data is overwritten on isohybrid USBs
+
+**Background**: Some USB boot methods create an "isohybrid" layout where:
+- Partition 1 (ISO data) exists as a device node (`/dev/sda1`) but is NOT in the partition table
+- Only partition 2 (EFI) appears in the partition table
+- This creates a "gap" that some partitioning tools try to fill
+
+**Symptoms**:
+- Log shows "WARNING: Found device partition nodes not in partition table"
+- Log shows "WARNING: Partition numbering gaps detected"
+- Partition creation uses `sfdisk` instead of `parted`
+
+**How madOS Handles This**:
+The partition creation script automatically detects this situation and:
+1. Enumerates all device partition nodes (`/dev/sda1`, `/dev/sda2`, etc.)
+2. Compares with partition table entries from `parted`
+3. Identifies gaps (partitions in devices but not in table)
+4. Uses `sfdisk` with explicit partition numbers instead of `parted`
+5. Creates the new partition with a safe number (e.g., 3) that won't conflict
+
+**If you see errors**:
+Check the log for details:
+```bash
+cat /var/log/mados-persistence.log | grep -A5 "device partition nodes"
+```
+
+Expected safe behavior:
+- Script detects gaps and switches to `sfdisk`
+- New partition is numbered to avoid conflicts
+- Existing partitions (ISO data, EFI) remain untouched
+
+**If using parted manually** (not recommended):
+- Never assume partition numbers will match your expectations
+- Always check which partitions exist as device nodes before creating new ones
+- Prefer `sfdisk` with explicit partition numbers for isohybrid layouts
+
 ## Best Practices
 
 ### 1. Regular Backups
