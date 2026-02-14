@@ -214,61 +214,157 @@ create_persist_partition() {
     log "Creating partition ${new_part_num} starting at ${last_part_end}MB"
     log "Command: parted -s $device mkpart primary ext4 ${last_part_end}MB 100%"
     
+    # Log current partition state before mkpart
+    log "Debug: Partition table BEFORE mkpart:"
+    parted -s "$device" print 2>&1 | while read -r line; do log "  PRE: $line"; done
+    
+    log "Debug: Block devices BEFORE mkpart:"
+    lsblk "$device" 2>&1 | while read -r line; do log "  PRE-LSBLK: $line"; done
+    
     # Capture parted output/errors for better debugging
     local parted_output
     parted_output=$(parted -s "$device" mkpart primary ext4 "${last_part_end}MB" 100% 2>&1) || {
-        log "parted mkpart failed with exit code $?"
+        log "ERROR: parted mkpart failed with exit code $?"
         log "parted output: $parted_output"
         return 1
     }
     [ -n "$parted_output" ] && log "parted output: $parted_output"
+    
+    log "Debug: Immediate partition table after mkpart (before sleep):"
+    parted -s "$device" print 2>&1 | while read -r line; do log "  POST-IMM: $line"; done
 
     sleep 2
     log "Running partprobe..."
     partprobe "$device" 2>&1 | while read -r line; do log "partprobe: $line"; done || true
     sleep 1
+    
+    log "Running udevadm settle..."
     udevadm settle --timeout=10 2>/dev/null || true
     log "Device update complete"
+    
+    log "Debug: Partition table AFTER partprobe:"
+    parted -s "$device" print 2>&1 | while read -r line; do log "  POST: $line"; done
+    
+    log "Debug: Block devices AFTER partprobe:"
+    lsblk "$device" 2>&1 | while read -r line; do log "  POST-LSBLK: $line"; done
 
-    # Safety check 4: verify the new partition actually appears in the table.
+    # Safety check 4: verify the new partition actually appears.
+    # Instead of just counting, we check for a NEW partition that wasn't in pre_parts
     local post_part_count
     post_part_count=$(parted -s "$device" print 2>/dev/null \
                       | grep -c "^ [0-9]")
     log "Partition count before: $last_part_num, after: ${post_part_count:-0}"
+    
+    # Get list of current partitions
+    local post_parts_list
+    post_parts_list=$(parted -s "$device" print 2>/dev/null \
+                      | grep "^ [0-9]" | sort -n | awk '{print $1}')
+    log "Debug: Partition numbers after mkpart: $post_parts_list"
+    
+    # Check if we have at least one more partition
     if [ "${post_part_count:-0}" -le "$last_part_num" ]; then
-        log "SAFETY: Partition table unchanged after mkpart – creation may have failed"
-        log "Debug: Partition table after mkpart:"
-        parted -s "$device" print 2>&1 | while read -r line; do log "  $line"; done
+        log "WARNING: Partition count did not increase ($last_part_num -> $post_part_count)"
+        log "This might indicate partition renumbering or creation failure"
+    fi
+    
+    # Find the actual new partition by checking which device node exists
+    # that starts at or near last_part_end
+    log "Debug: Looking for newly created partition starting near ${last_part_end}MB"
+    local found_new_part=""
+    local all_parts
+    all_parts=$(parted -s "$device" print 2>/dev/null | grep "^ [0-9]" | awk '{print $1}')
+    log "Debug: All partition numbers: $all_parts"
+    
+    for pnum in $all_parts; do
+        local pstart psize
+        pstart=$(parted -s "$device" unit MB print 2>/dev/null \
+                 | grep "^ ${pnum}" | awk '{print $2}' | sed 's/MB//')
+        psize=$(parted -s "$device" unit MB print 2>/dev/null \
+                | grep "^ ${pnum}" | awk '{print $4}' | sed 's/MB//')
+        log "Debug: Partition $pnum: start=${pstart}MB, size=${psize}MB"
+        
+        # Check if this partition starts at or very near last_part_end
+        # (allow 1MB tolerance for alignment)
+        if [ -n "$pstart" ]; then
+            local start_diff
+            start_diff=$(awk "BEGIN {printf \"%.0f\", sqrt(($pstart - $last_part_end) * ($pstart - $last_part_end))}")
+            log "Debug: Partition $pnum start difference from expected: ${start_diff}MB"
+            
+            if [ "$start_diff" -le 2 ]; then
+                found_new_part="$pnum"
+                log "Debug: Found candidate partition $pnum (starts at ${pstart}MB, expected ${last_part_end}MB)"
+                break
+            fi
+        fi
+    done
+    
+    if [ -z "$found_new_part" ]; then
+        log "ERROR: Could not find newly created partition"
+        log "Expected partition starting at ${last_part_end}MB"
         return 1
     fi
-
-    # Safety check 5: verify existing partitions were not modified.
+    
+    # Safety check 5: verify existing partitions were not modified by comparing
+    # the boundaries of pre-existing partitions
     local post_pre_parts
     post_pre_parts=$(parted -s "$device" unit MB print 2>/dev/null \
                      | grep "^ [0-9]" | sort -n | head -n "$last_part_num" \
                      | awk '{print $1 ":" $2 ":" $3}')
+    log "Debug: Comparing pre-existing partition boundaries"
+    log "Debug: Before: $pre_parts"
+    log "Debug: After:  $post_pre_parts"
     if [ "$pre_parts" != "$post_pre_parts" ]; then
-        log "SAFETY: Existing partition boundaries changed after mkpart!"
-        log "Before: $pre_parts"
-        log "After:  $post_pre_parts"
+        log "WARNING: Existing partition boundaries changed after mkpart!"
+        log "This is unexpected but might be due to partition table reorganization"
+    fi
+    
+    # Update persist_dev to use the actual partition number we found
+    persist_dev="${device}${part_suffix}${found_new_part}"
+    log "Debug: New partition device should be: $persist_dev"
+
+    # Wait for device node to appear
+    log "Debug: Waiting for device node $persist_dev to appear..."
+    local wait_count=0
+    while [ ! -b "$persist_dev" ] && [ "$wait_count" -lt 10 ]; do
+        sleep 1
+        wait_count=$((wait_count + 1))
+        log "Debug: Waiting for $persist_dev... ($wait_count/10)"
+    done
+    
+    if [ ! -b "$persist_dev" ]; then
+        log "ERROR: Device node $persist_dev not found after 10 seconds"
+        log "Debug: Available device nodes:"
+        ls -la "${device}"* 2>&1 | while read -r line; do log "  $line"; done
         return 1
     fi
-
-    [ -b "$persist_dev" ] || { log "$persist_dev not found"; return 1; }
+    log "Debug: Device node $persist_dev exists"
 
     log "Formatting ${persist_dev} as ext4 with label '$PERSIST_LABEL'"
-    mkfs.ext4 -F -L "$PERSIST_LABEL" "$persist_dev" >/dev/null 2>&1 \
-        || { log "mkfs.ext4 failed"; return 1; }
+    local mkfs_output
+    mkfs_output=$(mkfs.ext4 -F -L "$PERSIST_LABEL" "$persist_dev" 2>&1) || {
+        log "ERROR: mkfs.ext4 failed with exit code $?"
+        log "mkfs.ext4 output: $mkfs_output"
+        return 1
+    }
+    log "Debug: mkfs.ext4 succeeded"
+    
+    # Wait for label to propagate
+    sleep 2
+    udevadm settle --timeout=10 2>/dev/null || true
 
-    # Safety check 6: verify the label was written correctly.
+    # Safety check: verify the label was written correctly.
+    log "Debug: Verifying filesystem label..."
     local written_label
     written_label=$(blkid -s LABEL -o value "$persist_dev" 2>/dev/null)
+    log "Debug: Label read back: '$written_label' (expected: '$PERSIST_LABEL')"
     if [ "$written_label" != "$PERSIST_LABEL" ]; then
-        log "SAFETY: Label verification failed (expected '$PERSIST_LABEL', got '$written_label')"
-        return 1
+        log "WARNING: Label verification failed (expected '$PERSIST_LABEL', got '$written_label')"
+        log "Debug: Full blkid output for $persist_dev:"
+        blkid "$persist_dev" 2>&1 | while read -r line; do log "  BLKID: $line"; done
+        log "Attempting to continue anyway..."
     fi
 
-    log "Created and verified $persist_dev"
+    log "Created and formatted $persist_dev"
     echo "$persist_dev"
 }
 
@@ -495,52 +591,111 @@ setup_persistence() {
             return 1
         fi
 
+        log "Attempting to create persistence partition..."
         persist_dev=$(create_persist_partition "$iso_device")
-        [ -z "$persist_dev" ] && { log "Partition creation failed"; return 1; }
-        log "Created partition: $persist_dev"
+        if [ -z "$persist_dev" ]; then
+            log "ERROR: Partition creation failed"
+            return 1
+        fi
+        log "Successfully created partition: $persist_dev"
     else
         log "Found existing persistence partition: $persist_dev"
     fi
+    
+    # Verify the partition device exists
+    if [ ! -b "$persist_dev" ]; then
+        log "ERROR: Partition device $persist_dev does not exist as a block device"
+        log "Debug: Listing all block devices on $iso_device:"
+        lsblk "$iso_device" 2>&1 | while read -r line; do log "  $line"; done
+        return 1
+    fi
+    log "Verified partition device exists: $persist_dev"
 
     # Mount the partition
     mkdir -p "$PERSIST_MOUNT"
     if ! mountpoint -q "$PERSIST_MOUNT" 2>/dev/null; then
-        mount "$persist_dev" "$PERSIST_MOUNT" 2>/dev/null \
-            || { log "Failed to mount $persist_dev"; return 1; }
+        log "Attempting to mount $persist_dev at $PERSIST_MOUNT..."
+        local mount_output
+        mount_output=$(mount "$persist_dev" "$PERSIST_MOUNT" 2>&1) || {
+            log "ERROR: Failed to mount $persist_dev"
+            log "Mount error: $mount_output"
+            log "Debug: Filesystem check:"
+            blkid "$persist_dev" 2>&1 | while read -r line; do log "  $line"; done
+            return 1
+        }
+        log "Mount successful"
+    else
+        log "Already mounted at $PERSIST_MOUNT"
     fi
     log "Mounted at $PERSIST_MOUNT"
+    
+    # Verify mount is accessible
+    if [ ! -d "$PERSIST_MOUNT" ] || [ ! -w "$PERSIST_MOUNT" ]; then
+        log "ERROR: Mount point $PERSIST_MOUNT is not accessible or writable"
+        log "Debug: Mount point status:"
+        ls -lad "$PERSIST_MOUNT" 2>&1 | while read -r line; do log "  $line"; done
+        return 1
+    fi
+    log "Mount point is accessible and writable"
 
     # If init script already exists, just run it (subsequent boot)
     if [ -x "$PERSIST_MOUNT/mados-persist-init.sh" ]; then
         log "Init script found – running it (subsequent boot)"
-        "$PERSIST_MOUNT/mados-persist-init.sh"
+        "$PERSIST_MOUNT/mados-persist-init.sh" || {
+            log "WARNING: Init script execution failed with exit code $?"
+        }
         log "Persistence setup complete (existing)"
         return 0
     fi
 
     # ── First boot: create directory structure and install files ──────────
     log "First boot – initialising persistence partition"
-
+    
+    log "Creating overlay directory structure..."
     for dir in $OVERLAY_DIRS; do
+        log "  Creating overlays for: $dir"
         mkdir -p "$PERSIST_MOUNT/overlays/$dir/upper" \
-                 "$PERSIST_MOUNT/overlays/$dir/work"
+                 "$PERSIST_MOUNT/overlays/$dir/work" || {
+            log "ERROR: Failed to create overlay directories for $dir"
+            return 1
+        }
     done
-    mkdir -p "$PERSIST_MOUNT/home"
+    
+    log "Creating home directory..."
+    mkdir -p "$PERSIST_MOUNT/home" || {
+        log "ERROR: Failed to create home directory"
+        return 1
+    }
     chmod 755 "$PERSIST_MOUNT"
+    log "Directory structure created successfully"
 
     # Record the boot device inside the persistence partition so that on
     # subsequent boots the init script only looks at this specific device.
-    echo "$iso_device" > "$PERSIST_MOUNT/.mados-boot-device"
+    log "Recording boot device: $iso_device"
+    echo "$iso_device" > "$PERSIST_MOUNT/.mados-boot-device" || {
+        log "ERROR: Failed to write boot device file"
+        return 1
+    }
     chmod 644 "$PERSIST_MOUNT/.mados-boot-device"
-    log "Recorded boot device: $iso_device"
+    log "Boot device recorded successfully"
 
     # Install init script + service into persistence partition
-    install_persist_files
+    log "Installing persistence files..."
+    install_persist_files || {
+        log "ERROR: Failed to install persistence files"
+        return 1
+    }
 
     # Run init now to mount overlays immediately
-    "$PERSIST_MOUNT/mados-persist-init.sh"
+    log "Running init script for first time..."
+    "$PERSIST_MOUNT/mados-persist-init.sh" || {
+        log "WARNING: Initial init script execution failed with exit code $?"
+    }
 
-    log "Persistence setup complete"
+    log "Persistence setup complete – SUCCESS"
+    log "Partition: $persist_dev"
+    log "Mount: $PERSIST_MOUNT"
+    log "Boot device: $iso_device"
     return 0
 }
 
