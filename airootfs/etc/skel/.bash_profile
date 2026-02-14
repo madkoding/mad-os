@@ -74,7 +74,9 @@ decoration {
 }
 misc {
     vfr = true
-    no_direct_scanout = true
+}
+render {
+    direct_scanout = false
 }
 VMCONF
       fi
