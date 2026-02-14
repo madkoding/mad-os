@@ -228,11 +228,22 @@ class TestSetupPersistenceScript(unittest.TestCase):
 
     # ── Device-scoped persistence safety tests ──────────────────────────
 
+    def _get_init_script_content(self):
+        """Extract the embedded init script heredoc content."""
+        init_start = self.content.find("cat > \"$PERSIST_MOUNT/mados-persist-init.sh\"")
+        self.assertNotEqual(init_start, -1, "Must have embedded init script")
+        return self.content[init_start:]
+
     def test_find_persist_partition_accepts_parent_device(self):
         """find_persist_partition must accept a parent device to scope the search."""
-        self.assertRegex(
-            self.content,
-            r'find_persist_partition\(\)\s*\{[^}]*parent_device',
+        # Check that the function body uses parent_device
+        func_start = self.content.find('find_persist_partition()')
+        self.assertNotEqual(func_start, -1, "Must have find_persist_partition function")
+        # Search for parent_device within a reasonable range after the function def
+        func_region = self.content[func_start:func_start + 1000]
+        self.assertIn(
+            'parent_device',
+            func_region,
             "find_persist_partition must use a parent_device parameter",
         )
 
@@ -259,15 +270,16 @@ class TestSetupPersistenceScript(unittest.TestCase):
             self.content,
             "create_persist_partition must have a SAFETY check",
         )
-        # Verify it calls find_iso_device to compare
+        # Verify find_iso_device is called within create_persist_partition
         create_start = self.content.find('create_persist_partition()')
-        if create_start != -1:
-            create_body = self.content[create_start:self.content.find('\n}', create_start)]
-            self.assertIn(
-                'find_iso_device',
-                create_body,
-                "create_persist_partition must call find_iso_device for safety check",
-            )
+        self.assertNotEqual(create_start, -1, "Must have create_persist_partition function")
+        # Search within a reasonable range for the safety check
+        create_region = self.content[create_start:create_start + 500]
+        self.assertIn(
+            'find_iso_device',
+            create_region,
+            "create_persist_partition must call find_iso_device for safety check",
+        )
 
     def test_records_boot_device(self):
         """setup_persistence must record boot device in .mados-boot-device."""
@@ -279,10 +291,7 @@ class TestSetupPersistenceScript(unittest.TestCase):
 
     def test_init_script_reads_boot_device(self):
         """Embedded init script must read .mados-boot-device for scoped search."""
-        # The init script is embedded as a heredoc
-        init_start = self.content.find("cat > \"$PERSIST_MOUNT/mados-persist-init.sh\"")
-        self.assertNotEqual(init_start, -1, "Must have embedded init script")
-        init_content = self.content[init_start:]
+        init_content = self._get_init_script_content()
         self.assertIn(
             '.mados-boot-device',
             init_content,
@@ -291,9 +300,7 @@ class TestSetupPersistenceScript(unittest.TestCase):
 
     def test_init_script_has_parent_device_scoped_search(self):
         """Embedded init script's find_persist_dev must accept parent device."""
-        init_start = self.content.find("cat > \"$PERSIST_MOUNT/mados-persist-init.sh\"")
-        self.assertNotEqual(init_start, -1, "Must have embedded init script")
-        init_content = self.content[init_start:]
+        init_content = self._get_init_script_content()
         self.assertIn(
             'parent_device',
             init_content,
@@ -302,9 +309,7 @@ class TestSetupPersistenceScript(unittest.TestCase):
 
     def test_init_script_has_safety_verification(self):
         """Embedded init script must verify partition belongs to boot device."""
-        init_start = self.content.find("cat > \"$PERSIST_MOUNT/mados-persist-init.sh\"")
-        self.assertNotEqual(init_start, -1, "Must have embedded init script")
-        init_content = self.content[init_start:]
+        init_content = self._get_init_script_content()
         self.assertIn(
             'SAFETY',
             init_content,
