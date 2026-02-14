@@ -431,19 +431,13 @@ def get_active_ssid() -> Optional[str]:
         #             Connected network   MyNetwork
 
         for line in output.splitlines():
-            line = line.strip()
-            # Look for "Connected network" line
-            if 'Connected network' in line:
-                # Split by whitespace, take everything after "Connected network"
-                parts = line.split()
-                if len(parts) >= 3:
-                    # Find index of "network" and take everything after
-                    try:
-                        idx = parts.index('network')
-                        if idx + 1 < len(parts):
-                            return ' '.join(parts[idx + 1:])
-                    except ValueError:
-                        pass
+            # Look for "Connected network" line using regex to extract
+            # the value reliably, even if the SSID contains "network"
+            match = re.search(r'Connected network\s{2,}(.+)', line)
+            if match:
+                ssid = match.group(1).strip()
+                if ssid:
+                    return ssid
     except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
         pass
     return None
@@ -494,8 +488,7 @@ def get_connection_details() -> Optional[ConnectionDetails]:
                                 addr, cidr = addr_with_cidr.split('/', 1)
                                 details.ip4_address = addr
                                 details.ip4_subnet = _cidr_to_netmask(cidr)
-                            except (ValueError, IndexError):
-                                # Invalid format, skip
+                            except ValueError:
                                 pass
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
