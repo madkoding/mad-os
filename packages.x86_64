@@ -46,6 +46,9 @@ gtk3
 gdk-pixbuf2
 xdg-desktop-portal-gtk
 
+# Directorios XDG de usuario
+xdg-user-dirs
+
 # Utilidades del sistema
 htop
 wget

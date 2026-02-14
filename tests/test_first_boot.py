@@ -507,5 +507,78 @@ class TestFirstBootSelfCleanup(unittest.TestCase):
         )
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# XDG user directories
+# ═══════════════════════════════════════════════════════════════════════════
+class TestXDGUserDirectories(unittest.TestCase):
+    """Verify the installer creates standard XDG user directories."""
+
+    XDG_DIRS = [
+        "Documents", "Downloads", "Music", "Videos",
+        "Desktop", "Templates", "Public",
+    ]
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_creates_xdg_directories(self):
+        """Installer must create standard XDG user directories."""
+        for d in self.XDG_DIRS:
+            with self.subTest(directory=d):
+                self.assertIn(
+                    d, self.content,
+                    f"Installer must create ~/{d} directory",
+                )
+
+    def test_skel_has_xdg_directories(self):
+        """Skel directory must contain XDG user directories."""
+        skel_dir = os.path.join(AIROOTFS, "etc", "skel")
+        for d in self.XDG_DIRS + ["Pictures"]:
+            with self.subTest(directory=d):
+                self.assertTrue(
+                    os.path.isdir(os.path.join(skel_dir, d)),
+                    f"/etc/skel/{d} must exist",
+                )
+
+    def test_xdg_user_dirs_defaults_exists(self):
+        """XDG user-dirs.defaults config must exist."""
+        defaults_file = os.path.join(AIROOTFS, "etc", "xdg", "user-dirs.defaults")
+        self.assertTrue(
+            os.path.isfile(defaults_file),
+            "/etc/xdg/user-dirs.defaults must exist",
+        )
+
+    def test_xdg_user_dirs_defaults_content(self):
+        """user-dirs.defaults must define all standard XDG directories."""
+        defaults_file = os.path.join(AIROOTFS, "etc", "xdg", "user-dirs.defaults")
+        if not os.path.isfile(defaults_file):
+            self.skipTest("user-dirs.defaults not found")
+        with open(defaults_file) as f:
+            content = f.read()
+        for key in ("DESKTOP", "DOWNLOAD", "TEMPLATES", "PUBLICSHARE",
+                     "DOCUMENTS", "MUSIC", "PICTURES", "VIDEOS"):
+            with self.subTest(key=key):
+                self.assertIn(
+                    key, content,
+                    f"user-dirs.defaults must define {key}",
+                )
+
+    def test_xdg_user_dirs_package(self):
+        """packages.x86_64 must include xdg-user-dirs."""
+        pkg_file = os.path.join(REPO_DIR, "packages.x86_64")
+        with open(pkg_file) as f:
+            packages = f.read()
+        self.assertIn(
+            "xdg-user-dirs", packages,
+            "xdg-user-dirs package must be in packages.x86_64",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
