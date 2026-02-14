@@ -47,6 +47,7 @@ file_permissions=(
   ["/usr/local/bin/mados-photo-viewer"]="0:0:755"
   ["/usr/local/bin/mados-pdf-viewer"]="0:0:755"
   ["/usr/local/bin/mados-persistence"]="0:0:755"
+  ["/usr/local/bin/diagnose-persistence"]="0:0:755"
   ["/usr/local/bin/mados-wifi"]="0:0:755"
   ["/usr/local/bin/mados-equalizer"]="0:0:755"
   ["/usr/local/lib/mados_photo_viewer/"]="0:0:755"

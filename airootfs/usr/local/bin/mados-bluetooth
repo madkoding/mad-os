@@ -1,9 +1,27 @@
 #!/bin/bash
 # madOS Bluetooth Configuration - Launcher script
 
+# Ensure required kernel modules are loaded (MediaTek MT7921/MT7922 combo)
+modprobe btusb 2>/dev/null
+modprobe btmtk 2>/dev/null
+modprobe bluetooth 2>/dev/null
+
+# Unblock Bluetooth rfkill (common on MT7921 and other combo adapters)
+rfkill unblock bluetooth 2>/dev/null
+
 # Ensure bluetooth.service is running (needed for adapters like MediaTek MT7921)
 if ! systemctl is-active --quiet bluetooth.service 2>/dev/null; then
     systemctl start bluetooth.service 2>/dev/null
+    sleep 2
+fi
+
+# If adapter is still not showing, try reloading btusb
+if ! bluetoothctl show 2>/dev/null | grep -q "Controller"; then
+    modprobe -r btusb 2>/dev/null
+    sleep 1
+    modprobe btusb 2>/dev/null
+    sleep 2
+    systemctl restart bluetooth.service 2>/dev/null
     sleep 1
 fi
 

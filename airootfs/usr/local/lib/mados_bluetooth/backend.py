@@ -80,11 +80,56 @@ def _run_btctl_check(args: List[str], timeout: int = 15) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Helper: ensure Bluetooth hardware is ready
+# ---------------------------------------------------------------------------
+
+def _ensure_bluetooth_ready() -> None:
+    """Ensure Bluetooth hardware is unblocked and modules are loaded.
+
+    This handles common issues with MT7921 and other combo adapters
+    where rfkill blocks Bluetooth on boot or modules don't auto-load.
+    """
+    try:
+        subprocess.run(
+            ['rfkill', 'unblock', 'bluetooth'],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    # Ensure btusb module is loaded (needed for MT7921 BT over USB)
+    try:
+        subprocess.run(
+            ['modprobe', 'btusb'],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    # Ensure bluetooth service is started
+    try:
+        result = subprocess.run(
+            ['systemctl', 'is-active', '--quiet', 'bluetooth.service'],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode != 0:
+            subprocess.run(
+                ['systemctl', 'start', 'bluetooth.service'],
+                capture_output=True, text=True, timeout=10,
+            )
+            import time
+            time.sleep(1)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Public API -- synchronous (call from threads)
 # ---------------------------------------------------------------------------
 
 def check_bluetooth_available() -> bool:
     """Return True if the Bluetooth controller is available."""
+    _ensure_bluetooth_ready()
     try:
         output = _run_btctl_check(['show'])
         return 'Controller' in output

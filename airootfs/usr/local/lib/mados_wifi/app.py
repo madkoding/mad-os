@@ -539,16 +539,15 @@ class WiFiApp(Gtk.Window):
     # -- Event Handlers ----------------------------------------------------
 
     def _on_scan_clicked(self, button):
-        """Start a network scan."""
+        """Start a network scan (auto-triggered)."""
         self._scan_spinner.start()
-        if button:
-            button.set_sensitive(False)
+        self._scan_status_label.set_text(self.t("scanning"))
         async_scan(self._on_scan_complete)
 
     def _on_scan_complete(self, networks):
         """Handle scan results."""
         self._scan_spinner.stop()
-        self._scan_btn.set_sensitive(True)
+        self._scan_status_label.set_text("")
         self._populate_network_list(networks)
         self._update_status_bar()
 

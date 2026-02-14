@@ -169,6 +169,17 @@ class TestBluetoothServiceActivation(unittest.TestCase):
         self.assertIn('systemctl start bluetooth.service', content,
                       "bluetooth-status.sh must start bluetooth.service")
 
+    def test_bluetooth_status_script_unblocks_rfkill(self):
+        """bluetooth-status.sh should unblock Bluetooth via rfkill."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-status.sh"
+        )
+        with open(script_path) as f:
+            content = f.read()
+        self.assertIn('rfkill unblock bluetooth', content,
+                      "bluetooth-status.sh must unblock rfkill")
+
     def test_launcher_starts_bluetooth_service(self):
         """mados-bluetooth launcher should start bluetooth.service if not running."""
         launcher = os.path.join(BIN_DIR, "mados-bluetooth")
@@ -176,6 +187,22 @@ class TestBluetoothServiceActivation(unittest.TestCase):
             content = f.read()
         self.assertIn('systemctl start bluetooth.service', content,
                       "mados-bluetooth launcher must start bluetooth.service")
+
+    def test_launcher_unblocks_rfkill(self):
+        """mados-bluetooth launcher should unblock Bluetooth via rfkill."""
+        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
+        with open(launcher) as f:
+            content = f.read()
+        self.assertIn('rfkill unblock bluetooth', content,
+                      "mados-bluetooth launcher must unblock rfkill")
+
+    def test_launcher_loads_btusb_module(self):
+        """mados-bluetooth launcher should load btusb kernel module."""
+        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
+        with open(launcher) as f:
+            content = f.read()
+        self.assertIn('modprobe btusb', content,
+                      "mados-bluetooth launcher must load btusb module")
 
     def test_waybar_exec_if_references_check_script(self):
         """Waybar exec-if should reference bluetooth-check.sh script."""
@@ -208,6 +235,28 @@ class TestBluetoothServiceActivation(unittest.TestCase):
             content = f.read()
         self.assertIn('systemctl start bluetooth.service', content,
                       "bluetooth-check.sh must start bluetooth.service")
+
+    def test_bluetooth_check_script_unblocks_rfkill(self):
+        """bluetooth-check.sh should unblock Bluetooth via rfkill."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-check.sh"
+        )
+        with open(script_path) as f:
+            content = f.read()
+        self.assertIn('rfkill unblock bluetooth', content,
+                      "bluetooth-check.sh must unblock rfkill")
+
+    def test_bluetooth_check_script_loads_btusb(self):
+        """bluetooth-check.sh should load btusb kernel module."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-check.sh"
+        )
+        with open(script_path) as f:
+            content = f.read()
+        self.assertIn('modprobe btusb', content,
+                      "bluetooth-check.sh must load btusb module")
 
     def test_bluetooth_check_script_valid_bash(self):
         """bluetooth-check.sh should have valid bash syntax."""
@@ -581,6 +630,128 @@ class TestInstallationBluetoothPackages(unittest.TestCase):
         from mados_installer.config import PACKAGES
         self.assertIn('bluez-utils', PACKAGES,
                       "Installer PACKAGES must include bluez-utils package")
+
+
+class TestUdevWirelessRules(unittest.TestCase):
+    """Verify udev rules for wireless hardware are properly configured."""
+
+    def test_udev_rules_file_exists(self):
+        """90-mados-wireless.rules should exist."""
+        rules_path = os.path.join(
+            AIROOTFS, "etc", "udev", "rules.d", "90-mados-wireless.rules"
+        )
+        self.assertTrue(os.path.isfile(rules_path),
+                        "udev wireless rules file must exist")
+
+    def test_udev_rules_has_mt7921_wifi(self):
+        """udev rules should handle MT7921 WiFi device."""
+        rules_path = os.path.join(
+            AIROOTFS, "etc", "udev", "rules.d", "90-mados-wireless.rules"
+        )
+        with open(rules_path) as f:
+            content = f.read()
+        self.assertIn('0x7961', content,
+                      "udev rules must handle MT7921 PCI device ID")
+
+    def test_udev_rules_has_rfkill_unblock_wifi(self):
+        """udev rules should unblock WiFi via rfkill."""
+        rules_path = os.path.join(
+            AIROOTFS, "etc", "udev", "rules.d", "90-mados-wireless.rules"
+        )
+        with open(rules_path) as f:
+            content = f.read()
+        self.assertIn('rfkill unblock wifi', content,
+                      "udev rules must unblock WiFi rfkill")
+
+    def test_udev_rules_has_rfkill_unblock_bluetooth(self):
+        """udev rules should unblock Bluetooth via rfkill."""
+        rules_path = os.path.join(
+            AIROOTFS, "etc", "udev", "rules.d", "90-mados-wireless.rules"
+        )
+        with open(rules_path) as f:
+            content = f.read()
+        self.assertIn('rfkill unblock bluetooth', content,
+                      "udev rules must unblock Bluetooth rfkill")
+
+    def test_udev_rules_generic_wlan_unblock(self):
+        """udev rules should generically unblock any new wlan device."""
+        rules_path = os.path.join(
+            AIROOTFS, "etc", "udev", "rules.d", "90-mados-wireless.rules"
+        )
+        with open(rules_path) as f:
+            content = f.read()
+        self.assertIn('DEVTYPE', content,
+                      "udev rules must have generic wlan device handling")
+
+
+class TestModprobeMediaTekConfig(unittest.TestCase):
+    """Verify modprobe configuration for MediaTek MT7921 combo adapter."""
+
+    def test_modprobe_mt7921_config_exists(self):
+        """mt7921.conf modprobe config should exist."""
+        conf_path = os.path.join(
+            AIROOTFS, "etc", "modprobe.d", "mt7921.conf"
+        )
+        self.assertTrue(os.path.isfile(conf_path),
+                        "modprobe mt7921.conf must exist")
+
+    def test_modprobe_has_btusb_config(self):
+        """mt7921.conf should configure btusb module."""
+        conf_path = os.path.join(
+            AIROOTFS, "etc", "modprobe.d", "mt7921.conf"
+        )
+        with open(conf_path) as f:
+            content = f.read()
+        self.assertIn('btusb', content,
+                      "modprobe config must reference btusb module")
+
+    def test_modprobe_has_mt7921e_config(self):
+        """mt7921.conf should configure mt7921e module."""
+        conf_path = os.path.join(
+            AIROOTFS, "etc", "modprobe.d", "mt7921.conf"
+        )
+        with open(conf_path) as f:
+            content = f.read()
+        self.assertIn('mt7921e', content,
+                      "modprobe config must reference mt7921e module")
+
+
+class TestWifiLauncherRfkill(unittest.TestCase):
+    """Verify WiFi launcher handles rfkill and module loading."""
+
+    def test_wifi_launcher_unblocks_rfkill(self):
+        """mados-wifi launcher should unblock WiFi via rfkill."""
+        launcher = os.path.join(BIN_DIR, "mados-wifi")
+        with open(launcher) as f:
+            content = f.read()
+        self.assertIn('rfkill unblock wifi', content,
+                      "mados-wifi launcher must unblock WiFi rfkill")
+
+    def test_wifi_launcher_starts_iwd(self):
+        """mados-wifi launcher should ensure iwd service is running."""
+        launcher = os.path.join(BIN_DIR, "mados-wifi")
+        with open(launcher) as f:
+            content = f.read()
+        self.assertIn('iwd.service', content,
+                      "mados-wifi launcher must check/start iwd.service")
+
+    def test_wifi_launcher_loads_mt7921_module(self):
+        """mados-wifi launcher should load mt7921e module."""
+        launcher = os.path.join(BIN_DIR, "mados-wifi")
+        with open(launcher) as f:
+            content = f.read()
+        self.assertIn('modprobe mt7921e', content,
+                      "mados-wifi launcher must load mt7921e module")
+
+    def test_wifi_launcher_valid_bash(self):
+        """mados-wifi launcher should have valid bash syntax."""
+        launcher = os.path.join(BIN_DIR, "mados-wifi")
+        result = subprocess.run(
+            ['bash', '-n', launcher],
+            capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0,
+                         f"Bash syntax error: {result.stderr}")
 
 
 if __name__ == "__main__":

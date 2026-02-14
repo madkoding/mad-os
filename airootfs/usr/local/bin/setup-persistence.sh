@@ -212,18 +212,33 @@ create_persist_partition() {
                     | grep "^ ${last_part_num}" | awk '{print $3}' | sed 's/MB//')
 
     log "Creating partition ${new_part_num} starting at ${last_part_end}MB"
-    parted -s "$device" mkpart primary ext4 "${last_part_end}MB" 100% 2>/dev/null \
-        || { log "parted failed"; return 1; }
+    log "Command: parted -s $device mkpart primary ext4 ${last_part_end}MB 100%"
+    
+    # Capture parted output/errors for better debugging
+    local parted_output
+    parted_output=$(parted -s "$device" mkpart primary ext4 "${last_part_end}MB" 100% 2>&1) || {
+        log "parted mkpart failed with exit code $?"
+        log "parted output: $parted_output"
+        return 1
+    }
+    [ -n "$parted_output" ] && log "parted output: $parted_output"
 
-    sleep 2; partprobe "$device" 2>/dev/null || true; sleep 1
-    udevadm settle 2>/dev/null || true
+    sleep 2
+    log "Running partprobe..."
+    partprobe "$device" 2>&1 | while read -r line; do log "partprobe: $line"; done || true
+    sleep 1
+    udevadm settle --timeout=10 2>/dev/null || true
+    log "Device update complete"
 
     # Safety check 4: verify the new partition actually appears in the table.
     local post_part_count
     post_part_count=$(parted -s "$device" print 2>/dev/null \
                       | grep -c "^ [0-9]")
+    log "Partition count before: $last_part_num, after: ${post_part_count:-0}"
     if [ "${post_part_count:-0}" -le "$last_part_num" ]; then
         log "SAFETY: Partition table unchanged after mkpart – creation may have failed"
+        log "Debug: Partition table after mkpart:"
+        parted -s "$device" print 2>&1 | while read -r line; do log "  $line"; done
         return 1
     fi
 

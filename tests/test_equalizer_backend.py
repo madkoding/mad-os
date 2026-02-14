@@ -67,8 +67,9 @@ sys.path.insert(0, LIB_DIR)
 
 from mados_equalizer.backend import (
     AudioBackend,
-    PIPEWIRE_CONFIG_DIR,
-    PIPEWIRE_CONFIG_FILE,
+    EQ_CONFIG_DIR,
+    EQ_CONFIG_FILE,
+    LEGACY_PIPEWIRE_CONFIG_FILE,
     EQ_NODE_NAME,
     EQ_NODE_DESCRIPTION,
     DEFAULT_Q,
@@ -82,26 +83,32 @@ from mados_equalizer.presets import FREQUENCY_BANDS
 class TestConfigPaths(unittest.TestCase):
     """Verify config directory and file paths are correct."""
 
-    def test_config_dir_uses_pipewire_conf_d(self):
-        """Critical: Must use pipewire.conf.d NOT filter-chain.conf.d."""
-        config_dir_str = str(PIPEWIRE_CONFIG_DIR)
-        self.assertIn('pipewire.conf.d', config_dir_str)
+    def test_config_dir_outside_pipewire_conf_d(self):
+        """EQ config must NOT be in pipewire.conf.d to avoid auto-loading."""
+        config_dir_str = str(EQ_CONFIG_DIR)
+        self.assertNotIn('pipewire.conf.d', config_dir_str)
         self.assertNotIn('filter-chain.conf.d', config_dir_str)
 
+    def test_config_dir_in_mados_directory(self):
+        """Config directory should be under ~/.config/mados/equalizer."""
+        config_dir_str = str(EQ_CONFIG_DIR)
+        self.assertIn('.config/mados/equalizer', config_dir_str)
+
     def test_config_file_name(self):
-        """Config file should be named mados-eq.conf."""
-        self.assertEqual(PIPEWIRE_CONFIG_FILE.name, 'mados-eq.conf')
+        """Config file should be named filter-chain.conf."""
+        self.assertEqual(EQ_CONFIG_FILE.name, 'filter-chain.conf')
 
-    def test_config_file_in_pipewire_conf_d(self):
-        """Config file must be inside pipewire.conf.d directory."""
-        config_file_str = str(PIPEWIRE_CONFIG_FILE)
-        self.assertIn('pipewire.conf.d', config_file_str)
-        self.assertIn('mados-eq.conf', config_file_str)
+    def test_config_file_in_eq_dir(self):
+        """Config file must be inside the EQ config directory."""
+        config_file_str = str(EQ_CONFIG_FILE)
+        self.assertIn('mados/equalizer', config_file_str)
+        self.assertIn('filter-chain.conf', config_file_str)
 
-    def test_config_dir_in_home_config(self):
-        """Config directory should be under ~/.config/pipewire."""
-        config_dir_str = str(PIPEWIRE_CONFIG_DIR)
-        self.assertIn('.config/pipewire', config_dir_str)
+    def test_legacy_config_in_pipewire_conf_d(self):
+        """Legacy config path should reference pipewire.conf.d for cleanup."""
+        legacy_str = str(LEGACY_PIPEWIRE_CONFIG_FILE)
+        self.assertIn('pipewire.conf.d', legacy_str)
+        self.assertIn('mados-eq.conf', legacy_str)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -214,6 +221,12 @@ class TestGenerateFilterChainConfig(unittest.TestCase):
         config = self.backend._generate_filter_chain_config()
         self.assertIn(EQ_NODE_DESCRIPTION, config)
 
+    def test_config_has_spa_libs(self):
+        """Generated config should have context.spa-libs for standalone use."""
+        config = self.backend._generate_filter_chain_config()
+        self.assertIn('context.spa-libs', config)
+        self.assertIn('audioconvert', config)
+
     def test_config_targets_active_sink(self):
         """Generated config should target the active audio sink."""
         config = self.backend._generate_filter_chain_config()
@@ -223,8 +236,8 @@ class TestGenerateFilterChainConfig(unittest.TestCase):
 # ═══════════════════════════════════════════════════════════════════════════
 # _write_pipewire_config
 # ═══════════════════════════════════════════════════════════════════════════
-class TestWritePipeWireConfig(unittest.TestCase):
-    """Test PipeWire config file writing."""
+class TestWriteConfig(unittest.TestCase):
+    """Test EQ config file writing."""
 
     @patch('mados_equalizer.backend.shutil.which')
     @patch('mados_equalizer.backend.AudioBackend._detect_output_device')
@@ -237,27 +250,26 @@ class TestWritePipeWireConfig(unittest.TestCase):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_write_creates_config_dir(self):
-        """_write_pipewire_config should create the config directory."""
-        config_dir = Path(self.tmpdir) / 'pipewire' / 'pipewire.conf.d'
-        config_file = config_dir / 'mados-eq.conf'
+        """_write_config should create the config directory."""
+        config_dir = Path(self.tmpdir) / 'mados' / 'equalizer'
+        config_file = config_dir / 'filter-chain.conf'
 
-        # Patch the module-level constants
-        with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_DIR', config_dir):
-            with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_FILE', config_file):
-                result = self.backend._write_pipewire_config()
+        with patch('mados_equalizer.backend.EQ_CONFIG_DIR', config_dir):
+            with patch('mados_equalizer.backend.EQ_CONFIG_FILE', config_file):
+                result = self.backend._write_config()
 
         self.assertTrue(result)
         self.assertTrue(config_dir.exists())
         self.assertTrue(config_dir.is_dir())
 
     def test_write_creates_config_file(self):
-        """_write_pipewire_config should create the config file."""
-        config_dir = Path(self.tmpdir) / 'pipewire' / 'pipewire.conf.d'
-        config_file = config_dir / 'mados-eq.conf'
+        """_write_config should create the config file."""
+        config_dir = Path(self.tmpdir) / 'mados' / 'equalizer'
+        config_file = config_dir / 'filter-chain.conf'
 
-        with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_DIR', config_dir):
-            with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_FILE', config_file):
-                result = self.backend._write_pipewire_config()
+        with patch('mados_equalizer.backend.EQ_CONFIG_DIR', config_dir):
+            with patch('mados_equalizer.backend.EQ_CONFIG_FILE', config_file):
+                result = self.backend._write_config()
 
         self.assertTrue(result)
         self.assertTrue(config_file.exists())
@@ -265,12 +277,12 @@ class TestWritePipeWireConfig(unittest.TestCase):
 
     def test_write_config_contains_valid_data(self):
         """Written config should contain valid filter-chain data."""
-        config_dir = Path(self.tmpdir) / 'pipewire' / 'pipewire.conf.d'
-        config_file = config_dir / 'mados-eq.conf'
+        config_dir = Path(self.tmpdir) / 'mados' / 'equalizer'
+        config_file = config_dir / 'filter-chain.conf'
 
-        with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_DIR', config_dir):
-            with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_FILE', config_file):
-                result = self.backend._write_pipewire_config()
+        with patch('mados_equalizer.backend.EQ_CONFIG_DIR', config_dir):
+            with patch('mados_equalizer.backend.EQ_CONFIG_FILE', config_file):
+                result = self.backend._write_config()
 
         self.assertTrue(result)
 
@@ -282,30 +294,45 @@ class TestWritePipeWireConfig(unittest.TestCase):
         self.assertIn('bq_peaking', content)
         self.assertIn(EQ_NODE_NAME, content)
 
-    def test_write_returns_true_on_success(self):
-        """_write_pipewire_config should return True on success."""
-        config_dir = Path(self.tmpdir) / 'pipewire' / 'pipewire.conf.d'
-        config_file = config_dir / 'mados-eq.conf'
+    def test_write_config_has_spa_libs(self):
+        """Written config should contain context.spa-libs for standalone use."""
+        config_dir = Path(self.tmpdir) / 'mados' / 'equalizer'
+        config_file = config_dir / 'filter-chain.conf'
 
-        with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_DIR', config_dir):
-            with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_FILE', config_file):
-                result = self.backend._write_pipewire_config()
+        with patch('mados_equalizer.backend.EQ_CONFIG_DIR', config_dir):
+            with patch('mados_equalizer.backend.EQ_CONFIG_FILE', config_file):
+                self.backend._write_config()
+
+        with open(config_file, 'r') as f:
+            content = f.read()
+
+        self.assertIn('context.spa-libs', content)
+        self.assertIn('audioconvert', content)
+
+    def test_write_returns_true_on_success(self):
+        """_write_config should return True on success."""
+        config_dir = Path(self.tmpdir) / 'mados' / 'equalizer'
+        config_file = config_dir / 'filter-chain.conf'
+
+        with patch('mados_equalizer.backend.EQ_CONFIG_DIR', config_dir):
+            with patch('mados_equalizer.backend.EQ_CONFIG_FILE', config_file):
+                result = self.backend._write_config()
 
         self.assertTrue(result)
 
     def test_write_returns_false_on_readonly_dir(self):
-        """_write_pipewire_config should return False for read-only directory."""
+        """_write_config should return False for read-only directory."""
         config_dir = Path(self.tmpdir) / 'readonly'
-        config_file = config_dir / 'mados-eq.conf'
+        config_file = config_dir / 'filter-chain.conf'
 
         # Create a read-only directory
         config_dir.mkdir(parents=True, exist_ok=True)
         os.chmod(config_dir, 0o444)
 
         try:
-            with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_DIR', config_dir):
-                with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_FILE', config_file):
-                    result = self.backend._write_pipewire_config()
+            with patch('mados_equalizer.backend.EQ_CONFIG_DIR', config_dir):
+                with patch('mados_equalizer.backend.EQ_CONFIG_FILE', config_file):
+                    result = self.backend._write_config()
 
             self.assertFalse(result)
         finally:
@@ -313,13 +340,13 @@ class TestWritePipeWireConfig(unittest.TestCase):
             os.chmod(config_dir, 0o755)
 
     def test_write_atomic_operation(self):
-        """_write_pipewire_config should write atomically (temp then rename)."""
-        config_dir = Path(self.tmpdir) / 'pipewire' / 'pipewire.conf.d'
-        config_file = config_dir / 'mados-eq.conf'
+        """_write_config should write atomically (temp then rename)."""
+        config_dir = Path(self.tmpdir) / 'mados' / 'equalizer'
+        config_file = config_dir / 'filter-chain.conf'
 
-        with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_DIR', config_dir):
-            with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_FILE', config_file):
-                result = self.backend._write_pipewire_config()
+        with patch('mados_equalizer.backend.EQ_CONFIG_DIR', config_dir):
+            with patch('mados_equalizer.backend.EQ_CONFIG_FILE', config_file):
+                result = self.backend._write_config()
 
         self.assertTrue(result)
         # After successful write, temp file should not exist
@@ -330,8 +357,8 @@ class TestWritePipeWireConfig(unittest.TestCase):
 # ═══════════════════════════════════════════════════════════════════════════
 # _remove_pipewire_config
 # ═══════════════════════════════════════════════════════════════════════════
-class TestRemovePipeWireConfig(unittest.TestCase):
-    """Test PipeWire config file removal."""
+class TestCleanupLegacyConfig(unittest.TestCase):
+    """Test legacy config cleanup."""
 
     @patch('mados_equalizer.backend.shutil.which')
     @patch('mados_equalizer.backend.AudioBackend._detect_output_device')
@@ -343,63 +370,48 @@ class TestRemovePipeWireConfig(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def test_remove_deletes_config_file(self):
-        """_remove_pipewire_config should delete the config file."""
-        config_dir = Path(self.tmpdir) / 'pipewire' / 'pipewire.conf.d'
-        config_file = config_dir / 'mados-eq.conf'
-        config_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create a config file
-        with open(config_file, 'w') as f:
-            f.write('test config')
-
-        self.assertTrue(config_file.exists())
-
-        with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_DIR', config_dir):
-            with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_FILE', config_file):
-                result = self.backend._remove_pipewire_config()
-
-        self.assertTrue(result)
-        self.assertFalse(config_file.exists())
-
-    def test_remove_returns_true_when_file_not_exists(self):
-        """_remove_pipewire_config should return True when file doesn't exist."""
-        config_dir = Path(self.tmpdir) / 'pipewire' / 'pipewire.conf.d'
-        config_file = config_dir / 'mados-eq.conf'
-
-        with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_DIR', config_dir):
-            with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_FILE', config_file):
-                result = self.backend._remove_pipewire_config()
-
-        self.assertTrue(result)
-
-    def test_remove_deletes_legacy_config(self):
-        """_remove_pipewire_config should also remove legacy filter-chain.conf.d file."""
-        config_dir = Path(self.tmpdir) / 'pipewire' / 'pipewire.conf.d'
-        config_file = config_dir / 'mados-eq.conf'
-        legacy_dir = Path(self.tmpdir) / '.config' / 'pipewire' / 'filter-chain.conf.d'
+    def test_cleanup_deletes_legacy_pipewire_conf_d(self):
+        """_cleanup_legacy_config should delete mados-eq.conf from pipewire.conf.d."""
+        legacy_dir = Path(self.tmpdir) / 'pipewire.conf.d'
         legacy_file = legacy_dir / 'mados-eq.conf'
-
-        # Create both config files
-        config_dir.mkdir(parents=True, exist_ok=True)
         legacy_dir.mkdir(parents=True, exist_ok=True)
 
-        with open(config_file, 'w') as f:
-            f.write('current config')
         with open(legacy_file, 'w') as f:
             f.write('legacy config')
 
-        self.assertTrue(config_file.exists())
         self.assertTrue(legacy_file.exists())
 
-        # Patch Path.home to return our tmpdir
-        with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_DIR', config_dir):
-            with patch('mados_equalizer.backend.PIPEWIRE_CONFIG_FILE', config_file):
-                with patch.object(Path, 'home', return_value=Path(self.tmpdir)):
-                    result = self.backend._remove_pipewire_config()
+        with patch('mados_equalizer.backend.LEGACY_PIPEWIRE_CONFIG_FILE', legacy_file):
+            with patch.object(Path, 'home', return_value=Path(self.tmpdir)):
+                self.backend._cleanup_legacy_config()
 
-        self.assertTrue(result)
-        self.assertFalse(config_file.exists())
+        self.assertFalse(legacy_file.exists())
+
+    def test_cleanup_no_error_when_file_missing(self):
+        """_cleanup_legacy_config should not error when legacy file is absent."""
+        missing_file = Path(self.tmpdir) / 'nonexistent' / 'mados-eq.conf'
+
+        with patch('mados_equalizer.backend.LEGACY_PIPEWIRE_CONFIG_FILE', missing_file):
+            with patch.object(Path, 'home', return_value=Path(self.tmpdir)):
+                # Should not raise
+                self.backend._cleanup_legacy_config()
+
+    def test_cleanup_deletes_filter_chain_conf_d(self):
+        """_cleanup_legacy_config should also clean filter-chain.conf.d."""
+        legacy_dir = Path(self.tmpdir) / '.config' / 'pipewire' / 'filter-chain.conf.d'
+        legacy_file = legacy_dir / 'mados-eq.conf'
+        legacy_dir.mkdir(parents=True, exist_ok=True)
+
+        with open(legacy_file, 'w') as f:
+            f.write('old config')
+
+        self.assertTrue(legacy_file.exists())
+
+        bogus = Path(self.tmpdir) / 'bogus'
+        with patch('mados_equalizer.backend.LEGACY_PIPEWIRE_CONFIG_FILE', bogus):
+            with patch.object(Path, 'home', return_value=Path(self.tmpdir)):
+                self.backend._cleanup_legacy_config()
+
         self.assertFalse(legacy_file.exists())
 
 
@@ -441,22 +453,22 @@ class TestApplyEq(unittest.TestCase):
         self.backend.apply_eq(gains=None)
         self.assertEqual(self.backend.gains, [1.0] * 8)
 
-    @patch('mados_equalizer.backend.AudioBackend._write_pipewire_config')
-    @patch('mados_equalizer.backend.AudioBackend._restart_filter_chain')
-    def test_apply_eq_calls_write_config_when_enabled(self, mock_restart, mock_write):
+    @patch('mados_equalizer.backend.AudioBackend._write_config')
+    @patch('mados_equalizer.backend.AudioBackend._start_eq_process')
+    def test_apply_eq_calls_write_config_when_enabled(self, mock_start, mock_write):
         """apply_eq should write config when enabled and PipeWire available."""
         self.backend.enabled = True
         self.backend.has_pipewire = True
         mock_write.return_value = True
-        mock_restart.return_value = True
+        mock_start.return_value = True
 
         success, message = self.backend.apply_eq(gains=[0.0] * 8)
 
         self.assertTrue(success)
         mock_write.assert_called_once()
-        mock_restart.assert_called_once()
+        mock_start.assert_called_once()
 
-    @patch('mados_equalizer.backend.AudioBackend._write_pipewire_config')
+    @patch('mados_equalizer.backend.AudioBackend._write_config')
     def test_apply_eq_returns_false_on_write_failure(self, mock_write):
         """apply_eq should return False if config write fails."""
         self.backend.enabled = True

@@ -223,8 +223,21 @@ def _parse_iwctl_table(output: str) -> List[List[str]]:
 # Public API -- synchronous (call from threads)
 # ---------------------------------------------------------------------------
 
+def _ensure_wifi_ready() -> None:
+    """Ensure WiFi hardware is unblocked and modules are loaded.
+
+    This handles common issues with MT7921 and other combo adapters
+    where rfkill blocks WiFi on boot or modules don't auto-load.
+    """
+    try:
+        _run_command(['rfkill', 'unblock', 'wifi'], timeout=5)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+
 def check_wifi_available() -> bool:
     """Return True if at least one WiFi device is available."""
+    _ensure_wifi_ready()
     try:
         result = _run_command(['iw', 'dev'], timeout=10)
         if result.returncode == 0:

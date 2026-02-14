@@ -1,0 +1,32 @@
+# madOS - Wireless adapter udev rules
+#
+# These rules handle common WiFi+Bluetooth combo adapters, ensuring
+# rfkill blocks are removed and required modules are loaded.
+
+# MediaTek MT7921/MT7922 PCIe WiFi - unblock rfkill and load modules
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x14c3", ATTR{device}=="0x7961", \
+    RUN+="/usr/bin/rfkill unblock wifi", \
+    RUN+="/usr/sbin/modprobe mt7921e"
+
+# MediaTek MT7921/MT7922 variant IDs
+ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x14c3", ATTR{device}=="0x7922", \
+    RUN+="/usr/bin/rfkill unblock wifi", \
+    RUN+="/usr/sbin/modprobe mt7921e"
+
+# MediaTek MT7921 USB Bluetooth (after WiFi init)
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0489", ATTR{idProduct}=="e0cd", \
+    RUN+="/usr/bin/rfkill unblock bluetooth"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0489", ATTR{idProduct}=="e0e0", \
+    RUN+="/usr/bin/rfkill unblock bluetooth"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="13d3", ATTR{idProduct}=="3563", \
+    RUN+="/usr/bin/rfkill unblock bluetooth"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="13d3", ATTR{idProduct}=="3583", \
+    RUN+="/usr/bin/rfkill unblock bluetooth"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="13d3", ATTR{idProduct}=="3568", \
+    RUN+="/usr/bin/rfkill unblock bluetooth"
+
+# Generic: unblock rfkill for any new Bluetooth HCI device
+ACTION=="add", SUBSYSTEM=="bluetooth", RUN+="/usr/bin/rfkill unblock bluetooth"
+
+# Generic: unblock rfkill for any new wireless device (net subsystem)
+ACTION=="add", SUBSYSTEM=="net", ENV{DEVTYPE}=="wlan", RUN+="/usr/bin/rfkill unblock wifi"

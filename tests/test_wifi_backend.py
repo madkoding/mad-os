@@ -223,22 +223,33 @@ class TestCheckWifiAvailable(unittest.TestCase):
 
     @patch('mados_wifi.backend._run_command')
     def test_wifi_present(self, mock_run):
-        mock_run.return_value = MagicMock(
-            stdout='phy#0\n\tInterface wlan0\n\t\tifindex 3\n\t\ttype managed\n',
-            returncode=0,
-        )
+        def side_effect(cmd, timeout=30):
+            if cmd[0] == 'iw':
+                return MagicMock(
+                    stdout='phy#0\n\tInterface wlan0\n\t\tifindex 3\n\t\ttype managed\n',
+                    returncode=0,
+                )
+            # rfkill call
+            return MagicMock(returncode=0)
+        mock_run.side_effect = side_effect
         self.assertTrue(check_wifi_available())
 
     @patch('mados_wifi.backend._run_command')
     def test_no_wifi(self, mock_run):
-        mock_run.return_value = MagicMock(
-            stdout='',
-            returncode=0,
-        )
+        def side_effect(cmd, timeout=30):
+            if cmd[0] == 'iw':
+                return MagicMock(stdout='', returncode=0)
+            return MagicMock(returncode=0)
+        mock_run.side_effect = side_effect
         self.assertFalse(check_wifi_available())
 
-    @patch('mados_wifi.backend._run_command', side_effect=FileNotFoundError)
+    @patch('mados_wifi.backend._run_command')
     def test_iw_not_found(self, mock_run):
+        def side_effect(cmd, timeout=30):
+            if cmd[0] == 'iw':
+                raise FileNotFoundError
+            return MagicMock(returncode=0)
+        mock_run.side_effect = side_effect
         self.assertFalse(check_wifi_available())
 
 

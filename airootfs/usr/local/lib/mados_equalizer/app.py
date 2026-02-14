@@ -157,6 +157,7 @@ class EqualizerApp:
         self.language = detect_system_language()
         self._updating_sliders = False
         self._updating_preset = False
+        self._eq_apply_timeout_id = None  # Debounce timer for slider changes
 
         # Initialize backend and preset manager
         self.backend = AudioBackend()
@@ -565,7 +566,9 @@ class EqualizerApp:
     def _on_band_changed(self, scale, band_index):
         """Handle a change in one of the 8 band sliders.
 
-        Updates the dB label, gain indicator, and applies EQ if enabled.
+        Updates the dB label and gain indicator immediately, then
+        schedules a debounced EQ apply so that rapid slider movements
+        (e.g. dragging) do not restart the filter-chain on every pixel.
 
         Args:
             scale: The Gtk.Scale that changed.
@@ -578,15 +581,31 @@ class EqualizerApp:
         self.band_labels[band_index].set_text(f'{value:+.1f} dB')
         self.gain_indicators[band_index].set_gain(value)
 
-        # Update backend gains
-        gains = [s.get_value() for s in self.band_scales]
-
         if self.backend.enabled:
-            # Apply asynchronously to avoid UI freezing
-            self.backend.apply_eq_async(
-                gains=gains,
-                callback=lambda ok, msg: GLib.idle_add(self._on_eq_applied, ok, msg)
+            # Cancel any pending debounced apply
+            if self._eq_apply_timeout_id is not None:
+                GLib.source_remove(self._eq_apply_timeout_id)
+            # Schedule a new apply after 150 ms of inactivity
+            self._eq_apply_timeout_id = GLib.timeout_add(
+                150, self._apply_eq_debounced,
             )
+
+    def _apply_eq_debounced(self):
+        """Apply EQ settings after the debounce delay has elapsed.
+
+        Called by GLib.timeout_add after 150 ms of no slider changes.
+        Collects current slider values and applies them asynchronously.
+
+        Returns:
+            False to prevent the timeout from repeating.
+        """
+        self._eq_apply_timeout_id = None
+        gains = [s.get_value() for s in self.band_scales]
+        self.backend.apply_eq_async(
+            gains=gains,
+            callback=lambda ok, msg: GLib.idle_add(self._on_eq_applied, ok, msg),
+        )
+        return False  # Don't repeat the timeout
 
     def _on_preset_changed(self, combo):
         """Handle preset selection change.
@@ -912,6 +931,10 @@ class EqualizerApp:
         Returns:
             False to allow the window to close.
         """
+        # Cancel any pending debounced EQ apply
+        if self._eq_apply_timeout_id is not None:
+            GLib.source_remove(self._eq_apply_timeout_id)
+            self._eq_apply_timeout_id = None
         self.backend.cleanup()
         return False
 
