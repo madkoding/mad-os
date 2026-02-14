@@ -268,7 +268,7 @@ jobs:
           echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Upload ISO artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: mados-iso
           path: |
@@ -291,7 +291,7 @@ jobs:
 
     steps:
       - name: Download ISO artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: mados-iso
           path: out
@@ -357,7 +357,7 @@ jobs:
 
     steps:
       - name: Download ISO artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: mados-iso
           path: out
