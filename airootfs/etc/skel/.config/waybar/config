@@ -165,7 +165,7 @@
         "format": "{}",
         "return-type": "json",
         "exec": "~/.config/waybar/scripts/bluetooth-status.sh",
-        "exec-if": "bluetoothctl show 2>/dev/null | grep -q 'Controller'",
+        "exec-if": "~/.config/waybar/scripts/bluetooth-check.sh",
         "on-click": "mados-bluetooth",
         "interval": 10
     }

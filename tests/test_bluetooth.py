@@ -134,6 +134,94 @@ class TestBluetoothService(unittest.TestCase):
                       content,
                       "installation.py must enable bluetooth.service")
 
+    def test_bluetooth_main_conf_exists(self):
+        """airootfs/etc/bluetooth/main.conf should exist."""
+        main_conf = os.path.join(AIROOTFS, "etc", "bluetooth", "main.conf")
+        self.assertTrue(
+            os.path.isfile(main_conf),
+            "main.conf must exist in /etc/bluetooth/"
+        )
+
+    def test_bluetooth_main_conf_auto_enable(self):
+        """main.conf should contain AutoEnable=true under [General]."""
+        main_conf = os.path.join(AIROOTFS, "etc", "bluetooth", "main.conf")
+        with open(main_conf) as f:
+            content = f.read()
+        # Check for [General] section
+        self.assertIn('[General]', content,
+                      "main.conf must have [General] section")
+        # Check for AutoEnable=true
+        self.assertIn('AutoEnable=true', content,
+                      "main.conf must have AutoEnable=true for auto-powering adapter")
+
+
+class TestBluetoothServiceActivation(unittest.TestCase):
+    """Verify Bluetooth service is activated before querying bluetoothctl."""
+
+    def test_bluetooth_status_script_starts_service(self):
+        """bluetooth-status.sh should start bluetooth.service if not running."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-status.sh"
+        )
+        with open(script_path) as f:
+            content = f.read()
+        self.assertIn('systemctl start bluetooth.service', content,
+                      "bluetooth-status.sh must start bluetooth.service")
+
+    def test_launcher_starts_bluetooth_service(self):
+        """mados-bluetooth launcher should start bluetooth.service if not running."""
+        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
+        with open(launcher) as f:
+            content = f.read()
+        self.assertIn('systemctl start bluetooth.service', content,
+                      "mados-bluetooth launcher must start bluetooth.service")
+
+    def test_waybar_exec_if_references_check_script(self):
+        """Waybar exec-if should reference bluetooth-check.sh script."""
+        config_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
+        )
+        with open(config_path) as f:
+            config = json.load(f)
+        bt_config = config.get('custom/bluetooth', {})
+        exec_if = bt_config.get('exec-if', '')
+        self.assertIn('bluetooth-check.sh', exec_if,
+                      "exec-if must reference bluetooth-check.sh script")
+
+    def test_bluetooth_check_script_exists(self):
+        """bluetooth-check.sh script should exist."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-check.sh"
+        )
+        self.assertTrue(os.path.isfile(script_path),
+                        "bluetooth-check.sh must exist")
+
+    def test_bluetooth_check_script_starts_service(self):
+        """bluetooth-check.sh should start bluetooth.service if not running."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-check.sh"
+        )
+        with open(script_path) as f:
+            content = f.read()
+        self.assertIn('systemctl start bluetooth.service', content,
+                      "bluetooth-check.sh must start bluetooth.service")
+
+    def test_bluetooth_check_script_valid_bash(self):
+        """bluetooth-check.sh should have valid bash syntax."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-check.sh"
+        )
+        result = subprocess.run(
+            ['bash', '-n', script_path],
+            capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0,
+                         f"bluetooth-check.sh has syntax errors: {result.stderr}")
+
 
 class TestBluetoothApplicationFiles(unittest.TestCase):
     """Verify Bluetooth application files exist and have correct structure."""
@@ -383,8 +471,8 @@ class TestWaybarConfig(unittest.TestCase):
             config = json.load(f)
         bt_config = config.get('custom/bluetooth', {})
         exec_if = bt_config.get('exec-if', '')
-        self.assertIn('bluetoothctl', exec_if,
-                       "exec-if must use bluetoothctl to detect hardware")
+        self.assertIn('bluetooth-check.sh', exec_if,
+                       "exec-if must reference bluetooth-check.sh to detect hardware")
 
     def test_waybar_bluetooth_exec_script(self):
         """Waybar bluetooth module exec should reference the status script."""
