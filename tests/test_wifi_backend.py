@@ -281,10 +281,12 @@ class TestScanNetworks(unittest.TestCase):
     """Verify scan_networks() parses iwctl output into WiFiNetwork objects."""
 
     @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_command')
     @patch('mados_wifi.backend._run_iwctl')
     @patch('mados_wifi.backend._run_iwctl_check')
     @patch('mados_wifi.backend.time.sleep')
-    def test_parse_networks(self, mock_sleep, mock_check, mock_run, mock_device):
+    def test_parse_networks(self, mock_sleep, mock_check, mock_run, mock_run_cmd, mock_device):
+        mock_run_cmd.return_value = MagicMock(returncode=0)
         mock_run.return_value = MagicMock(returncode=0)
         mock_check.return_value = (
             "                           Available networks\n"
@@ -304,11 +306,13 @@ class TestScanNetworks(unittest.TestCase):
         self.assertEqual(networks[1].security, 'WPA/WPA2')
 
     @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_command')
     @patch('mados_wifi.backend._run_iwctl')
     @patch('mados_wifi.backend._run_iwctl_check')
     @patch('mados_wifi.backend.time.sleep')
-    def test_signal_strength_mapping(self, mock_sleep, mock_check, mock_run, mock_device):
+    def test_signal_strength_mapping(self, mock_sleep, mock_check, mock_run, mock_run_cmd, mock_device):
         """Test that star-based signal strength is correctly mapped to percentages."""
+        mock_run_cmd.return_value = MagicMock(returncode=0)
         mock_run.return_value = MagicMock(returncode=0)
         mock_check.return_value = (
             "                           Available networks\n"
@@ -332,10 +336,12 @@ class TestScanNetworks(unittest.TestCase):
         self.assertEqual(signal_map['VeryWeak'], 10)   # no stars
 
     @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_command')
     @patch('mados_wifi.backend._run_iwctl')
     @patch('mados_wifi.backend._run_iwctl_check')
     @patch('mados_wifi.backend.time.sleep')
-    def test_open_network(self, mock_sleep, mock_check, mock_run, mock_device):
+    def test_open_network(self, mock_sleep, mock_check, mock_run, mock_run_cmd, mock_device):
+        mock_run_cmd.return_value = MagicMock(returncode=0)
         mock_run.return_value = MagicMock(returncode=0)
         mock_check.return_value = (
             "                           Available networks\n"
@@ -351,12 +357,43 @@ class TestScanNetworks(unittest.TestCase):
         self.assertEqual(networks[0].signal, 50)
 
     @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_command')
     @patch('mados_wifi.backend._run_iwctl')
     @patch('mados_wifi.backend._run_iwctl_check', side_effect=RuntimeError('scan failed'))
     @patch('mados_wifi.backend.time.sleep')
-    def test_scan_failure(self, mock_sleep, mock_check, mock_run, mock_device):
+    def test_scan_failure(self, mock_sleep, mock_check, mock_run, mock_run_cmd, mock_device):
+        mock_run_cmd.return_value = MagicMock(returncode=0)
+        mock_run.return_value = MagicMock(returncode=0)
         networks = scan_networks()
         self.assertEqual(networks, [])
+
+    @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_command')
+    @patch('mados_wifi.backend._run_iwctl')
+    @patch('mados_wifi.backend._run_iwctl_check')
+    @patch('mados_wifi.backend._ensure_wifi_ready')
+    @patch('mados_wifi.backend.time.sleep')
+    def test_scan_failure_with_retry(self, mock_sleep, mock_ensure, mock_check, mock_run, mock_run_cmd, mock_device):
+        """Test that a failed scan is retried after ensuring WiFi is ready."""
+        mock_run_cmd.return_value = MagicMock(returncode=0)
+        # First scan fails, second succeeds
+        mock_run.side_effect = [
+            MagicMock(returncode=1),  # First scan fails
+            MagicMock(returncode=0),  # Second scan succeeds
+        ]
+        mock_check.return_value = (
+            "                           Available networks\n"
+            "--------------------------------------------------------\n"
+            "    Network name                    Security  Signal\n"
+            "--------------------------------------------------------\n"
+            "    TestNet                          psk       ***\n"
+        )
+        networks = scan_networks()
+        # Should have retried and succeeded
+        self.assertEqual(len(networks), 1)
+        self.assertEqual(networks[0].ssid, 'TestNet')
+        # Verify _ensure_wifi_ready was called during retry
+        mock_ensure.assert_called_once()
 
     @patch('mados_wifi.backend.get_wifi_device', return_value=None)
     def test_no_device(self, mock_device):
