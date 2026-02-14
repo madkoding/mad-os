@@ -12,7 +12,7 @@ manages the filter-chain lifecycle to apply real-time EQ changes.
 
 Architecture:
     1. Generates PipeWire filter-chain config with bq_peaking nodes
-    2. Writes config to ~/.config/pipewire/filter-chain.conf.d/mados-eq.conf
+    2. Writes config to ~/.config/pipewire/pipewire.conf.d/mados-eq.conf
     3. Destroys any existing mados-eq node, then restarts filter-chain
     4. Detects active audio output devices via wpctl/pactl
     5. Manages master volume via wpctl (PipeWire) or pactl (PulseAudio)
@@ -29,8 +29,8 @@ from pathlib import Path
 from .presets import FREQUENCY_BANDS
 
 
-# PipeWire filter-chain config directory
-PIPEWIRE_CONFIG_DIR = Path.home() / '.config' / 'pipewire' / 'filter-chain.conf.d'
+# PipeWire config directory (pipewire.conf.d so the main daemon loads it)
+PIPEWIRE_CONFIG_DIR = Path.home() / '.config' / 'pipewire' / 'pipewire.conf.d'
 PIPEWIRE_CONFIG_FILE = PIPEWIRE_CONFIG_DIR / 'mados-eq.conf'
 
 # Node name used to identify the EQ in PipeWire
@@ -299,10 +299,21 @@ context.modules = [
             True if the config was written successfully.
         """
         try:
-            PIPEWIRE_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+            config_dir = PIPEWIRE_CONFIG_DIR
+            config_file = PIPEWIRE_CONFIG_FILE
+
+            # Ensure parent directories exist (handles both fresh and
+            # pre-existing installs where only part of the path exists)
+            config_dir.mkdir(parents=True, exist_ok=True)
+
             config_content = self._generate_filter_chain_config()
-            with open(PIPEWIRE_CONFIG_FILE, 'w', encoding='utf-8') as f:
+
+            # Write atomically: write to temp file, then rename
+            tmp_file = config_file.with_suffix('.tmp')
+            with open(tmp_file, 'w', encoding='utf-8') as f:
                 f.write(config_content)
+            tmp_file.rename(config_file)
+
             return True
         except OSError as e:
             print(f"Error writing PipeWire config: {e}")
@@ -311,12 +322,22 @@ context.modules = [
     def _remove_pipewire_config(self):
         """Remove the PipeWire filter-chain configuration file.
 
+        Also removes any leftover config from the old filter-chain.conf.d
+        location to avoid conflicts.
+
         Returns:
             True if the file was removed or did not exist.
         """
         try:
             if PIPEWIRE_CONFIG_FILE.exists():
                 PIPEWIRE_CONFIG_FILE.unlink()
+
+            # Clean up legacy config from the old filter-chain.conf.d location
+            legacy_file = (Path.home() / '.config' / 'pipewire'
+                           / 'filter-chain.conf.d' / 'mados-eq.conf')
+            if legacy_file.exists():
+                legacy_file.unlink()
+
             return True
         except OSError as e:
             print(f"Error removing PipeWire config: {e}")
@@ -345,23 +366,20 @@ context.modules = [
     def _restart_filter_chain(self):
         """Restart the PipeWire filter-chain to load the new configuration.
 
-        First destroys any existing EQ node, then relies on PipeWire to
-        automatically load the new configuration from the config file.
+        First destroys any existing EQ node, then restarts the PipeWire
+        service so it loads the updated config from pipewire.conf.d/.
 
         Returns:
             True if the operation appeared successful.
         """
         self._destroy_existing_eq()
 
-        # PipeWire should auto-load the config from the conf.d directory.
-        # If not, we can try to manually load it using pipewire -c
-        # Give PipeWire a moment to pick up the new config
-        time.sleep(0.3)
-
-        # Try to manually trigger a reload if available
+        # Restart PipeWire user service to pick up the new config
         try:
-            # Send SIGHUP to PipeWire to trigger config reload
-            self._run_command(['pkill', '-HUP', 'pipewire'], timeout=2)
+            self._run_command(
+                ['systemctl', '--user', 'restart', 'pipewire.service'],
+                timeout=5,
+            )
         except Exception:
             pass
 
