@@ -18,6 +18,7 @@ sway
 swaybg
 swayidle
 swaylock
+swww
 waybar
 wofi
 mako
@@ -57,6 +58,7 @@ htop
 wget
 curl
 jq
+socat
 networkmanager
 iwd
 wireless_tools
