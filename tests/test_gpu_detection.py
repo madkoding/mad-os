@@ -1180,6 +1180,38 @@ class TestVMPerformanceOptimizations(unittest.TestCase):
         self.assertIn("enabled = false", hyprland_vm_block,
                        "Hyprland VM config must disable animations")
 
+    def test_bash_profile_hyprland_vm_config_enables_vfr(self):
+        """.bash_profile Hyprland VM config must enable VFR to prevent constant redraws."""
+        path = os.path.join(SKEL_DIR, ".bash_profile")
+        with open(path) as f:
+            content = f.read()
+        hyprland_vm_start = content.find("cat > ~/.config/hypr/vm-performance.conf")
+        self.assertGreater(hyprland_vm_start, -1,
+                            ".bash_profile must generate Hyprland VM config")
+        vmconf_pos = content.find("VMCONF", hyprland_vm_start + 50)
+        self.assertGreater(vmconf_pos, -1, "VMCONF delimiter must exist")
+        hyprland_vm_block = content[hyprland_vm_start:vmconf_pos]
+        self.assertIn("vfr = true", hyprland_vm_block,
+                       "Hyprland VM config must enable VFR (variable frame rate)")
+        self.assertNotIn("vfr = false", hyprland_vm_block,
+                          "vfr = false causes constant screen redraws and mouse lag")
+
+    def test_zlogin_hyprland_vm_config_enables_vfr(self):
+        """.zlogin Hyprland VM config must enable VFR to prevent constant redraws."""
+        path = os.path.join(AIROOTFS, "home", "mados", ".zlogin")
+        with open(path) as f:
+            content = f.read()
+        hyprland_vm_start = content.find("cat > ~/.config/hypr/vm-performance.conf")
+        self.assertGreater(hyprland_vm_start, -1,
+                            ".zlogin must generate Hyprland VM config")
+        vmconf_pos = content.find("VMCONF", hyprland_vm_start + 50)
+        self.assertGreater(vmconf_pos, -1, "VMCONF delimiter must exist")
+        hyprland_vm_block = content[hyprland_vm_start:vmconf_pos]
+        self.assertIn("vfr = true", hyprland_vm_block,
+                       "Hyprland VM config must enable VFR (variable frame rate)")
+        self.assertNotIn("vfr = false", hyprland_vm_block,
+                          "vfr = false causes constant screen redraws and mouse lag")
+
     def test_hyprland_conf_sources_vm_config(self):
         """hyprland.conf must source the VM performance config."""
         path = os.path.join(SKEL_DIR, ".config", "hypr", "hyprland.conf")
