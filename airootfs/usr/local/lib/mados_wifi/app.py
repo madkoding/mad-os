@@ -83,7 +83,7 @@ class WiFiApp(Gtk.Window):
         main_box.pack_start(self._build_status_bar(), False, False, 0)
 
     def _build_header(self):
-        """Build the header bar with title and scan button."""
+        """Build the header bar with title."""
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         header.set_margin_start(12)
         header.set_margin_end(12)
@@ -98,10 +98,13 @@ class WiFiApp(Gtk.Window):
         self._title_label.set_halign(Gtk.Align.START)
         header.pack_start(self._title_label, True, True, 0)
 
-        # Scan button
-        self._scan_btn = Gtk.Button(label=self.t("scan"))
-        self._scan_btn.connect("clicked", self._on_scan_clicked)
-        header.pack_end(self._scan_btn, False, False, 8)
+        # Info label about auto-scanning
+        auto_scan_label = Gtk.Label()
+        auto_scan_label.set_markup(
+            f'<small><i>{self.t("auto_scanning")}</i></small>'
+        )
+        auto_scan_label.get_style_context().add_class("caption")
+        header.pack_end(auto_scan_label, False, False, 8)
 
         return header
 
