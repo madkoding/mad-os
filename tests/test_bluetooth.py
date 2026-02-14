@@ -134,6 +134,63 @@ class TestBluetoothService(unittest.TestCase):
                       content,
                       "installation.py must enable bluetooth.service")
 
+    def test_bluetooth_main_conf_exists(self):
+        """airootfs/etc/bluetooth/main.conf should exist."""
+        main_conf = os.path.join(AIROOTFS, "etc", "bluetooth", "main.conf")
+        self.assertTrue(
+            os.path.isfile(main_conf),
+            "main.conf must exist in /etc/bluetooth/"
+        )
+
+    def test_bluetooth_main_conf_auto_enable(self):
+        """main.conf should contain AutoEnable=true under [General]."""
+        main_conf = os.path.join(AIROOTFS, "etc", "bluetooth", "main.conf")
+        with open(main_conf) as f:
+            content = f.read()
+        # Check for [General] section
+        self.assertIn('[General]', content,
+                      "main.conf must have [General] section")
+        # Check for AutoEnable=true
+        self.assertIn('AutoEnable=true', content,
+                      "main.conf must have AutoEnable=true for auto-powering adapter")
+
+
+class TestBluetoothServiceActivation(unittest.TestCase):
+    """Verify Bluetooth service is activated before querying bluetoothctl."""
+
+    def test_bluetooth_status_script_starts_service(self):
+        """bluetooth-status.sh should start bluetooth.service if not running."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-status.sh"
+        )
+        with open(script_path) as f:
+            content = f.read()
+        self.assertIn('systemctl start bluetooth.service', content,
+                      "bluetooth-status.sh must start bluetooth.service")
+
+    def test_launcher_starts_bluetooth_service(self):
+        """mados-bluetooth launcher should start bluetooth.service if not running."""
+        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
+        with open(launcher) as f:
+            content = f.read()
+        self.assertIn('systemctl start bluetooth.service', content,
+                      "mados-bluetooth launcher must start bluetooth.service")
+
+    def test_waybar_exec_if_starts_service(self):
+        """Waybar config custom/bluetooth exec-if should start bluetooth.service."""
+        config_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
+        )
+        with open(config_path) as f:
+            config = json.load(f)
+        bt_config = config.get('custom/bluetooth', {})
+        exec_if = bt_config.get('exec-if', '')
+        self.assertIn('systemctl', exec_if,
+                      "exec-if must use systemctl to activate bluetooth.service")
+        self.assertIn('start', exec_if,
+                      "exec-if must start bluetooth.service if not running")
+
 
 class TestBluetoothApplicationFiles(unittest.TestCase):
     """Verify Bluetooth application files exist and have correct structure."""

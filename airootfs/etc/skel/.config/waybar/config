@@ -165,7 +165,7 @@
         "format": "{}",
         "return-type": "json",
         "exec": "~/.config/waybar/scripts/bluetooth-status.sh",
-        "exec-if": "bluetoothctl show 2>/dev/null | grep -q 'Controller'",
+        "exec-if": "systemctl is-active --quiet bluetooth.service 2>/dev/null || systemctl start bluetooth.service 2>/dev/null; bluetoothctl show 2>/dev/null | grep -q 'Controller'",
         "on-click": "mados-bluetooth",
         "interval": 10
     }
