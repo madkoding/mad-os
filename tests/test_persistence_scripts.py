@@ -160,6 +160,355 @@ class TestSetupPersistenceScript(unittest.TestCase):
             "Optical media detection must occur before USB check in setup_persistence",
         )
 
+    def test_has_strip_partition_function(self):
+        """Should have strip_partition() to handle nvme/mmcblk/standard devices."""
+        self.assertRegex(self.content, r'strip_partition\(\)\s*\{')
+
+    def test_strip_partition_handles_nvme(self):
+        """strip_partition must handle nvme and mmcblk device names correctly.
+
+        Expected behavior:
+          /dev/nvme0n1p2  → /dev/nvme0n1  (strips pN suffix)
+          /dev/mmcblk0p1  → /dev/mmcblk0  (strips pN suffix)
+          /dev/sda1       → /dev/sda      (strips trailing digits)
+        """
+        # Verify strip_partition uses the correct sed patterns for nvme/mmcblk
+        self.assertIn('nvme', self.content)
+        self.assertIn('mmcblk', self.content)
+        # The function must strip 'p' + digits for nvme/mmcblk
+        self.assertRegex(
+            self.content,
+            r"sed\s+'s/p\[0-9\]\*\$//'" ,
+            "strip_partition must use sed to remove pN suffix for nvme/mmcblk",
+        )
+
+    def test_is_usb_device_checks_removable_flag(self):
+        """is_usb_device should check sysfs removable flag as fallback."""
+        self.assertIn('/removable', self.content,
+                      "is_usb_device must check sysfs removable flag")
+
+    def test_find_iso_device_handles_loop_devices(self):
+        """find_iso_device should resolve loop devices to backing device."""
+        self.assertIn('losetup', self.content,
+                      "find_iso_device must handle loop device resolution")
+
+    def test_find_iso_device_validates_block_device(self):
+        """find_iso_device should check that source is a block device."""
+        # The -b check ensures we don't process non-block sources
+        self.assertIn('-b "$raw_source"', self.content,
+                      "find_iso_device must validate block device with -b")
+
+    def test_setup_persistence_validates_block_device(self):
+        """setup_persistence should validate iso_device is a block device."""
+        self.assertIn('-b "$iso_device"', self.content,
+                      "setup_persistence must validate device is a block device")
+
+    def test_setup_persistence_waits_for_udev(self):
+        """setup_persistence should wait for udev to settle before device detection."""
+        udev_pos = self.content.find('udevadm settle')
+        find_pos = self.content.find('find_iso_device')
+        self.assertNotEqual(udev_pos, -1, "Must call udevadm settle")
+        # The first udevadm settle should come before find_iso_device in setup_persistence
+        # Find udevadm settle within the setup_persistence function
+        setup_start = self.content.find('setup_persistence()')
+        if setup_start != -1:
+            setup_content = self.content[setup_start:]
+            udev_in_setup = setup_content.find('udevadm settle')
+            find_in_setup = setup_content.find('find_iso_device')
+            self.assertNotEqual(udev_in_setup, -1, "setup_persistence must call udevadm settle")
+            self.assertLess(
+                udev_in_setup, find_in_setup,
+                "udevadm settle must run before find_iso_device in setup_persistence",
+            )
+
+    def test_setup_persistence_has_debug_logging(self):
+        """setup_persistence should log diagnostic info when device detection fails."""
+        self.assertIn('Debug:', self.content,
+                      "setup_persistence must include debug logging for diagnostics")
+
+    # ── Device-scoped persistence safety tests ──────────────────────────
+
+    def _get_init_script_content(self):
+        """Extract the embedded init script heredoc content."""
+        init_start = self.content.find("cat > \"$PERSIST_MOUNT/mados-persist-init.sh\"")
+        self.assertNotEqual(init_start, -1, "Must have embedded init script")
+        return self.content[init_start:]
+
+    def test_find_persist_partition_accepts_parent_device(self):
+        """find_persist_partition must accept a parent device to scope the search."""
+        # Check that the function body uses parent_device
+        func_start = self.content.find('find_persist_partition()')
+        self.assertNotEqual(func_start, -1, "Must have find_persist_partition function")
+        # Search for parent_device within a reasonable range after the function def
+        func_region = self.content[func_start:func_start + 1000]
+        self.assertIn(
+            'parent_device',
+            func_region,
+            "find_persist_partition must use a parent_device parameter",
+        )
+
+    def test_find_persist_partition_uses_lsblk_with_device(self):
+        """When given a parent device, find_persist_partition must pass it to lsblk."""
+        self.assertIn(
+            'lsblk -nlo NAME,LABEL "$parent_device"',
+            self.content,
+            "find_persist_partition must scope lsblk search to parent device",
+        )
+
+    def test_setup_persistence_passes_iso_device_to_find(self):
+        """setup_persistence must pass iso_device to find_persist_partition."""
+        self.assertIn(
+            'find_persist_partition "$iso_device"',
+            self.content,
+            "setup_persistence must scope partition search to ISO device",
+        )
+
+    def test_create_partition_has_safety_check(self):
+        """create_persist_partition must verify target matches ISO device."""
+        self.assertIn(
+            'SAFETY',
+            self.content,
+            "create_persist_partition must have a SAFETY check",
+        )
+        # Verify find_iso_device is called within create_persist_partition
+        create_start = self.content.find('create_persist_partition()')
+        self.assertNotEqual(create_start, -1, "Must have create_persist_partition function")
+        # Search within a reasonable range for the safety check
+        create_region = self.content[create_start:create_start + 500]
+        self.assertIn(
+            'find_iso_device',
+            create_region,
+            "create_persist_partition must call find_iso_device for safety check",
+        )
+
+    def test_records_boot_device(self):
+        """setup_persistence must record boot device in .mados-boot-device."""
+        self.assertIn(
+            '.mados-boot-device',
+            self.content,
+            "Must record boot device in .mados-boot-device file",
+        )
+
+    def test_init_script_reads_boot_device(self):
+        """Embedded init script must read .mados-boot-device for scoped search."""
+        init_content = self._get_init_script_content()
+        self.assertIn(
+            '.mados-boot-device',
+            init_content,
+            "Init script must read .mados-boot-device for scoped partition search",
+        )
+
+    def test_init_script_has_parent_device_scoped_search(self):
+        """Embedded init script's find_persist_dev must accept parent device."""
+        init_content = self._get_init_script_content()
+        self.assertIn(
+            'parent_device',
+            init_content,
+            "Init script's find_persist_dev must use parent_device parameter",
+        )
+
+    def test_init_script_has_safety_verification(self):
+        """Embedded init script must verify partition belongs to boot device."""
+        init_content = self._get_init_script_content()
+        self.assertIn(
+            'SAFETY',
+            init_content,
+            "Init script must have SAFETY check verifying partition parent",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Partition protection safety checks
+# ═══════════════════════════════════════════════════════════════════════════
+class TestPartitionProtection(unittest.TestCase):
+    """Verify create_persist_partition has guards to avoid damaging other partitions."""
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, 'setup-persistence.sh')
+        with open(self.script_path) as f:
+            self.content = f.read()
+        # Extract create_persist_partition function body
+        start = self.content.find('create_persist_partition()')
+        self.assertNotEqual(start, -1)
+        self.create_fn = self.content[start:start + 4000]
+
+    def test_checks_partition_table_type(self):
+        """Must detect MBR partition table to enforce 4-partition limit."""
+        self.assertIn(
+            'Partition Table:',
+            self.create_fn,
+            "Must read partition table type (MBR/GPT) from parted output",
+        )
+
+    def test_enforces_mbr_partition_limit(self):
+        """Must refuse to create partition 5+ on MBR (msdos) disks."""
+        self.assertIn(
+            'msdos',
+            self.create_fn,
+            "Must check for 'msdos' (MBR) partition table type",
+        )
+        self.assertRegex(
+            self.create_fn,
+            r'new_part_num.*-gt\s*4',
+            "Must check new_part_num > 4 for MBR",
+        )
+
+    def test_snapshots_partition_boundaries_before_create(self):
+        """Must record existing partition boundaries before calling mkpart."""
+        self.assertIn(
+            'pre_parts',
+            self.create_fn,
+            "Must snapshot existing partitions before mkpart",
+        )
+
+    def test_verifies_partition_count_after_create(self):
+        """Must verify partition count increased after mkpart."""
+        self.assertIn(
+            'post_part_count',
+            self.create_fn,
+            "Must check partition count after mkpart",
+        )
+
+    def test_verifies_existing_partitions_unchanged(self):
+        """Must verify pre-existing partition boundaries are unchanged after mkpart."""
+        self.assertIn(
+            'post_pre_parts',
+            self.create_fn,
+            "Must compare existing partitions after mkpart",
+        )
+        self.assertIn(
+            'Existing partition boundaries changed',
+            self.create_fn,
+            "Must log error if existing partitions changed",
+        )
+
+    def test_verifies_label_after_format(self):
+        """Must verify the ext4 label was written correctly after mkfs."""
+        self.assertIn(
+            'written_label',
+            self.create_fn,
+            "Must read back label after mkfs.ext4",
+        )
+        self.assertIn(
+            'Label verification failed',
+            self.create_fn,
+            "Must log error if label doesn't match",
+        )
+
+
+class TestRemovePartitionSafety(unittest.TestCase):
+    """Verify remove_persistence verifies label before deleting a partition."""
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, 'mados-persistence')
+        with open(self.script_path) as f:
+            self.content = f.read()
+        # Extract remove_persistence function body
+        start = self.content.find('remove_persistence()')
+        self.assertNotEqual(start, -1)
+        self.remove_fn = self.content[start:start + 2000]
+
+    def test_verifies_label_before_remove(self):
+        """Must verify partition has the persistence label before deleting."""
+        self.assertIn(
+            'blkid -s LABEL',
+            self.remove_fn,
+            "Must check partition label via blkid before removing",
+        )
+
+    def test_refuses_wrong_label(self):
+        """Must refuse to delete partition if label doesn't match."""
+        self.assertIn(
+            'Safety check failed',
+            self.remove_fn,
+            "Must log safety check failure if label mismatches",
+        )
+
+    def test_label_check_before_confirmation(self):
+        """Label verification must happen before asking user to confirm."""
+        label_pos = self.remove_fn.find('blkid -s LABEL')
+        confirm_pos = self.remove_fn.find("Type 'yes' to confirm")
+        self.assertNotEqual(label_pos, -1, "Must have label check")
+        self.assertNotEqual(confirm_pos, -1, "Must have confirmation prompt")
+        self.assertLess(
+            label_pos, confirm_pos,
+            "Label verification must happen BEFORE user confirmation prompt",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Persistence service configuration validation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestPersistenceServiceConfig(unittest.TestCase):
+    """Validate mados-persistence.service is correctly configured for boot."""
+
+    def setUp(self):
+        self.service_path = os.path.join(
+            ETC_DIR, 'systemd', 'system', 'mados-persistence.service'
+        )
+        if os.path.exists(self.service_path):
+            with open(self.service_path) as f:
+                self.content = f.read()
+        else:
+            self.content = ''
+
+    def test_service_exists(self):
+        self.assertTrue(os.path.exists(self.service_path))
+
+    def test_service_has_timeout(self):
+        """Service must have TimeoutStartSec to allow partition creation on slow USB."""
+        self.assertIn('TimeoutStartSec=', self.content,
+                      "Service needs TimeoutStartSec for slow USB devices")
+
+    def test_service_timeout_sufficient(self):
+        """TimeoutStartSec must be at least 120s for partition creation on slow USB."""
+        match = re.search(r'TimeoutStartSec=(\d+)', self.content)
+        if match is None:
+            self.fail("TimeoutStartSec must have a numeric value")
+        timeout = int(match.group(1))
+        self.assertGreaterEqual(timeout, 120,
+                                "TimeoutStartSec must be >= 120s to allow "
+                                "partition creation and formatting on slow USB sticks")
+
+    def test_service_after_udev(self):
+        """Service should start after udev to ensure device nodes exist."""
+        self.assertIn('systemd-udevd.service', self.content,
+                      "Service must start after systemd-udevd.service")
+
+    def test_service_condition_matches_script_guard(self):
+        """Service ConditionPathExists must match script's execution guard.
+
+        The service has ConditionPathExists=/run/archiso and the script
+        checks 'if [ -d /run/archiso ]'. These must be consistent.
+        """
+        self.assertIn('ConditionPathExists=/run/archiso', self.content)
+        # Also verify the script uses the same path
+        script_path = os.path.join(BIN_DIR, 'setup-persistence.sh')
+        with open(script_path) as f:
+            script = f.read()
+        self.assertIn('/run/archiso', script,
+                      "Script guard must reference /run/archiso")
+
+    def test_service_outputs_to_console(self):
+        """Service should output to console+journal for debugging."""
+        self.assertIn('journal+console', self.content,
+                      "Service must output to journal+console for boot-time debugging")
+
+    def test_service_wanted_by_sysinit(self):
+        """Service must be wanted by sysinit.target (early boot)."""
+        self.assertIn('WantedBy=sysinit.target', self.content)
+
+    def test_service_is_enabled(self):
+        """Service must have an enable symlink in sysinit.target.wants."""
+        symlink = os.path.join(
+            ETC_DIR, 'systemd', 'system',
+            'sysinit.target.wants', 'mados-persistence.service'
+        )
+        self.assertTrue(
+            os.path.islink(symlink),
+            "mados-persistence.service must be enabled in sysinit.target.wants"
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # mados-persistence tool validation
@@ -218,6 +567,33 @@ class TestMadosPersistenceTool(unittest.TestCase):
 
     def test_supports_remove_command(self):
         self.assertIn('remove', self.content)
+
+    def test_has_find_iso_device_function(self):
+        """mados-persistence CLI must have find_iso_device to scope searches."""
+        self.assertRegex(self.content, r'find_iso_device\(\)\s*\{',
+                         "CLI tool must have find_iso_device() function")
+
+    def test_find_persist_scoped_to_iso_device(self):
+        """find_persist_partition must search only the ISO boot device."""
+        self.assertIn(
+            'find_iso_device',
+            self.content,
+            "find_persist_partition must use find_iso_device for scoping",
+        )
+        # Verify it passes iso device to lsblk
+        self.assertIn(
+            'lsblk -nlo NAME,LABEL "$iso_dev"',
+            self.content,
+            "find_persist_partition must scope lsblk to the ISO device",
+        )
+
+    def test_reads_boot_device_file(self):
+        """CLI tool should read .mados-boot-device for boot device fallback."""
+        self.assertIn(
+            '.mados-boot-device',
+            self.content,
+            "CLI tool must read .mados-boot-device file",
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
