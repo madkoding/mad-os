@@ -58,6 +58,21 @@ if systemd-detect-virt --vm --quiet 2>/dev/null; then
     export WLR_DRM_NO_ATOMIC=1
     export WLR_DRM_NO_MODIFIERS=1
     export WLR_NO_HARDWARE_CURSORS=1
+
+    # VM performance: generate optimized sway config drop-in
+    # Reduces visual overhead (solid bg, no gaps) for smoother experience
+    VM_CONF="/etc/sway/config.d/99-vm-performance.conf"
+    if [ ! -f "$VM_CONF" ]; then
+        mkdir -p /etc/sway/config.d
+        cat > "$VM_CONF" << 'VMCONF'
+# Auto-generated VM performance optimizations
+# Reduces visual overhead for smoother mouse/input in VirtualBox/VMware/QEMU
+output * bg #2E3440 solid_color
+gaps inner 0
+gaps outer 0
+VMCONF
+        log "Generated VM performance config: $VM_CONF"
+    fi
 fi
 
 # First attempt: run cage with current settings
