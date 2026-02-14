@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# mados-wallpaper-glitch - Cyberpunk wallpaper glitch effect on workspace switch
+# Listens for Hyprland workspace change events and triggers a pixelated
+# "system error" transition effect on the current wallpaper using swww.
+
+WALLPAPER_DIR="$HOME/Pictures/Wallpapers"
+DEFAULT_WALLPAPER="$WALLPAPER_DIR/mad-os-wallpaper.jpg"
+
+# Transition effects that simulate digital interference / glitch
+TRANSITIONS=("pixelate" "wave" "wipe" "grow")
+
+get_random_transition() {
+    local idx=$(( RANDOM % ${#TRANSITIONS[@]} ))
+    echo "${TRANSITIONS[$idx]}"
+}
+
+apply_glitch_effect() {
+    local wallpaper
+    wallpaper="$DEFAULT_WALLPAPER"
+
+    # Use current wallpaper if available, otherwise fallback to default
+    if [ -f "$wallpaper" ]; then
+        local transition
+        transition="$(get_random_transition)"
+        swww img "$wallpaper" \
+            --transition-type "$transition" \
+            --transition-duration 0.4 \
+            --transition-fps 60 \
+            --transition-step 90 \
+            --transition-angle 45 2>/dev/null
+    fi
+}
+
+# Wait for swww-daemon to be ready
+for _ in $(seq 1 30); do
+    if swww query >/dev/null 2>&1; then
+        break
+    fi
+    sleep 0.5
+done
+
+# Listen for workspace change events from Hyprland
+socat -u "UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock" - 2>/dev/null | while IFS= read -r event; do
+    case "$event" in
+        workspace\>*) apply_glitch_effect ;;
+    esac
+done
