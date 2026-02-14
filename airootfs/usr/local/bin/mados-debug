@@ -94,7 +94,7 @@ debug_apps() {
     echo ""
 
     echo -e "${YELLOW}Launcher scripts:${NC}"
-    for script in mados-photo-viewer mados-pdf-viewer mados-wifi mados-equalizer; do
+    for script in mados-photo-viewer mados-pdf-viewer mados-wifi mados-bluetooth mados-equalizer; do
         if [ -x "/usr/local/bin/$script" ]; then
             if grep -q "PYTHONPATH" "/usr/local/bin/$script"; then
                 echo -e "  ${GREEN}✓${NC} $script (PYTHONPATH configured)"

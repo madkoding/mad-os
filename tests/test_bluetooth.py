@@ -374,6 +374,110 @@ class TestWaybarConfig(unittest.TestCase):
         self.assertEqual(bt_config.get('on-click'), 'mados-bluetooth',
                          "Bluetooth module on-click must launch mados-bluetooth")
 
+    def test_waybar_bluetooth_exec_if(self):
+        """Waybar bluetooth module should have exec-if to detect hardware."""
+        config_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
+        )
+        with open(config_path) as f:
+            config = json.load(f)
+        bt_config = config.get('custom/bluetooth', {})
+        exec_if = bt_config.get('exec-if', '')
+        self.assertIn('bluetoothctl', exec_if,
+                       "exec-if must use bluetoothctl to detect hardware")
+
+    def test_waybar_bluetooth_exec_script(self):
+        """Waybar bluetooth module exec should reference the status script."""
+        config_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
+        )
+        with open(config_path) as f:
+            config = json.load(f)
+        bt_config = config.get('custom/bluetooth', {})
+        exec_cmd = bt_config.get('exec', '')
+        self.assertIn('bluetooth-status.sh', exec_cmd,
+                       "exec must reference bluetooth-status.sh script")
+
+    def test_bluetooth_status_script_exists(self):
+        """bluetooth-status.sh script should exist."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-status.sh"
+        )
+        self.assertTrue(os.path.isfile(script_path),
+                        "bluetooth-status.sh must exist")
+
+    def test_bluetooth_status_script_valid_bash(self):
+        """bluetooth-status.sh should have valid bash syntax."""
+        script_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "scripts",
+            "bluetooth-status.sh"
+        )
+        result = subprocess.run(
+            ['bash', '-n', script_path],
+            capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0,
+                         f"bluetooth-status.sh has syntax errors: {result.stderr}")
+
+    def test_waybar_bluetooth_return_type(self):
+        """Waybar bluetooth module should use JSON return type."""
+        config_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
+        )
+        with open(config_path) as f:
+            config = json.load(f)
+        bt_config = config.get('custom/bluetooth', {})
+        self.assertEqual(bt_config.get('return-type'), 'json',
+                         "Bluetooth module must use JSON return type")
+
+    def test_waybar_bluetooth_next_to_network(self):
+        """Bluetooth module should be positioned next to the network module."""
+        config_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
+        )
+        with open(config_path) as f:
+            config = json.load(f)
+        right_modules = config.get('modules-right', [])
+        net_idx = right_modules.index('network')
+        bt_idx = right_modules.index('custom/bluetooth')
+        self.assertEqual(bt_idx, net_idx + 1,
+                         "Bluetooth must be right after network in modules-right")
+
+
+class TestWaybarBluetoothStyle(unittest.TestCase):
+    """Verify Waybar CSS includes Bluetooth styling."""
+
+    def test_waybar_css_has_bluetooth_style(self):
+        """Waybar style.css should have #custom-bluetooth styling."""
+        css_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "style.css"
+        )
+        with open(css_path) as f:
+            content = f.read()
+        self.assertIn('#custom-bluetooth', content,
+                      "Waybar style.css must include #custom-bluetooth styling")
+
+    def test_waybar_css_has_bluetooth_connected_class(self):
+        """Waybar style.css should style the connected state."""
+        css_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "style.css"
+        )
+        with open(css_path) as f:
+            content = f.read()
+        self.assertIn('#custom-bluetooth.connected', content,
+                      "Waybar style.css must style connected Bluetooth state")
+
+    def test_waybar_css_has_bluetooth_off_class(self):
+        """Waybar style.css should style the off state."""
+        css_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "style.css"
+        )
+        with open(css_path) as f:
+            content = f.read()
+        self.assertIn('#custom-bluetooth.off', content,
+                      "Waybar style.css must style off Bluetooth state")
+
 
 class TestInstallationBluetoothPackages(unittest.TestCase):
     """Verify Bluetooth packages are in the installer package lists."""
