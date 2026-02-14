@@ -378,6 +378,13 @@ def _run_installation(app):
             subprocess.run(['mkdir', '-p', '/mnt/etc/gtk-3.0'], check=False)
             subprocess.run(['cp', '-a', '/etc/gtk-3.0/settings.ini', '/mnt/etc/gtk-3.0/'], check=False)
 
+            # Copy Nordic GTK theme from live ISO if installed
+            if os.path.isdir('/usr/share/themes/Nordic'):
+                log_message(app, "Copying Nordic GTK theme from live environment...")
+                subprocess.run(['mkdir', '-p', '/mnt/usr/share/themes'], check=False)
+                subprocess.run(['cp', '-a', '/usr/share/themes/Nordic',
+                                '/mnt/usr/share/themes/'], check=False)
+
             # Copy Oh My Zsh from live ISO if already installed
             if os.path.isdir('/etc/skel/.oh-my-zsh'):
                 log_message(app, "Copying Oh My Zsh from live environment...")
@@ -1462,6 +1469,29 @@ cat > /etc/chromium/policies/managed/mados-homepage.json <<'EOFPOLICY'
   "RestoreOnStartupURLs": ["https://www.kodingvibes.com"]
 }}
 EOFPOLICY
+
+# ── Step 3b: Install Nordic GTK Theme ──────────────────────────────────
+if [ -d /usr/share/themes/Nordic ]; then
+    log "Nordic GTK theme already installed"
+else
+    log "Installing Nordic GTK theme..."
+    if command -v git &>/dev/null; then
+        if curl -sf --connect-timeout 5 https://github.com >/dev/null 2>&1; then
+            NORDIC_TMP=$(mktemp -d)
+            if git clone --depth=1 https://github.com/EliverLara/Nordic.git "$NORDIC_TMP/Nordic" 2>&1; then
+                mkdir -p /usr/share/themes
+                cp -a "$NORDIC_TMP/Nordic" /usr/share/themes/Nordic
+                rm -rf /usr/share/themes/Nordic/.git /usr/share/themes/Nordic/.gitignore /usr/share/themes/Nordic/Art /usr/share/themes/Nordic/LICENSE /usr/share/themes/Nordic/README.md /usr/share/themes/Nordic/KDE /usr/share/themes/Nordic/Wallpaper
+                log "Nordic GTK theme installed"
+            else
+                log "Warning: Failed to clone Nordic GTK theme"
+            fi
+            [ -n "$NORDIC_TMP" ] && rm -rf "$NORDIC_TMP"
+        else
+            log "No internet - Nordic GTK theme skipped"
+        fi
+    fi
+fi
 
 # ── Step 4: Install Oh My Zsh ──────────────────────────────────────────
 log "Setting up Oh My Zsh..."

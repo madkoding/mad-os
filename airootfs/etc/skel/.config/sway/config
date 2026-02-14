@@ -9,7 +9,7 @@ set $gnome-schema org.gnome.desktop.interface
 
 # Ejecutar solo al inicio (no en cada reload)
 exec {
-    gsettings set $gnome-schema gtk-theme 'Materia-dark'
+    gsettings set $gnome-schema gtk-theme 'Nordic'
     gsettings set $gnome-schema color-scheme 'prefer-dark'
     gsettings set $gnome-schema text-scaling-factor 0.75
     gsettings set $gnome-schema cursor-size 16
