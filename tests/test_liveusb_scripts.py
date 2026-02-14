@@ -73,7 +73,8 @@ def _parse_exec_paths(service_path):
                     # Remove optional prefix flags like - (ignore errors)
                     cmd = cmd.lstrip("-")
                     # First token is the executable path
-                    exe = cmd.split()[0] if cmd.split() else ""
+                    tokens = cmd.split()
+                    exe = tokens[0] if tokens else ""
                     if exe.startswith("/usr/local/"):
                         paths.append(exe)
     return paths
@@ -99,7 +100,7 @@ def _is_shell_script(fpath):
         if not first_bytes.startswith(b"#!"):
             return False
         first_line = first_bytes.split(b"\n")[0].decode("utf-8", errors="replace")
-        return "bash" in first_line or "sh" in first_line
+        return "bash" in first_line or "/sh" in first_line
     except (IOError, UnicodeDecodeError):
         return False
 
@@ -210,9 +211,9 @@ class TestEnabledServicesValid(unittest.TestCase):
         """Every enabled service symlink must resolve to an existing file."""
         for svc_name, target, wants_dir in _get_enabled_service_symlinks():
             with self.subTest(service=svc_name, wants=wants_dir):
-                # Only check local services (those pointing to /etc/systemd/system)
-                if target.startswith("/usr/lib/systemd/"):
-                    continue  # system-provided services, not in our repo
+                # Skip system-provided services (not managed by this repo)
+                if target.startswith(("/usr/lib/systemd/", "/lib/systemd/")):
+                    continue
                 # Resolve relative paths
                 if not target.startswith("/"):
                     wants_path = os.path.join(SYSTEMD_DIR, wants_dir)
