@@ -383,7 +383,7 @@ def _run_installation(app):
                 log_message(app, "Copying Nordic GTK theme from live environment...")
                 subprocess.run(['mkdir', '-p', '/mnt/usr/share/themes'], check=False)
                 subprocess.run(['cp', '-a', '/usr/share/themes/Nordic',
-                                '/mnt/usr/share/themes/Nordic'], check=False)
+                                '/mnt/usr/share/themes/'], check=False)
 
             # Copy Oh My Zsh from live ISO if already installed
             if os.path.isdir('/etc/skel/.oh-my-zsh'):
