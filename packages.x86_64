@@ -108,6 +108,11 @@ opusfile
 libvorbis
 libogg
 
+# Build tools (needed to compile kew from source during ISO build)
+gcc
+make
+pkgconf
+
 # Tema GTK oscuro
 materia-gtk-theme
 

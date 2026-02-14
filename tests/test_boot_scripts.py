@@ -534,6 +534,24 @@ class TestCustomizeAirootfs(unittest.TestCase):
         """Script must copy Oh My Zsh to /root."""
         self.assertIn("/root/.oh-my-zsh", self.content)
 
+    def test_installs_kew_from_source(self):
+        """Script must build kew from source."""
+        self.assertIn("ravachol/kew", self.content)
+        self.assertIn("make", self.content)
+        self.assertIn("kew", self.content)
+
+    def test_kew_build_deps_in_packages(self):
+        """packages.x86_64 must include kew build dependencies."""
+        pkg_file = os.path.join(REPO_DIR, "packages.x86_64")
+        with open(pkg_file) as f:
+            packages = f.read()
+        for dep in ("gcc", "make", "pkgconf", "fftw", "chafa", "taglib",
+                    "faad2", "opus", "opusfile", "libvorbis", "libogg"):
+            self.assertIn(
+                dep, packages,
+                f"kew build dependency '{dep}' missing from packages.x86_64",
+            )
+
     def test_profiledef_has_permissions(self):
         """profiledef.sh must set permissions for customize_airootfs.sh."""
         profiledef = os.path.join(REPO_DIR, "profiledef.sh")
