@@ -93,7 +93,8 @@ class BluetoothApp(Gtk.Window):
 
         # Content area: device list (left) + detail panel (right)
         self._paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self._paned.set_position(350)
+        self._paned_initial = True
+        self._paned.connect('size-allocate', self._on_paned_allocate)
         main_box.pack_start(self._paned, True, True, 0)
 
         self._paned.pack1(self._build_device_panel(), True, False)
@@ -210,6 +211,12 @@ class BluetoothApp(Gtk.Window):
         bar.pack_start(self._status_label, True, True, 0)
 
         return bar
+
+    def _on_paned_allocate(self, widget, allocation):
+        """Set initial paned position proportionally on first allocation."""
+        if self._paned_initial and allocation.width > 1:
+            self._paned.set_position(int(allocation.width * 0.50))
+            self._paned_initial = False
 
     # -- Device List Rows --------------------------------------------------
 

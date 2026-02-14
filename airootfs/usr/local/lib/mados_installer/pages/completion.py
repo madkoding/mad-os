@@ -15,8 +15,11 @@ def create_completion_page(app):
     page.get_style_context().add_class('page-container')
 
     content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-    content.set_halign(Gtk.Align.CENTER)
+    content.set_halign(Gtk.Align.FILL)
     content.set_valign(Gtk.Align.CENTER)
+    content.set_hexpand(True)
+    content.set_margin_start(30)
+    content.set_margin_end(30)
     content.set_margin_top(10)
     content.set_margin_bottom(14)
 
@@ -39,7 +42,7 @@ def create_completion_page(app):
     # Info card
     info_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
     info_card.get_style_context().add_class('completion-card')
-    info_card.set_size_request(420, -1)
+    info_card.set_hexpand(True)
 
     if DEMO_MODE:
         info = Gtk.Label()

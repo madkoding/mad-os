@@ -20,8 +20,9 @@ def create_user_page(app):
     content.set_margin_start(30)
     content.set_margin_end(30)
     content.set_margin_bottom(14)
-    content.set_halign(Gtk.Align.CENTER)
+    content.set_halign(Gtk.Align.FILL)
     content.set_valign(Gtk.Align.CENTER)
+    content.set_hexpand(True)
 
     # Page header
     header = create_page_header(app, app.t('create_user'), 4)
@@ -31,7 +32,7 @@ def create_user_page(app):
     form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
     form.get_style_context().add_class('form-card')
     form.set_margin_top(10)
-    form.set_size_request(380, -1)
+    form.set_hexpand(True)
 
     # Username
     user_label = Gtk.Label()
@@ -98,7 +99,7 @@ def create_user_page(app):
         lambda x: app.notebook.prev_page(),
         lambda x: _on_user_next(app)
     )
-    nav.set_size_request(380, -1)
+    nav.set_hexpand(True)
     content.pack_start(nav, False, False, 0)
 
     page.pack_start(content, True, False, 0)

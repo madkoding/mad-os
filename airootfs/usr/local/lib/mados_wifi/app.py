@@ -68,7 +68,8 @@ class WiFiApp(Gtk.Window):
 
         # Content area: network list (left) + detail panel (right)
         self._paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        self._paned.set_position(380)
+        self._paned_initial = True
+        self._paned.connect('size-allocate', self._on_paned_allocate)
         main_box.pack_start(self._paned, True, True, 0)
 
         self._paned.pack1(self._build_network_panel(), True, False)
@@ -190,6 +191,12 @@ class WiFiApp(Gtk.Window):
         bar.pack_end(self._ip_label, False, False, 0)
 
         return bar
+
+    def _on_paned_allocate(self, widget, allocation):
+        """Set initial paned position proportionally on first allocation."""
+        if self._paned_initial and allocation.width > 1:
+            self._paned.set_position(int(allocation.width * 0.55))
+            self._paned_initial = False
 
     # -- Network List Rows -------------------------------------------------
 

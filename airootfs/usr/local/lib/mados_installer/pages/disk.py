@@ -147,7 +147,7 @@ def _populate_disks(app):
                     f'<span size="9000" weight="bold" foreground="{NORD_SNOW_STORM["nord4"]}">HDD</span>'
                 )
             badge.get_style_context().add_class(badge_class)
-            badge.set_size_request(60, -1)
+            badge.set_size_request(50, -1)
             hbox.pack_start(badge, False, False, 0)
 
             # Device info

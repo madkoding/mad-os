@@ -258,7 +258,8 @@ class PhotoViewerApp(Gtk.Window):
             Gtk.Orientation.HORIZONTAL, 1, 100, 1
         )
         self._brush_scale.set_value(5)
-        self._brush_scale.set_size_request(120, -1)
+        self._brush_scale.set_size_request(80, -1)
+        self._brush_scale.set_hexpand(True)
         self._brush_scale.set_draw_value(True)
         self._brush_scale.set_value_pos(Gtk.PositionType.RIGHT)
         self._brush_scale.connect('value-changed', self._on_brush_size_changed)
@@ -275,7 +276,8 @@ class PhotoViewerApp(Gtk.Window):
             Gtk.Orientation.HORIZONTAL, 8, 120, 1
         )
         self._font_scale.set_value(24)
-        self._font_scale.set_size_request(100, -1)
+        self._font_scale.set_size_request(80, -1)
+        self._font_scale.set_hexpand(True)
         self._font_scale.set_draw_value(True)
         self._font_scale.set_value_pos(Gtk.PositionType.RIGHT)
         self._font_scale.connect('value-changed', self._on_font_size_changed)
