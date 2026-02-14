@@ -190,7 +190,7 @@ create_persist_partition() {
 
     local last_part_num
     last_part_num=$(parted -s "$device" print 2>/dev/null \
-                    | grep "^ [0-9]" | tail -1 | awk '{print $1}')
+                    | grep "^ [0-9]" | awk '{print $1}' | sort -n | tail -1)
     [ -z "$last_part_num" ] && { log "Cannot determine last partition"; return 1; }
 
     local new_part_num=$((last_part_num + 1))
@@ -204,7 +204,7 @@ create_persist_partition() {
     # verify they were not altered after creating the new partition.
     local pre_parts
     pre_parts=$(parted -s "$device" unit MB print 2>/dev/null \
-                | grep "^ [0-9]" | awk '{print $1 ":" $2 ":" $3}')
+                | grep "^ [0-9]" | sort -n | awk '{print $1 ":" $2 ":" $3}')
 
     local persist_dev="${device}${part_suffix}${new_part_num}"
     local last_part_end
@@ -245,7 +245,7 @@ create_persist_partition() {
     # Safety check 5: verify existing partitions were not modified.
     local post_pre_parts
     post_pre_parts=$(parted -s "$device" unit MB print 2>/dev/null \
-                     | grep "^ [0-9]" | head -n "$last_part_num" \
+                     | grep "^ [0-9]" | sort -n | head -n "$last_part_num" \
                      | awk '{print $1 ":" $2 ":" $3}')
     if [ "$pre_parts" != "$post_pre_parts" ]; then
         log "SAFETY: Existing partition boundaries changed after mkpart!"

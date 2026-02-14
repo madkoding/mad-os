@@ -358,12 +358,45 @@ class TestPartitionProtection(unittest.TestCase):
             "Must check new_part_num > 4 for MBR",
         )
 
+    def test_partition_number_detection_uses_numeric_sort(self):
+        """Must use 'sort -n' to find highest partition number, not rely on parted output order."""
+        # This prevents bugs when parted lists partitions out of order (e.g., "2" then "1")
+        # Find the section that determines last_part_num
+        import re
+        last_part_pattern = r'last_part_num=\$\(parted.*?\)'
+        match = re.search(last_part_pattern, self.create_fn, re.DOTALL)
+        
+        self.assertIsNotNone(
+            match,
+            "Must have a command that sets last_part_num from parted output",
+        )
+        last_part_cmd = match.group(0)
+        self.assertIn(
+            'sort -n',
+            last_part_cmd,
+            "Must use 'sort -n' to numerically sort partition numbers before taking the last one",
+        )
+
     def test_snapshots_partition_boundaries_before_create(self):
         """Must record existing partition boundaries before calling mkpart."""
         self.assertIn(
             'pre_parts',
             self.create_fn,
             "Must snapshot existing partitions before mkpart",
+        )
+        # Verify that pre_parts uses sort -n to handle out-of-order partition numbers
+        import re
+        pre_parts_pattern = r'pre_parts=\$\(parted.*?\)'
+        match = re.search(pre_parts_pattern, self.create_fn, re.DOTALL)
+        self.assertIsNotNone(
+            match,
+            "Must have a command that sets pre_parts from parted output",
+        )
+        pre_parts_cmd = match.group(0)
+        self.assertIn(
+            'sort -n',
+            pre_parts_cmd,
+            "Must use 'sort -n' to ensure consistent partition order in pre_parts snapshot",
         )
 
     def test_verifies_partition_count_after_create(self):
@@ -385,6 +418,20 @@ class TestPartitionProtection(unittest.TestCase):
             'Existing partition boundaries changed',
             self.create_fn,
             "Must log error if existing partitions changed",
+        )
+        # Verify that post_pre_parts uses sort -n to match pre_parts ordering
+        import re
+        post_pre_parts_pattern = r'post_pre_parts=\$\(parted.*?\)'
+        match = re.search(post_pre_parts_pattern, self.create_fn, re.DOTALL)
+        self.assertIsNotNone(
+            match,
+            "Must have a command that sets post_pre_parts from parted output",
+        )
+        post_pre_parts_cmd = match.group(0)
+        self.assertIn(
+            'sort -n',
+            post_pre_parts_cmd,
+            "Must use 'sort -n' to ensure consistent partition order matches pre_parts",
         )
 
     def test_verifies_label_after_format(self):
