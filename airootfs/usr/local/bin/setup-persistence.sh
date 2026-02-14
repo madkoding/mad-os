@@ -398,7 +398,7 @@ INITEOF
 [Unit]
 Description=madOS Overlayfs Persistence
 After=local-fs.target systemd-udevd.service
-Before=display-manager.service
+Before=display-manager.service multi-user.target
 ConditionPathExists=/run/archiso
 
 [Service]
