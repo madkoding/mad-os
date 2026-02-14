@@ -35,6 +35,9 @@ _DEVICE_ICONS = {
 
 _DEFAULT_ICON = '\U0001F4E1'  # Satellite antenna
 
+# Ratio of left panel width to total paned width on initial layout
+_PANED_POSITION_RATIO = 0.50
+
 
 def _icon_for_device(device: BluetoothDevice) -> str:
     """Return a Unicode icon for the device type."""
@@ -215,7 +218,7 @@ class BluetoothApp(Gtk.Window):
     def _on_paned_allocate(self, widget, allocation):
         """Set initial paned position proportionally on first allocation."""
         if self._paned_initial and allocation.width > 1:
-            self._paned.set_position(int(allocation.width * 0.50))
+            self._paned.set_position(int(allocation.width * _PANED_POSITION_RATIO))
             self._paned_initial = False
 
     # -- Device List Rows --------------------------------------------------

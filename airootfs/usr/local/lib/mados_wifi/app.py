@@ -19,6 +19,10 @@ from .backend import (
 )
 
 
+# Ratio of left panel width to total paned width on initial layout
+_PANED_POSITION_RATIO = 0.55
+
+
 class WiFiApp(Gtk.Window):
     """Main WiFi configuration window."""
 
@@ -195,7 +199,7 @@ class WiFiApp(Gtk.Window):
     def _on_paned_allocate(self, widget, allocation):
         """Set initial paned position proportionally on first allocation."""
         if self._paned_initial and allocation.width > 1:
-            self._paned.set_position(int(allocation.width * 0.55))
+            self._paned.set_position(int(allocation.width * _PANED_POSITION_RATIO))
             self._paned_initial = False
 
     # -- Network List Rows -------------------------------------------------
