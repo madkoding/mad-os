@@ -91,7 +91,7 @@ def _ensure_bluetooth_ready() -> None:
     """
     try:
         subprocess.run(
-            ['rfkill', 'unblock', 'bluetooth'],
+            ['sudo', 'rfkill', 'unblock', 'bluetooth'],
             capture_output=True, text=True, timeout=5,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -100,7 +100,7 @@ def _ensure_bluetooth_ready() -> None:
     # Ensure btusb module is loaded (needed for MT7921 BT over USB)
     try:
         subprocess.run(
-            ['modprobe', 'btusb'],
+            ['sudo', 'modprobe', 'btusb'],
             capture_output=True, text=True, timeout=5,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -114,7 +114,7 @@ def _ensure_bluetooth_ready() -> None:
         )
         if result.returncode != 0:
             subprocess.run(
-                ['systemctl', 'start', 'bluetooth.service'],
+                ['sudo', 'systemctl', 'start', 'bluetooth.service'],
                 capture_output=True, text=True, timeout=10,
             )
             import time
