@@ -219,10 +219,33 @@ create_persist_partition() {
     log "Debug: Highest partition number in partition table: $last_part_num"
     log "Debug: Highest partition device node: $highest_dev_part"
     
+    # Check for partition number gaps (e.g., partition 1 exists as device but not in table)
+    # Build list of partition numbers from the table
+    local table_part_nums
+    table_part_nums=$(parted -s "$device" print 2>/dev/null \
+                     | grep "^ [0-9]" | awk '{print $1}' | sort -n)
+    log "Debug: Partition numbers in table: $table_part_nums"
+    
+    # Check if any device partition numbers are missing from the table
+    local has_gap=false
+    for dev_num in $(seq 1 "$highest_dev_part"); do
+        local dev_path="${device}${part_suffix}${dev_num}"
+        if [ -b "$dev_path" ]; then
+            if ! echo "$table_part_nums" | grep -q "^${dev_num}$"; then
+                log "WARNING: Partition $dev_num exists as device node but NOT in partition table"
+                has_gap=true
+            fi
+        fi
+    done
+    
     # Use the maximum of partition table and device nodes to avoid conflicts
     local safe_last_part=$last_part_num
     if [ "$highest_dev_part" -gt "$last_part_num" ]; then
         log "WARNING: Found device partition nodes (up to $highest_dev_part) not in partition table (max $last_part_num)"
+        log "This indicates isohybrid or special partition layout - using device node numbers for safety"
+        safe_last_part=$highest_dev_part
+    elif [ "$has_gap" = true ]; then
+        log "WARNING: Found partition numbering gaps (devices exist but not in table)"
         log "This indicates isohybrid or special partition layout - using device node numbers for safety"
         safe_last_part=$highest_dev_part
     fi
@@ -237,7 +260,7 @@ create_persist_partition() {
     # Detect if we're in a situation where partition numbers don't match
     # (e.g., isohybrid ISO where partition 1 exists as device but not in table)
     local use_sfdisk=false
-    if [ "$highest_dev_part" -gt "$last_part_num" ]; then
+    if [ "$highest_dev_part" -gt "$last_part_num" ] || [ "$has_gap" = true ]; then
         if command -v sfdisk >/dev/null 2>&1; then
             log "INFO: Will use sfdisk for explicit partition numbering (avoiding parted renumbering)"
             use_sfdisk=true
