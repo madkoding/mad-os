@@ -135,7 +135,7 @@ Breakpoints:
 
 Basado en:
 - Nord Theme palette
-- Material Design principles
+- [Nordic GTK Theme](https://github.com/EliverLara/Nordic)
 - Apple HIG guidelines
 
 ## 🐛 Reportar Problemas
