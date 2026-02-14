@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Tests for madOS WiFi backend (network management via nmcli).
+Tests for madOS WiFi backend (network management via iwctl/iwd).
 
 Validates data classes, parsing helpers, and network operations by mocking
-subprocess calls to nmcli.  These tests run in CI without requiring actual
-WiFi hardware or NetworkManager.
+subprocess calls to iwctl and related commands.  These tests run in CI 
+without requiring actual WiFi hardware or iwd.
 """
 
 import sys
@@ -66,8 +66,6 @@ from mados_wifi.backend import (
     ConnectionDetails,
     _split_nmcli_line,
     _cidr_to_netmask,
-    _parse_connection_fields,
-    _parse_device_fields,
     check_wifi_available,
     get_wifi_device,
     scan_networks,
@@ -217,154 +215,73 @@ class TestCidrToNetmask(unittest.TestCase):
         self.assertEqual(_cidr_to_netmask('abc'), 'abc')
 
 
-class TestParseConnectionFields(unittest.TestCase):
-    """Verify _parse_connection_fields populates ConnectionDetails correctly."""
-
-    def test_basic_fields(self):
-        output = (
-            "connection.id:MyNetwork\n"
-            "connection.autoconnect:yes\n"
-            "connection.timestamp:1700000000\n"
-            "802-11-wireless.ssid:TestSSID\n"
-            "802-11-wireless-security.key-mgmt:wpa-psk\n"
-            "ipv4.addresses:192.168.1.100/24\n"
-            "ipv4.gateway:192.168.1.1\n"
-            "ipv4.dns:8.8.8.8\n"
-            "ipv6.addresses:fe80::1/64\n"
-        )
-        details = ConnectionDetails()
-        _parse_connection_fields(output, details)
-        self.assertEqual(details.connection_id, 'MyNetwork')
-        self.assertTrue(details.auto_connect)
-        self.assertEqual(details.timestamp, '1700000000')
-        self.assertEqual(details.ssid, 'TestSSID')
-        self.assertEqual(details.security, 'wpa-psk')
-        self.assertEqual(details.ip4_address, '192.168.1.100/24')
-        self.assertEqual(details.ip4_gateway, '192.168.1.1')
-        self.assertEqual(details.ip4_dns, '8.8.8.8')
-        self.assertEqual(details.ip6_address, 'fe80::1/64')
-
-    def test_autoconnect_no(self):
-        output = "connection.autoconnect:no\n"
-        details = ConnectionDetails()
-        _parse_connection_fields(output, details)
-        self.assertFalse(details.auto_connect)
-
-    def test_empty_values_skipped(self):
-        output = "connection.id:--\nipv4.dns:\n"
-        details = ConnectionDetails()
-        _parse_connection_fields(output, details)
-        # connection_id should not be set to '--', dns should stay empty
-        self.assertEqual(details.connection_id, '')
-        self.assertEqual(details.ip4_dns, '')
-
-
-class TestParseDeviceFields(unittest.TestCase):
-    """Verify _parse_device_fields populates ConnectionDetails correctly."""
-
-    def test_device_fields(self):
-        output = (
-            "GENERAL.HWADDR:AA:BB:CC:DD:EE:FF\n"
-            "IP4.ADDRESS[1]:192.168.1.50/24\n"
-            "IP4.GATEWAY:192.168.1.1\n"
-            "IP4.DNS[1]:8.8.8.8\n"
-            "IP4.DNS[2]:8.8.4.4\n"
-            "WIFI.SSID:HomeWifi\n"
-            "WIFI.BSSID:11:22:33:44:55:66\n"
-            "WIFI.FREQ:5180 MHz\n"
-            "WIFI.CHAN:36\n"
-            "WIFI.RATE:300 Mbit/s\n"
-            "WIFI.SIGNAL:85\n"
-            "WIFI.SECURITY:WPA2\n"
-        )
-        details = ConnectionDetails()
-        _parse_device_fields(output, details)
-        self.assertEqual(details.mac_address, 'AA:BB:CC:DD:EE:FF')
-        self.assertEqual(details.ip4_address, '192.168.1.50/24')
-        self.assertEqual(details.ip4_subnet, '255.255.255.0')
-        self.assertEqual(details.ip4_gateway, '192.168.1.1')
-        self.assertIn('8.8.8.8', details.ip4_dns)
-        self.assertIn('8.8.4.4', details.ip4_dns)
-        self.assertEqual(details.ssid, 'HomeWifi')
-        self.assertEqual(details.bssid, '11:22:33:44:55:66')
-        self.assertEqual(details.frequency, '5180 MHz')
-        self.assertEqual(details.channel, '36')
-        self.assertEqual(details.link_speed, '300 Mbit/s')
-        self.assertEqual(details.signal, 85)
-        self.assertEqual(details.security, 'WPA2')
-
-    def test_invalid_signal_value(self):
-        output = "WIFI.SIGNAL:notanumber\n"
-        details = ConnectionDetails()
-        _parse_device_fields(output, details)
-        self.assertEqual(details.signal, 0)
-
-    def test_ipv6_field(self):
-        output = "IP6.ADDRESS[1]:fe80::1234/64\n"
-        details = ConnectionDetails()
-        _parse_device_fields(output, details)
-        self.assertEqual(details.ip6_address, 'fe80::1234/64')
-
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Network operations (with mocked subprocess)
 # ═══════════════════════════════════════════════════════════════════════════
 class TestCheckWifiAvailable(unittest.TestCase):
     """Verify check_wifi_available() detects WiFi devices."""
 
-    @patch('mados_wifi.backend._run_nmcli')
+    @patch('mados_wifi.backend._run_command')
     def test_wifi_present(self, mock_run):
         mock_run.return_value = MagicMock(
-            stdout='wifi:connected\nethernet:connected\n',
+            stdout='phy#0\n\tInterface wlan0\n\t\tifindex 3\n\t\ttype managed\n',
             returncode=0,
         )
         self.assertTrue(check_wifi_available())
 
-    @patch('mados_wifi.backend._run_nmcli')
+    @patch('mados_wifi.backend._run_command')
     def test_no_wifi(self, mock_run):
         mock_run.return_value = MagicMock(
-            stdout='ethernet:connected\n',
+            stdout='',
             returncode=0,
         )
         self.assertFalse(check_wifi_available())
 
-    @patch('mados_wifi.backend._run_nmcli', side_effect=FileNotFoundError)
-    def test_nmcli_not_found(self, mock_run):
+    @patch('mados_wifi.backend._run_command', side_effect=FileNotFoundError)
+    def test_iw_not_found(self, mock_run):
         self.assertFalse(check_wifi_available())
 
 
 class TestGetWifiDevice(unittest.TestCase):
     """Verify get_wifi_device() returns the first WiFi device name."""
 
-    @patch('mados_wifi.backend._run_nmcli')
+    @patch('mados_wifi.backend._run_command')
     def test_device_found(self, mock_run):
         mock_run.return_value = MagicMock(
-            stdout='wlan0:wifi\neth0:ethernet\n',
+            stdout='phy#0\n\tInterface wlan0\n\t\tifindex 3\n',
             returncode=0,
         )
         self.assertEqual(get_wifi_device(), 'wlan0')
 
-    @patch('mados_wifi.backend._run_nmcli')
+    @patch('mados_wifi.backend._run_command')
     def test_no_device(self, mock_run):
         mock_run.return_value = MagicMock(
-            stdout='eth0:ethernet\n',
+            stdout='',
             returncode=0,
         )
         self.assertIsNone(get_wifi_device())
 
-    @patch('mados_wifi.backend._run_nmcli', side_effect=FileNotFoundError)
-    def test_nmcli_missing(self, mock_run):
+    @patch('mados_wifi.backend._run_command', side_effect=FileNotFoundError)
+    def test_iw_missing(self, mock_run):
         self.assertIsNone(get_wifi_device())
 
 
 class TestScanNetworks(unittest.TestCase):
-    """Verify scan_networks() parses nmcli output into WiFiNetwork objects."""
+    """Verify scan_networks() parses iwctl output into WiFiNetwork objects."""
 
-    @patch('mados_wifi.backend._run_nmcli_check')
-    def test_parse_networks(self, mock_check):
+    @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_iwctl')
+    @patch('mados_wifi.backend._run_iwctl_check')
+    @patch('mados_wifi.backend.time.sleep')
+    def test_parse_networks(self, mock_sleep, mock_check, mock_run, mock_device):
+        mock_run.return_value = MagicMock(returncode=0)
         mock_check.return_value = (
-            " :HomeNet:AA\\:BB\\:CC\\:DD\\:EE\\:FF:85:WPA2:5180 MHz:36:300 Mbit/s:Infra\n"
-            "*:Office:11\\:22\\:33\\:44\\:55\\:66:60:WPA2:2437 MHz:6:54 Mbit/s:Infra\n"
+            "                           Available networks\n"
+            "--------------------------------------------------------\n"
+            "    Network name                    Security  Signal\n"
+            "--------------------------------------------------------\n"
+            "    HomeNet                          psk       ****\n"
+            ">   Office                           psk       ***\n"
         )
         networks = scan_networks()
         self.assertEqual(len(networks), 2)
@@ -373,84 +290,126 @@ class TestScanNetworks(unittest.TestCase):
         self.assertEqual(networks[0].ssid, 'Office')
         self.assertEqual(networks[1].ssid, 'HomeNet')
         self.assertEqual(networks[1].signal, 85)
-        self.assertEqual(networks[1].security, 'WPA2')
+        self.assertEqual(networks[1].security, 'WPA/WPA2')
 
-    @patch('mados_wifi.backend._run_nmcli_check')
-    def test_hidden_network(self, mock_check):
+    @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_iwctl')
+    @patch('mados_wifi.backend._run_iwctl_check')
+    @patch('mados_wifi.backend.time.sleep')
+    def test_signal_strength_mapping(self, mock_sleep, mock_check, mock_run, mock_device):
+        """Test that star-based signal strength is correctly mapped to percentages."""
+        mock_run.return_value = MagicMock(returncode=0)
         mock_check.return_value = (
-            " ::AA\\:BB\\:CC\\:DD\\:EE\\:FF:50:WPA2:5180 MHz:36:300 Mbit/s:Infra\n"
+            "                           Available networks\n"
+            "--------------------------------------------------------\n"
+            "    Network name                    Security  Signal\n"
+            "--------------------------------------------------------\n"
+            "    Excellent                        psk       ****\n"
+            "    Good                             psk       ***\n"
+            "    Fair                             psk       **\n"
+            "    Weak                             psk       *\n"
+            "    VeryWeak                         psk       \n"
+        )
+        networks = scan_networks()
+        self.assertEqual(len(networks), 5)
+        # Verify star-to-percentage mapping
+        signal_map = {net.ssid: net.signal for net in networks}
+        self.assertEqual(signal_map['Excellent'], 85)  # ****
+        self.assertEqual(signal_map['Good'], 70)       # ***
+        self.assertEqual(signal_map['Fair'], 50)       # **
+        self.assertEqual(signal_map['Weak'], 30)       # *
+        self.assertEqual(signal_map['VeryWeak'], 10)   # no stars
+
+    @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_iwctl')
+    @patch('mados_wifi.backend._run_iwctl_check')
+    @patch('mados_wifi.backend.time.sleep')
+    def test_open_network(self, mock_sleep, mock_check, mock_run, mock_device):
+        mock_run.return_value = MagicMock(returncode=0)
+        mock_check.return_value = (
+            "                           Available networks\n"
+            "--------------------------------------------------------\n"
+            "    Network name                    Security  Signal\n"
+            "--------------------------------------------------------\n"
+            "    OpenWifi                         open      **\n"
         )
         networks = scan_networks()
         self.assertEqual(len(networks), 1)
-        self.assertEqual(networks[0].ssid, '(Hidden)')
+        self.assertEqual(networks[0].ssid, 'OpenWifi')
+        self.assertEqual(networks[0].security, 'Open')
+        self.assertEqual(networks[0].signal, 50)
 
-    @patch('mados_wifi.backend._run_nmcli_check', side_effect=RuntimeError('scan failed'))
-    def test_scan_failure(self, mock_check):
+    @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_iwctl')
+    @patch('mados_wifi.backend._run_iwctl_check', side_effect=RuntimeError('scan failed'))
+    @patch('mados_wifi.backend.time.sleep')
+    def test_scan_failure(self, mock_sleep, mock_check, mock_run, mock_device):
         networks = scan_networks()
         self.assertEqual(networks, [])
 
-    @patch('mados_wifi.backend._run_nmcli_check')
-    def test_invalid_signal(self, mock_check):
-        mock_check.return_value = (
-            " :TestNet:AA\\:BB\\:CC:bad:WPA2:5180:36:300:Infra\n"
-        )
+    @patch('mados_wifi.backend.get_wifi_device', return_value=None)
+    def test_no_device(self, mock_device):
         networks = scan_networks()
-        self.assertEqual(len(networks), 1)
-        self.assertEqual(networks[0].signal, 0)
+        self.assertEqual(networks, [])
 
 
 class TestConnectToNetwork(unittest.TestCase):
     """Verify connect_to_network() handles various connection outcomes."""
 
-    @patch('mados_wifi.backend._run_nmcli')
-    def test_successful_connection(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0)
+    @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_iwctl')
+    def test_successful_connection(self, mock_run, mock_device):
+        mock_run.return_value = MagicMock(returncode=0, stderr='')
         self.assertEqual(connect_to_network('TestNet', 'password123'), 'connected')
 
-    @patch('mados_wifi.backend._run_nmcli')
-    def test_wrong_password(self, mock_run):
+    @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_iwctl')
+    def test_wrong_password(self, mock_run, mock_device):
         mock_run.return_value = MagicMock(
             returncode=1,
-            stderr='Error: Secrets were required, but not provided.',
+            stderr='Invalid passphrase',
         )
         self.assertEqual(connect_to_network('TestNet', 'wrong'), 'wrong_password')
 
-    @patch('mados_wifi.backend._run_nmcli')
-    def test_generic_failure(self, mock_run):
+    @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_iwctl')
+    def test_generic_failure(self, mock_run, mock_device):
         mock_run.return_value = MagicMock(
             returncode=1,
-            stderr='Connection activation failed.',
+            stderr='Connection failed.',
         )
-        self.assertEqual(connect_to_network('TestNet'), 'Connection activation failed.')
+        self.assertEqual(connect_to_network('TestNet'), 'Connection failed.')
 
-    @patch('mados_wifi.backend._run_nmcli', side_effect=FileNotFoundError)
-    def test_nmcli_not_found(self, mock_run):
-        self.assertEqual(connect_to_network('TestNet'), 'nmcli not found')
+    @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_iwctl', side_effect=FileNotFoundError)
+    def test_iwctl_not_found(self, mock_run, mock_device):
+        self.assertEqual(connect_to_network('TestNet'), 'iwctl not found')
 
-    @patch('mados_wifi.backend._run_nmcli', side_effect=subprocess.TimeoutExpired(cmd='nmcli', timeout=45))
-    def test_timeout(self, mock_run):
+    @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_iwctl', side_effect=subprocess.TimeoutExpired(cmd='iwctl', timeout=45))
+    def test_timeout(self, mock_run, mock_device):
         self.assertEqual(connect_to_network('TestNet'), 'Connection timed out')
 
-    @patch('mados_wifi.backend._run_nmcli')
-    def test_hidden_network_args(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0)
-        connect_to_network('HiddenNet', 'pass', hidden=True)
+    @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_iwctl')
+    def test_open_network(self, mock_run, mock_device):
+        mock_run.return_value = MagicMock(returncode=0, stderr='')
+        connect_to_network('OpenNet', None)
+        # Verify it was called without passphrase
         args = mock_run.call_args[0][0]
-        self.assertIn('hidden', args)
-        self.assertIn('yes', args)
+        self.assertNotIn('--passphrase', args)
+
+    @patch('mados_wifi.backend.get_wifi_device', return_value=None)
+    def test_no_device(self, mock_device):
+        self.assertEqual(connect_to_network('TestNet'), 'No WiFi device found')
 
 
 class TestDisconnectNetwork(unittest.TestCase):
     """Verify disconnect_network() behaviour."""
 
-    @patch('mados_wifi.backend._run_nmcli_check')
-    def test_disconnect_by_name(self, mock_check):
-        mock_check.return_value = ''
-        self.assertTrue(disconnect_network('MyConnection'))
-
     @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
-    @patch('mados_wifi.backend._run_nmcli_check')
-    def test_disconnect_by_device(self, mock_check, mock_device):
+    @patch('mados_wifi.backend._run_iwctl_check')
+    def test_disconnect_success(self, mock_check, mock_device):
         mock_check.return_value = ''
         self.assertTrue(disconnect_network())
 
@@ -458,63 +417,65 @@ class TestDisconnectNetwork(unittest.TestCase):
     def test_disconnect_no_device(self, mock_device):
         self.assertFalse(disconnect_network())
 
-    @patch('mados_wifi.backend._run_nmcli_check', side_effect=RuntimeError)
-    def test_disconnect_failure(self, mock_check):
-        self.assertFalse(disconnect_network('MyConnection'))
+    @patch('mados_wifi.backend.get_wifi_device', return_value='wlan0')
+    @patch('mados_wifi.backend._run_iwctl_check', side_effect=RuntimeError)
+    def test_disconnect_failure(self, mock_check, mock_device):
+        self.assertFalse(disconnect_network())
 
 
 class TestForgetNetwork(unittest.TestCase):
     """Verify forget_network() behaviour."""
 
-    @patch('mados_wifi.backend._run_nmcli_check')
+    @patch('mados_wifi.backend._run_iwctl_check')
     def test_forget_success(self, mock_check):
         mock_check.return_value = ''
         self.assertTrue(forget_network('OldNetwork'))
 
-    @patch('mados_wifi.backend._run_nmcli_check', side_effect=RuntimeError)
+    @patch('mados_wifi.backend._run_iwctl_check', side_effect=RuntimeError)
     def test_forget_failure(self, mock_check):
         self.assertFalse(forget_network('OldNetwork'))
 
 
 class TestGetActiveConnectionName(unittest.TestCase):
-    """Verify get_active_connection_name() parses active connections."""
+    """Verify get_active_connection_name() returns active SSID."""
 
-    @patch('mados_wifi.backend._run_nmcli_check')
-    def test_active_wifi(self, mock_check):
-        mock_check.return_value = 'HomeWifi:802-11-wireless\nEthernet:802-3-ethernet'
+    @patch('mados_wifi.backend.get_active_ssid', return_value='HomeWifi')
+    def test_active_wifi(self, mock_ssid):
         self.assertEqual(get_active_connection_name(), 'HomeWifi')
 
-    @patch('mados_wifi.backend._run_nmcli_check')
-    def test_no_active_wifi(self, mock_check):
-        mock_check.return_value = 'Ethernet:802-3-ethernet'
+    @patch('mados_wifi.backend.get_active_ssid', return_value=None)
+    def test_no_active_wifi(self, mock_ssid):
         self.assertIsNone(get_active_connection_name())
 
 
 class TestGetSavedConnections(unittest.TestCase):
     """Verify get_saved_connections() lists saved WiFi profiles."""
 
-    @patch('mados_wifi.backend._run_nmcli_check')
+    @patch('mados_wifi.backend._run_iwctl_check')
     def test_saved_list(self, mock_check):
         mock_check.return_value = (
-            'Home:802-11-wireless\n'
-            'Office:802-11-wireless\n'
-            'LAN:802-3-ethernet'
+            "                      Known Networks\n"
+            "--------------------------------------------------------\n"
+            "    Name                    Security  Hidden\n"
+            "--------------------------------------------------------\n"
+            "    Home                     psk\n"
+            "    Office                   psk       *\n"
         )
         saved = get_saved_connections()
         self.assertEqual(saved, ['Home', 'Office'])
 
 
 class TestSetAutoConnect(unittest.TestCase):
-    """Verify set_auto_connect() calls nmcli correctly."""
+    """Verify set_auto_connect() calls iwctl correctly."""
 
-    @patch('mados_wifi.backend._run_nmcli_check')
+    @patch('mados_wifi.backend._run_iwctl_check')
     def test_enable(self, mock_check):
         mock_check.return_value = ''
         self.assertTrue(set_auto_connect('MyNet', True))
         args = mock_check.call_args[0][0]
         self.assertIn('yes', args)
 
-    @patch('mados_wifi.backend._run_nmcli_check')
+    @patch('mados_wifi.backend._run_iwctl_check')
     def test_disable(self, mock_check):
         mock_check.return_value = ''
         self.assertTrue(set_auto_connect('MyNet', False))
@@ -523,56 +484,35 @@ class TestSetAutoConnect(unittest.TestCase):
 
 
 class TestSetStaticIp(unittest.TestCase):
-    """Verify set_static_ip() configures static addressing."""
+    """Verify set_static_ip() returns False (not supported by iwd)."""
 
-    @patch('mados_wifi.backend._run_nmcli')
-    @patch('mados_wifi.backend._run_nmcli_check')
-    def test_static_with_dns(self, mock_check, mock_run):
-        mock_check.return_value = ''
-        self.assertTrue(set_static_ip('MyNet', '192.168.1.100/24',
+    def test_static_with_dns(self):
+        self.assertFalse(set_static_ip('MyNet', '192.168.1.100/24',
                                        '192.168.1.1', '8.8.8.8'))
-        # Should call nmcli_check at least twice (ip + dns)
-        self.assertGreaterEqual(mock_check.call_count, 2)
 
 
 class TestSetDhcp(unittest.TestCase):
-    """Verify set_dhcp() resets to automatic addressing."""
+    """Verify set_dhcp() returns False (not supported by iwd)."""
 
-    @patch('mados_wifi.backend._run_nmcli')
-    @patch('mados_wifi.backend._run_nmcli_check')
-    def test_dhcp(self, mock_check, mock_run):
-        mock_check.return_value = ''
-        self.assertTrue(set_dhcp('MyNet'))
-        args = mock_check.call_args[0][0]
-        self.assertIn('auto', args)
+    def test_dhcp(self):
+        self.assertFalse(set_dhcp('MyNet'))
 
 
 class TestSetDnsOverride(unittest.TestCase):
-    """Verify set_dns_override() configures custom DNS."""
+    """Verify set_dns_override() returns False (not supported by iwd)."""
 
-    @patch('mados_wifi.backend._run_nmcli')
-    @patch('mados_wifi.backend._run_nmcli_check')
-    def test_dns_override(self, mock_check, mock_run):
-        mock_check.return_value = ''
-        self.assertTrue(set_dns_override('MyNet', '1.1.1.1 8.8.8.8'))
+    def test_dns_override(self):
+        self.assertFalse(set_dns_override('MyNet', '1.1.1.1 8.8.8.8'))
 
 
 class TestSetProxy(unittest.TestCase):
-    """Verify set_proxy() configures and clears proxy settings."""
+    """Verify set_proxy() returns False (not supported by iwd)."""
 
-    @patch('mados_wifi.backend._run_nmcli')
-    @patch('mados_wifi.backend._run_nmcli_check')
-    def test_set_proxy(self, mock_check, mock_run):
-        mock_check.return_value = ''
-        self.assertTrue(set_proxy('MyNet', '10.0.0.1', '8080'))
+    def test_set_proxy(self):
+        self.assertFalse(set_proxy('MyNet', '10.0.0.1', '8080'))
 
-    @patch('mados_wifi.backend._run_nmcli')
-    @patch('mados_wifi.backend._run_nmcli_check')
-    def test_clear_proxy(self, mock_check, mock_run):
-        mock_check.return_value = ''
-        self.assertTrue(set_proxy('MyNet', '', ''))
-        args = mock_check.call_args[0][0]
-        self.assertIn('none', args)
+    def test_clear_proxy(self):
+        self.assertFalse(set_proxy('MyNet', '', ''))
 
 
 if __name__ == '__main__':
