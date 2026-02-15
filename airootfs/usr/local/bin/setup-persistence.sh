@@ -68,10 +68,10 @@ is_optical_device() {
 
 # Strip partition number from a block device path to get the base device.
 # Handles standard disks (/dev/sda1 → /dev/sda), nvme (/dev/nvme0n1p2 →
-# /dev/nvme0n1), and mmcblk (/dev/mmcblk0p1 → /dev/mmcblk0).
+# /dev/nvme0n1), mmcblk (/dev/mmcblk0p1 → /dev/mmcblk0), and loop (/dev/loop0p1 → /dev/loop0).
 strip_partition() {
     local dev=$1
-    if [[ "$dev" == *"nvme"*p[0-9]* || "$dev" == *"mmcblk"*p[0-9]* ]]; then
+    if [[ "$dev" == *"nvme"*p[0-9]* || "$dev" == *"mmcblk"*p[0-9]* || "$dev" == *"loop"*p[0-9]* ]]; then
         echo "$dev" | sed 's/p[0-9]*$//'
     else
         echo "$dev" | sed 's/[0-9]*$//'
@@ -186,7 +186,7 @@ create_persist_partition() {
                  | grep -i "^Partition Table:" | awk '{print $3}')
 
     local part_suffix=""
-    [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* ]] && part_suffix="p"
+    [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* || "$device" == *"loop"* ]] && part_suffix="p"
 
     # Find the highest partition number in the partition table
     local last_part_num
@@ -203,8 +203,8 @@ create_persist_partition() {
     for part_node in "${device}${part_suffix}"[0-9]* "${device}"[0-9]*; do
         if [ -b "$part_node" ]; then
             local part_num
-            if [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* ]]; then
-                # Extract number after 'p' (e.g., nvme0n1p3 -> 3)
+            if [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* || "$device" == *"loop"* ]]; then
+                # Extract number after 'p' (e.g., nvme0n1p3 -> 3, loop0p1 -> 1)
                 part_num=$(echo "$part_node" | sed 's/.*p\([0-9]*\)$/\1/')
             else
                 # Extract trailing number (e.g., sda3 -> 3)
