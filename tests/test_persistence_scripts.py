@@ -383,7 +383,8 @@ class TestSetupPersistenceScript(unittest.TestCase):
     def test_iwd_restart_has_error_handling(self):
         """iwd restart must have proper error handling and logging."""
         init_content = self._get_init_script_content()
-        # Check that restart failure is logged but doesn't fail the script
+        # Check that restart failure is logged but doesn't fail the script.
+        # Matches shell pattern: systemctl restart iwd.service || log WARNING
         self.assertRegex(
             init_content,
             r'systemctl restart iwd\.service.*\|\|.*log.*WARNING',
