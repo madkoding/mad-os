@@ -13,7 +13,7 @@ LOG_FILE="/var/log/mados-persistence.log"
 OVERLAY_DIRS="etc usr var opt"
 
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" >&2
 }
 
 # ── Device helpers ───────────────────────────────────────────────────────────
@@ -527,7 +527,7 @@ PERSIST_MOUNT="/mnt/persistence"
 OVERLAY_DIRS="etc usr var opt"
 LOG_FILE="/var/log/mados-persistence.log"
 
-log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [init] $*" | tee -a "$LOG_FILE"; }
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [init] $*" | tee -a "$LOG_FILE" >&2; }
 
 # Find partition by label, restricted to a specific parent device when provided.
 find_persist_dev() {
