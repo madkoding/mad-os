@@ -322,12 +322,23 @@ remove_persistence() {
 
     # Disable first (unmount everything)
     disable_persistence 2>/dev/null || true
-    
-    # Get parent device and partition number
+
+    # SAFETY: Check if partition is currently mounted before removing
+    if findmnt -n -o TARGET "$persist_dev" >/dev/null 2>&1; then
+        print_error "Partition $persist_dev is currently mounted. Unmount first."
+        return 1
+    fi
+
+    # Get parent device and partition number using lsblk
     local parent_dev=$(lsblk -no PKNAME "$persist_dev" 2>/dev/null)
-    local part_num=$(echo "$persist_dev" | grep -o '[0-9]*$')
-    
-    if [ -n "$parent_dev" ] && [ -n "$part_num" ]; then
+    local part_num=$(lsblk -no PARTN "$persist_dev" 2>/dev/null)
+
+    if [ -z "$part_num" ] || ! [[ "$part_num" =~ ^[0-9]+$ ]]; then
+        print_error "Could not determine partition number for $persist_dev"
+        return 1
+    fi
+
+    if [ -n "$parent_dev" ]; then
         print_info "Removing partition..."
         if parted -s "/dev/$parent_dev" rm "$part_num" 2>/dev/null; then
             partprobe "/dev/$parent_dev" 2>/dev/null || true
@@ -336,7 +347,7 @@ remove_persistence() {
             print_error "Failed to remove partition"
         fi
     else
-        print_error "Could not determine partition details"
+        print_error "Could not determine parent device details"
     fi
 }
 
