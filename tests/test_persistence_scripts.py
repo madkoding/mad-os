@@ -565,10 +565,13 @@ class TestPersistenceServiceConfig(unittest.TestCase):
         self.assertIn('/run/archiso', script,
                       "Script guard must reference /run/archiso")
 
-    def test_service_outputs_to_console(self):
-        """Service should output to console+journal for debugging."""
-        self.assertIn('journal+console', self.content,
-                      "Service must output to journal+console for boot-time debugging")
+    def test_service_outputs_to_journal_only(self):
+        """Service should output to journal only, not console (Plymouth compatibility)."""
+        self.assertIn('StandardOutput=journal', self.content,
+                      "Service must use StandardOutput=journal")
+        self.assertNotIn('journal+console', self.content,
+                         "Service must not output to console to avoid "
+                         "showing text over Plymouth boot splash")
 
     def test_service_wanted_by_multi_user(self):
         """Service must be wanted by multi-user.target for reliable device detection."""

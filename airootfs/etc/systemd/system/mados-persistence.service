@@ -9,8 +9,8 @@ ConditionPathExists=/run/archiso
 Type=oneshot
 ExecStart=/usr/local/bin/setup-persistence.sh
 RemainAfterExit=yes
-StandardOutput=journal+console
-StandardError=journal+console
+StandardOutput=journal
+StandardError=journal
 TimeoutStartSec=180
 
 [Install]
