@@ -335,8 +335,8 @@ class TestPartitionProtection(unittest.TestCase):
         # Extract create_persist_partition function body
         start = self.content.find('create_persist_partition()')
         self.assertNotEqual(start, -1)
-        # Increased from 5000 to 10000 to accommodate extensive logging
-        self.create_fn = self.content[start:start + 10000]
+        # Increased to 16000 to accommodate full function including label verification
+        self.create_fn = self.content[start:start + 16000]
 
     def test_checks_partition_table_type(self):
         """Must detect MBR partition table to enforce 4-partition limit."""

@@ -68,10 +68,10 @@ is_optical_device() {
 
 # Strip partition number from a block device path to get the base device.
 # Handles standard disks (/dev/sda1 → /dev/sda), nvme (/dev/nvme0n1p2 →
-# /dev/nvme0n1), and mmcblk (/dev/mmcblk0p1 → /dev/mmcblk0).
+# /dev/nvme0n1), mmcblk (/dev/mmcblk0p1 → /dev/mmcblk0), and loop (/dev/loop0p1 → /dev/loop0).
 strip_partition() {
     local dev=$1
-    if [[ "$dev" == *"nvme"*p[0-9]* || "$dev" == *"mmcblk"*p[0-9]* ]]; then
+    if [[ "$dev" == *"nvme"*p[0-9]* || "$dev" == *"mmcblk"*p[0-9]* || "$dev" == *"loop"*p[0-9]* ]]; then
         echo "$dev" | sed 's/p[0-9]*$//'
     else
         echo "$dev" | sed 's/[0-9]*$//'
@@ -186,18 +186,88 @@ create_persist_partition() {
                  | grep -i "^Partition Table:" | awk '{print $3}')
 
     local part_suffix=""
-    [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* ]] && part_suffix="p"
+    [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* || "$device" == *"loop"* ]] && part_suffix="p"
 
+    # Find the highest partition number in the partition table
     local last_part_num
     last_part_num=$(parted -s "$device" print 2>/dev/null \
                     | grep "^ [0-9]" | awk '{print $1}' | sort -n | tail -1)
     [ -z "$last_part_num" ] && { log "Cannot determine last partition"; return 1; }
 
-    local new_part_num=$((last_part_num + 1))
+    # CRITICAL FIX: Check for existing device partition nodes that may not be
+    # in the partition table (e.g., isohybrid ISO with partition 1 outside the table).
+    # If we create a partition that parted renumbers to fill a gap, we could
+    # overwrite existing data!
+    log "Debug: Checking for existing device partition nodes..."
+    local highest_dev_part=0
+    for part_node in "${device}${part_suffix}"[0-9]* "${device}"[0-9]*; do
+        if [ -b "$part_node" ]; then
+            local part_num
+            if [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* || "$device" == *"loop"* ]]; then
+                # Extract number after 'p' (e.g., nvme0n1p3 -> 3, loop0p1 -> 1)
+                part_num=$(echo "$part_node" | sed 's/.*p\([0-9]*\)$/\1/')
+            else
+                # Extract trailing number (e.g., sda3 -> 3)
+                part_num=$(echo "$part_node" | sed 's/.*[^0-9]\([0-9]*\)$/\1/')
+            fi
+            if [ -n "$part_num" ] && [ "$part_num" -gt "$highest_dev_part" ]; then
+                highest_dev_part=$part_num
+                log "Debug: Found existing device node: $part_node (partition $part_num)"
+            fi
+        fi
+    done
+    log "Debug: Highest partition number in partition table: $last_part_num"
+    log "Debug: Highest partition device node: $highest_dev_part"
+    
+    # Check for partition number gaps (e.g., partition 1 exists as device but not in table)
+    # Build list of partition numbers from the table
+    local table_part_nums
+    table_part_nums=$(parted -s "$device" print 2>/dev/null \
+                     | grep "^ [0-9]" | awk '{print $1}' | sort -n)
+    log "Debug: Partition numbers in table: $table_part_nums"
+    
+    # Check if any device partition numbers are missing from the table
+    local has_gap=false
+    for dev_num in $(seq 1 "$highest_dev_part"); do
+        local dev_path="${device}${part_suffix}${dev_num}"
+        if [ -b "$dev_path" ]; then
+            if ! echo "$table_part_nums" | grep -q "^${dev_num}$"; then
+                log "WARNING: Partition $dev_num exists as device node but NOT in partition table"
+                has_gap=true
+            fi
+        fi
+    done
+    
+    # Use the maximum of partition table and device nodes to avoid conflicts
+    local safe_last_part=$last_part_num
+    if [ "$highest_dev_part" -gt "$last_part_num" ]; then
+        log "WARNING: Found device partition nodes (up to $highest_dev_part) not in partition table (max $last_part_num)"
+        log "This indicates isohybrid or special partition layout - using device node numbers for safety"
+        safe_last_part=$highest_dev_part
+    elif [ "$has_gap" = true ]; then
+        log "WARNING: Found partition numbering gaps (devices exist but not in table)"
+        log "This indicates isohybrid or special partition layout - using device node numbers for safety"
+        safe_last_part=$highest_dev_part
+    fi
+
+    local new_part_num=$((safe_last_part + 1))
 
     if [ "$table_type" = "msdos" ] && [ "$new_part_num" -gt 4 ]; then
-        log "SAFETY: MBR partition table on $device already has $last_part_num partitions (max 4)"
+        log "SAFETY: MBR partition table on $device already has $safe_last_part partitions (max 4)"
         return 1
+    fi
+    
+    # Detect if we're in a situation where partition numbers don't match
+    # (e.g., isohybrid ISO where partition 1 exists as device but not in table)
+    local use_sfdisk=false
+    if [ "$highest_dev_part" -gt "$last_part_num" ] || [ "$has_gap" = true ]; then
+        if command -v sfdisk >/dev/null 2>&1; then
+            log "INFO: Will use sfdisk for explicit partition numbering (avoiding parted renumbering)"
+            use_sfdisk=true
+        else
+            log "WARNING: Partition number mismatch detected but sfdisk not available"
+            log "Proceeding with parted (may cause renumbering)"
+        fi
     fi
 
     # Safety check 3: snapshot existing partition boundaries so we can
@@ -212,7 +282,6 @@ create_persist_partition() {
                     | grep "^ ${last_part_num}" | awk '{print $3}' | sed 's/MB//')
 
     log "Creating partition ${new_part_num} starting at ${last_part_end}MB"
-    log "Command: parted -s $device mkpart primary ext4 ${last_part_end}MB 100%"
     
     # Log current partition state before mkpart
     log "Debug: Partition table BEFORE mkpart:"
@@ -221,14 +290,61 @@ create_persist_partition() {
     log "Debug: Block devices BEFORE mkpart:"
     lsblk "$device" 2>&1 | while read -r line; do log "  PRE-LSBLK: $line"; done
     
-    # Capture parted output/errors for better debugging
-    local parted_output
-    parted_output=$(parted -s "$device" mkpart primary ext4 "${last_part_end}MB" 100% 2>&1) || {
-        log "ERROR: parted mkpart failed with exit code $?"
-        log "parted output: $parted_output"
-        return 1
-    }
-    [ -n "$parted_output" ] && log "parted output: $parted_output"
+    # Create the partition using either sfdisk or parted
+    if [ "$use_sfdisk" = true ]; then
+        # Use sfdisk for explicit partition number control
+        log "Using sfdisk to create partition ${new_part_num}"
+        local disk_size_sectors
+        disk_size_sectors=$(blockdev --getsz "$device" 2>/dev/null || echo "0")
+        log "Debug: Disk size: $disk_size_sectors sectors"
+        
+        # Get the start sector for the new partition
+        local start_sector
+        start_sector=$(parted -s "$device" unit s print 2>/dev/null \
+                      | grep "^ ${last_part_num}" | awk '{print $3}' | sed 's/s$//')
+        # Add 1 sector to start after the last partition
+        start_sector=$((start_sector + 1))
+        log "Debug: New partition will start at sector $start_sector"
+        
+        # Create partition using sfdisk (format: start,size,type,bootable)
+        # Size of "-" means "use all remaining space"
+        # Type 83 is Linux filesystem for MBR
+        local sfdisk_cmd
+        if [ "$table_type" = "gpt" ]; then
+            # GPT: use GUID for Linux filesystem
+            sfdisk_cmd="$new_part_num : start=$start_sector, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4"
+        else
+            # MBR: use type 83 for Linux
+            sfdisk_cmd="$new_part_num : start=$start_sector, type=83"
+        fi
+        
+        log "Debug: sfdisk command: echo '$sfdisk_cmd' | sfdisk --no-reread --append $device"
+        local sfdisk_output
+        sfdisk_output=$(echo "$sfdisk_cmd" | sfdisk --no-reread --append "$device" 2>&1) || {
+            log "ERROR: sfdisk failed with exit code $?"
+            log "sfdisk output: $sfdisk_output"
+            # Fall back to parted if sfdisk fails
+            log "Falling back to parted..."
+            use_sfdisk=false
+        }
+        
+        if [ "$use_sfdisk" = true ]; then
+            log "sfdisk output: $sfdisk_output"
+        fi
+    fi
+    
+    # Use parted if sfdisk was not used or failed
+    if [ "$use_sfdisk" != true ]; then
+        log "Command: parted -s $device mkpart primary ext4 ${last_part_end}MB 100%"
+        # Capture parted output/errors for better debugging
+        local parted_output
+        parted_output=$(parted -s "$device" mkpart primary ext4 "${last_part_end}MB" 100% 2>&1) || {
+            log "ERROR: parted mkpart failed with exit code $?"
+            log "parted output: $parted_output"
+            return 1
+        }
+        [ -n "$parted_output" ] && log "parted output: $parted_output"
+    fi
     
     log "Debug: Immediate partition table after mkpart (before sleep):"
     parted -s "$device" print 2>&1 | while read -r line; do log "  POST-IMM: $line"; done
@@ -253,7 +369,7 @@ create_persist_partition() {
     local post_part_count
     post_part_count=$(parted -s "$device" print 2>/dev/null \
                       | grep -c "^ [0-9]")
-    log "Partition count before: $last_part_num, after: ${post_part_count:-0}"
+    log "Partition count before: $last_part_num (table) / $safe_last_part (with devices), after: ${post_part_count:-0}"
     
     # Get list of current partitions
     local post_parts_list
@@ -261,9 +377,9 @@ create_persist_partition() {
                       | grep "^ [0-9]" | sort -n | awk '{print $1}')
     log "Debug: Partition numbers after mkpart: $post_parts_list"
     
-    # Check if we have at least one more partition
+    # Check if we have at least one more partition (use last_part_num for table-only count)
     if [ "${post_part_count:-0}" -le "$last_part_num" ]; then
-        log "WARNING: Partition count did not increase ($last_part_num -> $post_part_count)"
+        log "WARNING: Partition count in table did not increase ($last_part_num -> $post_part_count)"
         log "This might indicate partition renumbering or creation failure"
     fi
     
@@ -332,10 +448,31 @@ create_persist_partition() {
     done
     
     if [ ! -b "$persist_dev" ]; then
-        log "ERROR: Device node $persist_dev not found after 10 seconds"
-        log "Debug: Available device nodes:"
-        ls -la "${device}"* 2>&1 | while read -r line; do log "  $line"; done
-        return 1
+        # In container environments, device nodes might not be auto-created by udev
+        # Try to create it manually using sysfs information
+        local base_dev=$(basename "$device")
+        local part_name="${base_dev}${part_suffix}${found_new_part}"
+        local sysfs_dev="/sys/block/${base_dev}/${part_name}/dev"
+        
+        if [ -f "$sysfs_dev" ]; then
+            log "Debug: Device node missing but sysfs entry exists at $sysfs_dev"
+            local major=$(cut -d: -f1 < "$sysfs_dev" | tr -d '[:space:]')
+            local minor=$(cut -d: -f2 < "$sysfs_dev" | tr -d '[:space:]')
+            log "Debug: Creating device node $persist_dev manually (major:minor = $major:$minor)"
+            mknod "$persist_dev" b "$major" "$minor" 2>/dev/null || {
+                log "ERROR: Failed to create device node $persist_dev"
+                log "Debug: Available device nodes:"
+                ls -la "${device}"* 2>&1 | while read -r line; do log "  $line"; done
+                return 1
+            }
+            log "Debug: Device node $persist_dev created successfully"
+        else
+            log "ERROR: Device node $persist_dev not found after 10 seconds and no sysfs entry"
+            log "Debug: Checked sysfs path: $sysfs_dev"
+            log "Debug: Available device nodes:"
+            ls -la "${device}"* 2>&1 | while read -r line; do log "  $line"; done
+            return 1
+        fi
     fi
     log "Debug: Device node $persist_dev exists"
 

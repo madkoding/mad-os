@@ -109,6 +109,21 @@ jobs:
             -v ${{ github.workspace }}:/build \
             ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-liveusb-persistence.sh
 
+  test-persistence-isohybrid:
+    name: "Tests: USB Persistence (Isohybrid)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Test isohybrid partition gap detection in Arch container
+        run: |
+          docker run --privileged --rm \
+            --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
+            -v ${{ github.workspace }}:/build \
+            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-liveusb-isohybrid.sh
+
   test-first-boot-simulation:
     name: "Tests: First-Boot Simulation"
     runs-on: ubuntu-latest
@@ -130,7 +145,7 @@ jobs:
   # ================================================================
   test-installer-python:
     name: "Validate: Installer Python Modules"
-    needs: [test-scripts, test-persistence, test-first-boot-simulation]
+    needs: [test-scripts, test-persistence, test-persistence-isohybrid, test-first-boot-simulation]
     runs-on: ubuntu-latest
 
     steps:
@@ -146,7 +161,7 @@ jobs:
 
   test-installer-config:
     name: "Validate: Installer Config Script"
-    needs: [test-scripts, test-persistence, test-first-boot-simulation]
+    needs: [test-scripts, test-persistence, test-persistence-isohybrid, test-first-boot-simulation]
     runs-on: ubuntu-latest
 
     steps:
@@ -162,7 +177,7 @@ jobs:
 
   test-installer-disk:
     name: "Validate: Installer Disk Install"
-    needs: [test-scripts, test-persistence, test-first-boot-simulation]
+    needs: [test-scripts, test-persistence, test-persistence-isohybrid, test-first-boot-simulation]
     runs-on: ubuntu-latest
 
     steps:
