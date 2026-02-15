@@ -395,7 +395,7 @@ else
 fi
 
 # Verify it found the existing partition and didn't try to create a new one
-if grep -q "Found existing partition" "$LOG_FILE" || \
+if grep -q "OK: Found existing partition" "$LOG_FILE" || \
    grep -q "Found via direct scan" "$LOG_FILE" || \
    grep -q "Found via global search" "$LOG_FILE"; then
     ok "Existing persistence partition was detected"
