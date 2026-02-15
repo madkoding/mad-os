@@ -218,8 +218,8 @@ jobs:
         with:
           fetch-depth: 0  # Necesario para obtener todos los tags
 
-      - name: Determine build type and version
-        id: build_type
+      - name: Analyze commits for version bump
+        id: version_analysis
         run: |
           # Obtener última versión de tag
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
@@ -230,10 +230,58 @@ jobs:
           MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
           PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
           
+          # Analizar commits desde el último tag
+          COMMITS=$(git log "${LAST_TAG}..HEAD" --pretty=format:"%s" 2>/dev/null || echo "")
+          
+          # Detectar tipo de cambio
+          HAS_FEATURE=false
+          HAS_FIX=false
+          
+          if echo "$COMMITS" | grep -qiE "^feat\(|feature\(|^feat:"; then
+            HAS_FEATURE=true
+          fi
+          
+          if echo "$COMMITS" | grep -qiE "^fix\(|hotfix\(|^fix:|^hotfix:"; then
+            HAS_FIX=true
+          fi
+          
+          echo "has_feature=$HAS_FEATURE" >> "$GITHUB_OUTPUT"
+          echo "has_fix=$HAS_FIX" >> "$GITHUB_OUTPUT"
+          echo "last_tag=$LAST_TAG" >> "$GITHUB_OUTPUT"
+          echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "major=$MAJOR" >> "$GITHUB_OUTPUT"
+          echo "minor=$MINOR" >> "$GITHUB_OUTPUT"
+          echo "patch=$PATCH" >> "$GITHUB_OUTPUT"
+
+      - name: Determine build type and version
+        id: build_type
+        run: |
+          # Obtener valores del paso anterior
+          HAS_FEATURE="${{ steps.version_analysis.outputs.has_feature }}"
+          HAS_FIX="${{ steps.version_analysis.outputs.has_fix }}"
+          MAJOR="${{ steps.version_analysis.outputs.major }}"
+          MINOR="${{ steps.version_analysis.outputs.minor }}"
+          PATCH="${{ steps.version_analysis.outputs.patch }}"
+          
           if [[ "$GITHUB_REF" == refs/heads/develop ]]; then
-            # Develop: auto-increment minor y crear beta
-            NEW_MINOR=$((MINOR + 1))
-            VERSION="${MAJOR}.${NEW_MINOR}.0-beta"
+            # Develop: analizar commits y determinar bump
+            if [ "$HAS_FEATURE" = "true" ]; then
+              # Feature: incrementar minor, reset patch
+              NEW_MINOR=$((MINOR + 1))
+              VERSION="${MAJOR}.${NEW_MINOR}.0-beta"
+              echo "version_bump=minor (feature)" >> "$GITHUB_OUTPUT"
+            elif [ "$HAS_FIX" = "true" ]; then
+              # Fix/Hotfix: incrementar patch
+              NEW_PATCH=$((PATCH + 1))
+              VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}-beta"
+              echo "version_bump=patch (fix/hotfix)" >> "$GITHUB_OUTPUT"
+            else
+              # Sin cambio semántico detectado: minor por defecto
+              NEW_MINOR=$((MINOR + 1))
+              VERSION="${MAJOR}.${NEW_MINOR}.0-beta"
+              echo "version_bump=minor (default)" >> "$GITHUB_OUTPUT"
+            fi
+            
             echo "is_release=false" >> "$GITHUB_OUTPUT"
             echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
             echo "release_type=beta" >> "$GITHUB_OUTPUT"
