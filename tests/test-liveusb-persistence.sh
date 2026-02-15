@@ -396,12 +396,12 @@ fi
 
 # Verify it found the existing partition and didn't try to create a new one
 # Debug: Show what's in the log file
-log "Debug: Checking log file for partition detection messages"
-log "Debug: Log file size: $(wc -l < "$LOG_FILE" 2>/dev/null || echo '0') lines"
+info "Debug: Checking log file for partition detection messages"
+info "Debug: Log file size: $(wc -l < "$LOG_FILE" 2>/dev/null || echo '0') lines"
 if [ -f "$LOG_FILE" ]; then
-    log "Debug: Log file contains:"
-    grep -i "found\|partition\|OK:\|INFO:" "$LOG_FILE" 2>&1 | while read -r line; do
-        log "  $line"
+    info "Debug: Log file relevant lines:"
+    grep -i "found\|partition\|OK:\|INFO:" "$LOG_FILE" 2>&1 | head -20 | while read -r line; do
+        echo "    $line"
     done
 fi
 
