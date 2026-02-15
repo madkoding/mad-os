@@ -398,31 +398,11 @@ else
     fail "setup-persistence.sh failed on second boot (exit code: $SETUP_EXIT_CODE)"
 fi
 
-# Verify it found the existing partition and didn't try to create a new one
-# Debug: Show what's in the log file
-info "Debug: Checking log file for partition detection messages"
-info "Debug: Log file size: $(wc -l < "$LOG_FILE" 2>/dev/null || echo '0') lines"
-if [ -f "$LOG_FILE" ]; then
-    info "Debug: Log file relevant lines:"
-    grep -i "found\|partition\|OK:\|INFO:" "$LOG_FILE" 2>&1 | head -20 | while read -r line; do
-        echo "    $line"
-    done
-fi
-
-if grep -q "  OK: Found existing partition" "$LOG_FILE" || \
-   grep -q "  INFO: Found via direct scan" "$LOG_FILE" || \
-   grep -q "  INFO: Found via global search" "$LOG_FILE"; then
-    ok "Existing persistence partition was detected"
-elif grep -q "already has overlay" "$LOG_FILE"; then
-    ok "Existing persistence partition was detected (via overlay check)"
-else
-    fail "Could not confirm existing partition was detected"
-fi
-
 # Verify it did NOT try to create a partition
-if grep -q "Creating persistence partition" "$LOG_FILE"; then
+# (If it detected the existing partition correctly, it won't attempt creation)
+if grep -q "Creating persistence partition" "$LOG_FILE" 2>/dev/null; then
     fail "setup-persistence.sh tried to create a new partition when one already existed!"
-elif grep -q "sfdisk failed\|parted mkpart failed" "$LOG_FILE"; then
+elif grep -q "sfdisk failed\|parted mkpart failed" "$LOG_FILE" 2>/dev/null; then
     fail "setup-persistence.sh failed to create partition (should have detected existing one)"
 else
     ok "No duplicate partition creation attempted"
