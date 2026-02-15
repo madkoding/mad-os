@@ -717,6 +717,14 @@ mkdir -p /run/mados; chmod 700 /run/mados
 echo "$persist_dev" > /run/mados/persist_device
 chmod 600 /run/mados/persist_device
 
+# ── Restart network services to pick up persistent /etc configs ──────────
+# iwd (wireless daemon) needs to be restarted if it was already running
+# before the /etc overlay was mounted, so it picks up any persistent config.
+if systemctl is-active --quiet iwd.service 2>/dev/null; then
+    systemctl restart iwd.service 2>/dev/null || log "WARNING: Failed to restart iwd.service"
+    log "Restarted iwd.service to pick up persistent configuration"
+fi
+
 log "Persistence init complete"
 INITEOF
     chmod 755 "$PERSIST_MOUNT/mados-persist-init.sh"
@@ -938,6 +946,7 @@ setup_persistence() {
         ui_warn "Init script returned exit code $?"
     }
     ui_ok "Overlays active: /etc /usr /var /opt /home"
+    ui_info "Network services restarted to pick up persistent configs"
 
     ui_done
     log "Partition: $persist_dev | Mount: $PERSIST_MOUNT | Boot device: $iso_device"
