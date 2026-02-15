@@ -388,6 +388,10 @@ info "Running setup-persistence.sh again (should detect existing partition)"
 SETUP_EXIT_CODE=0
 /usr/local/bin/setup-persistence.sh 2>&1 | tee -a "$LOG_FILE" || SETUP_EXIT_CODE=$?
 
+# Ensure log file is flushed to disk
+sync
+sleep 0.5
+
 if [ "$SETUP_EXIT_CODE" -eq 0 ]; then
     ok "setup-persistence.sh ran successfully on second boot"
 else
