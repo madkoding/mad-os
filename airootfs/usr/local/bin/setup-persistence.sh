@@ -748,19 +748,50 @@ setup_persistence() {
     fi
     log "Verified partition device exists: $persist_dev"
 
-    # Mount the partition
+    # Wait for device to be fully ready and not busy
+    # After mkfs.ext4, the device might still be held open by the kernel
+    log "Waiting for device to be ready for mounting..."
+    sleep 3
+    udevadm settle --timeout=10 2>/dev/null || true
+    
+    # Ensure no process is holding the device open
+    # Use blockdev --flushbufs to flush any pending writes and release the device
+    blockdev --flushbufs "$persist_dev" 2>/dev/null || true
+    log "Device ready for mounting"
+
+    # Mount the partition with retry logic
     mkdir -p "$PERSIST_MOUNT"
     if ! mountpoint -q "$PERSIST_MOUNT" 2>/dev/null; then
         log "Attempting to mount $persist_dev at $PERSIST_MOUNT..."
         local mount_output
-        mount_output=$(mount "$persist_dev" "$PERSIST_MOUNT" 2>&1) || {
-            log "ERROR: Failed to mount $persist_dev"
-            log "Mount error: $mount_output"
-            log "Debug: Filesystem check:"
-            blkid "$persist_dev" 2>&1 | while read -r line; do log "  $line"; done
-            return 1
-        }
-        log "Mount successful"
+        local mount_attempts=0
+        local max_attempts=3
+        
+        while [ $mount_attempts -lt $max_attempts ]; do
+            mount_attempts=$((mount_attempts + 1))
+            
+            if mount_output=$(mount "$persist_dev" "$PERSIST_MOUNT" 2>&1); then
+                log "Mount successful"
+                break
+            else
+                if [ $mount_attempts -lt $max_attempts ]; then
+                    log "Mount attempt $mount_attempts failed, retrying in 2 seconds..."
+                    log "Mount error: $mount_output"
+                    sleep 2
+                    # Try to flush buffers again before retry
+                    blockdev --flushbufs "$persist_dev" 2>/dev/null || true
+                else
+                    log "ERROR: Failed to mount $persist_dev after $max_attempts attempts"
+                    log "Mount error: $mount_output"
+                    log "Debug: Filesystem check:"
+                    blkid "$persist_dev" 2>&1 | while read -r line; do log "  $line"; done
+                    log "Debug: Check if device is busy:"
+                    lsof "$persist_dev" 2>&1 | while read -r line; do log "  $line"; done || log "  lsof not available or no processes found"
+                    fuser -v "$persist_dev" 2>&1 | while read -r line; do log "  $line"; done || log "  fuser not available or no processes found"
+                    return 1
+                fi
+            fi
+        done
     else
         log "Already mounted at $PERSIST_MOUNT"
     fi
