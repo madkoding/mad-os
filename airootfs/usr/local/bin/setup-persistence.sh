@@ -784,7 +784,13 @@ setup_persistence() {
         return 0
     fi
 
-    if is_usb_device "$iso_device"; then
+    # Check if device is a loopback device (used in test environments)
+    # Loopback devices should be treated like removable devices for testing
+    local is_loop=false
+    if [[ "$iso_device" == /dev/loop* ]]; then
+        is_loop=true
+        ui_ok "Loopback device (test mode): $iso_device"
+    elif is_usb_device "$iso_device"; then
         ui_ok "USB device: $iso_device"
     else
         local removable_flag
@@ -801,6 +807,52 @@ setup_persistence() {
     ui_step "Checking for persistence partition"
     local persist_dev
     persist_dev=$(find_persist_partition "$iso_device")
+
+    # Enhanced detection: force refresh of device metadata to bypass lsblk cache
+    # This is critical for detecting partitions on subsequent boots where the
+    # kernel cache may be stale
+    if [ -z "$persist_dev" ]; then
+        log "Debug: Primary detection failed, forcing device metadata refresh"
+        udevadm settle --timeout=10 2>/dev/null || true
+        partprobe "$iso_device" 2>/dev/null || true
+        sleep 1
+        
+        # Direct scan of all partitions using blkid (bypasses lsblk cache)
+        log "Debug: Scanning all partitions on $iso_device for persistence label"
+        for part in $(lsblk -nlo NAME "$iso_device" 2>/dev/null | tail -n +2); do
+            local full_part="/dev/$part"
+            if [ -b "$full_part" ]; then
+                local label
+                label=$(blkid -s LABEL -o value "$full_part" 2>/dev/null)
+                log "Debug: Partition $full_part has label: '$label'"
+                if [ "$label" = "$PERSIST_LABEL" ]; then
+                    persist_dev="$full_part"
+                    ui_info "Found via direct scan: $persist_dev"
+                    log "Found existing persistence partition via direct blkid scan: $persist_dev"
+                    break
+                fi
+            fi
+        done
+    fi
+    
+    # Additional safeguard: global search for persistence label
+    if [ -z "$persist_dev" ] && command -v blkid >/dev/null 2>&1; then
+        log "Debug: Attempting global search for persistence label"
+        local global_persist
+        global_persist=$(blkid -L "$PERSIST_LABEL" 2>/dev/null)
+        if [ -n "$global_persist" ] && [ -b "$global_persist" ]; then
+            # Verify this partition belongs to our boot device
+            local part_parent
+            part_parent=$(lsblk -ndo PKNAME "$global_persist" 2>/dev/null)
+            if [ "/dev/$part_parent" = "$iso_device" ]; then
+                persist_dev="$global_persist"
+                ui_info "Found via global search: $persist_dev"
+                log "Found existing persistence partition via global blkid search: $persist_dev"
+            else
+                log "WARNING: Found partition with persistence label ($global_persist) but it belongs to /dev/$part_parent, not $iso_device - ignoring"
+            fi
+        fi
+    fi
 
     if [ -z "$persist_dev" ]; then
         local free_space
