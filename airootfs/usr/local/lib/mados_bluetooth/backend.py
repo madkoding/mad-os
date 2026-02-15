@@ -14,7 +14,8 @@ from dataclasses import dataclass
 from typing import List, Optional, Callable
 
 import gi
-gi.require_version('Gtk', '3.0')
+
+gi.require_version("Gtk", "3.0")
 from gi.repository import GLib
 
 
@@ -23,25 +24,33 @@ from gi.repository import GLib
 # ---------------------------------------------------------------------------
 
 # Maximum number of attempts to detect Bluetooth adapter on startup
-_ADAPTER_DETECTION_ATTEMPTS = 3
+_ADAPTER_DETECTION_ATTEMPTS = 5
 
 # Delay in seconds between adapter detection retry attempts
-_ADAPTER_DETECTION_RETRY_DELAY_SECONDS = 1
+_ADAPTER_DETECTION_RETRY_DELAY_SECONDS = 2
+
+# Maximum scan duration in seconds
+_MAX_SCAN_DURATION = 10
+
+# Module auto-load list for common Bluetooth chipsets
+_BT_MODULES = ["btusb", "btmtk", "btrtl", "btintel", "btbcm"]
 
 
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class BluetoothDevice:
     """Represents a discovered or paired Bluetooth device."""
-    address: str = ''
-    name: str = ''
+
+    address: str = ""
+    name: str = ""
     paired: bool = False
     connected: bool = False
     trusted: bool = False
-    icon: str = ''
+    icon: str = ""
 
     @property
     def display_name(self) -> str:
@@ -53,6 +62,7 @@ class BluetoothDevice:
 # Helper: run bluetoothctl
 # ---------------------------------------------------------------------------
 
+
 def _run_btctl(args: List[str], timeout: int = 15) -> subprocess.CompletedProcess:
     """Execute a bluetoothctl command and return the result.
 
@@ -63,7 +73,7 @@ def _run_btctl(args: List[str], timeout: int = 15) -> subprocess.CompletedProces
     Returns:
         A subprocess.CompletedProcess instance.
     """
-    cmd = ['bluetoothctl'] + args
+    cmd = ["bluetoothctl"] + args
     return subprocess.run(
         cmd,
         capture_output=True,
@@ -85,8 +95,8 @@ def _run_btctl_check(args: List[str], timeout: int = 15) -> str:
     result = _run_btctl(args, timeout=timeout)
     if result.returncode != 0:
         raise RuntimeError(
-            result.stderr.strip() or
-            f'bluetoothctl exited with code {result.returncode}'
+            result.stderr.strip()
+            or f"bluetoothctl exited with code {result.returncode}"
         )
     return result.stdout.strip()
 
@@ -95,25 +105,90 @@ def _run_btctl_check(args: List[str], timeout: int = 15) -> str:
 # Helper: ensure Bluetooth hardware is ready
 # ---------------------------------------------------------------------------
 
+
 def _ensure_bluetooth_ready() -> None:
     """Ensure Bluetooth hardware is unblocked and modules are loaded.
 
     This handles common issues with MT7921 and other combo adapters
     where rfkill blocks Bluetooth on boot or modules don't auto-load.
     """
+    # Try to unblock Bluetooth (with retry)
+    for _ in range(2):
+        try:
+            result = subprocess.run(
+                ["sudo", "rfkill", "unblock", "bluetooth"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                break
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            # Try without sudo as fallback
+            try:
+                subprocess.run(
+                    ["rfkill", "unblock", "bluetooth"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                pass
+
+    # Load all common Bluetooth kernel modules
+    for module in _BT_MODULES:
+        try:
+            subprocess.run(
+                ["sudo", "modprobe", module],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+
+    # Ensure bluetooth service is started
     try:
-        subprocess.run(
-            ['sudo', 'rfkill', 'unblock', 'bluetooth'],
-            capture_output=True, text=True, timeout=5,
+        result = subprocess.run(
+            ["systemctl", "is-active", "--quiet", "bluetooth.service"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
+        if result.returncode != 0:
+            subprocess.run(
+                ["sudo", "systemctl", "start", "bluetooth.service"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            # Wait for service and adapter initialization with progressive delay
+            for delay in [2, 3, 5]:
+                time.sleep(delay)
+                try:
+                    check_result = subprocess.run(
+                        ["bluetoothctl", "show"],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                    )
+                    if (
+                        check_result.returncode == 0
+                        and "Controller" in check_result.stdout
+                    ):
+                        break
+                except (FileNotFoundError, subprocess.TimeoutExpired):
+                    pass
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
 
     # Ensure btusb module is loaded (needed for MT7921 BT over USB)
     try:
         subprocess.run(
-            ['sudo', 'modprobe', 'btusb'],
-            capture_output=True, text=True, timeout=5,
+            ["sudo", "modprobe", "btusb"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
@@ -121,13 +196,17 @@ def _ensure_bluetooth_ready() -> None:
     # Ensure bluetooth service is started
     try:
         result = subprocess.run(
-            ['systemctl', 'is-active', '--quiet', 'bluetooth.service'],
-            capture_output=True, text=True, timeout=5,
+            ["systemctl", "is-active", "--quiet", "bluetooth.service"],
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode != 0:
             subprocess.run(
-                ['sudo', 'systemctl', 'start', 'bluetooth.service'],
-                capture_output=True, text=True, timeout=10,
+                ["sudo", "systemctl", "start", "bluetooth.service"],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             time.sleep(3)  # Wait for service and adapter initialization
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -138,32 +217,33 @@ def _ensure_bluetooth_ready() -> None:
 # Public API -- synchronous (call from threads)
 # ---------------------------------------------------------------------------
 
+
 def check_bluetooth_available() -> bool:
     """Return True if the Bluetooth controller is available."""
     _ensure_bluetooth_ready()
-    
+
     # Try multiple times with delay to handle adapter initialization
     for attempt in range(_ADAPTER_DETECTION_ATTEMPTS):
         try:
-            output = _run_btctl_check(['show'])
-            if 'Controller' in output:
+            output = _run_btctl_check(["show"])
+            if "Controller" in output:
                 return True
         except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
             pass
-        
+
         if attempt < _ADAPTER_DETECTION_ATTEMPTS - 1:
             time.sleep(_ADAPTER_DETECTION_RETRY_DELAY_SECONDS)
-    
+
     return False
 
 
 def is_adapter_powered() -> bool:
     """Return True if the Bluetooth adapter is powered on."""
     try:
-        output = _run_btctl_check(['show'])
+        output = _run_btctl_check(["show"])
         for line in output.splitlines():
-            if 'Powered:' in line:
-                return 'yes' in line.lower()
+            if "Powered:" in line:
+                return "yes" in line.lower()
     except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
         pass
     return False
@@ -179,7 +259,7 @@ def set_adapter_power(on: bool) -> bool:
         True on success.
     """
     try:
-        _run_btctl_check(['power', 'on' if on else 'off'])
+        _run_btctl_check(["power", "on" if on else "off"])
         return True
     except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
         return False
@@ -194,7 +274,7 @@ def start_scan() -> bool:
         binary is treated as a real failure.
     """
     try:
-        _run_btctl(['scan', 'on'], timeout=3)
+        _run_btctl(["scan", "on"], timeout=3)
         return True
     except subprocess.TimeoutExpired:
         return True  # Timeout is expected for scan
@@ -209,7 +289,7 @@ def stop_scan() -> bool:
         True if scan stopped successfully.
     """
     try:
-        _run_btctl(['scan', 'off'], timeout=3)
+        _run_btctl(["scan", "off"], timeout=3)
         return True
     except subprocess.TimeoutExpired:
         return True
@@ -229,9 +309,9 @@ def get_devices() -> List[BluetoothDevice]:
 
     # Get paired devices
     try:
-        output = _run_btctl_check(['devices', 'Paired'])
+        output = _run_btctl_check(["devices", "Paired"])
     except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
-        output = ''
+        output = ""
 
     for dev in _parse_device_list(output):
         dev.paired = True
@@ -241,9 +321,9 @@ def get_devices() -> List[BluetoothDevice]:
 
     # Get all discovered devices
     try:
-        output = _run_btctl_check(['devices'])
+        output = _run_btctl_check(["devices"])
     except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
-        output = ''
+        output = ""
 
     for dev in _parse_device_list(output):
         if dev.address not in seen_addresses:
@@ -265,19 +345,19 @@ def pair_device(address: str) -> str:
         A status string: 'paired', 'failed', or an error message.
     """
     try:
-        result = _run_btctl(['pair', address], timeout=30)
+        result = _run_btctl(["pair", address], timeout=30)
         output = result.stdout + result.stderr
-        if 'Pairing successful' in output or 'AlreadyExists' in output:
+        if "Pairing successful" in output or "AlreadyExists" in output:
             # Also trust the device for auto-reconnect
-            _run_btctl(['trust', address], timeout=10)
-            return 'paired'
-        if 'Failed' in output:
-            return 'failed'
-        return output.strip() or 'failed'
+            _run_btctl(["trust", address], timeout=10)
+            return "paired"
+        if "Failed" in output:
+            return "failed"
+        return output.strip() or "failed"
     except FileNotFoundError:
-        return 'bluetoothctl not found'
+        return "bluetoothctl not found"
     except subprocess.TimeoutExpired:
-        return 'Pairing timed out'
+        return "Pairing timed out"
 
 
 def connect_device(address: str) -> str:
@@ -290,17 +370,17 @@ def connect_device(address: str) -> str:
         A status string: 'connected', 'failed', or an error message.
     """
     try:
-        result = _run_btctl(['connect', address], timeout=30)
+        result = _run_btctl(["connect", address], timeout=30)
         output = result.stdout + result.stderr
-        if 'Connection successful' in output:
-            return 'connected'
-        if 'Failed' in output or result.returncode != 0:
-            return 'failed'
-        return output.strip() or 'failed'
+        if "Connection successful" in output:
+            return "connected"
+        if "Failed" in output or result.returncode != 0:
+            return "failed"
+        return output.strip() or "failed"
     except FileNotFoundError:
-        return 'bluetoothctl not found'
+        return "bluetoothctl not found"
     except subprocess.TimeoutExpired:
-        return 'Connection timed out'
+        return "Connection timed out"
 
 
 def disconnect_device(address: str) -> bool:
@@ -313,8 +393,8 @@ def disconnect_device(address: str) -> bool:
         True on success.
     """
     try:
-        result = _run_btctl(['disconnect', address], timeout=10)
-        return 'Successful' in result.stdout or result.returncode == 0
+        result = _run_btctl(["disconnect", address], timeout=10)
+        return "Successful" in result.stdout or result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 
@@ -329,8 +409,8 @@ def remove_device(address: str) -> bool:
         True on success.
     """
     try:
-        result = _run_btctl(['remove', address], timeout=10)
-        return 'removed' in result.stdout.lower() or result.returncode == 0
+        result = _run_btctl(["remove", address], timeout=10)
+        return "removed" in result.stdout.lower() or result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
 
@@ -345,7 +425,7 @@ def trust_device(address: str, trusted: bool = True) -> bool:
     Returns:
         True on success.
     """
-    cmd = 'trust' if trusted else 'untrust'
+    cmd = "trust" if trusted else "untrust"
     try:
         _run_btctl_check([cmd, address])
         return True
@@ -357,14 +437,17 @@ def trust_device(address: str, trusted: bool = True) -> bool:
 # Async wrappers -- run in background thread, callback on main thread
 # ---------------------------------------------------------------------------
 
-def async_scan(callback: Callable[[List[BluetoothDevice]], None],
-               scan_duration: int = 5) -> None:
+
+def async_scan(
+    callback: Callable[[List[BluetoothDevice]], None], scan_duration: int = 5
+) -> None:
     """Scan for Bluetooth devices asynchronously.
 
     Args:
         callback: Called on the GTK main thread with the device list.
         scan_duration: How many seconds to scan before reading results.
     """
+
     def _worker():
         start_scan()
         time.sleep(scan_duration)
@@ -383,6 +466,7 @@ def async_pair(address: str, callback: Callable[[str], None]) -> None:
         address: The MAC address.
         callback: Called on the GTK main thread with the status string.
     """
+
     def _worker():
         status = pair_device(address)
         GLib.idle_add(callback, status)
@@ -398,6 +482,7 @@ def async_connect(address: str, callback: Callable[[str], None]) -> None:
         address: The MAC address.
         callback: Called on the GTK main thread with the status string.
     """
+
     def _worker():
         status = connect_device(address)
         GLib.idle_add(callback, status)
@@ -413,6 +498,7 @@ def async_disconnect(address: str, callback: Callable[[bool], None]) -> None:
         address: The MAC address.
         callback: Called on the GTK main thread with success boolean.
     """
+
     def _worker():
         result = disconnect_device(address)
         GLib.idle_add(callback, result)
@@ -428,6 +514,7 @@ def async_remove(address: str, callback: Callable[[bool], None]) -> None:
         address: The MAC address.
         callback: Called on the GTK main thread with success boolean.
     """
+
     def _worker():
         result = remove_device(address)
         GLib.idle_add(callback, result)
@@ -443,6 +530,7 @@ def async_set_power(on: bool, callback: Callable[[bool], None]) -> None:
         on: True to power on, False to power off.
         callback: Called on the GTK main thread with success boolean.
     """
+
     def _worker():
         result = set_adapter_power(on)
         GLib.idle_add(callback, result)
@@ -459,6 +547,7 @@ def async_get_adapter_state(
     Args:
         callback: Called on the GTK main thread with (available, powered).
     """
+
     def _worker():
         available = check_bluetooth_available()
         powered = is_adapter_powered() if available else False
@@ -471,6 +560,7 @@ def async_get_adapter_state(
 # ---------------------------------------------------------------------------
 # Internal parsing helpers
 # ---------------------------------------------------------------------------
+
 
 def _parse_device_list(output: str) -> List[BluetoothDevice]:
     """Parse bluetoothctl device list output.
@@ -485,12 +575,14 @@ def _parse_device_list(output: str) -> List[BluetoothDevice]:
     """
     devices: List[BluetoothDevice] = []
     for line in output.splitlines():
-        match = re.match(r'Device\s+([0-9A-Fa-f:]{17})\s+(.*)', line.strip())
+        match = re.match(r"Device\s+([0-9A-Fa-f:]{17})\s+(.*)", line.strip())
         if match:
-            devices.append(BluetoothDevice(
-                address=match.group(1),
-                name=match.group(2).strip(),
-            ))
+            devices.append(
+                BluetoothDevice(
+                    address=match.group(1),
+                    name=match.group(2).strip(),
+                )
+            )
     return devices
 
 
@@ -501,21 +593,21 @@ def _fill_device_info(device: BluetoothDevice) -> None:
         device: A BluetoothDevice to update in place.
     """
     try:
-        output = _run_btctl_check(['info', device.address])
+        output = _run_btctl_check(["info", device.address])
     except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
         return
 
     for line in output.splitlines():
         line = line.strip()
-        if line.startswith('Name:'):
-            name = line.split(':', 1)[1].strip()
+        if line.startswith("Name:"):
+            name = line.split(":", 1)[1].strip()
             if name:
                 device.name = name
-        elif line.startswith('Paired:'):
-            device.paired = 'yes' in line.lower()
-        elif line.startswith('Connected:'):
-            device.connected = 'yes' in line.lower()
-        elif line.startswith('Trusted:'):
-            device.trusted = 'yes' in line.lower()
-        elif line.startswith('Icon:'):
-            device.icon = line.split(':', 1)[1].strip()
+        elif line.startswith("Paired:"):
+            device.paired = "yes" in line.lower()
+        elif line.startswith("Connected:"):
+            device.connected = "yes" in line.lower()
+        elif line.startswith("Trusted:"):
+            device.trusted = "yes" in line.lower()
+        elif line.startswith("Icon:"):
+            device.icon = line.split(":", 1)[1].strip()
