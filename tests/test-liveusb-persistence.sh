@@ -396,8 +396,8 @@ fi
 
 # Verify it found the existing partition and didn't try to create a new one
 if grep -q "  OK: Found existing partition" "$LOG_FILE" || \
-   grep -q "Found via direct scan" "$LOG_FILE" || \
-   grep -q "Found via global search" "$LOG_FILE"; then
+   grep -q "  INFO: Found via direct scan" "$LOG_FILE" || \
+   grep -q "  INFO: Found via global search" "$LOG_FILE"; then
     ok "Existing persistence partition was detected"
 elif grep -q "already has overlay" "$LOG_FILE"; then
     ok "Existing persistence partition was detected (via overlay check)"
