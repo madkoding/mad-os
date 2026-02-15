@@ -363,7 +363,7 @@ class TestSetupPersistenceScript(unittest.TestCase):
 
     def test_init_script_restarts_iwd_service(self):
         """Embedded init script must restart iwd.service after mounting overlays.
-        
+
         When the /etc overlay is mounted, network services like iwd that were
         already running need to be restarted to pick up any persistent configuration
         changes.
