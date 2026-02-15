@@ -365,11 +365,28 @@ sudo shutdown -h now
 - **Subsequent Boots**: Slightly slower than non-persistent due to overlay
 - **File Operations**: Performance depends on USB drive speed
 
+### USB-Optimized Mount Options
+
+madOS automatically applies performance optimizations to reduce read lags on USB storage:
+
+- **noatime**: Disables access time updates on file reads (eliminates write operations during reads)
+- **commit=60**: Increases journal commit interval from 5s to 60s (reduces metadata sync frequency)
+- **data=writeback**: Allows data writes without ordering relative to metadata (improves throughput)
+- **barrier=0**: Disables write barriers (reduces latency on USB devices)
+
+These options prioritize performance over data safety, which is acceptable for a live system where:
+- The system is temporary by nature
+- Important data should be backed up externally
+- A power loss would require reboot anyway
+
+**Result**: Significantly reduced read lag and improved overall I/O performance on USB devices.
+
 ### Recommendations
 
 - Use USB 3.0 or faster for best performance
 - Use high-quality USB drives with good write speeds
 - Avoid filling the persistence partition completely
+- For critical data, maintain external backups
 
 ## Advanced Usage
 

@@ -639,8 +639,13 @@ fi
 # Mount persistence partition if not already mounted
 if ! mountpoint -q "$PERSIST_MOUNT" 2>/dev/null; then
     mkdir -p "$PERSIST_MOUNT"
-    mount "$persist_dev" "$PERSIST_MOUNT" || { log "Failed to mount $persist_dev"; exit 1; }
-    log "Mounted $persist_dev at $PERSIST_MOUNT"
+    # USB-optimized mount options for better read performance:
+    # - noatime: Don't update access times (reduces write operations on reads)
+    # - commit=60: Increase journal commit interval to 60s (default: 5s)
+    # - data=writeback: Don't order data writes relative to metadata (faster, less safe)
+    # - barrier=0: Disable write barriers (faster on USB, acceptable risk for live system)
+    mount -o noatime,commit=60,data=writeback,barrier=0 "$persist_dev" "$PERSIST_MOUNT" || { log "Failed to mount $persist_dev"; exit 1; }
+    log "Mounted $persist_dev at $PERSIST_MOUNT with USB-optimized options"
 fi
 
 # Re-read boot device after mount (it's stored inside the partition)
@@ -828,8 +833,13 @@ setup_persistence() {
         while [ $mount_attempts -lt $max_attempts ]; do
             mount_attempts=$((mount_attempts + 1))
             
-            if mount_output=$(mount "$persist_dev" "$PERSIST_MOUNT" 2>&1); then
-                ui_ok "Mounted at $PERSIST_MOUNT"
+            # USB-optimized mount options for better read performance:
+            # - noatime: Don't update access times (reduces write operations on reads)
+            # - commit=60: Increase journal commit interval to 60s (default: 5s)
+            # - data=writeback: Don't order data writes relative to metadata (faster, less safe)
+            # - barrier=0: Disable write barriers (faster on USB, acceptable risk for live system)
+            if mount_output=$(mount -o noatime,commit=60,data=writeback,barrier=0 "$persist_dev" "$PERSIST_MOUNT" 2>&1); then
+                ui_ok "Mounted at $PERSIST_MOUNT with USB-optimized options"
                 break
             else
                 if [ $mount_attempts -lt $max_attempts ]; then
