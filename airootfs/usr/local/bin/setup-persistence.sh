@@ -12,8 +12,67 @@ PERSIST_MOUNT="/mnt/persistence"
 LOG_FILE="/var/log/mados-persistence.log"
 OVERLAY_DIRS="etc usr var opt"
 
+# ── Console UI helpers ───────────────────────────────────────────────────────
+# Nord-inspired colors for professional boot output
+BOLD='\033[1m'
+DIM='\033[2m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+STEP_NUM=0
+
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" >&2
+}
+
+ui_header() {
+    echo -e "${BLUE}${BOLD}" >&2
+    echo -e "  ┌──────────────────────────────────────────────┐" >&2
+    echo -e "  │          madOS Persistence Setup              │" >&2
+    echo -e "  └──────────────────────────────────────────────┘" >&2
+    echo -e "${NC}" >&2
+}
+
+ui_step() {
+    STEP_NUM=$((STEP_NUM + 1))
+    echo -e "  ${CYAN}${BOLD}[${STEP_NUM}]${NC} ${BOLD}$*${NC}" >&2
+    log "STEP $STEP_NUM: $*"
+}
+
+ui_ok() {
+    echo -e "  ${GREEN}  ✓${NC} $*" >&2
+    log "  OK: $*"
+}
+
+ui_warn() {
+    echo -e "  ${YELLOW}  ⚠${NC} $*" >&2
+    log "  WARN: $*"
+}
+
+ui_fail() {
+    echo -e "  ${RED}  ✗${NC} $*" >&2
+    log "  FAIL: $*"
+}
+
+ui_info() {
+    echo -e "  ${DIM}    $*${NC}" >&2
+    log "  INFO: $*"
+}
+
+ui_done() {
+    echo "" >&2
+    echo -e "  ${GREEN}${BOLD}── Persistence ready ──${NC}" >&2
+    echo "" >&2
+    log "Persistence setup finished successfully"
+}
+
+ui_skip() {
+    echo -e "  ${DIM}  ─ $*${NC}" >&2
+    log "  SKIP: $*"
 }
 
 # ── Device helpers ───────────────────────────────────────────────────────────
@@ -625,6 +684,16 @@ fi
 # ── bind mount /home ─────────────────────────────────────────────────────
 home_persist="$PERSIST_MOUNT/home"
 mkdir -p "$home_persist"
+
+# If persistent /home is empty, seed it with current /home contents
+# so that user configurations (from /etc/skel) are preserved across reboots.
+if [ -z "$(ls -A "$home_persist" 2>/dev/null)" ] && \
+   [ -d /home ] && [ "$(ls -A /home 2>/dev/null)" ]; then
+    cp -a /home/. "$home_persist/" 2>/dev/null && \
+        log "Seeded persistent /home with current contents" || \
+        log "WARNING: Failed to seed persistent /home"
+fi
+
 if ! mountpoint -q /home 2>/dev/null || \
    ! findmnt -n -o SOURCE /home 2>/dev/null | grep -q "$PERSIST_MOUNT"; then
     mount --bind "$home_persist" /home \
@@ -646,7 +715,7 @@ INITEOF
 [Unit]
 Description=madOS Overlayfs Persistence
 After=local-fs.target systemd-udevd.service
-Before=display-manager.service multi-user.target
+Before=display-manager.service multi-user.target getty@tty1.service
 ConditionPathExists=/run/archiso
 
 [Service]
@@ -667,102 +736,91 @@ UNITEOF
 # ── Main setup ───────────────────────────────────────────────────────────────
 
 setup_persistence() {
+    ui_header
     log "Starting madOS persistence setup..."
 
     # Wait for udev to settle so device nodes are available
     udevadm settle --timeout=30 2>/dev/null || true
 
+    ui_step "Detecting boot device"
     local iso_device
     iso_device=$(find_iso_device)
 
     if [ -z "$iso_device" ]; then
-        log "Could not determine ISO device, skipping"
+        ui_fail "Could not determine boot device"
         log "Debug: /run/archiso/bootmnt exists=$([ -d /run/archiso/bootmnt ] && echo yes || echo no)"
         log "Debug: findmnt output=$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null || echo 'N/A')"
         log "Debug: lsblk labels=$(lsblk -nlo NAME,LABEL 2>/dev/null | grep -iE '(ARCHISO|MADOS)' || echo 'none')"
         return 1
     fi
-    log "ISO device: $iso_device"
 
     if ! [ -b "$iso_device" ]; then
-        log "Device $iso_device is not a block device, skipping"
+        ui_fail "$iso_device is not a block device"
         return 1
     fi
 
     if is_optical_device "$iso_device"; then
-        log "Device $iso_device is optical media (DVD/CD) – persistence not possible"
+        ui_skip "Optical media detected – persistence not available"
         log "To use persistence, boot from USB or install to disk: sudo install-mados"
         return 0
     fi
 
     if is_usb_device "$iso_device"; then
-        log "Confirmed USB device"
+        ui_ok "USB device: $iso_device"
     else
-        # In archiso, some USB controllers don't expose "usb" in sysfs or
-        # udevadm output.  If the device is removable but not identified as
-        # USB we still allow persistence – only skip if we can positively
-        # confirm it is a fixed disk (removable=0 AND NOT usb).
         local removable_flag
         removable_flag=$(cat "/sys/block/${iso_device#/dev/}/removable" 2>/dev/null || echo "")
         if [ "$removable_flag" = "0" ]; then
-            log "Device $iso_device is not USB and not removable (likely VM/HDD), skipping"
+            ui_skip "Fixed disk detected – persistence not needed"
             log "Debug: sysfs path=$(readlink -f "/sys/block/${iso_device#/dev/}" 2>/dev/null || echo 'N/A')"
-            log "Debug: removable=$removable_flag"
             return 0
         fi
-        log "Device $iso_device not positively identified as USB but appears removable – proceeding"
+        ui_ok "Removable device: $iso_device"
     fi
 
     # Find or create persistence partition – ONLY on the ISO device
+    ui_step "Checking for persistence partition"
     local persist_dev
     persist_dev=$(find_persist_partition "$iso_device")
 
     if [ -z "$persist_dev" ]; then
-        log "No persistence partition found"
         local free_space
         free_space=$(get_free_space "$iso_device")
-        log "Free space: ${free_space}MB"
 
         if [ "${free_space:-0}" -lt 100 ]; then
-            log "Insufficient free space (<100 MB)"
+            ui_fail "Insufficient free space (${free_space:-0} MB < 100 MB)"
             return 1
         fi
 
-        log "Attempting to create persistence partition..."
+        ui_info "No partition found – creating (${free_space} MB free)..."
         persist_dev=$(create_persist_partition "$iso_device")
         if [ -z "$persist_dev" ]; then
-            log "ERROR: Partition creation failed"
+            ui_fail "Partition creation failed"
             return 1
         fi
-        log "Successfully created partition: $persist_dev"
+        ui_ok "Created partition: $persist_dev"
     else
-        log "Found existing persistence partition: $persist_dev"
+        ui_ok "Found existing partition: $persist_dev"
     fi
     
     # Verify the partition device exists
     if [ ! -b "$persist_dev" ]; then
-        log "ERROR: Partition device $persist_dev does not exist as a block device"
+        ui_fail "Partition $persist_dev not found as block device"
         log "Debug: Listing all block devices on $iso_device:"
         lsblk "$iso_device" 2>&1 | while read -r line; do log "  $line"; done
         return 1
     fi
-    log "Verified partition device exists: $persist_dev"
 
     # Wait for device to be fully ready and not busy
-    # After mkfs.ext4, the device might still be held open by the kernel
+    ui_step "Mounting persistence partition"
     log "Waiting for device to be ready for mounting..."
     sleep 3
     udevadm settle --timeout=10 2>/dev/null || true
-    
-    # Ensure no process is holding the device open
-    # Use blockdev --flushbufs to flush any pending writes and release the device
     blockdev --flushbufs "$persist_dev" 2>/dev/null || true
-    log "Device ready for mounting"
 
     # Mount the partition with retry logic
     mkdir -p "$PERSIST_MOUNT"
     if ! mountpoint -q "$PERSIST_MOUNT" 2>/dev/null; then
-        log "Attempting to mount $persist_dev at $PERSIST_MOUNT..."
         local mount_output
         local mount_attempts=0
         local max_attempts=3
@@ -771,17 +829,16 @@ setup_persistence() {
             mount_attempts=$((mount_attempts + 1))
             
             if mount_output=$(mount "$persist_dev" "$PERSIST_MOUNT" 2>&1); then
-                log "Mount successful"
+                ui_ok "Mounted at $PERSIST_MOUNT"
                 break
             else
                 if [ $mount_attempts -lt $max_attempts ]; then
-                    log "Mount attempt $mount_attempts failed, retrying in 2 seconds..."
+                    ui_warn "Mount attempt $mount_attempts failed, retrying..."
                     log "Mount error: $mount_output"
                     sleep 2
-                    # Try to flush buffers again before retry
                     blockdev --flushbufs "$persist_dev" 2>/dev/null || true
                 else
-                    log "ERROR: Failed to mount $persist_dev after $max_attempts attempts"
+                    ui_fail "Failed to mount after $max_attempts attempts"
                     log "Mount error: $mount_output"
                     log "Debug: Filesystem check:"
                     blkid "$persist_dev" 2>&1 | while read -r line; do log "  $line"; done
@@ -793,77 +850,81 @@ setup_persistence() {
             fi
         done
     else
-        log "Already mounted at $PERSIST_MOUNT"
+        ui_ok "Already mounted at $PERSIST_MOUNT"
     fi
-    log "Mounted at $PERSIST_MOUNT"
     
     # Verify mount is accessible
     if [ ! -d "$PERSIST_MOUNT" ] || [ ! -w "$PERSIST_MOUNT" ]; then
-        log "ERROR: Mount point $PERSIST_MOUNT is not accessible or writable"
+        ui_fail "Mount point is not accessible"
         log "Debug: Mount point status:"
         ls -lad "$PERSIST_MOUNT" 2>&1 | while read -r line; do log "  $line"; done
         return 1
     fi
-    log "Mount point is accessible and writable"
 
     # If init script already exists, just run it (subsequent boot)
     if [ -x "$PERSIST_MOUNT/mados-persist-init.sh" ]; then
-        log "Init script found – running it (subsequent boot)"
+        ui_step "Restoring persistent overlays"
         "$PERSIST_MOUNT/mados-persist-init.sh" || {
-            log "WARNING: Init script execution failed with exit code $?"
+            ui_warn "Init script returned exit code $?"
         }
-        log "Persistence setup complete (existing)"
+        ui_ok "Overlays restored from previous session"
+        ui_done
         return 0
     fi
 
     # ── First boot: create directory structure and install files ──────────
-    log "First boot – initialising persistence partition"
+    ui_step "Initialising partition (first boot)"
     
-    log "Creating overlay directory structure..."
     for dir in $OVERLAY_DIRS; do
-        log "  Creating overlays for: $dir"
         mkdir -p "$PERSIST_MOUNT/overlays/$dir/upper" \
                  "$PERSIST_MOUNT/overlays/$dir/work" || {
-            log "ERROR: Failed to create overlay directories for $dir"
+            ui_fail "Failed to create overlay dirs for /$dir"
             return 1
         }
     done
     
-    log "Creating home directory..."
     mkdir -p "$PERSIST_MOUNT/home" || {
-        log "ERROR: Failed to create home directory"
+        ui_fail "Failed to create home directory"
         return 1
     }
     chmod 755 "$PERSIST_MOUNT"
-    log "Directory structure created successfully"
+    ui_ok "Directory structure created"
 
-    # Record the boot device inside the persistence partition so that on
-    # subsequent boots the init script only looks at this specific device.
-    log "Recording boot device: $iso_device"
+    # ── Copy current /home contents to persistence partition ─────────────
+    ui_step "Copying user configuration"
+    if [ -d /home ] && [ "$(ls -A /home 2>/dev/null)" ]; then
+        cp -a /home/. "$PERSIST_MOUNT/home/" 2>/dev/null && \
+            ui_ok "Home contents preserved" || \
+            ui_warn "Some home contents could not be copied"
+    else
+        ui_skip "No existing home contents"
+    fi
+
+    # Record the boot device inside the persistence partition
     echo "$iso_device" > "$PERSIST_MOUNT/.mados-boot-device" || {
-        log "ERROR: Failed to write boot device file"
+        ui_fail "Failed to record boot device"
         return 1
     }
     chmod 644 "$PERSIST_MOUNT/.mados-boot-device"
-    log "Boot device recorded successfully"
+    log "Boot device recorded: $iso_device"
 
     # Install init script + service into persistence partition
-    log "Installing persistence files..."
+    ui_step "Installing persistence files"
     install_persist_files || {
-        log "ERROR: Failed to install persistence files"
+        ui_fail "Failed to install persistence files"
         return 1
     }
+    ui_ok "Init script and service installed"
 
     # Run init now to mount overlays immediately
-    log "Running init script for first time..."
+    ui_step "Activating overlays"
     "$PERSIST_MOUNT/mados-persist-init.sh" || {
-        log "WARNING: Initial init script execution failed with exit code $?"
+        ui_warn "Init script returned exit code $?"
     }
+    ui_ok "Overlays active: /etc /usr /var /opt /home"
 
-    log "Persistence setup complete – SUCCESS"
-    log "Partition: $persist_dev"
-    log "Mount: $PERSIST_MOUNT"
-    log "Boot device: $iso_device"
+    ui_done
+    log "Partition: $persist_dev | Mount: $PERSIST_MOUNT | Boot device: $iso_device"
     return 0
 }
 
