@@ -9,12 +9,24 @@ via GLib.idle_add.
 import subprocess
 import threading
 import re
+import time
 from dataclasses import dataclass
 from typing import List, Optional, Callable
 
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import GLib
+
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+# Maximum number of attempts to detect Bluetooth adapter on startup
+_ADAPTER_DETECTION_ATTEMPTS = 3
+
+# Delay in seconds between adapter detection retry attempts
+_ADAPTER_DETECTION_RETRY_DELAY_SECONDS = 1
 
 
 # ---------------------------------------------------------------------------
@@ -117,8 +129,7 @@ def _ensure_bluetooth_ready() -> None:
                 ['sudo', 'systemctl', 'start', 'bluetooth.service'],
                 capture_output=True, text=True, timeout=10,
             )
-            import time
-            time.sleep(1)
+            time.sleep(3)  # Wait for service and adapter initialization
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
 
@@ -130,11 +141,20 @@ def _ensure_bluetooth_ready() -> None:
 def check_bluetooth_available() -> bool:
     """Return True if the Bluetooth controller is available."""
     _ensure_bluetooth_ready()
-    try:
-        output = _run_btctl_check(['show'])
-        return 'Controller' in output
-    except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
-        return False
+    
+    # Try multiple times with delay to handle adapter initialization
+    for attempt in range(_ADAPTER_DETECTION_ATTEMPTS):
+        try:
+            output = _run_btctl_check(['show'])
+            if 'Controller' in output:
+                return True
+        except (RuntimeError, FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+        
+        if attempt < _ADAPTER_DETECTION_ATTEMPTS - 1:
+            time.sleep(_ADAPTER_DETECTION_RETRY_DELAY_SECONDS)
+    
+    return False
 
 
 def is_adapter_powered() -> bool:
@@ -347,7 +367,6 @@ def async_scan(callback: Callable[[List[BluetoothDevice]], None],
     """
     def _worker():
         start_scan()
-        import time
         time.sleep(scan_duration)
         stop_scan()
         devices = get_devices()
