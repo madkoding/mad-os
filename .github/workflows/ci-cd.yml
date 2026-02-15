@@ -2,8 +2,7 @@ name: "CI/CD Pipeline"
 
 on:
   push:
-    branches: ["main"]
-    # branches: ["main", "develop"]  # Uncomment to enable develop branch builds
+    branches: ["main", "develop"]
     tags:
       - 'v*'
     paths:
@@ -198,7 +197,7 @@ jobs:
   build:
     name: "🏗️ Build ISO"
     needs: validate-installer
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     outputs:
@@ -211,38 +210,68 @@ jobs:
       is_release: ${{ steps.build_type.outputs.is_release }}
       is_prerelease: ${{ steps.build_type.outputs.is_prerelease }}
       release_type: ${{ steps.build_type.outputs.release_type }}
+      auto_tag: ${{ steps.build_type.outputs.auto_tag }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necesario para obtener todos los tags
 
-      - name: Determine build type
+      - name: Determine build type and version
         id: build_type
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          # Obtener última versión de tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          BASE_VERSION=$(echo "$LAST_TAG" | sed 's/^v//; s/-.*$//')
+          
+          # Parse version components
+          MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
+          MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
+          PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
+          
+          if [[ "$GITHUB_REF" == refs/heads/develop ]]; then
+            # Develop: auto-increment minor y crear beta
+            NEW_MINOR=$((MINOR + 1))
+            VERSION="${MAJOR}.${NEW_MINOR}.0-beta"
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "release_type=beta" >> "$GITHUB_OUTPUT"
+            echo "auto_tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+            
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            # Tag manual: usar el tag tal cual
             TAG="${GITHUB_REF_NAME}"
             if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta$ ]]; then
               echo "is_release=false" >> "$GITHUB_OUTPUT"
               echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
               echo "release_type=beta" >> "$GITHUB_OUTPUT"
+              echo "auto_tag=" >> "$GITHUB_OUTPUT"
             elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha$ ]]; then
               echo "is_release=false" >> "$GITHUB_OUTPUT"
               echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
               echo "release_type=alpha" >> "$GITHUB_OUTPUT"
+              echo "auto_tag=" >> "$GITHUB_OUTPUT"
             elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               echo "is_release=true" >> "$GITHUB_OUTPUT"
               echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
               echo "release_type=stable" >> "$GITHUB_OUTPUT"
+              echo "auto_tag=" >> "$GITHUB_OUTPUT"
             else
               echo "is_release=false" >> "$GITHUB_OUTPUT"
               echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
               echo "release_type=dev" >> "$GITHUB_OUTPUT"
+              echo "auto_tag=" >> "$GITHUB_OUTPUT"
             fi
           else
+            # Main sin tag o manual dispatch
             echo "is_release=false" >> "$GITHUB_OUTPUT"
             echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
             echo "release_type=dev" >> "$GITHUB_OUTPUT"
+            echo "auto_tag=" >> "$GITHUB_OUTPUT"
           fi
+          
+          echo "version=$VERSION" >> "$GITHUB_ENV"
 
       - name: Build ISO in Arch container
         run: |
@@ -266,11 +295,17 @@ jobs:
         run: |
           ISO_FILE=$(ls out/*.iso | head -1)
           ISO_NAME=$(basename "$ISO_FILE")
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          
+          # Usar la versión determinada en el paso anterior o calcularla
+          if [ -n "$VERSION" ]; then
+            # VERSION ya está seteada desde el paso build_type
+            :
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
             VERSION="dev-$(date +%Y%m%d)"
           fi
+          
           BUILD_DATE=$(date +%Y.%m.%d)
           ISO_SIZE=$(stat --format=%s "$ISO_FILE")
           ISO_SIZE_MB=$((ISO_SIZE / 1024 / 1024))
@@ -291,13 +326,24 @@ jobs:
             out/SHA256SUMS
           retention-days: 7
 
+      # Crear tag automático para develop builds
+      - name: Create tag for develop build
+        if: github.ref == 'refs/heads/develop' && steps.build_type.outputs.auto_tag != ''
+        run: |
+          AUTO_TAG="${{ steps.build_type.outputs.auto_tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$AUTO_TAG" ${{ github.sha }}
+          git push origin "$AUTO_TAG"
+          echo "Created and pushed tag: $AUTO_TAG"
+
   # ================================================================
   # Stage 6: Release (después del build exitoso)
   # ================================================================
   release:
     name: "🚀 Release & Deploy"
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
@@ -362,10 +408,19 @@ jobs:
           echo "identifier=$IDENTIFIER" >> "$GITHUB_OUTPUT"
 
       # ---------- Sub-stage 6.2: Create GitHub Release ----------
+      - name: Set release tag
+        id: release_tag
+        run: |
+          if [[ "$GITHUB_REF" == refs/heads/develop ]] && [ -n "${{ needs.build.outputs.auto_tag }}" ]; then
+            echo "tag=${{ needs.build.outputs.auto_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ steps.release_tag.outputs.tag }}
           name: |
             ${{ needs.build.outputs.is_release == 'true' && format('madOS {0}', needs.build.outputs.version) || format('madOS {0} ({1})', needs.build.outputs.version, needs.build.outputs.release_type) }}
           prerelease: ${{ needs.build.outputs.is_prerelease == 'true' }}
