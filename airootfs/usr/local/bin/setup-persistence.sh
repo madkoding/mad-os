@@ -625,6 +625,16 @@ fi
 # ── bind mount /home ─────────────────────────────────────────────────────
 home_persist="$PERSIST_MOUNT/home"
 mkdir -p "$home_persist"
+
+# If persistent /home is empty, seed it with current /home contents
+# so that user configurations (from /etc/skel) are preserved across reboots.
+if [ -z "$(ls -A "$home_persist" 2>/dev/null)" ] && \
+   [ -d /home ] && [ "$(ls -A /home 2>/dev/null)" ]; then
+    cp -a /home/. "$home_persist/" 2>/dev/null && \
+        log "Seeded persistent /home with current contents" || \
+        log "WARNING: Failed to seed persistent /home"
+fi
+
 if ! mountpoint -q /home 2>/dev/null || \
    ! findmnt -n -o SOURCE /home 2>/dev/null | grep -q "$PERSIST_MOUNT"; then
     mount --bind "$home_persist" /home \
@@ -646,7 +656,7 @@ INITEOF
 [Unit]
 Description=madOS Overlayfs Persistence
 After=local-fs.target systemd-udevd.service
-Before=display-manager.service multi-user.target
+Before=display-manager.service multi-user.target getty@tty1.service
 ConditionPathExists=/run/archiso
 
 [Service]
@@ -836,6 +846,18 @@ setup_persistence() {
     }
     chmod 755 "$PERSIST_MOUNT"
     log "Directory structure created successfully"
+
+    # ── Copy current /home contents to persistence partition ─────────────
+    # Without this step, the bind mount would hide existing user configs
+    # (from /etc/skel) and the user would lose all configurations after reboot.
+    log "Copying current /home contents to persistence partition..."
+    if [ -d /home ] && [ "$(ls -A /home 2>/dev/null)" ]; then
+        cp -a /home/. "$PERSIST_MOUNT/home/" 2>/dev/null && \
+            log "Home contents copied to persistence partition" || \
+            log "WARNING: Failed to copy some home contents"
+    else
+        log "No existing /home contents to copy"
+    fi
 
     # Record the boot device inside the persistence partition so that on
     # subsequent boots the init script only looks at this specific device.

@@ -321,6 +321,32 @@ class TestSetupPersistenceScript(unittest.TestCase):
             "Init script must have SAFETY check verifying partition parent",
         )
 
+    def test_copies_home_contents_on_first_boot(self):
+        """setup_persistence must copy /home contents to persistence on first boot."""
+        self.assertIn(
+            'cp -a /home/.',
+            self.content,
+            "Must copy current /home contents to persistence partition on first boot",
+        )
+
+    def test_init_script_seeds_empty_home(self):
+        """Embedded init script must seed persistent /home if it's empty."""
+        init_content = self._get_init_script_content()
+        self.assertIn(
+            'cp -a /home/.',
+            init_content,
+            "Init script must seed persistent /home with current contents if empty",
+        )
+
+    def test_embedded_service_blocks_getty(self):
+        """Embedded systemd unit must include Before=getty@tty1.service."""
+        init_content = self._get_init_script_content()
+        self.assertIn(
+            'getty@tty1.service',
+            init_content,
+            "Embedded service unit must block before getty@tty1.service",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Partition protection safety checks
@@ -563,6 +589,12 @@ class TestPersistenceServiceConfig(unittest.TestCase):
         """Service should wait for udev to fully settle."""
         self.assertIn('systemd-udev-settle.service', self.content,
                        "Service must start after systemd-udev-settle.service")
+
+    def test_service_before_getty(self):
+        """Service must complete before getty@tty1 to block graphical session."""
+        self.assertIn('getty@tty1.service', self.content,
+                       "Service must be Before=getty@tty1.service to block "
+                       "autologin until persistence is ready")
 
 
 # ═══════════════════════════════════════════════════════════════════════════

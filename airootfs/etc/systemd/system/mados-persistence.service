@@ -2,7 +2,7 @@
 Description=madOS Overlayfs Persistence
 After=local-fs.target systemd-udevd.service systemd-udev-settle.service
 Wants=systemd-udev-settle.service
-Before=display-manager.service multi-user.target
+Before=display-manager.service multi-user.target getty@tty1.service
 ConditionPathExists=/run/archiso
 
 [Service]
