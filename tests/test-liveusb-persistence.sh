@@ -380,7 +380,7 @@ done
 # and not try to create a new one
 info "Running setup-persistence.sh again (should detect existing partition)"
 SETUP_EXIT_CODE=0
-"${REPO_DIR}/airootfs/usr/local/bin/setup-persistence.sh" 2>&1 | tee -a "$LOG_FILE" || SETUP_EXIT_CODE=$?
+/usr/local/bin/setup-persistence.sh 2>&1 | tee -a "$LOG_FILE" || SETUP_EXIT_CODE=$?
 
 if [ "$SETUP_EXIT_CODE" -eq 0 ]; then
     ok "setup-persistence.sh ran successfully on second boot"
