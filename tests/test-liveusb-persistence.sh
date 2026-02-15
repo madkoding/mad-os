@@ -15,7 +15,9 @@
 #   7. Verify bind mount for /home
 #   8. Verify ldconfig ran
 #   9. Simulate reboot – unmount everything, re-run init script, re-verify
-#  10. Verify mados-persistence CLI (status / help)
+#  10. Test second boot – run setup-persistence.sh again to verify detection
+#  11. Verify systemd service file syntax
+#  12. Verify mados-persistence CLI (status / help)
 # =============================================================================
 set -euo pipefail
 
@@ -361,9 +363,65 @@ else
 fi
 
 # =============================================================================
-# Phase 9: Test systemd service file (syntax validation)
+# Phase 9: Test running setup-persistence.sh again (second boot scenario)
 # =============================================================================
-step "Phase 9 – Validating systemd service syntax"
+step "Phase 9 – Testing second boot detection (setup-persistence.sh should detect existing partition)"
+
+# Unmount overlays but leave persistence partition mounted
+umount /home 2>/dev/null || true
+for dir in $(echo $OVERLAY_DIRS | tr ' ' '\n' | tac | tr '\n' ' '); do
+    umount "/$dir" 2>/dev/null || true
+done
+
+# Clear log for clean verification
+: > "$LOG_FILE"
+
+# Run setup-persistence.sh again - it should detect the existing partition
+# and not try to create a new one
+info "Running setup-persistence.sh again (should detect existing partition)"
+if "${REPO_DIR}/airootfs/usr/local/bin/setup-persistence.sh" 2>&1 | tee -a "$LOG_FILE"; then
+    ok "setup-persistence.sh ran successfully on second boot"
+else
+    fail "setup-persistence.sh failed on second boot (exit code: $?)"
+fi
+
+# Verify it found the existing partition and didn't try to create a new one
+if grep -q "Found existing partition" "$LOG_FILE" || \
+   grep -q "Found via direct scan" "$LOG_FILE" || \
+   grep -q "Found via global search" "$LOG_FILE"; then
+    ok "Existing persistence partition was detected"
+else
+    warn "Could not confirm partition detection (check if 'already has overlay' message appears)"
+fi
+
+# Verify it did NOT try to create a partition
+if grep -q "Creating persistence partition" "$LOG_FILE"; then
+    fail "setup-persistence.sh tried to create a new partition when one already existed!"
+elif grep -q "sfdisk failed\|parted mkpart failed" "$LOG_FILE"; then
+    fail "setup-persistence.sh failed to create partition (should have detected existing one)"
+else
+    ok "No duplicate partition creation attempted"
+fi
+
+# Verify overlays are mounted after second run
+for dir in $OVERLAY_DIRS; do
+    if findmnt -n -t overlay "/$dir" >/dev/null 2>&1; then
+        ok "After second setup: overlay /$dir mounted"
+    else
+        fail "After second setup: overlay /$dir NOT mounted"
+    fi
+done
+
+if mountpoint -q /home 2>/dev/null; then
+    ok "After second setup: /home bind mount active"
+else
+    fail "After second setup: /home NOT mounted"
+fi
+
+# =============================================================================
+# Phase 10: Test systemd service file (syntax validation)
+# =============================================================================
+step "Phase 10 – Validating systemd service syntax"
 
 SERVICE_FILE="${REPO_DIR}/airootfs/etc/systemd/system/mados-persistence.service"
 
@@ -387,9 +445,9 @@ grep -q "WantedBy=multi-user.target" "$SERVICE_FILE" \
     || fail "Missing WantedBy=multi-user.target"
 
 # =============================================================================
-# Phase 10: Validate script syntax
+# Phase 11: Validate script syntax
 # =============================================================================
-step "Phase 10 – Validating script syntax"
+step "Phase 11 – Validating script syntax"
 
 for script in setup-persistence.sh mados-persistence; do
     SCRIPT_PATH="${REPO_DIR}/airootfs/usr/local/bin/$script"
