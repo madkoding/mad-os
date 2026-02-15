@@ -369,10 +369,16 @@ sudo shutdown -h now
 
 madOS automatically applies performance optimizations to reduce read lags on USB storage:
 
+**Mount Options:**
 - **noatime**: Disables access time updates on file reads (eliminates write operations during reads)
 - **commit=60**: Increases journal commit interval from 5s to 60s (reduces metadata sync frequency)
 - **data=writeback**: Allows data writes without ordering relative to metadata (improves throughput)
 - **barrier=0**: Disables write barriers (reduces latency on USB devices)
+
+**Filesystem Creation Options:**
+- **lazy_itable_init=0**: Completes inode table initialization during format (avoids background delays)
+- **lazy_journal_init=0**: Completes journal initialization during format (consistent performance)
+- **-m 1**: Only 1% reserved blocks instead of 5% (more usable space on USB)
 
 These options prioritize performance over data safety, which is acceptable for a live system where:
 - The system is temporary by nature

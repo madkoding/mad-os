@@ -537,12 +537,18 @@ create_persist_partition() {
 
     log "Formatting ${persist_dev} as ext4 with label '$PERSIST_LABEL'"
     local mkfs_output
-    mkfs_output=$(mkfs.ext4 -F -L "$PERSIST_LABEL" "$persist_dev" 2>&1) || {
+    # USB-optimized ext4 parameters:
+    # -F: Force creation (required for scripted usage)
+    # -L: Set volume label for easy identification
+    # -E lazy_itable_init=0,lazy_journal_init=0: Complete initialization now (avoid delays later)
+    # -m 1: Reduce reserved blocks from 5% to 1% (more usable space)
+    # Keep journaling enabled for compatibility with mount options (commit=, data=writeback)
+    mkfs_output=$(mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$persist_dev" 2>&1) || {
         log "ERROR: mkfs.ext4 failed with exit code $?"
         log "mkfs.ext4 output: $mkfs_output"
         return 1
     }
-    log "Debug: mkfs.ext4 succeeded"
+    log "Debug: mkfs.ext4 succeeded with USB-optimized settings"
     
     # Wait for label to propagate
     sleep 2
