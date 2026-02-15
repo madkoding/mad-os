@@ -49,6 +49,7 @@ cleanup() {
         umount "/$dir" 2>/dev/null || true
     done
     umount "$PERSIST_MOUNT" 2>/dev/null || true
+    umount /run/archiso/bootmnt 2>/dev/null || true
 
     [ -n "${LOOP_DEV:-}" ] && losetup -d "$LOOP_DEV" 2>/dev/null || true
     rm -f "$DISK_IMAGE"
@@ -109,6 +110,10 @@ for i in 1 2; do
     fi
 done
 
+# Format partition 1 as ext4 with ARCHISO label (simulates ISO partition)
+# This allows setup-persistence.sh to find the boot device via lsblk
+mkfs.ext4 -F -L "ARCHISO" "${LOOP_DEV}p1" >/dev/null 2>&1
+
 # Format partition 2 as FAT32 (EFI)
 mkfs.fat -F32 "${LOOP_DEV}p2" >/dev/null 2>&1
 
@@ -129,9 +134,10 @@ step "Phase 3 – Simulating archiso live environment"
 
 mkdir -p /run/archiso/bootmnt
 
-# We can't do a real iso9660 mount in a container, so we create
-# a stub file that setup-persistence.sh can use to detect the device.
-# The script also uses lsblk labels to find the ISO device.
+# Partition 1 now has ARCHISO label, which allows setup-persistence.sh's
+# find_iso_device() to discover the loop device via lsblk.
+# Optionally mount it to more closely simulate real environment.
+mount "${LOOP_DEV}p1" /run/archiso/bootmnt 2>/dev/null || true
 
 # Copy scripts into place
 cp "${REPO_DIR}/airootfs/usr/local/bin/setup-persistence.sh" /usr/local/bin/setup-persistence.sh
