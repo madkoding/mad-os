@@ -361,6 +361,36 @@ class TestSetupPersistenceScript(unittest.TestCase):
             "Embedded service unit must block before getty@tty1.service",
         )
 
+    def test_init_script_restarts_iwd_service(self):
+        """Embedded init script must restart iwd.service after mounting overlays.
+
+        When the /etc overlay is mounted, network services like iwd that were
+        already running need to be restarted to pick up any persistent configuration
+        changes.
+        """
+        init_content = self._get_init_script_content()
+        self.assertIn(
+            'systemctl restart iwd.service',
+            init_content,
+            "Init script must restart iwd.service after mounting /etc overlay",
+        )
+        self.assertIn(
+            'systemctl is-active --quiet iwd.service',
+            init_content,
+            "Init script must check if iwd is active before restarting",
+        )
+
+    def test_iwd_restart_has_error_handling(self):
+        """iwd restart must have proper error handling and logging."""
+        init_content = self._get_init_script_content()
+        # Check that restart failure is logged but doesn't fail the script.
+        # Matches shell pattern: systemctl restart iwd.service || log WARNING
+        self.assertRegex(
+            init_content,
+            r'systemctl restart iwd\.service.*\|\|.*log.*WARNING',
+            "iwd restart must log warning on failure without stopping script",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Partition protection safety checks
@@ -807,6 +837,56 @@ class TestSystemdServiceFiles(unittest.TestCase):
                     content = f.read()
                 self.assertRegex(content, r'Description=.+',
                                  f"{os.path.basename(svc)} missing Description")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# iwd service drop-in configuration
+# ═══════════════════════════════════════════════════════════════════════════
+class TestIwdServiceDropIn(unittest.TestCase):
+    """Validate iwd.service drop-in configuration for persistence."""
+
+    def setUp(self):
+        self.dropin_dir = os.path.join(ETC_DIR, 'systemd', 'system', 'iwd.service.d')
+        self.dropin_file = os.path.join(self.dropin_dir, '99-after-persistence.conf')
+        if os.path.exists(self.dropin_file):
+            with open(self.dropin_file) as f:
+                self.content = f.read()
+        else:
+            self.content = ''
+
+    def test_dropin_directory_exists(self):
+        """iwd.service.d directory must exist for drop-in configurations."""
+        self.assertTrue(
+            os.path.isdir(self.dropin_dir),
+            "iwd.service.d directory must exist"
+        )
+
+    def test_dropin_file_exists(self):
+        """Drop-in configuration file must exist."""
+        self.assertTrue(
+            os.path.exists(self.dropin_file),
+            "99-after-persistence.conf must exist"
+        )
+
+    def test_dropin_has_unit_section(self):
+        """Drop-in must have [Unit] section."""
+        self.assertIn('[Unit]', self.content)
+
+    def test_dropin_waits_for_persistence(self):
+        """Drop-in must ensure iwd starts after persistence service."""
+        self.assertIn(
+            'After=mados-persistence.service',
+            self.content,
+            "iwd must start after persistence overlays are mounted"
+        )
+
+    def test_dropin_only_applies_in_live_environment(self):
+        """Drop-in must only apply in live archiso environment."""
+        self.assertIn(
+            'ConditionPathExists=/run/archiso',
+            self.content,
+            "Drop-in should only apply in live environment"
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
