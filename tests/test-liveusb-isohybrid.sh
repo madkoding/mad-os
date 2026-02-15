@@ -81,14 +81,31 @@ truncate -s 4G "$DISK_IMAGE"
 LOOP_DEV=$(losetup -f --show "$DISK_IMAGE")
 info "Loopback device: $LOOP_DEV"
 
-# Create partition table with ONLY partition 2
+# Create isohybrid-like layout:
+# 1. Create both partitions 1 and 2 in the table
+# 2. Remove partition 1 from the table (but data remains on disk)
+# 3. Manually recreate device node for partition 1
+# 4. Result: device nodes p1 and p2 exist, but table only shows partition 2
+
 parted -s "$LOOP_DEV" mklabel msdos
 info "Created MBR partition table"
 
-# Partition 2: EFI at 2048-2248 MB (leaving 0-2048 MB for "hidden" partition 1)
+# Create partition 1 (will simulate ISO data at 0-2048 MB)
+parted -s "$LOOP_DEV" mkpart primary 1MiB 2048MiB
+info "Created partition 1 (ISO area) at 1-2048 MB"
+
+# Create partition 2 (EFI at 2048-2248 MB)
 parted -s "$LOOP_DEV" mkpart primary fat32 2048MiB 2248MiB
 parted -s "$LOOP_DEV" set 2 esp on
 info "Created partition 2 (EFI) at 2048-2248 MB"
+
+# Display what we have before removal
+info "Partition table before removal:"
+parted -s "$LOOP_DEV" unit MB print 2>/dev/null | grep -E "(Number|^ [0-9])" || true
+
+# Remove partition 1 from the table (simulating isohybrid where ISO isn't in table)
+parted -s "$LOOP_DEV" rm 1
+info "Removed partition 1 from table (partition 2 remains)"
 
 # Display what parted sees
 info "Partition table (parted view):"
