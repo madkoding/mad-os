@@ -2,7 +2,8 @@ name: "CI/CD Pipeline"
 
 on:
   push:
-    branches: ["main", "develop"]
+    branches: ["main"]
+    # branches: ["main", "develop"]  # Uncomment to enable develop branch builds
     tags:
       - 'v*'
     paths:
@@ -16,7 +17,6 @@ on:
       - 'tests/**'
       - '.github/workflows/ci-cd.yml'
   pull_request:
-    branches: ["main", "develop"]
     paths:
       - 'airootfs/**'
       - 'packages.x86_64'
@@ -283,14 +283,13 @@ jobs:
           echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Upload ISO artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: mados-iso
           path: |
             out/*.iso
             out/SHA256SUMS
           retention-days: 7
-          compression-level: 0  # ISO ya está comprimido
 
   # ================================================================
   # Stage 6: Release (después del build exitoso)
