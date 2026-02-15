@@ -537,12 +537,18 @@ create_persist_partition() {
 
     log "Formatting ${persist_dev} as ext4 with label '$PERSIST_LABEL'"
     local mkfs_output
-    mkfs_output=$(mkfs.ext4 -F -L "$PERSIST_LABEL" "$persist_dev" 2>&1) || {
+    # USB-optimized ext4 parameters:
+    # -F: Force creation (required for scripted usage)
+    # -L: Set volume label for easy identification
+    # -E lazy_itable_init=0,lazy_journal_init=0: Complete initialization now (avoid delays later)
+    # -m 1: Reduce reserved blocks from 5% to 1% (more usable space)
+    # Keep journaling enabled for compatibility with mount options (commit=, data=writeback)
+    mkfs_output=$(mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$persist_dev" 2>&1) || {
         log "ERROR: mkfs.ext4 failed with exit code $?"
         log "mkfs.ext4 output: $mkfs_output"
         return 1
     }
-    log "Debug: mkfs.ext4 succeeded"
+    log "Debug: mkfs.ext4 succeeded with USB-optimized settings"
     
     # Wait for label to propagate
     sleep 2
@@ -639,8 +645,13 @@ fi
 # Mount persistence partition if not already mounted
 if ! mountpoint -q "$PERSIST_MOUNT" 2>/dev/null; then
     mkdir -p "$PERSIST_MOUNT"
-    mount "$persist_dev" "$PERSIST_MOUNT" || { log "Failed to mount $persist_dev"; exit 1; }
-    log "Mounted $persist_dev at $PERSIST_MOUNT"
+    # USB-optimized mount options for better read performance:
+    # - noatime: Don't update access times (reduces write operations on reads)
+    # - commit=60: Increase journal commit interval to 60s (default: 5s)
+    # - data=writeback: Don't order data writes relative to metadata (faster, less safe)
+    # - barrier=0: Disable write barriers (faster on USB, acceptable risk for live system)
+    mount -o noatime,commit=60,data=writeback,barrier=0 "$persist_dev" "$PERSIST_MOUNT" || { log "Failed to mount $persist_dev"; exit 1; }
+    log "Mounted $persist_dev at $PERSIST_MOUNT with USB-optimized options"
 fi
 
 # Re-read boot device after mount (it's stored inside the partition)
@@ -828,8 +839,13 @@ setup_persistence() {
         while [ $mount_attempts -lt $max_attempts ]; do
             mount_attempts=$((mount_attempts + 1))
             
-            if mount_output=$(mount "$persist_dev" "$PERSIST_MOUNT" 2>&1); then
-                ui_ok "Mounted at $PERSIST_MOUNT"
+            # USB-optimized mount options for better read performance:
+            # - noatime: Don't update access times (reduces write operations on reads)
+            # - commit=60: Increase journal commit interval to 60s (default: 5s)
+            # - data=writeback: Don't order data writes relative to metadata (faster, less safe)
+            # - barrier=0: Disable write barriers (faster on USB, acceptable risk for live system)
+            if mount_output=$(mount -o noatime,commit=60,data=writeback,barrier=0 "$persist_dev" "$PERSIST_MOUNT" 2>&1); then
+                ui_ok "Mounted at $PERSIST_MOUNT with USB-optimized options"
                 break
             else
                 if [ $mount_attempts -lt $max_attempts ]; then
