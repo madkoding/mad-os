@@ -151,12 +151,23 @@ find_iso_device() {
             if [[ "$raw_source" == /dev/loop* ]]; then
                 local backing
                 backing=$(losetup -nO BACK-FILE "$raw_source" 2>/dev/null | head -1)
-                if [ -n "$backing" ]; then
-                    # Find which block device hosts the backing file
-                    local back_dev
-                    back_dev=$(df --output=source "$backing" 2>/dev/null | tail -1)
-                    [ -n "$back_dev" ] && [ -b "$back_dev" ] && raw_source="$back_dev"
+                if [ -z "$backing" ]; then
+                    log "ERROR: Cannot determine backing file for $raw_source"
+                    return 1
                 fi
+                # Validate backing file exists before using df
+                if [ ! -f "$backing" ]; then
+                    log "ERROR: Backing file does not exist: $backing"
+                    return 1
+                fi
+                # Find which block device hosts the backing file
+                local back_dev
+                back_dev=$(df --output=source "$backing" 2>/dev/null | tail -1)
+                if [ -z "$back_dev" ] || [ "$back_dev" = "Filesystem" ] || [ ! -b "$back_dev" ]; then
+                    log "ERROR: Cannot determine backing device for $backing"
+                    return 1
+                fi
+                raw_source="$back_dev"
             fi
             iso_device=$(strip_partition "$raw_source")
         fi
@@ -217,10 +228,31 @@ find_persist_partition() {
 
 get_free_space() {
     local device=$1
-    local free
-    free=$(parted -s "$device" unit MB print free 2>/dev/null \
-           | grep "Free Space" | tail -1 | awk '{print $3}' | sed 's/MB//')
-    echo "${free%.*:-0}"
+    local free="0"
+
+    if [ -z "$device" ] || [ ! -b "$device" ]; then
+        log "ERROR: Invalid device: '$device'"
+        echo "0"
+        return 1
+    fi
+
+    local parted_output
+    parted_output=$(parted -s "$device" unit MB print free 2>/dev/null) || {
+        log "ERROR: parted failed on $device"
+        echo "0"
+        return 1
+    }
+
+    free=$(echo "$parted_output" | grep "Free Space" | tail -1 | awk '{print $3}' | sed 's/MB//')
+
+    if [ -z "$free" ] || ! [[ "$free" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+        log "WARNING: No free space detected or invalid value: '$free'"
+        echo "0"
+        return 1
+    fi
+
+    # Remove decimal part if present
+    echo "${free%.*}"
 }
 
 # ── Partition creation ───────────────────────────────────────────────────────
@@ -233,10 +265,23 @@ create_persist_partition() {
     # This prevents accidentally writing to a different disk.
     local expected_iso_device
     expected_iso_device=$(find_iso_device)
-    if [ -n "$expected_iso_device" ] && [ "$device" != "$expected_iso_device" ]; then
+    if [ -z "$expected_iso_device" ]; then
+        log "ERROR: Cannot determine ISO device for safety check"
+        return 1
+    fi
+    if [ "$device" != "$expected_iso_device" ]; then
         log "SAFETY: Refusing to create partition on $device (ISO device is $expected_iso_device)"
         return 1
     fi
+
+    # Validate partition table type
+    case "$table_type" in
+        msdos|gpt|unknown) ;;
+        *)
+            log "ERROR: Unsupported partition table type: '$table_type'"
+            return 1
+            ;;
+    esac
 
     # Safety check 2: detect partition table type and enforce limits.
     # MBR (msdos) supports at most 4 primary partitions.
@@ -251,7 +296,10 @@ create_persist_partition() {
     local last_part_num
     last_part_num=$(parted -s "$device" print 2>/dev/null \
                     | grep "^ [0-9]" | awk '{print $1}' | sort -n | tail -1)
-    [ -z "$last_part_num" ] && { log "Cannot determine last partition"; return 1; }
+    if [ -z "$last_part_num" ]; then
+        log "No existing partitions found, starting with partition 1"
+        last_part_num=0
+    fi
 
     # CRITICAL FIX: Check for existing device partition nodes that may not be
     # in the partition table (e.g., isohybrid ISO with partition 1 outside the table).
@@ -259,22 +307,33 @@ create_persist_partition() {
     # overwrite existing data!
     log "Debug: Checking for existing device partition nodes..."
     local highest_dev_part=0
-    for part_node in "${device}${part_suffix}"[0-9]* "${device}"[0-9]*; do
-        if [ -b "$part_node" ]; then
-            local part_num
-            if [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* || "$device" == *"loop"* ]]; then
-                # Extract number after 'p' (e.g., nvme0n1p3 -> 3, loop0p1 -> 1)
-                part_num=$(echo "$part_node" | sed 's/.*p\([0-9]*\)$/\1/')
-            else
-                # Extract trailing number (e.g., sda3 -> 3)
-                part_num=$(echo "$part_node" | sed 's/.*[^0-9]\([0-9]*\)$/\1/')
+
+    # Use nullglob to prevent processing literal filenames when no matches exist
+    shopt -s nullglob
+    local part_nodes=("${device}${part_suffix}"[0-9]* "${device}"[0-9]*)
+    shopt -u nullglob
+
+    if [ ${#part_nodes[@]} -eq 0 ]; then
+        log "Debug: No existing partition device nodes found"
+        highest_dev_part=0
+    else
+        for part_node in "${part_nodes[@]}"; do
+            if [ -b "$part_node" ]; then
+                local part_num
+                if [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* || "$device" == *"loop"* ]]; then
+                    # Extract number after 'p' (e.g., nvme0n1p3 -> 3, loop0p1 -> 1)
+                    part_num=$(echo "$part_node" | sed 's/.*p\([0-9]*\)$/\1/')
+                else
+                    # Extract trailing number (e.g., sda3 -> 3)
+                    part_num=$(echo "$part_node" | sed 's/.*[^0-9]\([0-9]*\)$/\1/')
+                fi
+                if [ -n "$part_num" ] && [ "$part_num" -gt "$highest_dev_part" ]; then
+                    highest_dev_part=$part_num
+                    log "Debug: Found existing device node: $part_node (partition $part_num)"
+                fi
             fi
-            if [ -n "$part_num" ] && [ "$part_num" -gt "$highest_dev_part" ]; then
-                highest_dev_part=$part_num
-                log "Debug: Found existing device node: $part_node (partition $part_num)"
-            fi
-        fi
-    done
+        done
+    fi
     log "Debug: Highest partition number in partition table: $last_part_num"
     log "Debug: Highest partition device node: $highest_dev_part"
     
@@ -460,9 +519,10 @@ create_persist_partition() {
         
         # Check if this partition starts at or very near last_part_end
         # (allow 1MB tolerance for alignment)
-        if [ -n "$pstart" ]; then
+        if [ -n "$pstart" ] && [[ "$pstart" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+            # Calculate absolute difference using bash arithmetic
             local start_diff
-            start_diff=$(awk "BEGIN {printf \"%.0f\", sqrt(($pstart - $last_part_end) * ($pstart - $last_part_end))}")
+            start_diff=$(awk "BEGIN {if ($pstart > $last_part_end) print $pstart - $last_part_end; else print $last_part_end - $pstart}")
             log "Debug: Partition $pnum start difference from expected: ${start_diff}MB"
             
             if [ "$start_diff" -le 2 ]; then
@@ -544,8 +604,11 @@ create_persist_partition() {
     # -m 1: Reduce reserved blocks from 5% to 1% (more usable space)
     # Keep journaling enabled for compatibility with mount options (commit=, data=writeback)
     mkfs_output=$(mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$persist_dev" 2>&1) || {
-        log "ERROR: mkfs.ext4 failed with exit code $?"
+        local exit_code=$?
+        log "ERROR: mkfs.ext4 failed with exit code $exit_code"
         log "mkfs.ext4 output: $mkfs_output"
+        log "Attempting to clean up failed partition..."
+        parted -s "$device" rm "$found_new_part" 2>/dev/null || true
         return 1
     }
     log "Debug: mkfs.ext4 succeeded with USB-optimized settings"
@@ -599,31 +662,35 @@ find_persist_dev() {
     local parent_device="${1:-}"
     local dev=""
 
-    if [ -n "$parent_device" ] && [ -b "$parent_device" ]; then
-        # Only search partitions belonging to the parent device
-        dev=$(lsblk -nlo NAME,LABEL "$parent_device" 2>/dev/null \
-            | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
-        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
-            local part
-            for part in $(lsblk -nlo NAME "$parent_device" 2>/dev/null \
-                          | tail -n +2 | awk '{print "/dev/" $1}'); do
-                if [ -b "$part" ]; then
-                    local label
-                    label=$(blkid -s LABEL -o value "$part" 2>/dev/null)
-                    if [ "$label" = "$PERSIST_LABEL" ]; then
-                        dev="$part"
-                        break
-                    fi
+    # SAFETY: Require parent device to prevent mounting wrong partition
+    if [ -z "$parent_device" ]; then
+        log "ERROR: No parent device specified, cannot safely locate persistence partition"
+        echo ""
+        return 1
+    fi
+
+    if [ ! -b "$parent_device" ]; then
+        log "ERROR: Parent device does not exist: $parent_device"
+        echo ""
+        return 1
+    fi
+
+    # Only search partitions belonging to the parent device
+    dev=$(lsblk -nlo NAME,LABEL "$parent_device" 2>/dev/null \
+        | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
+    if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+        local part
+        for part in $(lsblk -nlo NAME "$parent_device" 2>/dev/null \
+                      | tail -n +2 | awk '{print "/dev/" $1}'); do
+            if [ -b "$part" ]; then
+                local label
+                label=$(blkid -s LABEL -o value "$part" 2>/dev/null)
+                if [ "$label" = "$PERSIST_LABEL" ]; then
+                    dev="$part"
+                    break
                 fi
-            done
-        fi
-    else
-        # No parent device specified – search all devices (fallback)
-        dev=$(lsblk -nlo NAME,LABEL 2>/dev/null \
-            | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
-        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
-            dev=$(blkid -L "$PERSIST_LABEL" 2>/dev/null)
-        fi
+            fi
+        done
     fi
     echo "$dev"
 }
@@ -644,6 +711,14 @@ fi
 
 # Mount persistence partition if not already mounted
 if ! mountpoint -q "$PERSIST_MOUNT" 2>/dev/null; then
+    # SAFETY: Verify filesystem type before mounting
+    local fs_type
+    fs_type=$(blkid -s TYPE -o value "$persist_dev" 2>/dev/null)
+    if [ "$fs_type" != "ext4" ]; then
+        log "ERROR: $persist_dev has filesystem type '$fs_type', expected ext4"
+        exit 1
+    fi
+
     mkdir -p "$PERSIST_MOUNT"
     # USB-optimized mount options for better read performance:
     # - noatime: Don't update access times (reduces write operations on reads)
@@ -669,6 +744,11 @@ fi
 
 # ── overlayfs for /etc /usr /var /opt ────────────────────────────────────
 for dir in $OVERLAY_DIRS; do
+    if [ ! -d "/$dir" ]; then
+        log "ERROR: Lower directory /$dir does not exist, skipping overlay"
+        continue
+    fi
+
     upper="$PERSIST_MOUNT/overlays/$dir/upper"
     work="$PERSIST_MOUNT/overlays/$dir/work"
     mkdir -p "$upper" "$work"
@@ -700,9 +780,12 @@ mkdir -p "$home_persist"
 # so that user configurations (from /etc/skel) are preserved across reboots.
 if [ -z "$(ls -A "$home_persist" 2>/dev/null)" ] && \
    [ -d /home ] && [ "$(ls -A /home 2>/dev/null)" ]; then
-    cp -a /home/. "$home_persist/" 2>/dev/null && \
-        log "Seeded persistent /home with current contents" || \
-        log "WARNING: Failed to seed persistent /home"
+    if cp -a /home/. "$home_persist/" 2>/dev/null; then
+        log "Seeded persistent /home with current contents"
+    else
+        log "ERROR: Failed to seed persistent /home - initial user config may be lost"
+        exit 1
+    fi
 fi
 
 if ! mountpoint -q /home 2>/dev/null || \
@@ -720,7 +803,8 @@ chmod 600 /run/mados/persist_device
 # ── Restart network services to pick up persistent /etc configs ──────────
 # iwd (wireless daemon) needs to be restarted if it was already running
 # before the /etc overlay was mounted, so it picks up any persistent config.
-if systemctl is-active --quiet iwd.service 2>/dev/null; then
+if command -v systemctl >/dev/null 2>&1 && \
+   systemctl is-active --quiet iwd.service 2>/dev/null; then
     systemctl restart iwd.service 2>/dev/null || log "WARNING: Failed to restart iwd.service"
     log "Restarted iwd.service to pick up persistent configuration"
 fi
