@@ -784,7 +784,13 @@ setup_persistence() {
         return 0
     fi
 
-    if is_usb_device "$iso_device"; then
+    # Check if device is a loopback device (used in test environments)
+    # Loopback devices should be treated like removable devices for testing
+    local is_loop=false
+    if [[ "$iso_device" == /dev/loop* ]]; then
+        is_loop=true
+        ui_ok "Loopback device (test mode): $iso_device"
+    elif is_usb_device "$iso_device"; then
         ui_ok "USB device: $iso_device"
     else
         local removable_flag
