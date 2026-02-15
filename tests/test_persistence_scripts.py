@@ -121,6 +121,20 @@ class TestSetupPersistenceScript(unittest.TestCase):
     def test_has_log_function(self):
         self.assertRegex(self.content, r'log\(\)\s*\{')
 
+    def test_has_ui_helper_functions(self):
+        """Script must have UI helper functions for professional console output."""
+        ui_funcs = (
+            'ui_header', 'ui_step', 'ui_ok', 'ui_warn',
+            'ui_fail', 'ui_info', 'ui_done', 'ui_skip',
+        )
+        for func in ui_funcs:
+            with self.subTest(func=func):
+                self.assertRegex(
+                    self.content,
+                    rf'{func}\(\)\s*\{{',
+                    f"Must have {func}() for styled console output",
+                )
+
     def test_has_is_usb_device_function(self):
         self.assertRegex(self.content, r'is_usb_device\(\)\s*\{')
 
@@ -565,13 +579,17 @@ class TestPersistenceServiceConfig(unittest.TestCase):
         self.assertIn('/run/archiso', script,
                       "Script guard must reference /run/archiso")
 
-    def test_service_outputs_to_journal_only(self):
-        """Service should output to journal only, not console (Plymouth compatibility)."""
-        self.assertIn('StandardOutput=journal', self.content,
-                      "Service must use StandardOutput=journal")
-        self.assertNotIn('journal+console', self.content,
-                         "Service must not output to console to avoid "
-                         "showing text over Plymouth boot splash")
+    def test_service_quits_plymouth(self):
+        """Service must quit Plymouth before running so console output is visible."""
+        self.assertIn('plymouth quit', self.content,
+                      "Service must run 'plymouth quit' via ExecStartPre "
+                      "to exit boot splash before showing progress")
+
+    def test_service_outputs_to_console(self):
+        """Service should output to console+journal for visible boot progress."""
+        self.assertIn('journal+console', self.content,
+                      "Service must use StandardOutput=journal+console "
+                      "to show progress on screen after Plymouth exits")
 
     def test_service_wanted_by_multi_user(self):
         """Service must be wanted by multi-user.target for reliable device detection."""

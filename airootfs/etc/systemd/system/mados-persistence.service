@@ -7,10 +7,11 @@ ConditionPathExists=/run/archiso
 
 [Service]
 Type=oneshot
+ExecStartPre=-/usr/bin/plymouth quit
 ExecStart=/usr/local/bin/setup-persistence.sh
 RemainAfterExit=yes
-StandardOutput=journal
-StandardError=journal
+StandardOutput=journal+console
+StandardError=journal+console
 TimeoutStartSec=180
 
 [Install]
