@@ -448,10 +448,31 @@ create_persist_partition() {
     done
     
     if [ ! -b "$persist_dev" ]; then
-        log "ERROR: Device node $persist_dev not found after 10 seconds"
-        log "Debug: Available device nodes:"
-        ls -la "${device}"* 2>&1 | while read -r line; do log "  $line"; done
-        return 1
+        # In container environments, device nodes might not be auto-created by udev
+        # Try to create it manually using sysfs information
+        local base_dev=$(basename "$device")
+        local part_name="${base_dev}${part_suffix}${found_new_part}"
+        local sysfs_dev="/sys/block/${base_dev}/${part_name}/dev"
+        
+        if [ -f "$sysfs_dev" ]; then
+            log "Debug: Device node missing but sysfs entry exists at $sysfs_dev"
+            local major=$(cut -d: -f1 < "$sysfs_dev" | tr -d '[:space:]')
+            local minor=$(cut -d: -f2 < "$sysfs_dev" | tr -d '[:space:]')
+            log "Debug: Creating device node $persist_dev manually (major:minor = $major:$minor)"
+            mknod "$persist_dev" b "$major" "$minor" 2>/dev/null || {
+                log "ERROR: Failed to create device node $persist_dev"
+                log "Debug: Available device nodes:"
+                ls -la "${device}"* 2>&1 | while read -r line; do log "  $line"; done
+                return 1
+            }
+            log "Debug: Device node $persist_dev created successfully"
+        else
+            log "ERROR: Device node $persist_dev not found after 10 seconds and no sysfs entry"
+            log "Debug: Checked sysfs path: $sysfs_dev"
+            log "Debug: Available device nodes:"
+            ls -la "${device}"* 2>&1 | while read -r line; do log "  $line"; done
+            return 1
+        fi
     fi
     log "Debug: Device node $persist_dev exists"
 
