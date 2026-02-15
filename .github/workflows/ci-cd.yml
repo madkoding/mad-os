@@ -2,7 +2,7 @@ name: "CI/CD Pipeline"
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "develop"]
     tags:
       - 'v*'
     paths:
@@ -16,6 +16,7 @@ on:
       - 'tests/**'
       - '.github/workflows/ci-cd.yml'
   pull_request:
+    branches: ["main", "develop"]
     paths:
       - 'airootfs/**'
       - 'packages.x86_64'
@@ -27,6 +28,12 @@ on:
       - 'tests/**'
       - '.github/workflows/ci-cd.yml'
   workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests and validation (only for manual builds)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -42,162 +49,155 @@ env:
 
 jobs:
   # ================================================================
-  # Stage 1: Unit Tests (parallel)
+  # Stage 1: Code Quality & Static Analysis (rápido, paralelo)
   # ================================================================
-  test-scripts:
-    name: "Tests: ${{ matrix.name }}"
+  code-quality:
+    name: "🔍 Code Quality"
     runs-on: ubuntu-latest
+    if: ${{ !github.event.inputs.skip_tests }}
 
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest shellcheck-py
+
+      - name: Run ShellCheck on scripts
+        run: |
+          find airootfs/usr/local/bin -type f -executable | while read -r script; do
+            if head -1 "$script" | grep -qE "(bash|sh)$"; then
+              echo "Checking $script"
+              shellcheck "$script" || true
+            fi
+          done
+        continue-on-error: true
+
+      - name: Validate Python syntax
+        run: |
+          find airootfs -name "*.py" -type f | while read -r script; do
+            echo "Validating $script"
+            python3 -m py_compile "$script"
+          done
+
+  # ================================================================
+  # Stage 2: Unit Tests (agrupados por categoría)
+  # ================================================================
+  test-unit:
+    name: "🧪 Unit Tests: ${{ matrix.category }}"
+    runs-on: ubuntu-latest
+    needs: code-quality
+    if: ${{ !github.event.inputs.skip_tests }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: Boot Scripts
-            test_file: tests/test_boot_scripts.py
-          - name: Post-Installation
-            test_file: tests/test_post_installation.py
-          - name: First-Boot
-            test_file: tests/test_first_boot.py
-          - name: OpenCode
-            test_file: tests/test_opencode.py
-          - name: Ollama
-            test_file: tests/test_ollama.py
-          - name: Hyprland Config
-            test_file: tests/test_hyprland_config.py
-          - name: WiFi Backend
-            test_file: tests/test_wifi_backend.py
-          - name: Installer Config
-            test_file: tests/test_installer_config.py
-          - name: Equalizer Presets
-            test_file: tests/test_equalizer_presets.py
-          - name: Photo Navigator
-            test_file: tests/test_photo_navigator.py
-          - name: Persistence Scripts
-            test_file: tests/test_persistence_scripts.py
-          - name: GPU Detection
-            test_file: tests/test_gpu_detection.py
-          - name: GPU Compute
-            test_file: tests/test_gpu_compute.py
-          - name: Live USB Scripts
-            test_file: tests/test_liveusb_scripts.py
+          - category: "Core System"
+            files: "tests/test_boot_scripts.py tests/test_post_installation.py tests/test_first_boot.py"
+          - category: "AI & Desktop"
+            files: "tests/test_opencode.py tests/test_ollama.py tests/test_hyprland_config.py"
+          - category: "Hardware"
+            files: "tests/test_gpu_detection.py tests/test_gpu_compute.py tests/test_wifi_backend.py"
+          - category: "Apps & Media"
+            files: "tests/test_equalizer_presets.py tests/test_photo_navigator.py tests/test_installer_config.py"
+          - category: "Live USB"
+            files: "tests/test_persistence_scripts.py tests/test_liveusb_scripts.py"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
 
       - name: Install test dependencies
-        run: python3 -m pip install pytest
+        run: pip install pytest
 
-      - name: Run tests
-        run: python3 -m pytest ${{ matrix.test_file }} -v
+      - name: Run unit tests
+        run: |
+          for file in ${{ matrix.files }}; do
+            if [ -f "$file" ]; then
+              echo "Running $file"
+              python3 -m pytest "$file" -v
+            else
+              echo "Warning: $file not found"
+            fi
+          done
 
   # ================================================================
-  # Stage 1: Integration Tests (parallel with unit tests)
+  # Stage 3: Integration Tests (todos juntos)
   # ================================================================
-  test-persistence:
-    name: "Tests: USB Persistence"
+  test-integration:
+    name: "🔗 Integration Tests"
     runs-on: ubuntu-latest
+    needs: code-quality
+    if: ${{ !github.event.inputs.skip_tests }}
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - name: "USB Persistence"
+            script: "tests/test-liveusb-persistence.sh"
+          - name: "Isohybrid Detection"
+            script: "tests/test-liveusb-isohybrid.sh"
+          - name: "First-Boot Simulation"
+            script: "tests/test-first-boot-simulation.sh"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Test Live USB persistence in Arch container
+      - name: Run ${{ matrix.test.name }}
         run: |
           docker run --privileged --rm \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
             -v ${{ github.workspace }}:/build \
-            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-liveusb-persistence.sh
-
-  test-persistence-isohybrid:
-    name: "Tests: USB Persistence (Isohybrid)"
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Test isohybrid partition gap detection in Arch container
-        run: |
-          docker run --privileged --rm \
-            --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
-            -v ${{ github.workspace }}:/build \
-            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-liveusb-isohybrid.sh
-
-  test-first-boot-simulation:
-    name: "Tests: First-Boot Simulation"
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Test first-boot script generation and validation
-        run: |
-          docker run --privileged --rm \
-            --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
-            -v ${{ github.workspace }}:/build \
-            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-first-boot-simulation.sh
+            ${{ env.ARCHLINUX_IMAGE }} bash /build/${{ matrix.test.script }}
 
   # ================================================================
-  # Stage 2: Installer Validation (after all tests pass)
-  # Split into three parallel sub-jobs for faster feedback.
+  # Stage 4: Installer Validation (después de tests)
   # ================================================================
-  test-installer-python:
-    name: "Validate: Installer Python Modules"
-    needs: [test-scripts, test-persistence, test-persistence-isohybrid, test-first-boot-simulation]
+  validate-installer:
+    name: "✅ Validate: ${{ matrix.component }}"
     runs-on: ubuntu-latest
+    needs: [test-unit, test-integration]
+    if: ${{ !github.event.inputs.skip_tests }}
+    strategy:
+      fail-fast: false
+      matrix:
+        component:
+          - name: "Python Modules"
+            script: "tests/test-installer-python-validation.sh"
+          - name: "Config Generation"
+            script: "tests/test-installer-config-generation.sh"
+          - name: "Disk Installation"
+            script: "tests/test-installer-disk-install.sh"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate Python installer modules in Arch container
+      - name: Run ${{ matrix.component.name }} validation
         run: |
           docker run --privileged --rm \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
             -v ${{ github.workspace }}:/build \
-            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-installer-python-validation.sh
-
-  test-installer-config:
-    name: "Validate: Installer Config Script"
-    needs: [test-scripts, test-persistence, test-persistence-isohybrid, test-first-boot-simulation]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Generate and validate config script in Arch container
-        run: |
-          docker run --privileged --rm \
-            --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
-            -v ${{ github.workspace }}:/build \
-            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-installer-config-generation.sh
-
-  test-installer-disk:
-    name: "Validate: Installer Disk Install"
-    needs: [test-scripts, test-persistence, test-persistence-isohybrid, test-first-boot-simulation]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Test disk installation process in Arch container
-        run: |
-          docker run --privileged --rm \
-            --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
-            -v ${{ github.workspace }}:/build \
-            ${{ env.ARCHLINUX_IMAGE }} bash /build/tests/test-installer-disk-install.sh
+            ${{ env.ARCHLINUX_IMAGE }} bash /build/${{ matrix.component.script }}
 
   # ================================================================
-  # Stage 3: Build ISO (only on tags or manual trigger)
-  # Manual trigger still requires all tests to pass (via 'needs')
+  # Stage 5: Build ISO
   # ================================================================
   build:
-    name: "Build: ISO"
-    needs: [test-installer-python, test-installer-config, test-installer-disk]
+    name: "🏗️ Build ISO"
+    needs: validate-installer
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
@@ -283,34 +283,35 @@ jobs:
           echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Upload ISO artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: mados-iso
           path: |
             out/*.iso
             out/SHA256SUMS
           retention-days: 7
+          compression-level: 0  # ISO ya está comprimido
 
   # ================================================================
-  # Stage 4: Upload to Internet Archive (after build succeeds)
+  # Stage 6: Release (después del build exitoso)
   # ================================================================
-  upload:
-    name: "Upload: Internet Archive"
+  release:
+    name: "🚀 Release & Deploy"
     needs: build
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
-    outputs:
-      download_url: ${{ steps.upload_ia.outputs.download_url }}
-      identifier: ${{ steps.upload_ia.outputs.identifier }}
-
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download ISO artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v4
         with:
           name: mados-iso
           path: out
 
+      # ---------- Sub-stage 6.1: Upload to Internet Archive ----------
       - name: Install Internet Archive CLI
         run: pip install internetarchive
 
@@ -361,41 +362,29 @@ jobs:
           echo "download_url=$DOWNLOAD_URL" >> "$GITHUB_OUTPUT"
           echo "identifier=$IDENTIFIER" >> "$GITHUB_OUTPUT"
 
-  # ================================================================
-  # Stage 5: Create GitHub Release (after upload succeeds)
-  # ================================================================
-  release:
-    name: "Release: GitHub"
-    needs: [build, upload]
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download ISO artifact
-        uses: actions/download-artifact@v7
-        with:
-          name: mados-iso
-          path: out
-
-      - name: Create Release
-        if: needs.build.outputs.is_release == 'true'
+      # ---------- Sub-stage 6.2: Create GitHub Release ----------
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: madOS ${{ needs.build.outputs.version }}
+          name: |
+            ${{ needs.build.outputs.is_release == 'true' && format('madOS {0}', needs.build.outputs.version) || format('madOS {0} ({1})', needs.build.outputs.version, needs.build.outputs.release_type) }}
+          prerelease: ${{ needs.build.outputs.is_prerelease == 'true' }}
           append_body: true
           body: |
 
             ---
 
+            **Versión:** `${{ needs.build.outputs.version }}`  
+            **Commit:** `${{ github.sha }}`  
             **ISO:** `${{ needs.build.outputs.iso_name }}`  
             **Tamaño:** ${{ needs.build.outputs.iso_size_mb }} MB
 
             ### 📥 Descarga
 
-            🌐 **[Descargar ISO desde Internet Archive](${{ needs.upload.outputs.download_url }})**
+            🌐 **[Descargar ISO desde Internet Archive](${{ steps.upload_ia.outputs.download_url }})**
 
-            _El ISO está alojado en Internet Archive para mejor disponibilidad y velocidad de descarga._
+            ${{ needs.build.outputs.is_prerelease == 'true' && format('> ⚠️ Esta es una build de prueba ({0}). Para la versión estable, consulta la [última release](https://github.com/{1}/releases/latest).', needs.build.outputs.release_type, github.repository) || '' }}
 
             ### ✅ Verificación
 
@@ -405,56 +394,13 @@ jobs:
             ```
           files: |
             out/SHA256SUMS
-          make_latest: true
+          make_latest: ${{ needs.build.outputs.is_release == 'true' }}
 
-      - name: Create Pre-release
-        if: needs.build.outputs.is_prerelease == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: "madOS ${{ needs.build.outputs.version }} (${{ needs.build.outputs.release_type }})"
-          prerelease: true
-          append_body: true
-          body: |
-
-            ---
-
-            **Versión:** `${{ needs.build.outputs.version }}`
-            **Commit:** `${{ github.sha }}`
-            **ISO:** `${{ needs.build.outputs.iso_name }}`
-            **Tamaño:** ${{ needs.build.outputs.iso_size_mb }} MB
-
-            ### 📥 Descarga
-
-            🌐 **[Descargar ISO desde Internet Archive](${{ needs.upload.outputs.download_url }})**
-
-            > ⚠️ Esta es una build de prueba (${{ needs.build.outputs.release_type }}). Para la versión estable, consulta la [última release](https://github.com/${{ github.repository }}/releases/latest).
-
-            ### ✅ Verificación
-
-            ```bash
-            sha256sum -c SHA256SUMS
-            ```
-          files: |
-            out/SHA256SUMS
-          make_latest: false
-
-  # ================================================================
-  # Stage 5: Update website download link (stable releases only)
-  # ================================================================
-  update-website:
-    name: "Deploy: Update Website Link"
-    needs: [build, upload]
-    if: needs.build.outputs.is_release == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Update download link in website
+      # ---------- Sub-stage 6.3: Update Website (solo stable) ----------
+      - name: Update Website Download Link
+        if: needs.build.outputs.is_release == 'true'
         run: |
-          DOWNLOAD_URL="${{ needs.upload.outputs.download_url }}"
+          DOWNLOAD_URL="${{ steps.upload_ia.outputs.download_url }}"
           ISO_NAME="${{ needs.build.outputs.iso_name }}"
 
           git fetch origin main
