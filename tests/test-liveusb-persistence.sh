@@ -379,10 +379,13 @@ done
 # Run setup-persistence.sh again - it should detect the existing partition
 # and not try to create a new one
 info "Running setup-persistence.sh again (should detect existing partition)"
-if "${REPO_DIR}/airootfs/usr/local/bin/setup-persistence.sh" 2>&1 | tee -a "$LOG_FILE"; then
+SETUP_EXIT_CODE=0
+"${REPO_DIR}/airootfs/usr/local/bin/setup-persistence.sh" 2>&1 | tee -a "$LOG_FILE" || SETUP_EXIT_CODE=$?
+
+if [ "$SETUP_EXIT_CODE" -eq 0 ]; then
     ok "setup-persistence.sh ran successfully on second boot"
 else
-    fail "setup-persistence.sh failed on second boot (exit code: $?)"
+    fail "setup-persistence.sh failed on second boot (exit code: $SETUP_EXIT_CODE)"
 fi
 
 # Verify it found the existing partition and didn't try to create a new one
@@ -390,8 +393,10 @@ if grep -q "Found existing partition" "$LOG_FILE" || \
    grep -q "Found via direct scan" "$LOG_FILE" || \
    grep -q "Found via global search" "$LOG_FILE"; then
     ok "Existing persistence partition was detected"
+elif grep -q "already has overlay" "$LOG_FILE"; then
+    ok "Existing persistence partition was detected (via overlay check)"
 else
-    warn "Could not confirm partition detection (check if 'already has overlay' message appears)"
+    fail "Could not confirm existing partition was detected"
 fi
 
 # Verify it did NOT try to create a partition
