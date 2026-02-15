@@ -252,7 +252,7 @@ fi
 step "Phase 5 – Verifying gap detection and safe partitioning"
 
 # Check log for gap detection messages
-if grep -q "Found device partition nodes" "$LOG_FILE"; then
+if grep -q "Found existing device node" "$LOG_FILE"; then
     ok "Log shows device node enumeration"
 else
     fail "Log missing device node enumeration"
