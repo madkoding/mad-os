@@ -232,6 +232,11 @@ grep -q "ConditionPathExists=/run/archiso" "$PERSIST_MOUNT/mados-persistence.ser
     && ok "Service has archiso condition" \
     || fail "Service missing archiso condition"
 
+# Store the boot device for the init script to find the persistence partition
+# This simulates what setup-persistence.sh does when it creates the partition
+echo "$LOOP_DEV" > "$PERSIST_MOUNT/.mados-boot-device"
+ok "Boot device marker stored: $LOOP_DEV"
+
 # Unmount before running init (init script will mount it itself)
 umount "$PERSIST_MOUNT"
 ok "Unmounted persistence (will be re-mounted by init script)"
