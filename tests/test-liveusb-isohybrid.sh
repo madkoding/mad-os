@@ -207,9 +207,12 @@ else
     # Check if it's a valid ext4 filesystem
     info "Checking filesystem type:"
     blkid "${LOOP_DEV}p1" 2>/dev/null || true
-    # Fallback: create marker file for tests that need direct access
-    echo "$LOOP_DEV" > /run/mados/iso_device
 fi
+
+# Always create marker file for tests
+# This is needed because the test script reads from this file
+info "Creating ISO device marker: $LOOP_DEV"
+echo "$LOOP_DEV" > /run/mados/iso_device
 
 ok "Archiso environment simulated"
 
@@ -237,8 +240,22 @@ fi
 head -n "$((GUARD_LINE - 1))" /usr/local/bin/setup-persistence.sh > "$SCRIPT_FUNCS"
 source "$SCRIPT_FUNCS"
 
-# Get the loop device from our marker
-LOOP_DEV=$(cat /run/mados/iso_device)
+# Get the loop device from mounted /run/archiso/bootmnt or fallback to marker file
+LOOP_DEV=""
+if mountpoint -q /run/archiso/bootmnt 2>/dev/null; then
+    # Get device from mount
+    LOOP_DEV=$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null | sed 's/p[0-9]*$//')
+fi
+
+# Fallback to marker file if not found
+if [ -z "$LOOP_DEV" ] && [ -f /run/mados/iso_device ]; then
+    LOOP_DEV=$(cat /run/mados/iso_device)
+fi
+
+if [ -z "$LOOP_DEV" ]; then
+    echo "ERROR: Could not determine loop device"
+    exit 1
+fi
 
 # OVERRIDE: Mock find_iso_device to return our test device
 # This is necessary because the container environment doesn't have
