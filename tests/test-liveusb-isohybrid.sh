@@ -138,10 +138,19 @@ if ! [ -b "$PART1_DEV" ]; then
     info "  Major: ${LOOP_MAJOR_DEC}, Minor: ${PART1_MINOR}"
     mknod "$PART1_DEV" b "$LOOP_MAJOR_DEC" "$PART1_MINOR"
     
+    # Wait for device node to be recognized
+    sleep 0.5
+    
     # Create a small filesystem on it to simulate ISO data
     # Use ARCHISO label so find_iso_device() can detect it via lsblk fallback
+    info "Creating filesystem on ${PART1_DEV}..."
     dd if=/dev/zero of="$PART1_DEV" bs=1M count=100 2>/dev/null || true
-    mkfs.ext4 -F -L "ARCHISO" "$PART1_DEV" >/dev/null 2>&1 || true
+    sync
+    mkfs.ext4 -F -L "ARCHISO" "$PART1_DEV" 2>&1 | head -5 || {
+        warn "mkfs.ext4 failed, trying to check device node status"
+        ls -la "$PART1_DEV" || true
+        file "$PART1_DEV" || true
+    }
 fi
 
 # Create device node for partition 2 (normal)
