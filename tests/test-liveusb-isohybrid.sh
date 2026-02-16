@@ -197,10 +197,13 @@ step "Phase 3 – Simulating archiso live environment"
 mkdir -p /run/archiso/bootmnt
 mkdir -p /run/mados
 
-# The script needs to detect the ISO device. We'll create a marker.
-# In real archiso, /run/archiso/bootmnt is mounted from the ISO partition.
-# We simulate this by creating a reference.
-echo "$LOOP_DEV" > /run/mados/iso_device
+# Mount partition 1 at /run/archiso/bootmnt so find_iso_device() can detect it
+# This simulates the real archiso environment where the ISO partition is mounted
+mount "${LOOP_DEV}p1" /run/archiso/bootmnt 2>/dev/null || {
+    warn "Could not mount partition 1 at /run/archiso/bootmnt"
+    # Fallback: create marker file for tests that need direct access
+    echo "$LOOP_DEV" > /run/mados/iso_device
+}
 
 ok "Archiso environment simulated"
 
