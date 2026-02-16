@@ -140,7 +140,58 @@ strip_partition() {
 find_iso_device() {
     local iso_device=""
 
-    if [ -d /run/archiso/bootmnt ]; then
+    # Method 1: Check /proc/cmdline for archiso boot parameters
+    # archiso uses parameters like archisobasedir, archisolabel, or img_dev
+    if [ -r /proc/cmdline ]; then
+        local cmdline
+        cmdline=$(cat /proc/cmdline)
+        log "Debug: Kernel cmdline: $cmdline"
+
+        # Look for img_dev parameter (device where ISO image is located)
+        if [[ "$cmdline" =~ img_dev=([^[:space:]]+) ]]; then
+            local img_dev="${BASH_REMATCH[1]}"
+            log "Debug: Found img_dev in cmdline: $img_dev"
+            # img_dev can be in format UUID=xxx or PARTUUID=xxx or /dev/xxx
+            if [[ "$img_dev" == UUID=* ]]; then
+                local uuid="${img_dev#UUID=}"
+                iso_device=$(lsblk -nlo NAME,UUID 2>/dev/null \
+                    | awk -v u="$uuid" '$2 == u {print "/dev/" $1}' | head -1)
+                if [ -n "$iso_device" ]; then
+                    iso_device=$(strip_partition "$iso_device")
+                    log "Found ISO device via UUID: $iso_device"
+                fi
+            elif [[ "$img_dev" == PARTUUID=* ]]; then
+                local partuuid="${img_dev#PARTUUID=}"
+                iso_device=$(lsblk -nlo NAME,PARTUUID 2>/dev/null \
+                    | awk -v p="$partuuid" '$2 == p {print "/dev/" $1}' | head -1)
+                if [ -n "$iso_device" ]; then
+                    iso_device=$(strip_partition "$iso_device")
+                    log "Found ISO device via PARTUUID: $iso_device"
+                fi
+            elif [[ "$img_dev" == /dev/* ]]; then
+                if [ -b "$img_dev" ]; then
+                    iso_device=$(strip_partition "$img_dev")
+                    log "Found ISO device via direct path: $iso_device"
+                fi
+            fi
+        fi
+
+        # Look for archisolabel parameter
+        if [ -z "$iso_device" ] && [[ "$cmdline" =~ archisolabel=([^[:space:]]+) ]]; then
+            local iso_label="${BASH_REMATCH[1]}"
+            log "Debug: Found archisolabel in cmdline: $iso_label"
+            # Search for device with this label
+            iso_device=$(lsblk -nlo NAME,LABEL 2>/dev/null \
+                | awk -v l="$iso_label" 'tolower($2) == tolower(l) {print "/dev/" $1}' | head -1)
+            if [ -n "$iso_device" ]; then
+                iso_device=$(strip_partition "$iso_device")
+                log "Found ISO device via archisolabel: $iso_device"
+            fi
+        fi
+    fi
+
+    # Method 2: Check /run/archiso/bootmnt mount point
+    if [ -z "$iso_device" ] && [ -d /run/archiso/bootmnt ]; then
         local raw_source
         raw_source=$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null \
                      | sed 's/\[.*\]//')
@@ -170,17 +221,70 @@ find_iso_device() {
                 raw_source="$back_dev"
             fi
             iso_device=$(strip_partition "$raw_source")
+            log "Found ISO device via /run/archiso/bootmnt: $iso_device"
+        fi
+    fi
+
+    # Method 3: Find device containing the boot files (vmlinuz-linux or archiso.img)
+    if [ -z "$iso_device" ]; then
+        log "Debug: Searching for boot files on removable devices..."
+        # Check common archiso boot file locations
+        local boot_file_locations=(
+            "arch/boot/x86_64/vmlinuz-linux"
+            "arch/boot/vmlinuz-linux"
+            "boot/vmlinuz-linux"
+            "EFI/BOOT/BOOTx64.EFI"
+        )
+
+        for dev in $(lsblk -dnlo NAME,TYPE,RM 2>/dev/null | awk '$2 == "disk" && $3 == "1" {print "/dev/" $1}'); do
+            if [ -b "$dev" ]; then
+                for part in $(lsblk -nlo NAME "$dev" 2>/dev/null | tail -n +2 | awk '{print "/dev/" $1}'); do
+                    if [ -b "$part" ]; then
+                        # Check if this partition contains archiso boot files
+                        local mount_point
+                        mount_point=$(findmnt -n -o TARGET "$part" 2>/dev/null | head -1)
+                        if [ -n "$mount_point" ]; then
+                            for boot_file in "${boot_file_locations[@]}"; do
+                                if [ -f "$mount_point/$boot_file" ]; then
+                                    iso_device=$(strip_partition "$part")
+                                    log "Found ISO device via boot file ($boot_file): $iso_device"
+                                    break 3
+                                fi
+                            done
+                        fi
+                    fi
+                done
+            fi
+        done
+    fi
+
+    # Method 4: Check for iso9660 filesystem (last resort - for optical media)
+    if [ -z "$iso_device" ]; then
+        log "Debug: Searching for iso9660 filesystem..."
+        iso_device=$(lsblk -nlo NAME,FSTYPE 2>/dev/null \
+            | awk '$2 == "iso9660" {print "/dev/" $1}' | head -1)
+        if [ -n "$iso_device" ]; then
+            iso_device=$(strip_partition "$iso_device")
+            log "Found ISO device via iso9660 filesystem: $iso_device"
+        fi
+    fi
+
+    # Method 5: Legacy fallback - search by label
+    if [ -z "$iso_device" ]; then
+        log "Debug: Searching by label (legacy)..."
+        iso_device=$(lsblk -nlo NAME,LABEL 2>/dev/null \
+                     | grep -iE "(ARCHISO|MADOS)" | head -1 \
+                     | awk '{print "/dev/" $1}')
+        if [ -n "$iso_device" ]; then
+            iso_device=$(strip_partition "$iso_device")
+            log "Found ISO device via label search: $iso_device"
         fi
     fi
 
     if [ -z "$iso_device" ]; then
-        iso_device=$(lsblk -nlo NAME,LABEL 2>/dev/null \
-                     | grep -iE "(ARCHISO|MADOS)" | head -1 \
-                     | awk '{print $1}')
-        if [ -n "$iso_device" ]; then
-            iso_device=$(strip_partition "/dev/$iso_device")
-        fi
+        log "ERROR: Could not find ISO boot device using any method"
     fi
+
     echo "$iso_device"
 }
 

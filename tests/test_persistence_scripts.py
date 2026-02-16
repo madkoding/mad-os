@@ -149,6 +149,70 @@ class TestSetupPersistenceScript(unittest.TestCase):
     def test_has_find_iso_device_function(self):
         self.assertRegex(self.content, r"find_iso_device\(\)\s*\{")
 
+    def test_find_iso_device_checks_proc_cmdline(self):
+        """find_iso_device should check /proc/cmdline for archiso boot parameters."""
+        self.assertIn(
+            "/proc/cmdline",
+            self.content,
+            "find_iso_device must check /proc/cmdline for boot parameters",
+        )
+
+    def test_find_iso_device_searches_img_dev(self):
+        """find_iso_device should look for img_dev parameter in cmdline."""
+        self.assertIn(
+            "img_dev",
+            self.content,
+            "find_iso_device must search for img_dev in cmdline",
+        )
+
+    def test_find_iso_device_handles_uuid_format(self):
+        """find_iso_device should handle UUID=xxx format in img_dev."""
+        self.assertIn(
+            "UUID=",
+            self.content,
+            "find_iso_device must handle UUID= format",
+        )
+
+    def test_find_iso_device_handles_partuuid_format(self):
+        """find_iso_device should handle PARTUUID=xxx format in img_dev."""
+        self.assertIn(
+            "PARTUUID=",
+            self.content,
+            "find_iso_device must handle PARTUUID= format",
+        )
+
+    def test_find_iso_device_searches_archisolabel(self):
+        """find_iso_device should look for archisolabel parameter."""
+        self.assertIn(
+            "archisolabel",
+            self.content,
+            "find_iso_device must search for archisolabel parameter",
+        )
+
+    def test_find_iso_device_searches_boot_files(self):
+        """find_iso_device should search for archiso boot files on removable devices."""
+        boot_files = [
+            "arch/boot",
+            "boot/vmlinuz",
+            "EFI/BOOT",
+        ]
+        for file in boot_files:
+            with self.subTest(file=file):
+                self.assertIn(
+                    file,
+                    self.content,
+                    f"find_iso_device must search for {file} to detect ISO",
+                )
+
+    def test_find_iso_device_checks_removable_flag(self):
+        """find_iso_device should check removable flag when searching devices."""
+        # Check for RM column in lsblk when searching for boot files
+        self.assertRegex(
+            self.content,
+            r"lsblk.*RM.*1",
+            "find_iso_device must filter for removable devices (RM=1)",
+        )
+
     def test_has_setup_persistence_function(self):
         self.assertRegex(self.content, r"setup_persistence\(\)\s*\{")
 
