@@ -274,6 +274,12 @@ create_persist_partition() {
         return 1
     fi
 
+    # Safety check 2: detect partition table type and enforce limits.
+    # MBR (msdos) supports at most 4 primary partitions.
+    local table_type
+    table_type=$(parted -s "$device" print 2>/dev/null \
+                 | grep -i "^Partition Table:" | awk '{print $3}')
+
     # Validate partition table type
     case "$table_type" in
         msdos|gpt|unknown) ;;
@@ -282,12 +288,6 @@ create_persist_partition() {
             return 1
             ;;
     esac
-
-    # Safety check 2: detect partition table type and enforce limits.
-    # MBR (msdos) supports at most 4 primary partitions.
-    local table_type
-    table_type=$(parted -s "$device" print 2>/dev/null \
-                 | grep -i "^Partition Table:" | awk '{print $3}')
 
     local part_suffix=""
     [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* || "$device" == *"loop"* ]] && part_suffix="p"
