@@ -251,6 +251,13 @@ source "$SCRIPT_FUNCS"
 # Get the loop device from our marker
 LOOP_DEV=$(cat /run/mados/iso_device)
 
+# OVERRIDE: Mock find_iso_device to return our test device
+# This is necessary because the container environment doesn't have
+# the full archiso setup with mounted /run/archiso/bootmnt
+find_iso_device() {
+    echo "$LOOP_DEV"
+}
+
 # Call create_persist_partition directly
 echo "Calling create_persist_partition for $LOOP_DEV"
 create_persist_partition "$LOOP_DEV"
