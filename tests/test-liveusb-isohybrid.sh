@@ -109,6 +109,9 @@ losetup -d "$LOOP_DEV"
 LOOP_DEV=$(losetup -fP --show "$DISK_IMAGE")
 info "Reattached with partition scan: $LOOP_DEV"
 
+# Get loop device name
+LOOP_NAME=$(basename "$LOOP_DEV")
+
 partprobe "$LOOP_DEV" 2>/dev/null || true
 partx -a "$LOOP_DEV" 2>/dev/null || true
 udevadm settle --timeout=10 2>/dev/null || true
@@ -116,6 +119,20 @@ udevadm settle --timeout=10 2>/dev/null || true
 # Create filesystems
 PART1_DEV="${LOOP_DEV}p1"
 PART2_DEV="${LOOP_DEV}p2"
+
+# Create device nodes if they don't exist (Docker container compatibility)
+for part_num in 1 2; do
+    PART_DEV="${LOOP_DEV}p${part_num}"
+    if ! [ -b "$PART_DEV" ]; then
+        SYSFS_DEV="/sys/block/${LOOP_NAME}/${LOOP_NAME}p${part_num}/dev"
+        if [ -f "$SYSFS_DEV" ]; then
+            MAJOR=$(cut -d: -f1 < "$SYSFS_DEV" | tr -d '[:space:]')
+            MINOR=$(cut -d: -f2 < "$SYSFS_DEV" | tr -d '[:space:]')
+            info "Creating device node ${PART_DEV} (${MAJOR}:${MINOR})"
+            mknod "$PART_DEV" b "$MAJOR" "$MINOR"
+        fi
+    fi
+done
 
 # Format partition 1 with ARCHISO label
 if [ -b "$PART1_DEV" ]; then
@@ -126,7 +143,7 @@ else
     fail "Partition 1 device node missing"
 fi
 
-# Create device node for partition 2 (normal)
+# Create device node for partition 2 (normal) - already done in loop above
 PART2_DEV="${LOOP_DEV}p2"
 SYSFS_DEV="/sys/block/${LOOP_NAME}/${LOOP_NAME}p2/dev"
 if ! [ -b "$PART2_DEV" ] && [ -f "$SYSFS_DEV" ]; then
