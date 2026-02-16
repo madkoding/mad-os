@@ -139,8 +139,9 @@ if ! [ -b "$PART1_DEV" ]; then
     mknod "$PART1_DEV" b "$LOOP_MAJOR_DEC" "$PART1_MINOR"
     
     # Create a small filesystem on it to simulate ISO data
+    # Use ARCHISO label so find_iso_device() can detect it via lsblk fallback
     dd if=/dev/zero of="$PART1_DEV" bs=1M count=100 2>/dev/null || true
-    mkfs.ext4 -F -L "ISO_DATA" "$PART1_DEV" >/dev/null 2>&1 || true
+    mkfs.ext4 -F -L "ARCHISO" "$PART1_DEV" >/dev/null 2>&1 || true
 fi
 
 # Create device node for partition 2 (normal)
@@ -199,11 +200,18 @@ mkdir -p /run/mados
 
 # Mount partition 1 at /run/archiso/bootmnt so find_iso_device() can detect it
 # This simulates the real archiso environment where the ISO partition is mounted
-mount "${LOOP_DEV}p1" /run/archiso/bootmnt 2>/dev/null || {
+info "Attempting to mount ${LOOP_DEV}p1 at /run/archiso/bootmnt..."
+if mount "${LOOP_DEV}p1" /run/archiso/bootmnt 2>/tmp/mount_error.log; then
+    ok "Mounted partition 1 at /run/archiso/bootmnt"
+else
     warn "Could not mount partition 1 at /run/archiso/bootmnt"
+    cat /tmp/mount_error.log >&2 || true
+    # Check if it's a valid ext4 filesystem
+    info "Checking filesystem type:"
+    blkid "${LOOP_DEV}p1" 2>/dev/null || true
     # Fallback: create marker file for tests that need direct access
     echo "$LOOP_DEV" > /run/mados/iso_device
-}
+fi
 
 ok "Archiso environment simulated"
 
