@@ -26,11 +26,16 @@ from .backend import (
     # Internal functions for testing
     _run_command,
     _run_iwctl,
+    _run_iwctl_check,
     _strip_ansi,
     _parse_iwctl_table,
     _cidr_to_netmask,
     _split_nmcli_line,
+    _ensure_wifi_ready,
 )
+
+# Import time module for tests
+import time
 
 __all__ = [
     'WiFiNetwork',
@@ -53,8 +58,11 @@ __all__ = [
     'set_proxy',
     '_run_command',
     '_run_iwctl',
+    '_run_iwctl_check',
     '_strip_ansi',
     '_parse_iwctl_table',
     '_cidr_to_netmask',
     '_split_nmcli_line',
+    '_ensure_wifi_ready',
+    'time',
 ]
