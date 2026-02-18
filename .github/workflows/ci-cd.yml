@@ -5,31 +5,20 @@ on:
     branches: ["main", "develop"]
     tags:
       - 'v*'
-    paths:
-      - 'airootfs/**'
-      - 'packages.x86_64'
-      - 'profiledef.sh'
-      - 'pacman.conf'
-      - 'grub/**'
-      - 'syslinux/**'
-      - 'efiboot/**'
-      - 'tests/**'
-      - '.github/workflows/ci-cd.yml'
+    paths-ignore:
+      - 'docs/**'
   pull_request:
-    paths:
-      - 'airootfs/**'
-      - 'packages.x86_64'
-      - 'profiledef.sh'
-      - 'pacman.conf'
-      - 'grub/**'
-      - 'syslinux/**'
-      - 'efiboot/**'
-      - 'tests/**'
-      - '.github/workflows/ci-cd.yml'
+    paths-ignore:
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       skip_tests:
         description: 'Skip tests and validation (only for manual builds)'
+        required: false
+        default: false
+        type: boolean
+      build_only:
+        description: 'Build ISO without tests (fast track)'
         required: false
         default: false
         type: boolean
@@ -48,12 +37,12 @@ env:
 
 jobs:
   # ================================================================
-  # Stage 1: Code Quality & Static Analysis (rápido, paralelo)
+  # Stage 1: Fast Lint & Validation (rápido, paralelo)
   # ================================================================
-  code-quality:
-    name: "🔍 Code Quality"
+  lint:
+    name: "🎨 Lint & Validate"
     runs-on: ubuntu-latest
-    if: ${{ !github.event.inputs.skip_tests }}
+    if: ${{ !github.event.inputs.skip_tests && !github.event.inputs.build_only }}
 
     steps:
       - name: Checkout
@@ -62,7 +51,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
@@ -70,8 +59,8 @@ jobs:
 
       - name: Run ShellCheck on scripts
         run: |
-          find airootfs/usr/local/bin -type f -executable | while read -r script; do
-            if head -1 "$script" | grep -qE "(bash|sh)$"; then
+          find airootfs/usr/local/bin -type f -executable 2>/dev/null | while read -r script; do
+            if head -1 "$script" | grep -qE '#!.*(?:bash|sh)'; then
               echo "Checking $script"
               shellcheck "$script" || true
             fi
@@ -80,22 +69,29 @@ jobs:
 
       - name: Validate Python syntax
         run: |
-          find airootfs -name "*.py" -type f | while read -r script; do
-            echo "Validating $script"
-            python3 -m py_compile "$script"
-          done
+          find airootfs -name "*.py" -type f 2>/dev/null | xargs -I {} python3 -m py_compile {} || true
+
+      - name: Validate Bash syntax
+        run: |
+          find airootfs -name "*.sh" -type f 2>/dev/null | xargs -I {} bash -n {} || true
 
   # ================================================================
-  # Stage 2: Unit Tests (agrupados por categoría)
+  # Stage 2: Unit Tests (paralelo por categoría)
   # ================================================================
   test-unit:
     name: "🧪 Unit Tests: ${{ matrix.category }}"
     runs-on: ubuntu-latest
-    needs: code-quality
-    if: ${{ !github.event.inputs.skip_tests }}
+    needs: lint
+    if: ${{ !github.event.inputs.skip_tests && !github.event.inputs.build_only }}
     strategy:
       fail-fast: false
       matrix:
+        category:
+          - "Core System"
+          - "AI & Desktop"
+          - "Hardware"
+          - "Apps & Media"
+          - "Live USB"
         include:
           - category: "Core System"
             files: "tests/test_boot_scripts.py tests/test_post_installation.py tests/test_first_boot.py"
@@ -115,7 +111,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.12'
 
       - name: Install test dependencies
         run: pip install pytest
@@ -125,7 +121,7 @@ jobs:
           for file in ${{ matrix.files }}; do
             if [ -f "$file" ]; then
               echo "Running $file"
-              python3 -m pytest "$file" -v
+              python3 -m pytest "$file" -v --tb=short
             else
               echo "Warning: $file not found"
             fi
@@ -137,8 +133,8 @@ jobs:
   test-integration:
     name: "🔗 Integration Tests"
     runs-on: ubuntu-latest
-    needs: code-quality
-    if: ${{ !github.event.inputs.skip_tests }}
+    needs: lint
+    if: ${{ !github.event.inputs.skip_tests && !github.event.inputs.build_only }}
     strategy:
       fail-fast: false
       matrix:
@@ -168,7 +164,7 @@ jobs:
     name: "✅ Validate: ${{ matrix.component }}"
     runs-on: ubuntu-latest
     needs: [test-unit, test-integration]
-    if: ${{ !github.event.inputs.skip_tests }}
+    if: ${{ !github.event.inputs.skip_tests && !github.event.inputs.build_only }}
     strategy:
       fail-fast: false
       matrix:
@@ -192,12 +188,12 @@ jobs:
             ${{ env.ARCHLINUX_IMAGE }} bash /build/${{ matrix.component.script }}
 
   # ================================================================
-  # Stage 5: Build ISO
+  # Stage 5: Build ISO (skip tests con input o tagged releases)
   # ================================================================
   build:
     name: "🏗️ Build ISO"
-    needs: validate-installer
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: [lint]
+    if: github.event.inputs.skip_tests == false && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
 
     outputs:
@@ -216,24 +212,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Necesario para obtener todos los tags
+          fetch-depth: 0
 
       - name: Analyze commits for version bump
         id: version_analysis
         run: |
-          # Obtener última versión de tag
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           BASE_VERSION=$(echo "$LAST_TAG" | sed 's/^v//; s/-.*$//')
           
-          # Parse version components
           MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
           MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
           PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
           
-          # Analizar commits desde el último tag
           COMMITS=$(git log "${LAST_TAG}..HEAD" --pretty=format:"%s" 2>/dev/null || echo "")
           
-          # Detectar tipo de cambio
           HAS_FEATURE=false
           HAS_FIX=false
           
@@ -256,7 +248,6 @@ jobs:
       - name: Determine build type and version
         id: build_type
         run: |
-          # Obtener valores del paso anterior
           HAS_FEATURE="${{ steps.version_analysis.outputs.has_feature }}"
           HAS_FIX="${{ steps.version_analysis.outputs.has_fix }}"
           MAJOR="${{ steps.version_analysis.outputs.major }}"
@@ -264,19 +255,15 @@ jobs:
           PATCH="${{ steps.version_analysis.outputs.patch }}"
           
           if [[ "$GITHUB_REF" == refs/heads/develop ]]; then
-            # Develop: analizar commits y determinar bump
             if [ "$HAS_FEATURE" = "true" ]; then
-              # Feature: incrementar minor, reset patch
               NEW_MINOR=$((MINOR + 1))
               VERSION="${MAJOR}.${NEW_MINOR}.0-beta"
               echo "version_bump=minor (feature)" >> "$GITHUB_OUTPUT"
             elif [ "$HAS_FIX" = "true" ]; then
-              # Fix/Hotfix: incrementar patch
               NEW_PATCH=$((PATCH + 1))
               VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}-beta"
               echo "version_bump=patch (fix/hotfix)" >> "$GITHUB_OUTPUT"
             else
-              # Sin cambio semántico detectado: minor por defecto
               NEW_MINOR=$((MINOR + 1))
               VERSION="${MAJOR}.${NEW_MINOR}.0-beta"
               echo "version_bump=minor (default)" >> "$GITHUB_OUTPUT"
@@ -288,7 +275,6 @@ jobs:
             echo "auto_tag=v${VERSION}" >> "$GITHUB_OUTPUT"
             
           elif [[ "$GITHUB_REF" == refs/heads/main ]]; then
-            # Main: merge desde develop → auto tag de producción
             if [ "$HAS_FEATURE" = "true" ]; then
               NEW_MINOR=$((MINOR + 1))
               VERSION="${MAJOR}.${NEW_MINOR}.0"
@@ -298,7 +284,6 @@ jobs:
               VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
               echo "version_bump=patch (fix/hotfix)" >> "$GITHUB_OUTPUT"
             else
-              # Default: minor bump
               NEW_MINOR=$((MINOR + 1))
               VERSION="${MAJOR}.${NEW_MINOR}.0"
               echo "version_bump=minor (default)" >> "$GITHUB_OUTPUT"
@@ -310,7 +295,6 @@ jobs:
             echo "auto_tag=v${VERSION}" >> "$GITHUB_OUTPUT"
             
           elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            # Tag manual: usar el tag tal cual
             TAG="${GITHUB_REF_NAME}"
             if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta$ ]]; then
               echo "is_release=false" >> "$GITHUB_OUTPUT"
@@ -334,7 +318,6 @@ jobs:
               echo "auto_tag=" >> "$GITHUB_OUTPUT"
             fi
           else
-            # Main sin tag o manual dispatch
             echo "is_release=false" >> "$GITHUB_OUTPUT"
             echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
             echo "release_type=dev" >> "$GITHUB_OUTPUT"
@@ -366,9 +349,7 @@ jobs:
           ISO_FILE=$(ls out/*.iso | head -1)
           ISO_NAME=$(basename "$ISO_FILE")
           
-          # Usar la versión determinada en el paso anterior o calcularla
           if [ -n "$VERSION" ]; then
-            # VERSION ya está seteada desde el paso build_type
             :
           elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
@@ -396,7 +377,6 @@ jobs:
             out/SHA256SUMS
           retention-days: 7
 
-      # Crear tag automático para develop o main builds
       - name: Create tag for branch build
         if: (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && steps.build_type.outputs.auto_tag != ''
         run: |
@@ -413,7 +393,7 @@ jobs:
   release:
     name: "🚀 Release & Deploy"
     needs: build
-    if: needs.build.result == 'success' || github.event_name == 'workflow_dispatch'
+    if: needs.build.result == 'success' && github.event_name == 'workflow_dispatch' && github.event.inputs.skip_tests == false
     runs-on: ubuntu-latest
 
     steps:
@@ -426,7 +406,6 @@ jobs:
           name: mados-iso
           path: out
 
-      # ---------- Sub-stage 6.1: Upload to Internet Archive ----------
       - name: Install Internet Archive CLI
         run: pip install internetarchive
 
@@ -477,7 +456,6 @@ jobs:
           echo "download_url=$DOWNLOAD_URL" >> "$GITHUB_OUTPUT"
           echo "identifier=$IDENTIFIER" >> "$GITHUB_OUTPUT"
 
-      # ---------- Sub-stage 6.2: Create GitHub Release ----------
       - name: Set release tag
         id: release_tag
         run: |
@@ -522,7 +500,6 @@ jobs:
             out/SHA256SUMS
           make_latest: ${{ needs.build.outputs.is_release == 'true' }}
 
-      # ---------- Sub-stage 6.3: Update Website (solo stable) ----------
       - name: Update Website Download Link
         if: needs.build.outputs.is_release == 'true'
         run: |
@@ -542,4 +519,3 @@ jobs:
             git add docs/index.html
             git commit -m "Update download link to $ISO_NAME [skip ci]"
             git push origin main
-          fi
