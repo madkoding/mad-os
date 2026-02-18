@@ -1,19 +1,28 @@
 #!/bin/bash
 # madOS WiFi Configuration - Launcher script
 
-# Ensure iwd service is running
+# Ensure iwd is available (try systemctl, fallback to direct check)
 if ! systemctl is-active --quiet iwd.service 2>/dev/null; then
-    systemctl start iwd.service 2>/dev/null
+    # systemctl not available or failed, try alternative methods
+    if command -v service &>/dev/null; then
+        service iwd start 2>/dev/null || true
+    elif command -v iwctl &>/dev/null; then
+        # Direct check - iwctl is available
+        true
+    else
+        # Try to start iwd daemon directly
+        iwd --foreground &>/dev/null &
+    fi
     sleep 1
 fi
 
 # Unblock WiFi rfkill (common on MT7921 and other combo adapters)
-rfkill unblock wifi 2>/dev/null
+rfkill unblock wifi 2>/dev/null || true
 
 # Ensure WiFi modules are loaded (MediaTek MT7921/MT7922)
-modprobe mt7921e 2>/dev/null
-modprobe mt7921s 2>/dev/null
-modprobe mt7921u 2>/dev/null
+modprobe mt7921e 2>/dev/null || true
+modprobe mt7921s 2>/dev/null || true
+modprobe mt7921u 2>/dev/null || true
 
 export PYTHONPATH="/usr/local/lib${PYTHONPATH:+:$PYTHONPATH}"
 exec python3 -m mados_wifi "$@"
