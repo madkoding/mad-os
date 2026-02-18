@@ -1,0 +1,26 @@
+FROM archlinux:latest
+
+RUN pacman -Syu --noconfirm && \
+    pacman -S --noconfirm \
+        python \
+        python-gobject \
+        gtk3 \
+        iwd \
+        wireless_tools \
+        iproute2 \
+        sudo \
+        bash && \
+    rm -rf /var/cache/pacman/pkg/*
+
+WORKDIR /test
+
+# Copy mados-wifi files from build context
+COPY mados-wifi /usr/local/bin/mados-wifi
+COPY mados_wifi /usr/local/lib/mados_wifi
+COPY test_unit.py /test/test_unit.py
+
+RUN chmod +x /usr/local/bin/mados-wifi /test/test_unit.py
+
+RUN echo 'export PYTHONPATH="/usr/local/lib${PYTHONPATH:+:$PYTHONPATH}"' >> /root/.bashrc
+
+CMD ["python3", "/test/test_unit.py"]
