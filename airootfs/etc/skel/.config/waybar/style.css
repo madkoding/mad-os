@@ -235,46 +235,6 @@ window#waybar {
     text-shadow: none;
 }
 
-/* Bluetooth - LED Azul */
-#custom-bluetooth {
-    padding: 3px 12px;
-    margin: 3px 2px;
-    color: #5E81AC;
-    background: linear-gradient(135deg, rgba(94, 129, 172, 0.12), rgba(76, 110, 150, 0.08));
-    border-radius: 6px;
-    font-size: 16px;
-    transition: all 0.3s ease;
-    text-shadow:
-        0 0 8px #5E81AC,
-        0 0 12px #5E81AC,
-        0 0 16px rgba(94, 129, 172, 0.8),
-        0 0 20px rgba(94, 129, 172, 0.5);
-}
-
-#custom-bluetooth:hover {
-    background: linear-gradient(135deg, rgba(94, 129, 172, 0.2), rgba(76, 110, 150, 0.12));
-    text-shadow:
-        0 0 10px #5E81AC,
-        0 0 15px #5E81AC,
-        0 0 20px rgba(94, 129, 172, 0.9),
-        0 0 25px rgba(94, 129, 172, 0.6);
-}
-
-#custom-bluetooth.connected {
-    color: #88C0D0;
-    text-shadow:
-        0 0 8px #88C0D0,
-        0 0 12px #88C0D0,
-        0 0 16px rgba(136, 192, 208, 0.8),
-        0 0 20px rgba(136, 192, 208, 0.5);
-}
-
-#custom-bluetooth.off {
-    color: #4C566A;
-    background: rgba(76, 86, 106, 0.15);
-    text-shadow: none;
-}
-
 /* PulseAudio - LED Púrpura */
 #pulseaudio {
     padding: 3px 12px;

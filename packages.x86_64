@@ -93,6 +93,10 @@ ocl-icd
 # Bluetooth
 bluez
 bluez-utils
+blueman
+
+# WiFi/Bluetooth tray applets (native, run in Waybar tray)
+network-manager-applet
 
 # Audio
 pipewire
