@@ -102,16 +102,32 @@ echo
 
 # 6. Check free space
 echo -e "${YELLOW}[6] Free space analysis:${NC}"
-parted -s "$ISO_DEVICE" unit MB print free 2>&1 | grep -i "free space" || echo "No free space info"
+parted -s "$ISO_DEVICE" unit MB print free 2>&1 | grep -i "free space" || echo "No free space detected by parted"
 FREE_SPACE=$(parted -s "$ISO_DEVICE" unit MB print free 2>/dev/null \
              | grep "Free Space" | tail -1 | awk '{print $3}' | sed 's/MB//')
-if [ -n "$FREE_SPACE" ]; then
+FREE_SPACE="${FREE_SPACE%%.*}"
+
+# Fallback: calculate from disk size minus last partition end
+if [ -z "$FREE_SPACE" ] || [ "${FREE_SPACE:-0}" -eq 0 ]; then
+    DISK_MB=$(( $(blockdev --getsize64 "$ISO_DEVICE" 2>/dev/null || echo 0) / 1048576 ))
+    LAST_END=$(parted -s "$ISO_DEVICE" unit MB print 2>/dev/null \
+               | grep "^ [0-9]" | awk '{gsub(/MB/,""); print $3}' | sort -n | tail -1)
+    LAST_END="${LAST_END%%.*}"
+    if [ "${DISK_MB:-0}" -gt 0 ] && [ "${LAST_END:-0}" -gt 0 ]; then
+        FREE_SPACE=$((DISK_MB - LAST_END))
+        echo "  (Calculated from disk size: ${DISK_MB}MB - last partition end: ${LAST_END}MB)"
+    fi
+fi
+
+if [ -n "$FREE_SPACE" ] && [ "${FREE_SPACE:-0}" -gt 0 ]; then
     echo "Available: ${FREE_SPACE}MB"
-    if [ "${FREE_SPACE%.*}" -lt 100 ]; then
+    if [ "${FREE_SPACE}" -lt 100 ]; then
         echo -e "${RED}✗ Insufficient space (<100MB required)${NC}"
     else
         echo -e "${GREEN}✓ Sufficient space available${NC}"
     fi
+else
+    echo -e "${YELLOW}⚠ Could not determine free space${NC}"
 fi
 echo
 
@@ -165,8 +181,39 @@ echo "Last partition ends at: ${LAST_PART_END}MB"
 echo "New partition would be: $((LAST_PART_NUM + 1))"
 echo "Starting at: ${LAST_PART_END}MB"
 echo
-echo "Command that would be executed:"
-echo "  parted -s $ISO_DEVICE mkpart primary ext4 ${LAST_PART_END}MB 100%"
+echo "Commands that would be tried:"
+if command -v sfdisk >/dev/null 2>&1; then
+    # Show sfdisk-based approach (preferred for isohybrid ISOs)
+    USED_END=$(sfdisk -d "$ISO_DEVICE" 2>/dev/null | grep "^/" | while read -r line; do
+        S=$(echo "$line" | sed -n 's/.*start=\s*\([0-9]*\).*/\1/p')
+        Z=$(echo "$line" | sed -n 's/.*size=\s*\([0-9]*\).*/\1/p')
+        [ -n "$S" ] && [ -n "$Z" ] && echo $((S + Z))
+    done | sort -n | tail -1)
+    if [ -n "$USED_END" ]; then
+        NEW_START=$(( ((USED_END + 2047) / 2048) * 2048 ))
+        echo "  1. sfdisk (preferred): echo 'start=$NEW_START, type=linux' | sfdisk --append $ISO_DEVICE"
+    fi
+fi
+echo "  2. parted (fallback):  parted -s $ISO_DEVICE mkpart primary ext4 ${LAST_PART_END}MB 100%"
+echo
+
+# 12. Check for existing ext4 partitions
+echo -e "${YELLOW}[12] Scanning for existing ext4 partitions:${NC}"
+FOUND_EXT4=false
+for part in $(lsblk -nlo NAME "$ISO_DEVICE" 2>/dev/null | tail -n +2); do
+    FULL="/dev/$part"
+    if [ -b "$FULL" ]; then
+        FSTYPE=$(blkid -s TYPE -o value "$FULL" 2>/dev/null)
+        LABEL=$(blkid -s LABEL -o value "$FULL" 2>/dev/null)
+        if [ "$FSTYPE" = "ext4" ]; then
+            echo -e "${GREEN}✓ Found ext4: $FULL (label: '${LABEL:-none}')${NC}"
+            FOUND_EXT4=true
+        fi
+    fi
+done
+if [ "$FOUND_EXT4" = false ]; then
+    echo -e "${YELLOW}⚠ No ext4 partitions found on $ISO_DEVICE${NC}"
+fi
 echo
 
 echo -e "${BLUE}════════════════════════════════════════════════════════${NC}"
