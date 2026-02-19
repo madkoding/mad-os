@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  tests:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    environment:
+      - MADOS_BT_CONFIG_MODE=test
+      - PYTHONPATH=/home/testuser/airootfs/usr/local/lib
+    volumes:
+      - ./tests:/home/testuser/tests
+      - ./airootfs:/home/testuser/airootfs
+    working_dir: /home/testuser
+    command: python3 -m unittest tests.test_bluetooth_backend tests.test_bluetooth_frontend tests.test_bluetooth_integration -v

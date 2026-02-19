@@ -1,0 +1,36 @@
+# Dockerfile para pruebas de mados-bluetooth
+FROM archlinux:base
+
+# Instalar dependencias necesarias
+RUN pacman -Syu --noconfirm --needed \
+    python \
+    python-pip \
+    python-gobject \
+    gtk3 \
+    blueZ \
+    blueZ-utils \
+    sudo \
+    git
+
+# Crear usuario no-root
+RUN useradd -m -g users -s /bin/bash testuser && \
+    echo "testuser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/testuser
+
+USER testuser
+WORKDIR /home/testuser
+
+# Copiar código fuente
+COPY --chown=testuser:testuser tests/ tests/
+COPY --chown=testuser:testuser airootfs/usr/local/lib/mados_bluetooth/ airootfs/usr/local/lib/mados_bluetooth/
+
+# Establecer variable de entorno para usar mock backend
+ENV MADOS_BT_CONFIG_MODE=test
+
+# Configurar PYTHONPATH
+ENV PYTHONPATH="/home/testuser/airootfs/usr/local/lib:$PYTHONPATH"
+
+# Instalar pytest para reportes mejorados
+RUN pip install --no-cache-dir pytest
+
+# Script de entrada
+ENTRYPOINT ["python3", "-m", "pytest", "tests/", "-v", "--tb=short"]
