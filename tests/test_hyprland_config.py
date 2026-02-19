@@ -1052,29 +1052,71 @@ class TestWallpaperGlitchScript(unittest.TestCase):
             "profiledef.sh must include permissions for mados-wallpaper-glitch",
         )
 
-    def test_script_applies_wallpaper_on_startup(self):
-        """mados-wallpaper-glitch must apply wallpaper before the event loop.
+    def test_script_does_not_apply_glitch_on_startup(self):
+        """mados-wallpaper-glitch must NOT apply glitch effect on startup.
 
-        The script should call the wallpaper apply function after waiting
-        for swww-daemon readiness, but before entering the socat event
-        listener. This ensures the wallpaper is visible immediately on
-        login instead of only appearing after the first workspace switch.
+        The glitch script should only handle workspace-switch effects.
+        Initial wallpaper is set by hyprland.conf (exec-once = swww img)
+        using --transition-type none for reliability. Running glitch
+        transitions on startup can fail on certain hardware and race
+        with the inline wallpaper setter.
         """
         with open(self.SCRIPT_PATH) as f:
             content = f.read()
 
         # Find positions of key elements
-        daemon_wait_pos = content.find("swww query")
+        daemon_wait_end = content.find("done", content.find("swww query"))
         socat_pos = content.find("socat")
-        self.assertNotEqual(daemon_wait_pos, -1, "Must wait for swww-daemon")
+        self.assertNotEqual(daemon_wait_end, -1, "Must wait for swww-daemon")
         self.assertNotEqual(socat_pos, -1, "Must have socat event listener")
 
-        # There must be a wallpaper apply call between the daemon wait and socat
-        between = content[daemon_wait_pos:socat_pos]
-        self.assertIn(
+        # Between daemon wait and socat, there must NOT be apply_glitch_effect
+        between = content[daemon_wait_end:socat_pos]
+        self.assertNotIn(
             "apply_glitch_effect", between,
-            "Must apply wallpaper after daemon ready, before event loop",
+            "Must NOT apply glitch effect on startup — initial wallpaper is "
+            "set by hyprland.conf with --transition-type none",
         )
+
+    def test_script_checks_dependencies(self):
+        """mados-wallpaper-glitch must check for required tools before running.
+
+        The script should exit gracefully if swww or socat are not
+        available, to avoid interfering with the normal wallpaper setup.
+        """
+        with open(self.SCRIPT_PATH) as f:
+            content = f.read()
+
+        self.assertIn(
+            "command -v swww", content,
+            "Script must check if swww is available",
+        )
+        self.assertIn(
+            "command -v socat", content,
+            "Script must check if socat is available",
+        )
+
+    def test_hyprland_wallpaper_uses_no_transition(self):
+        """hyprland.conf must set initial wallpaper with --transition-type none.
+
+        Fancy transitions (pixelate, wave, etc.) can fail on certain
+        hardware at startup. The initial wallpaper must use no transition
+        for maximum reliability.
+        """
+        content = _read_config()
+        # Find the swww img startup line (not in a comment)
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            if "swww img" in stripped and "Pictures/Wallpapers" in stripped:
+                self.assertIn(
+                    "--transition-type none", stripped,
+                    "Initial wallpaper must use --transition-type none "
+                    "for reliable startup",
+                )
+                return
+        self.fail("hyprland.conf must have a swww img startup line")
 
 
 # ═══════════════════════════════════════════════════════════════════════════

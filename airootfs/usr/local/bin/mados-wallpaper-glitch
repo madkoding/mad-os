@@ -2,6 +2,9 @@
 # mados-wallpaper-glitch - Cyberpunk wallpaper glitch effect on workspace switch
 # Listens for Hyprland workspace change events and triggers a pixelated
 # "system error" transition effect on the current wallpaper using swww.
+#
+# NOTE: This script handles only workspace-switch effects.
+# Initial wallpaper is set by hyprland.conf (exec-once = swww img ...).
 
 WALLPAPER_DIR="$HOME/Pictures/Wallpapers"
 DEFAULT_WALLPAPER="$WALLPAPER_DIR/mad-os-wallpaper.jpg"
@@ -31,6 +34,11 @@ apply_glitch_effect() {
     fi
 }
 
+# Bail out early if required tools are missing (don't interfere with wallpaper)
+if ! command -v swww >/dev/null 2>&1 || ! command -v socat >/dev/null 2>&1; then
+    exit 0
+fi
+
 # Wait for swww-daemon to be ready
 for _ in $(seq 1 30); do
     if swww query >/dev/null 2>&1; then
@@ -38,9 +46,6 @@ for _ in $(seq 1 30); do
     fi
     sleep 0.5
 done
-
-# Apply wallpaper immediately on startup (fixes black screen on login)
-apply_glitch_effect
 
 # Listen for workspace change events from Hyprland
 socat -u "UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock" - 2>/dev/null | while IFS= read -r event; do
