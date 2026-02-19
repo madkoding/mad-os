@@ -197,7 +197,7 @@ jobs:
   build:
     name: "🏗️ Build ISO"
     needs: validate-installer
-    if: startsWith(github.ref, 'refs/heads/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     outputs:
@@ -396,16 +396,6 @@ jobs:
             out/SHA256SUMS
           retention-days: 7
 
-      # Crear tag automático para develop o main builds
-      - name: Create tag for branch build
-        if: (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && steps.build_type.outputs.auto_tag != ''
-        run: |
-          AUTO_TAG="${{ steps.build_type.outputs.auto_tag }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "$AUTO_TAG" ${{ github.sha }}
-          git push origin "$AUTO_TAG"
-          echo "Created and pushed tag: $AUTO_TAG"
 
   # ================================================================
   # Stage 6: Release (después del build exitoso)
@@ -413,7 +403,7 @@ jobs:
   release:
     name: "🚀 Release & Deploy"
     needs: build
-    if: (github.ref == 'refs/heads/develop' && needs.build.outputs.auto_tag != '') || (github.ref == 'refs/heads/main' && needs.build.outputs.auto_tag != '') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: (startsWith(github.ref, 'refs/tags/v') && needs.build.outputs.is_release == 'true') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
@@ -481,13 +471,7 @@ jobs:
       - name: Set release tag
         id: release_tag
         run: |
-          if [[ "$GITHUB_REF" == refs/heads/develop ]] && [ -n "${{ needs.build.outputs.auto_tag }}" ]; then
-            echo "tag=${{ needs.build.outputs.auto_tag }}" >> "$GITHUB_OUTPUT"
-          elif [[ "$GITHUB_REF" == refs/heads/main ]] && [ -n "${{ needs.build.outputs.auto_tag }}" ]; then
-            echo "tag=${{ needs.build.outputs.auto_tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-          fi
+          echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
