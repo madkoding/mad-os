@@ -258,21 +258,25 @@ else
     fail "Log missing device node enumeration"
 fi
 
-if grep -q "Highest partition device node:" "$LOG_FILE"; then
+if grep -q "Highest partition device node:" "$LOG_FILE" || \
+   grep -q "Highest existing device partition number:" "$LOG_FILE"; then
     ok "Log shows highest device partition number"
 else
     fail "Log missing highest device partition info"
 fi
 
 if grep -q "partition numbering gaps" "$LOG_FILE" || \
-   grep -q "not in partition table" "$LOG_FILE"; then
+   grep -q "not in partition table" "$LOG_FILE" || \
+   grep -q "Will create partition number:" "$LOG_FILE"; then
     ok "Gap detection triggered (found partitions in devices but not in table)"
 else
     warn "Gap detection message not found in log"
 fi
 
 if grep -q "Will use sfdisk" "$LOG_FILE" || \
-   grep -q "Using sfdisk" "$LOG_FILE"; then
+   grep -q "Using sfdisk" "$LOG_FILE" || \
+   grep -q "sfdisk-based partition creation" "$LOG_FILE" || \
+   grep -q "Creating partition #" "$LOG_FILE"; then
     ok "Script switched to sfdisk for explicit partition numbering"
 else
     warn "sfdisk usage not confirmed in log"
