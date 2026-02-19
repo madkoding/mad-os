@@ -528,11 +528,13 @@ jobs:
         run: |
           DOWNLOAD_URL="${{ steps.upload_ia.outputs.download_url }}"
           ISO_NAME="${{ needs.build.outputs.iso_name }}"
+          VERSION="${{ needs.build.outputs.version }}"
 
           git fetch origin main
           git checkout main
 
           sed -i "s|https://archive.org/download/mados-[^/]*/madOS-[^\"]*\.iso|$DOWNLOAD_URL|g" docs/index.html
+          sed -i "s|data-version=\"[^\"]*\"|data-version=\"$VERSION\"|g" docs/index.html
 
           if git diff --quiet docs/index.html; then
             echo "No changes needed in website"
@@ -540,6 +542,6 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add docs/index.html
-            git commit -m "Update download link to $ISO_NAME [skip ci]"
+            git commit -m "Update download link and version to $VERSION [skip ci]"
             git push origin main
           fi

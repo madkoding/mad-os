@@ -4,13 +4,25 @@
 function extractVersionFromURL() {
     const downloadLink = document.querySelector('a[href*="archive.org"]');
     if (downloadLink) {
+        // Check data-version attribute first (set by CI/CD)
+        const dataVersion = downloadLink.getAttribute('data-version');
+        if (dataVersion) {
+            return dataVersion;
+        }
+        // Fallback: try to extract from URL
         const url = downloadLink.getAttribute('href');
-        const match = url.match(/mados-(\d+(?:\.\d+)*)\//);
-        if (match && match[1]) {
-            return match[1];
+        // Match stable: mados-1.2.3/
+        const stableMatch = url.match(/mados-(\d+(?:\.\d+)*)\//);
+        if (stableMatch && stableMatch[1]) {
+            return stableMatch[1];
+        }
+        // Match prefixed: mados-beta-1.2.3- or mados-dev-1.2.3-
+        const prefixedMatch = url.match(/mados-\w+-(\d+\.\d+\.\d+)/);
+        if (prefixedMatch && prefixedMatch[1]) {
+            return prefixedMatch[1];
         }
     }
-    return '0.6.1';
+    return 'latest';
 }
 
 const translations = {
