@@ -41,7 +41,12 @@ set $border-color        #4C566A
 set $indicator-color     #81A1C1
 
 ### Output Configuration
-output * bg ~/Pictures/Wallpapers/mad-os-wallpaper.jpg fill
+set $wallpaper ~/Pictures/Wallpapers/mad-os-wallpaper.jpg
+output * bg $wallpaper fill
+# Force wallpaper refresh after compositor fully initializes
+# Fixes black background on startup with software rendering (pixman)
+# Adjust delay (seconds) if wallpaper still fails to load on slower hardware
+exec sleep 2 && swaymsg output '*' bg $wallpaper fill
 
 # Display scaling - adjust scale value to your preference
 # scale 1.0 = 100% (default), 0.8 = 80% (smaller), 0.75 = 75% (even smaller)
