@@ -80,7 +80,6 @@ journalctl -b | grep -i chrom
 # Run apps directly to see error output
 python3 -m mados_photo_viewer 2>&1
 python3 -m mados_pdf_viewer 2>&1
-python3 -m mados_wifi 2>&1
 python3 -m mados_equalizer 2>&1
 
 # Note: PYTHONPATH must include /usr/local/lib

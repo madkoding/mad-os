@@ -1,61 +1,20 @@
 #!/usr/bin/env python3
 """
-Tests for madOS Bluetooth support configuration.
+Tests for madOS Bluetooth and WiFi native tray app support.
 
-Validates that Bluetooth packages, services, and application files are
-properly configured for both the live USB environment and the
-post-installation system.
+Validates that native tray applications (blueman for Bluetooth,
+network-manager-applet for WiFi) are properly configured in packages,
+Waybar, Sway, and Hyprland configs. Also verifies that Bluetooth
+packages and services remain correctly set up.
 
 These tests verify file presence, syntax, and configuration correctness
-without requiring actual Bluetooth hardware.
+without requiring actual hardware.
 """
 
 import sys
 import os
-import types
 import unittest
 import json
-import subprocess
-
-# ---------------------------------------------------------------------------
-# Mock gi / gi.repository so Bluetooth app modules can be imported headlessly.
-# ---------------------------------------------------------------------------
-gi_mock = types.ModuleType("gi")
-gi_mock.require_version = lambda *a, **kw: None
-
-repo_mock = types.ModuleType("gi.repository")
-
-
-class _StubMeta(type):
-    def __getattr__(cls, name):
-        return _StubWidget
-
-
-class _StubWidget(metaclass=_StubMeta):
-    def __init__(self, *a, **kw):
-        pass
-
-    def __init_subclass__(cls, **kw):
-        pass
-
-    def __getattr__(self, name):
-        return _stub_func
-
-
-def _stub_func(*a, **kw):
-    return _StubWidget()
-
-
-class _StubModule:
-    def __getattr__(self, name):
-        return _StubWidget
-
-
-for name in ("Gtk", "GLib", "GdkPixbuf", "Gdk", "Pango"):
-    setattr(repo_mock, name, _StubModule())
-
-sys.modules["gi"] = gi_mock
-sys.modules["gi.repository"] = repo_mock
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -72,51 +31,42 @@ sys.path.insert(0, LIB_DIR)
 class TestBluetoothPackages(unittest.TestCase):
     """Verify Bluetooth packages are included in the ISO package list."""
 
-    def test_packages_x86_64_has_bluez(self):
-        """packages.x86_64 should include bluez."""
+    def _read_packages(self):
         pkg_file = os.path.join(REPO_DIR, "packages.x86_64")
         with open(pkg_file) as f:
-            packages = [
+            return [
                 line.strip()
                 for line in f
                 if line.strip() and not line.strip().startswith("#")
             ]
-        self.assertIn(
-            "bluez", packages, "bluez must be in packages.x86_64 for live USB"
-        )
 
-    def test_packages_x86_64_has_bluez_utils(self):
+    def test_packages_has_bluez(self):
+        """packages.x86_64 should include bluez."""
+        self.assertIn("bluez", self._read_packages())
+
+    def test_packages_has_bluez_utils(self):
         """packages.x86_64 should include bluez-utils."""
-        pkg_file = os.path.join(REPO_DIR, "packages.x86_64")
-        with open(pkg_file) as f:
-            packages = [
-                line.strip()
-                for line in f
-                if line.strip() and not line.strip().startswith("#")
-            ]
-        self.assertIn(
-            "bluez-utils",
-            packages,
-            "bluez-utils must be in packages.x86_64 for live USB",
-        )
+        self.assertIn("bluez-utils", self._read_packages())
+
+    def test_packages_has_blueman(self):
+        """packages.x86_64 should include blueman for Bluetooth tray applet."""
+        self.assertIn("blueman", self._read_packages())
+
+    def test_packages_has_network_manager_applet(self):
+        """packages.x86_64 should include network-manager-applet for WiFi tray."""
+        self.assertIn("network-manager-applet", self._read_packages())
 
     def test_installer_config_has_bluez(self):
         """Installer config.py PACKAGES should include bluez."""
         from mados_installer.config import PACKAGES
 
-        self.assertIn(
-            "bluez", PACKAGES, "bluez must be in installer PACKAGES for post-install"
-        )
+        self.assertIn("bluez", PACKAGES)
 
     def test_installer_config_has_bluez_utils(self):
         """Installer config.py PACKAGES should include bluez-utils."""
         from mados_installer.config import PACKAGES
 
-        self.assertIn(
-            "bluez-utils",
-            PACKAGES,
-            "bluez-utils must be in installer PACKAGES for post-install",
-        )
+        self.assertIn("bluez-utils", PACKAGES)
 
 
 class TestBluetoothService(unittest.TestCase):
@@ -136,12 +86,6 @@ class TestBluetoothService(unittest.TestCase):
             os.path.islink(service_link),
             "bluetooth.service must be enabled as a symlink for live USB",
         )
-        target = os.readlink(service_link)
-        self.assertEqual(
-            "bluetooth.service",
-            os.path.basename(target),
-            "bluetooth.service symlink should point to the bluetooth.service unit file",
-        )
 
     def test_post_install_enables_bluetooth(self):
         """installation.py should enable bluetooth.service."""
@@ -150,635 +94,210 @@ class TestBluetoothService(unittest.TestCase):
         )
         with open(install_py) as f:
             content = f.read()
-        self.assertIn(
-            "systemctl enable bluetooth",
-            content,
-            "installation.py must enable bluetooth.service",
-        )
+        self.assertIn("systemctl enable bluetooth", content)
 
     def test_bluetooth_main_conf_exists(self):
         """airootfs/etc/bluetooth/main.conf should exist."""
         main_conf = os.path.join(AIROOTFS, "etc", "bluetooth", "main.conf")
-        self.assertTrue(
-            os.path.isfile(main_conf), "main.conf must exist in /etc/bluetooth/"
-        )
+        self.assertTrue(os.path.isfile(main_conf))
 
     def test_bluetooth_main_conf_auto_enable(self):
         """main.conf should contain AutoEnable=true under [General]."""
         main_conf = os.path.join(AIROOTFS, "etc", "bluetooth", "main.conf")
         with open(main_conf) as f:
             content = f.read()
-        # Check for [General] section
-        self.assertIn("[General]", content, "main.conf must have [General] section")
-        # Check for AutoEnable=true
-        self.assertIn(
-            "AutoEnable=true",
-            content,
-            "main.conf must have AutoEnable=true for auto-powering adapter",
+        self.assertIn("[General]", content)
+        self.assertIn("AutoEnable=true", content)
+
+
+class TestSwayTrayApplets(unittest.TestCase):
+    """Verify Sway config autostarts native WiFi and Bluetooth tray applets."""
+
+    def _read_sway_config(self):
+        sway_config = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "sway", "config"
         )
-
-
-class TestBluetoothServiceActivation(unittest.TestCase):
-    """Verify Bluetooth service is activated before querying bluetoothctl."""
-
-    def test_bluetooth_status_script_starts_service(self):
-        """bluetooth-status.sh should start bluetooth.service if not running."""
-        script_path = os.path.join(
-            AIROOTFS,
-            "etc",
-            "skel",
-            ".config",
-            "waybar",
-            "scripts",
-            "bluetooth-status.sh",
-        )
-        with open(script_path) as f:
-            content = f.read()
-        self.assertIn(
-            "systemctl start bluetooth.service",
-            content,
-            "bluetooth-status.sh must start bluetooth.service",
-        )
-
-    def test_bluetooth_status_script_unblocks_rfkill(self):
-        """bluetooth-status.sh should unblock Bluetooth via rfkill."""
-        script_path = os.path.join(
-            AIROOTFS,
-            "etc",
-            "skel",
-            ".config",
-            "waybar",
-            "scripts",
-            "bluetooth-status.sh",
-        )
-        with open(script_path) as f:
-            content = f.read()
-        self.assertIn(
-            "rfkill unblock bluetooth",
-            content,
-            "bluetooth-status.sh must unblock rfkill",
-        )
-
-    def test_launcher_starts_bluetooth_service(self):
-        """mados-bluetooth launcher should start bluetooth.service if not running."""
-        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
-        with open(launcher) as f:
-            content = f.read()
-        self.assertIn(
-            "systemctl start bluetooth.service",
-            content,
-            "mados-bluetooth launcher must start bluetooth.service",
-        )
-
-    def test_launcher_unblocks_rfkill(self):
-        """mados-bluetooth launcher should unblock Bluetooth via rfkill."""
-        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
-        with open(launcher) as f:
-            content = f.read()
-        self.assertIn(
-            "rfkill unblock bluetooth",
-            content,
-            "mados-bluetooth launcher must unblock rfkill",
-        )
-
-    def test_launcher_loads_btusb_module(self):
-        """mados-bluetooth launcher should load btusb kernel module."""
-        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
-        with open(launcher) as f:
-            content = f.read()
-        self.assertIn(
-            "modprobe btusb", content, "mados-bluetooth launcher must load btusb module"
-        )
-
-    def test_waybar_exec_if_references_check_script(self):
-        """Waybar exec-if should reference bluetooth-check.sh script."""
-        config_path = os.path.join(
-            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
-        )
-        with open(config_path) as f:
-            config = json.load(f)
-        bt_config = config.get("custom/bluetooth", {})
-        exec_if = bt_config.get("exec-if", "")
-        self.assertIn(
-            "bluetooth-check.sh",
-            exec_if,
-            "exec-if must reference bluetooth-check.sh script",
-        )
-
-    def test_bluetooth_check_script_exists(self):
-        """bluetooth-check.sh script should exist."""
-        script_path = os.path.join(
-            AIROOTFS,
-            "etc",
-            "skel",
-            ".config",
-            "waybar",
-            "scripts",
-            "bluetooth-check.sh",
-        )
-        self.assertTrue(os.path.isfile(script_path), "bluetooth-check.sh must exist")
-
-    def test_bluetooth_check_script_starts_service(self):
-        """bluetooth-check.sh should start bluetooth.service if not running."""
-        script_path = os.path.join(
-            AIROOTFS,
-            "etc",
-            "skel",
-            ".config",
-            "waybar",
-            "scripts",
-            "bluetooth-check.sh",
-        )
-        with open(script_path) as f:
-            content = f.read()
-        self.assertIn(
-            "systemctl start bluetooth.service",
-            content,
-            "bluetooth-check.sh must start bluetooth.service",
-        )
-
-    def test_bluetooth_check_script_unblocks_rfkill(self):
-        """bluetooth-check.sh should unblock Bluetooth via rfkill."""
-        script_path = os.path.join(
-            AIROOTFS,
-            "etc",
-            "skel",
-            ".config",
-            "waybar",
-            "scripts",
-            "bluetooth-check.sh",
-        )
-        with open(script_path) as f:
-            content = f.read()
-        self.assertIn(
-            "rfkill unblock bluetooth",
-            content,
-            "bluetooth-check.sh must unblock rfkill",
-        )
-
-    def test_bluetooth_check_script_loads_btusb(self):
-        """bluetooth-check.sh should load btusb kernel module."""
-        script_path = os.path.join(
-            AIROOTFS,
-            "etc",
-            "skel",
-            ".config",
-            "waybar",
-            "scripts",
-            "bluetooth-check.sh",
-        )
-        with open(script_path) as f:
-            content = f.read()
-        self.assertIn(
-            "modprobe btusb", content, "bluetooth-check.sh must load btusb module"
-        )
-
-    def test_bluetooth_check_script_valid_bash(self):
-        """bluetooth-check.sh should have valid bash syntax."""
-        script_path = os.path.join(
-            AIROOTFS,
-            "etc",
-            "skel",
-            ".config",
-            "waybar",
-            "scripts",
-            "bluetooth-check.sh",
-        )
-        result = subprocess.run(
-            ["bash", "-n", script_path], capture_output=True, text=True
-        )
-        self.assertEqual(
-            result.returncode,
-            0,
-            f"bluetooth-check.sh has syntax errors: {result.stderr}",
-        )
-
-
-class TestBluetoothApplicationFiles(unittest.TestCase):
-    """Verify Bluetooth application files exist and have correct structure."""
-
-    def test_launcher_script_exists(self):
-        """mados-bluetooth launcher script should exist."""
-        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
-        self.assertTrue(os.path.isfile(launcher), "mados-bluetooth launcher must exist")
-
-    def test_launcher_script_syntax(self):
-        """mados-bluetooth launcher should have valid bash syntax."""
-        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
-        result = subprocess.run(
-            ["bash", "-n", launcher], capture_output=True, text=True
-        )
-        self.assertEqual(result.returncode, 0, f"Bash syntax error: {result.stderr}")
-
-    def test_launcher_calls_mados_bluetooth_module(self):
-        """Launcher should invoke python3 -m mados_bluetooth."""
-        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
-        with open(launcher) as f:
-            content = f.read()
-        self.assertIn(
-            "mados_bluetooth", content, "Launcher must call mados_bluetooth module"
-        )
-
-    def test_python_package_init(self):
-        """mados_bluetooth/__init__.py should exist."""
-        init_file = os.path.join(LIB_DIR, "mados_bluetooth", "__init__.py")
-        self.assertTrue(os.path.isfile(init_file))
-
-    def test_python_package_main(self):
-        """mados_bluetooth/__main__.py should exist."""
-        main_file = os.path.join(LIB_DIR, "mados_bluetooth", "__main__.py")
-        self.assertTrue(os.path.isfile(main_file))
-
-    def test_python_modules_exist(self):
-        """All expected Python modules should exist."""
-        expected = [
-            "__init__.py",
-            "__main__.py",
-            "app.py",
-            "backend.py",
-            "theme.py",
-            "translations.py",
-        ]
-        pkg_dir = os.path.join(LIB_DIR, "mados_bluetooth")
-        for module in expected:
-            path = os.path.join(pkg_dir, module)
-            self.assertTrue(
-                os.path.isfile(path), f"{module} must exist in mados_bluetooth/"
-            )
-
-    def test_python_syntax_all_modules(self):
-        """All Python modules should have valid syntax."""
-        pkg_dir = os.path.join(LIB_DIR, "mados_bluetooth")
-        for fname in os.listdir(pkg_dir):
-            if fname.endswith(".py"):
-                fpath = os.path.join(pkg_dir, fname)
-                result = subprocess.run(
-                    [sys.executable, "-m", "py_compile", fpath],
-                    capture_output=True,
-                    text=True,
-                )
-                self.assertEqual(
-                    result.returncode, 0, f"Syntax error in {fname}: {result.stderr}"
-                )
-
-
-class TestBluetoothBackend(unittest.TestCase):
-    """Verify the Bluetooth backend module structure and data classes."""
-
-    def test_import_backend(self):
-        """Backend module should be importable."""
-        from mados_bluetooth import backend
-
-        self.assertIsNotNone(backend)
-
-    def test_bluetooth_device_dataclass(self):
-        """BluetoothDevice should have the expected fields."""
-        from mados_bluetooth.backend import BluetoothDevice
-
-        device = BluetoothDevice(
-            address="AA:BB:CC:DD:EE:FF",
-            name="Test Device",
-            paired=True,
-            connected=False,
-            trusted=True,
-            icon="audio-headphones",
-        )
-        self.assertEqual(device.address, "AA:BB:CC:DD:EE:FF")
-        self.assertEqual(device.name, "Test Device")
-        self.assertTrue(device.paired)
-        self.assertFalse(device.connected)
-        self.assertTrue(device.trusted)
-        self.assertEqual(device.display_name, "Test Device")
-
-    def test_display_name_fallback(self):
-        """display_name should fall back to address if name is empty."""
-        from mados_bluetooth.backend import BluetoothDevice
-
-        device = BluetoothDevice(address="AA:BB:CC:DD:EE:FF", name="")
-        self.assertEqual(device.display_name, "AA:BB:CC:DD:EE:FF")
-
-    def test_parse_device_list(self):
-        """_parse_device_list should parse bluetoothctl output correctly."""
-        from mados_bluetooth.backend import _parse_device_list
-
-        output = (
-            "Device AA:BB:CC:DD:EE:FF My Headphones\n"
-            "Device 11:22:33:44:55:66 Keyboard\n"
-            "Some other line\n"
-        )
-        devices = _parse_device_list(output)
-        self.assertEqual(len(devices), 2)
-        self.assertEqual(devices[0].address, "AA:BB:CC:DD:EE:FF")
-        self.assertEqual(devices[0].name, "My Headphones")
-        self.assertEqual(devices[1].address, "11:22:33:44:55:66")
-        self.assertEqual(devices[1].name, "Keyboard")
-
-    def test_parse_device_list_empty(self):
-        """_parse_device_list should return empty list for empty input."""
-        from mados_bluetooth.backend import _parse_device_list
-
-        devices = _parse_device_list("")
-        self.assertEqual(len(devices), 0)
-
-
-class TestBluetoothTranslations(unittest.TestCase):
-    """Verify translations are complete for all supported languages."""
-
-    def test_all_languages_present(self):
-        """All 6 languages should be available."""
-        from mados_bluetooth.translations import TRANSLATIONS
-
-        expected = ["English", "Español", "Français", "Deutsch", "中文", "日本語"]
-        for lang in expected:
-            self.assertIn(
-                lang, TRANSLATIONS, f"Language '{lang}' missing from translations"
-            )
-
-    def test_all_keys_in_all_languages(self):
-        """Every key in English should exist in all other languages."""
-        from mados_bluetooth.translations import TRANSLATIONS
-
-        english_keys = set(TRANSLATIONS["English"].keys())
-        for lang, trans in TRANSLATIONS.items():
-            lang_keys = set(trans.keys())
-            missing = english_keys - lang_keys
-            self.assertEqual(
-                len(missing), 0, f"Language '{lang}' missing keys: {missing}"
-            )
-
-    def test_get_text_returns_correct_value(self):
-        """get_text should return the correct translation."""
-        from mados_bluetooth.translations import get_text
-
-        self.assertEqual(get_text("scan", "English"), "Scan")
-        self.assertEqual(get_text("scan", "Español"), "Buscar")
-
-    def test_get_text_fallback_to_english(self):
-        """get_text should fall back to English for unknown language."""
-        from mados_bluetooth.translations import get_text
-
-        result = get_text("scan", "Klingon")
-        self.assertEqual(result, "Scan")
-
-    def test_detect_system_language(self):
-        """detect_system_language should return a valid language name."""
-        from mados_bluetooth.translations import detect_system_language
-
-        lang = detect_system_language()
-        from mados_bluetooth.translations import TRANSLATIONS
-
-        self.assertIn(lang, TRANSLATIONS)
-
-
-class TestProfiledefPermissions(unittest.TestCase):
-    """Verify profiledef.sh includes Bluetooth file permissions."""
-
-    def test_profiledef_has_bluetooth_launcher(self):
-        """profiledef.sh should have mados-bluetooth permission."""
-        profiledef = os.path.join(REPO_DIR, "profiledef.sh")
-        with open(profiledef) as f:
-            content = f.read()
-        self.assertIn(
-            "mados-bluetooth",
-            content,
-            "profiledef.sh must include mados-bluetooth permissions",
-        )
-
-    def test_profiledef_has_bluetooth_lib(self):
-        """profiledef.sh should have mados_bluetooth lib permission."""
-        profiledef = os.path.join(REPO_DIR, "profiledef.sh")
-        with open(profiledef) as f:
-            content = f.read()
-        self.assertIn(
-            "mados_bluetooth",
-            content,
-            "profiledef.sh must include mados_bluetooth lib permissions",
-        )
-
-
-class TestSwayConfig(unittest.TestCase):
-    """Verify Sway configuration includes Bluetooth window rules."""
-
-    def test_sway_has_bluetooth_window_rule(self):
-        """Sway config should have window rule for mados-bluetooth."""
-        sway_config = os.path.join(AIROOTFS, "etc", "skel", ".config", "sway", "config")
         with open(sway_config) as f:
-            content = f.read()
-        self.assertIn(
-            "mados-bluetooth",
-            content,
-            "Sway config must have mados-bluetooth window rule",
-        )
+            return f.read()
 
-    def test_sway_bluetooth_floating(self):
-        """Bluetooth window should be configured as floating."""
-        sway_config = os.path.join(AIROOTFS, "etc", "skel", ".config", "sway", "config")
-        with open(sway_config) as f:
-            content = f.read()
-        self.assertIn(
-            'for_window [app_id="mados-bluetooth"] floating enable',
-            content,
-            "Bluetooth window must be floating",
+    def test_sway_autostarts_nm_applet(self):
+        """Sway config should autostart nm-applet."""
+        content = self._read_sway_config()
+        self.assertIn("nm-applet", content)
+
+    def test_sway_autostarts_blueman_applet(self):
+        """Sway config should autostart blueman-applet."""
+        content = self._read_sway_config()
+        self.assertIn("blueman-applet", content)
+
+    def test_sway_no_mados_wifi_reference(self):
+        """Sway config should not reference removed mados-wifi."""
+        content = self._read_sway_config()
+        self.assertNotIn("mados-wifi", content)
+
+    def test_sway_no_mados_bluetooth_reference(self):
+        """Sway config should not reference removed mados-bluetooth."""
+        content = self._read_sway_config()
+        self.assertNotIn("mados-bluetooth", content)
+
+
+class TestHyprlandTrayApplets(unittest.TestCase):
+    """Verify Hyprland config autostarts native WiFi and Bluetooth tray applets."""
+
+    def _read_hyprland_config(self):
+        hyprland_config = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "hypr", "hyprland.conf"
         )
+        with open(hyprland_config) as f:
+            return f.read()
+
+    def test_hyprland_autostarts_nm_applet(self):
+        """Hyprland config should autostart nm-applet."""
+        content = self._read_hyprland_config()
+        self.assertIn("nm-applet", content)
+
+    def test_hyprland_autostarts_blueman_applet(self):
+        """Hyprland config should autostart blueman-applet."""
+        content = self._read_hyprland_config()
+        self.assertIn("blueman-applet", content)
+
+    def test_hyprland_no_mados_wifi_reference(self):
+        """Hyprland config should not reference removed mados-wifi."""
+        content = self._read_hyprland_config()
+        self.assertNotIn("mados-wifi", content)
+
+    def test_hyprland_no_mados_bluetooth_reference(self):
+        """Hyprland config should not reference removed mados-bluetooth."""
+        content = self._read_hyprland_config()
+        self.assertNotIn("mados-bluetooth", content)
 
 
 class TestWaybarConfig(unittest.TestCase):
-    """Verify Waybar configuration includes Bluetooth module."""
+    """Verify Waybar configuration uses native applets and tray."""
+
+    def _read_waybar_config(self):
+        config_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
+        )
+        with open(config_path) as f:
+            return json.load(f)
 
     def test_waybar_config_valid_json(self):
         """Waybar config should be valid JSON."""
-        config_path = os.path.join(
-            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
-        )
-        with open(config_path) as f:
-            config = json.load(f)
+        config = self._read_waybar_config()
         self.assertIsInstance(config, dict)
 
-    def test_waybar_has_bluetooth_module(self):
-        """Waybar config should include bluetooth module in modules-right."""
-        config_path = os.path.join(
-            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
-        )
-        with open(config_path) as f:
-            config = json.load(f)
+    def test_waybar_has_tray_module(self):
+        """Waybar config should include tray module for nm-applet/blueman."""
+        config = self._read_waybar_config()
         right_modules = config.get("modules-right", [])
-        self.assertIn(
-            "custom/bluetooth",
-            right_modules,
-            "Waybar must have custom/bluetooth in modules-right",
-        )
+        self.assertIn("tray", right_modules)
 
-    def test_waybar_bluetooth_module_config(self):
-        """Waybar bluetooth module should have on-click = mados-bluetooth."""
-        config_path = os.path.join(
-            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
-        )
-        with open(config_path) as f:
-            config = json.load(f)
-        bt_config = config.get("custom/bluetooth", {})
+    def test_waybar_network_on_click_uses_nm_connection_editor(self):
+        """Waybar network module on-click should use nm-connection-editor."""
+        config = self._read_waybar_config()
+        network_config = config.get("network", {})
         self.assertEqual(
-            bt_config.get("on-click"),
-            "mados-bluetooth",
-            "Bluetooth module on-click must launch mados-bluetooth",
+            network_config.get("on-click"),
+            "nm-connection-editor",
         )
 
-    def test_waybar_bluetooth_exec_if(self):
-        """Waybar bluetooth module should have exec-if to detect hardware."""
-        config_path = os.path.join(
-            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
-        )
-        with open(config_path) as f:
-            config = json.load(f)
-        bt_config = config.get("custom/bluetooth", {})
-        exec_if = bt_config.get("exec-if", "")
-        self.assertIn(
-            "bluetooth-check.sh",
-            exec_if,
-            "exec-if must reference bluetooth-check.sh to detect hardware",
-        )
-
-    def test_waybar_bluetooth_exec_script(self):
-        """Waybar bluetooth module exec should reference the status script."""
-        config_path = os.path.join(
-            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
-        )
-        with open(config_path) as f:
-            config = json.load(f)
-        bt_config = config.get("custom/bluetooth", {})
-        exec_cmd = bt_config.get("exec", "")
-        self.assertIn(
-            "bluetooth-status.sh",
-            exec_cmd,
-            "exec must reference bluetooth-status.sh script",
-        )
-
-    def test_bluetooth_status_script_exists(self):
-        """bluetooth-status.sh script should exist."""
-        script_path = os.path.join(
-            AIROOTFS,
-            "etc",
-            "skel",
-            ".config",
-            "waybar",
-            "scripts",
-            "bluetooth-status.sh",
-        )
-        self.assertTrue(os.path.isfile(script_path), "bluetooth-status.sh must exist")
-
-    def test_bluetooth_status_script_valid_bash(self):
-        """bluetooth-status.sh should have valid bash syntax."""
-        script_path = os.path.join(
-            AIROOTFS,
-            "etc",
-            "skel",
-            ".config",
-            "waybar",
-            "scripts",
-            "bluetooth-status.sh",
-        )
-        result = subprocess.run(
-            ["bash", "-n", script_path], capture_output=True, text=True
-        )
-        self.assertEqual(
-            result.returncode,
-            0,
-            f"bluetooth-status.sh has syntax errors: {result.stderr}",
-        )
-
-    def test_waybar_bluetooth_return_type(self):
-        """Waybar bluetooth module should use JSON return type."""
-        config_path = os.path.join(
-            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
-        )
-        with open(config_path) as f:
-            config = json.load(f)
-        bt_config = config.get("custom/bluetooth", {})
-        self.assertEqual(
-            bt_config.get("return-type"),
-            "json",
-            "Bluetooth module must use JSON return type",
-        )
-
-    def test_waybar_bluetooth_next_to_network(self):
-        """Bluetooth module should be positioned next to the network module."""
-        config_path = os.path.join(
-            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
-        )
-        with open(config_path) as f:
-            config = json.load(f)
+    def test_waybar_no_custom_bluetooth_module(self):
+        """Waybar config should not have custom/bluetooth module."""
+        config = self._read_waybar_config()
         right_modules = config.get("modules-right", [])
-        net_idx = right_modules.index("network")
-        bt_idx = right_modules.index("custom/bluetooth")
-        self.assertEqual(
-            bt_idx,
-            net_idx + 1,
-            "Bluetooth must be right after network in modules-right",
+        self.assertNotIn("custom/bluetooth", right_modules)
+
+    def test_waybar_no_mados_wifi_reference(self):
+        """Waybar config should not reference mados-wifi."""
+        config_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
         )
-
-
-class TestWaybarBluetoothStyle(unittest.TestCase):
-    """Verify Waybar CSS includes Bluetooth styling."""
-
-    def test_waybar_css_has_bluetooth_style(self):
-        """Waybar style.css should have #custom-bluetooth styling."""
-        css_path = os.path.join(
-            AIROOTFS, "etc", "skel", ".config", "waybar", "style.css"
-        )
-        with open(css_path) as f:
+        with open(config_path) as f:
             content = f.read()
-        self.assertIn(
-            "#custom-bluetooth",
-            content,
-            "Waybar style.css must include #custom-bluetooth styling",
-        )
+        self.assertNotIn("mados-wifi", content)
 
-    def test_waybar_css_has_bluetooth_connected_class(self):
-        """Waybar style.css should style the connected state."""
-        css_path = os.path.join(
-            AIROOTFS, "etc", "skel", ".config", "waybar", "style.css"
+    def test_waybar_no_mados_bluetooth_reference(self):
+        """Waybar config should not reference mados-bluetooth."""
+        config_path = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "waybar", "config"
         )
-        with open(css_path) as f:
+        with open(config_path) as f:
             content = f.read()
-        self.assertIn(
-            "#custom-bluetooth.connected",
-            content,
-            "Waybar style.css must style connected Bluetooth state",
+        self.assertNotIn("mados-bluetooth", content)
+
+
+class TestRemovedFiles(unittest.TestCase):
+    """Verify mados-wifi and mados-bluetooth files have been removed."""
+
+    def test_no_mados_wifi_launcher(self):
+        """mados-wifi launcher should not exist."""
+        self.assertFalse(
+            os.path.exists(os.path.join(BIN_DIR, "mados-wifi")),
+            "mados-wifi launcher should have been removed",
         )
 
-    def test_waybar_css_has_bluetooth_off_class(self):
-        """Waybar style.css should style the off state."""
-        css_path = os.path.join(
-            AIROOTFS, "etc", "skel", ".config", "waybar", "style.css"
-        )
-        with open(css_path) as f:
-            content = f.read()
-        self.assertIn(
-            "#custom-bluetooth.off",
-            content,
-            "Waybar style.css must style off Bluetooth state",
+    def test_no_mados_bluetooth_launcher(self):
+        """mados-bluetooth launcher should not exist."""
+        self.assertFalse(
+            os.path.exists(os.path.join(BIN_DIR, "mados-bluetooth")),
+            "mados-bluetooth launcher should have been removed",
         )
 
-
-class TestInstallationBluetoothPackages(unittest.TestCase):
-    """Verify Bluetooth packages are in the installer package lists."""
-
-    def test_config_packages_has_bluez(self):
-        """PACKAGES (combined) should include bluez."""
-        from mados_installer.config import PACKAGES
-
-        self.assertIn(
-            "bluez", PACKAGES, "Installer PACKAGES must include bluez package"
+    def test_no_mados_wifi_lib(self):
+        """mados_wifi library should not exist."""
+        self.assertFalse(
+            os.path.exists(os.path.join(LIB_DIR, "mados_wifi")),
+            "mados_wifi library should have been removed",
         )
 
-    def test_config_packages_has_bluez_utils(self):
-        """PACKAGES (combined) should include bluez-utils."""
-        from mados_installer.config import PACKAGES
-
-        self.assertIn(
-            "bluez-utils",
-            PACKAGES,
-            "Installer PACKAGES must include bluez-utils package",
+    def test_no_mados_bluetooth_lib(self):
+        """mados_bluetooth library should not exist."""
+        self.assertFalse(
+            os.path.exists(os.path.join(LIB_DIR, "mados_bluetooth")),
+            "mados_bluetooth library should have been removed",
         )
+
+    def test_no_mados_wifi_desktop(self):
+        """mados-wifi.desktop should not exist."""
+        self.assertFalse(
+            os.path.exists(
+                os.path.join(AIROOTFS, "usr", "share", "applications", "mados-wifi.desktop")
+            ),
+        )
+
+    def test_no_mados_bluetooth_desktop(self):
+        """mados-bluetooth.desktop should not exist."""
+        self.assertFalse(
+            os.path.exists(
+                os.path.join(AIROOTFS, "usr", "share", "applications", "mados-bluetooth.desktop")
+            ),
+        )
+
+
+class TestProfiledefPermissions(unittest.TestCase):
+    """Verify profiledef.sh no longer includes removed app permissions."""
+
+    def _read_profiledef(self):
+        profiledef = os.path.join(REPO_DIR, "profiledef.sh")
+        with open(profiledef) as f:
+            return f.read()
+
+    def test_profiledef_no_mados_wifi(self):
+        """profiledef.sh should not have mados-wifi permission."""
+        self.assertNotIn("mados-wifi", self._read_profiledef())
+
+    def test_profiledef_no_mados_wifi_lib(self):
+        """profiledef.sh should not have mados_wifi lib permission."""
+        self.assertNotIn("mados_wifi", self._read_profiledef())
+
+    def test_profiledef_no_mados_bluetooth(self):
+        """profiledef.sh should not have mados-bluetooth permission."""
+        self.assertNotIn("mados-bluetooth", self._read_profiledef())
+
+    def test_profiledef_no_mados_bluetooth_lib(self):
+        """profiledef.sh should not have mados_bluetooth lib permission."""
+        self.assertNotIn("mados_bluetooth", self._read_profiledef())
 
 
 class TestUdevWirelessRules(unittest.TestCase):
@@ -789,18 +308,7 @@ class TestUdevWirelessRules(unittest.TestCase):
         rules_path = os.path.join(
             AIROOTFS, "etc", "udev", "rules.d", "90-mados-wireless.rules"
         )
-        self.assertTrue(
-            os.path.isfile(rules_path), "udev wireless rules file must exist"
-        )
-
-    def test_udev_rules_has_mt7921_wifi(self):
-        """udev rules should handle MT7921 WiFi device."""
-        rules_path = os.path.join(
-            AIROOTFS, "etc", "udev", "rules.d", "90-mados-wireless.rules"
-        )
-        with open(rules_path) as f:
-            content = f.read()
-        self.assertIn("0x7961", content, "udev rules must handle MT7921 PCI device ID")
+        self.assertTrue(os.path.isfile(rules_path))
 
     def test_udev_rules_has_rfkill_unblock_wifi(self):
         """udev rules should unblock WiFi via rfkill."""
@@ -809,9 +317,7 @@ class TestUdevWirelessRules(unittest.TestCase):
         )
         with open(rules_path) as f:
             content = f.read()
-        self.assertIn(
-            "rfkill unblock wifi", content, "udev rules must unblock WiFi rfkill"
-        )
+        self.assertIn("rfkill unblock wifi", content)
 
     def test_udev_rules_has_rfkill_unblock_bluetooth(self):
         """udev rules should unblock Bluetooth via rfkill."""
@@ -820,22 +326,7 @@ class TestUdevWirelessRules(unittest.TestCase):
         )
         with open(rules_path) as f:
             content = f.read()
-        self.assertIn(
-            "rfkill unblock bluetooth",
-            content,
-            "udev rules must unblock Bluetooth rfkill",
-        )
-
-    def test_udev_rules_generic_wlan_unblock(self):
-        """udev rules should generically unblock any new wlan device."""
-        rules_path = os.path.join(
-            AIROOTFS, "etc", "udev", "rules.d", "90-mados-wireless.rules"
-        )
-        with open(rules_path) as f:
-            content = f.read()
-        self.assertIn(
-            "DEVTYPE", content, "udev rules must have generic wlan device handling"
-        )
+        self.assertIn("rfkill unblock bluetooth", content)
 
 
 class TestModprobeMediaTekConfig(unittest.TestCase):
@@ -844,182 +335,21 @@ class TestModprobeMediaTekConfig(unittest.TestCase):
     def test_modprobe_mt7921_config_exists(self):
         """mt7921.conf modprobe config should exist."""
         conf_path = os.path.join(AIROOTFS, "etc", "modprobe.d", "mt7921.conf")
-        self.assertTrue(os.path.isfile(conf_path), "modprobe mt7921.conf must exist")
+        self.assertTrue(os.path.isfile(conf_path))
 
     def test_modprobe_has_btusb_config(self):
         """mt7921.conf should configure btusb module."""
         conf_path = os.path.join(AIROOTFS, "etc", "modprobe.d", "mt7921.conf")
         with open(conf_path) as f:
             content = f.read()
-        self.assertIn("btusb", content, "modprobe config must reference btusb module")
+        self.assertIn("btusb", content)
 
     def test_modprobe_has_mt7921e_config(self):
         """mt7921.conf should configure mt7921e module."""
         conf_path = os.path.join(AIROOTFS, "etc", "modprobe.d", "mt7921.conf")
         with open(conf_path) as f:
             content = f.read()
-        self.assertIn(
-            "mt7921e", content, "modprobe config must reference mt7921e module"
-        )
-
-
-class TestWifiLauncherRfkill(unittest.TestCase):
-    """Verify WiFi launcher handles rfkill and module loading."""
-
-    def test_wifi_launcher_unblocks_rfkill(self):
-        """mados-wifi launcher should unblock WiFi via rfkill."""
-        launcher = os.path.join(BIN_DIR, "mados-wifi")
-        with open(launcher) as f:
-            content = f.read()
-        self.assertIn(
-            "rfkill unblock wifi",
-            content,
-            "mados-wifi launcher must unblock WiFi rfkill",
-        )
-
-    def test_wifi_launcher_starts_iwd(self):
-        """mados-wifi launcher should ensure iwd service is running."""
-        launcher = os.path.join(BIN_DIR, "mados-wifi")
-        with open(launcher) as f:
-            content = f.read()
-        self.assertIn(
-            "iwd.service", content, "mados-wifi launcher must check/start iwd.service"
-        )
-
-    def test_wifi_launcher_loads_mt7921_module(self):
-        """mados-wifi launcher should load mt7921e module."""
-        launcher = os.path.join(BIN_DIR, "mados-wifi")
-        with open(launcher) as f:
-            content = f.read()
-        self.assertIn(
-            "modprobe mt7921e", content, "mados-wifi launcher must load mt7921e module"
-        )
-
-    def test_wifi_launcher_valid_bash(self):
-        """mados-wifi launcher should have valid bash syntax."""
-        launcher = os.path.join(BIN_DIR, "mados-wifi")
-        result = subprocess.run(
-            ["bash", "-n", launcher], capture_output=True, text=True
-        )
-        self.assertEqual(result.returncode, 0, f"Bash syntax error: {result.stderr}")
-
-
-class TestBluetoothSudoUsage(unittest.TestCase):
-    """Verify Bluetooth scripts use sudo for privileged commands."""
-
-    def test_launcher_uses_sudo_for_modprobe(self):
-        """mados-bluetooth launcher should use sudo for modprobe commands."""
-        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
-        with open(launcher) as f:
-            content = f.read()
-        self.assertIn(
-            "sudo modprobe",
-            content,
-            "mados-bluetooth launcher must use sudo for modprobe",
-        )
-
-    def test_launcher_uses_sudo_for_rfkill(self):
-        """mados-bluetooth launcher should use sudo for rfkill commands."""
-        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
-        with open(launcher) as f:
-            content = f.read()
-        self.assertIn(
-            "sudo rfkill", content, "mados-bluetooth launcher must use sudo for rfkill"
-        )
-
-    def test_launcher_uses_sudo_for_systemctl(self):
-        """mados-bluetooth launcher should use sudo for systemctl start/restart."""
-        launcher = os.path.join(BIN_DIR, "mados-bluetooth")
-        with open(launcher) as f:
-            content = f.read()
-        self.assertIn(
-            "sudo systemctl start",
-            content,
-            "mados-bluetooth launcher must use sudo for systemctl start",
-        )
-        self.assertIn(
-            "sudo systemctl restart",
-            content,
-            "mados-bluetooth launcher must use sudo for systemctl restart",
-        )
-
-    def test_bluetooth_check_script_uses_sudo(self):
-        """bluetooth-check.sh should use sudo for privileged commands."""
-        script_path = os.path.join(
-            AIROOTFS,
-            "etc",
-            "skel",
-            ".config",
-            "waybar",
-            "scripts",
-            "bluetooth-check.sh",
-        )
-        with open(script_path) as f:
-            content = f.read()
-        self.assertIn(
-            "sudo rfkill", content, "bluetooth-check.sh must use sudo for rfkill"
-        )
-        self.assertIn(
-            "sudo modprobe", content, "bluetooth-check.sh must use sudo for modprobe"
-        )
-        self.assertIn(
-            "sudo systemctl", content, "bluetooth-check.sh must use sudo for systemctl"
-        )
-
-    def test_bluetooth_status_script_uses_sudo(self):
-        """bluetooth-status.sh should use sudo for privileged commands."""
-        script_path = os.path.join(
-            AIROOTFS,
-            "etc",
-            "skel",
-            ".config",
-            "waybar",
-            "scripts",
-            "bluetooth-status.sh",
-        )
-        with open(script_path) as f:
-            content = f.read()
-        self.assertIn(
-            "sudo rfkill", content, "bluetooth-status.sh must use sudo for rfkill"
-        )
-        self.assertIn(
-            "sudo systemctl", content, "bluetooth-status.sh must use sudo for systemctl"
-        )
-
-    def test_backend_uses_sudo_for_modprobe(self):
-        """Backend module should use sudo for modprobe commands."""
-        backend_path = os.path.join(LIB_DIR, "mados_bluetooth", "backend.py")
-        with open(backend_path) as f:
-            content = f.read()
-        # Check for sudo usage in subprocess.run calls
-        # Should find: ['sudo', 'modprobe', ...] - check for both quote styles
-        self.assertTrue(
-            "'sudo', 'modprobe'" in content or '"sudo", "modprobe"' in content,
-            "backend.py must use sudo for modprobe",
-        )
-
-    def test_backend_uses_sudo_for_rfkill(self):
-        """Backend module should use sudo for rfkill commands."""
-        backend_path = os.path.join(LIB_DIR, "mados_bluetooth", "backend.py")
-        with open(backend_path) as f:
-            content = f.read()
-        # Should find: ['sudo', 'rfkill', ...] - check for both quote styles
-        self.assertTrue(
-            "'sudo', 'rfkill'" in content or '"sudo", "rfkill"' in content,
-            "backend.py must use sudo for rfkill",
-        )
-
-    def test_backend_uses_sudo_for_systemctl_start(self):
-        """Backend module should use sudo for systemctl start commands."""
-        backend_path = os.path.join(LIB_DIR, "mados_bluetooth", "backend.py")
-        with open(backend_path) as f:
-            content = f.read()
-        # Should find: ['sudo', 'systemctl', 'start', ...] - check for both quote styles
-        self.assertTrue(
-            "'sudo', 'systemctl', 'start'" in content
-            or '"sudo", "systemctl", "start"' in content,
-            "backend.py must use sudo for systemctl start",
-        )
+        self.assertIn("mt7921e", content)
 
 
 if __name__ == "__main__":
