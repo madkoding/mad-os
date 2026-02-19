@@ -1052,6 +1052,109 @@ class TestWallpaperGlitchScript(unittest.TestCase):
             "profiledef.sh must include permissions for mados-wallpaper-glitch",
         )
 
+    def test_script_does_not_apply_glitch_on_startup(self):
+        """mados-wallpaper-glitch must NOT apply glitch effect on startup.
+
+        The glitch script should only handle workspace-switch effects.
+        Initial wallpaper is set by hyprland.conf (exec-once = swww img)
+        using --transition-type none for reliability. Running glitch
+        transitions on startup can fail on certain hardware and race
+        with the inline wallpaper setter.
+        """
+        with open(self.SCRIPT_PATH) as f:
+            content = f.read()
+
+        # Find positions of key elements
+        daemon_wait_end = content.find("done", content.find("swww query"))
+        socat_pos = content.find("socat")
+        self.assertNotEqual(daemon_wait_end, -1, "Must wait for swww-daemon")
+        self.assertNotEqual(socat_pos, -1, "Must have socat event listener")
+
+        # Between daemon wait and socat, there must NOT be apply_glitch_effect
+        between = content[daemon_wait_end:socat_pos]
+        self.assertNotIn(
+            "apply_glitch_effect", between,
+            "Must NOT apply glitch effect on startup — initial wallpaper is "
+            "set by hyprland.conf with --transition-type none",
+        )
+
+    def test_script_checks_dependencies(self):
+        """mados-wallpaper-glitch must check for required tools before running.
+
+        The script should exit gracefully if swww or socat are not
+        available, to avoid interfering with the normal wallpaper setup.
+        """
+        with open(self.SCRIPT_PATH) as f:
+            content = f.read()
+
+        self.assertIn(
+            "command -v swww", content,
+            "Script must check if swww is available",
+        )
+        self.assertIn(
+            "command -v socat", content,
+            "Script must check if socat is available",
+        )
+
+    def test_hyprland_wallpaper_uses_no_transition(self):
+        """hyprland.conf must set initial wallpaper with --transition-type none.
+
+        Fancy transitions (pixelate, wave, etc.) can fail on certain
+        hardware at startup. The initial wallpaper must use no transition
+        for maximum reliability.
+        """
+        content = _read_config()
+        # Find the swww img startup line (not in a comment)
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#"):
+                continue
+            if "swww img" in stripped and "Pictures/Wallpapers" in stripped:
+                self.assertIn(
+                    "--transition-type none", stripped,
+                    "Initial wallpaper must use --transition-type none "
+                    "for reliable startup",
+                )
+                return
+        self.fail("hyprland.conf must have a swww img startup line")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Sway wallpaper startup retry validation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestSwayWallpaperStartup(unittest.TestCase):
+    """Verify Sway config has robust wallpaper initialization."""
+
+    SWAY_CONF = os.path.join(SKEL_DIR, ".config", "sway", "config")
+
+    def test_sway_config_has_wallpaper_directive(self):
+        """Sway config must set wallpaper via output directive."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "output * bg", content,
+            "Sway config must have an 'output * bg' wallpaper directive",
+        )
+
+    def test_sway_config_has_wallpaper_retry(self):
+        """Sway config must retry wallpaper after compositor initializes."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "swaymsg", content,
+            "Sway config must use swaymsg to retry wallpaper after startup",
+        )
+
+    def test_sway_wallpaper_retry_uses_loop(self):
+        """Sway wallpaper retry must use a loop for reliability on slow hardware."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "for ", content,
+            "Sway config must use a retry loop for wallpaper refresh "
+            "(single-attempt retry is unreliable on slow hardware)",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
