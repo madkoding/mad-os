@@ -618,6 +618,8 @@ class TestPartitionProtection(unittest.TestCase):
         
         Even though sfdisk is used, we must still verify we don't exceed
         the MBR partition limit before attempting to create a partition.
+        The check uses device node numbering (not just table entries) to
+        account for isohybrid gaps.
         """
         # Find the sfdisk section
         sfdisk_section_start = self.create_fn.find('sfdisk --append')
@@ -627,11 +629,11 @@ class TestPartitionProtection(unittest.TestCase):
         # The check should happen before the sfdisk call
         before_sfdisk = self.create_fn[:sfdisk_section_start]
         
-        # Should check existing_count >= 4 for msdos tables
+        # Should check new partition number > 4 for msdos tables
         self.assertRegex(
             before_sfdisk,
-            r'existing_count.*-ge\s*4',
-            "sfdisk approach must check partition count >= 4 for MBR",
+            r'(existing_count.*-ge\s*4|sfdisk_new_part_num.*-gt\s*4)',
+            "sfdisk approach must check partition number limit for MBR",
         )
 
     def test_sfdisk_aligns_partition(self):
@@ -646,6 +648,54 @@ class TestPartitionProtection(unittest.TestCase):
             '2048',
             self.create_fn,
             "sfdisk approach must align to 1MB boundary (2048 sectors)",
+        )
+
+    def test_sfdisk_scans_device_nodes_for_gaps(self):
+        """sfdisk approach must scan device nodes to detect isohybrid gaps.
+
+        On isohybrid ISOs, device nodes (e.g., /dev/sda1) may exist but not
+        be in the partition table. The sfdisk approach must detect these to
+        avoid filling gaps and overwriting existing data.
+        """
+        # Find the simple sfdisk section (before the complex approach)
+        simple_start = self.create_fn.find('Simple approach')
+        complex_start = self.create_fn.find('Complex approach')
+        self.assertNotEqual(simple_start, -1, "Must have simple sfdisk section")
+        self.assertNotEqual(complex_start, -1, "Must have complex approach section")
+
+        simple_section = self.create_fn[simple_start:complex_start]
+
+        # Must scan device nodes for highest partition number
+        self.assertIn(
+            'highest_dev_num',
+            simple_section,
+            "Simple sfdisk approach must scan device nodes for highest partition number",
+        )
+        # Must compute safe partition number from device nodes
+        self.assertIn(
+            'sfdisk_new_part_num',
+            simple_section,
+            "Simple sfdisk approach must determine safe new partition number",
+        )
+
+    def test_sfdisk_specifies_explicit_partition_number(self):
+        """sfdisk must use explicit partition number, not auto-numbering.
+
+        Using 'start=X, type=linux' without a partition number lets sfdisk
+        auto-fill gaps. We must use 'N : start=X, type=83' format to
+        explicitly set the partition number.
+        """
+        # Find the first sfdisk --append call (simple approach)
+        first_sfdisk = self.create_fn.find('sfdisk --append')
+        self.assertNotEqual(first_sfdisk, -1)
+
+        # The sfdisk input should include the partition number variable
+        # Look backwards for the sfdisk_input definition
+        before_first_sfdisk = self.create_fn[:first_sfdisk]
+        self.assertRegex(
+            before_first_sfdisk,
+            r'sfdisk_input.*sfdisk_new_part_num.*start=',
+            "sfdisk must specify explicit partition number in input",
         )
 
 

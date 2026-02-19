@@ -286,6 +286,34 @@ create_persist_partition() {
     # partition tables more reliably than parted.
     if command -v sfdisk >/dev/null 2>&1; then
         log "Attempting simple sfdisk-based partition creation"
+
+        # CRITICAL: Scan existing device nodes to detect partition numbering
+        # gaps (isohybrid ISOs have device nodes not in the partition table).
+        # We must explicitly specify the partition number to sfdisk to avoid
+        # it auto-filling gaps and overwriting existing data.
+        local highest_dev_num=0
+        local dev_node
+        for dev_node in "${device}${part_suffix}"[0-9]* "${device}"[0-9]*; do
+            if [ -b "$dev_node" ]; then
+                local dnum
+                if [ -n "$part_suffix" ]; then
+                    dnum=$(echo "$dev_node" | sed 's/.*p\([0-9]*\)$/\1/')
+                else
+                    dnum=$(echo "$dev_node" | sed 's/.*[^0-9]\([0-9]*\)$/\1/')
+                fi
+                if [ -n "$dnum" ] && [ "$dnum" -gt "$highest_dev_num" ]; then
+                    highest_dev_num=$dnum
+                    log "Debug: Found existing device node: $dev_node (partition $dnum)"
+                fi
+            fi
+        done
+        log "Debug: Highest existing device partition number: $highest_dev_num"
+
+        # The new partition must have a number HIGHER than any existing device
+        # node to avoid overwriting data (e.g., isohybrid ISO at partition 1)
+        local sfdisk_new_part_num=$((highest_dev_num + 1))
+        log "Debug: Will create partition number: $sfdisk_new_part_num"
+
         local used_end_sector=0
         local sector_line
         while IFS= read -r sector_line; do
@@ -306,57 +334,54 @@ create_persist_partition() {
 
             # Check there's enough space (at least 100MB = 204800 sectors)
             if [ "$disk_sectors" -gt 0 ] && [ $((disk_sectors - new_start)) -ge 204800 ]; then
-                # Check MBR 4-partition limit
-                local existing_count
-                existing_count=$(sfdisk -d "$device" 2>/dev/null | grep -c "^/")
-                if [ "$table_type" = "msdos" ] && [ "${existing_count:-0}" -ge 4 ]; then
-                    log "SAFETY: MBR partition table already has $existing_count partitions (max 4)"
+                # Check MBR 4-partition limit using device nodes (not just table)
+                if [ "$table_type" = "msdos" ] && [ "$sfdisk_new_part_num" -gt 4 ]; then
+                    log "SAFETY: MBR table - new partition would be #$sfdisk_new_part_num (max 4)"
                 else
-                    log "Creating partition at sector $new_start using sfdisk (disk size: $disk_sectors sectors)"
+                    log "Creating partition #$sfdisk_new_part_num at sector $new_start using sfdisk (disk size: $disk_sectors sectors)"
+                    local sfdisk_input
+                    if [ "$table_type" = "gpt" ]; then
+                        sfdisk_input="$sfdisk_new_part_num : start=$new_start, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4"
+                    else
+                        sfdisk_input="$sfdisk_new_part_num : start=$new_start, type=83"
+                    fi
+                    log "Debug: sfdisk input: $sfdisk_input"
+
                     local sfdisk_result
-                    if sfdisk_result=$(echo "start=$new_start, type=linux" | sfdisk --append --no-reread "$device" 2>&1); then
+                    if sfdisk_result=$(echo "$sfdisk_input" | sfdisk --append --no-reread "$device" 2>&1); then
                         log "sfdisk append succeeded: $sfdisk_result"
                         sleep 2
                         partprobe "$device" 2>/dev/null || true
                         udevadm settle --timeout=10 2>/dev/null || true
 
-                        # Find the newly created partition
-                        local new_dev=""
-                        local pnum
-                        for pnum in $(sfdisk -d "$device" 2>/dev/null | grep "^/" \
-                                     | sed -n 's|.*'"$device"'[p]*\([0-9]*\).*|\1|p' | sort -n); do
-                            local candidate="${device}${part_suffix}${pnum}"
-                            if [ -b "$candidate" ]; then
-                                local c_label
-                                c_label=$(blkid -s LABEL -o value "$candidate" 2>/dev/null)
-                                local c_type
-                                c_type=$(blkid -s TYPE -o value "$candidate" 2>/dev/null)
-                                # Newly created partition has no filesystem yet
-                                if [ -z "$c_type" ] && [ -z "$c_label" ]; then
-                                    new_dev="$candidate"
-                                    break
-                                fi
-                            fi
+                        # The new partition device should be at the number we requested
+                        local new_dev="${device}${part_suffix}${sfdisk_new_part_num}"
+                        log "Debug: Expected new partition device: $new_dev"
+
+                        # Wait for device node to appear
+                        local sfdisk_wait=0
+                        while [ ! -b "$new_dev" ] && [ "$sfdisk_wait" -lt 10 ]; do
+                            sleep 1
+                            sfdisk_wait=$((sfdisk_wait + 1))
+                            log "Debug: Waiting for $new_dev... ($sfdisk_wait/10)"
                         done
 
-                        # Fallback: check for highest numbered partition device node
-                        if [ -z "$new_dev" ]; then
-                            local highest=0
-                            local cand_node
-                            for cand_node in "${device}${part_suffix}"[0-9]* "${device}"[0-9]*; do
-                                if [ -b "$cand_node" ]; then
-                                    local cnum
-                                    if [ -n "$part_suffix" ]; then
-                                        cnum=$(echo "$cand_node" | sed 's/.*p\([0-9]*\)$/\1/')
-                                    else
-                                        cnum=$(echo "$cand_node" | sed 's/.*[^0-9]\([0-9]*\)$/\1/')
-                                    fi
-                                    [ -n "$cnum" ] && [ "$cnum" -gt "$highest" ] && { highest=$cnum; new_dev="$cand_node"; }
-                                fi
-                            done
+                        # Try manual device node creation if udev didn't create it
+                        if [ ! -b "$new_dev" ]; then
+                            local base_dev_name
+                            base_dev_name=$(basename "$device")
+                            local part_name="${base_dev_name}${part_suffix}${sfdisk_new_part_num}"
+                            local sysfs_path="/sys/block/${base_dev_name}/${part_name}/dev"
+                            if [ -f "$sysfs_path" ]; then
+                                local s_major s_minor
+                                s_major=$(cut -d: -f1 < "$sysfs_path" | tr -d '[:space:]')
+                                s_minor=$(cut -d: -f2 < "$sysfs_path" | tr -d '[:space:]')
+                                log "Debug: Creating device node $new_dev manually ($s_major:$s_minor)"
+                                mknod "$new_dev" b "$s_major" "$s_minor" 2>/dev/null || true
+                            fi
                         fi
 
-                        if [ -n "$new_dev" ] && [ -b "$new_dev" ]; then
+                        if [ -b "$new_dev" ]; then
                             log "Formatting $new_dev as ext4 with label '$PERSIST_LABEL'"
                             if mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$new_dev" 2>&1; then
                                 sleep 2
@@ -368,7 +393,7 @@ create_persist_partition() {
                                 log "WARNING: mkfs.ext4 failed on $new_dev, falling back to complex method"
                             fi
                         else
-                            log "WARNING: Could not find new partition device node, falling back to complex method"
+                            log "WARNING: Device node $new_dev not found after sfdisk, falling back to complex method"
                         fi
                     else
                         log "WARNING: sfdisk append failed: $sfdisk_result"
