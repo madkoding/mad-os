@@ -39,6 +39,9 @@ for _ in $(seq 1 30); do
     sleep 0.5
 done
 
+# Apply wallpaper immediately on startup (fixes black screen on login)
+apply_glitch_effect
+
 # Listen for workspace change events from Hyprland
 socat -u "UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock" - 2>/dev/null | while IFS= read -r event; do
     case "$event" in

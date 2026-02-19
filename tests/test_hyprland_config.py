@@ -1052,6 +1052,67 @@ class TestWallpaperGlitchScript(unittest.TestCase):
             "profiledef.sh must include permissions for mados-wallpaper-glitch",
         )
 
+    def test_script_applies_wallpaper_on_startup(self):
+        """mados-wallpaper-glitch must apply wallpaper before the event loop.
+
+        The script should call the wallpaper apply function after waiting
+        for swww-daemon readiness, but before entering the socat event
+        listener. This ensures the wallpaper is visible immediately on
+        login instead of only appearing after the first workspace switch.
+        """
+        with open(self.SCRIPT_PATH) as f:
+            content = f.read()
+
+        # Find positions of key elements
+        daemon_wait_pos = content.find("swww query")
+        socat_pos = content.find("socat")
+        self.assertNotEqual(daemon_wait_pos, -1, "Must wait for swww-daemon")
+        self.assertNotEqual(socat_pos, -1, "Must have socat event listener")
+
+        # There must be a wallpaper apply call between the daemon wait and socat
+        between = content[daemon_wait_pos:socat_pos]
+        self.assertIn(
+            "apply_glitch_effect", between,
+            "Must apply wallpaper after daemon ready, before event loop",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Sway wallpaper startup retry validation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestSwayWallpaperStartup(unittest.TestCase):
+    """Verify Sway config has robust wallpaper initialization."""
+
+    SWAY_CONF = os.path.join(SKEL_DIR, ".config", "sway", "config")
+
+    def test_sway_config_has_wallpaper_directive(self):
+        """Sway config must set wallpaper via output directive."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "output * bg", content,
+            "Sway config must have an 'output * bg' wallpaper directive",
+        )
+
+    def test_sway_config_has_wallpaper_retry(self):
+        """Sway config must retry wallpaper after compositor initializes."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "swaymsg", content,
+            "Sway config must use swaymsg to retry wallpaper after startup",
+        )
+
+    def test_sway_wallpaper_retry_uses_loop(self):
+        """Sway wallpaper retry must use a loop for reliability on slow hardware."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "for ", content,
+            "Sway config must use a retry loop for wallpaper refresh "
+            "(single-attempt retry is unreliable on slow hardware)",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
