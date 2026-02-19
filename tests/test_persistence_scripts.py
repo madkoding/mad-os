@@ -391,6 +391,91 @@ class TestSetupPersistenceScript(unittest.TestCase):
             "iwd restart must log warning on failure without stopping script",
         )
 
+    def test_get_free_space_has_fallback_blockdev(self):
+        """get_free_space() must have blockdev --getsize64 as fallback method."""
+        self.assertIn(
+            'blockdev --getsize64',
+            self.content,
+            "get_free_space must use blockdev --getsize64 as fallback",
+        )
+
+    def test_get_free_space_has_fallback_isosize(self):
+        """get_free_space() must have isosize as fallback method."""
+        self.assertIn(
+            'isosize',
+            self.content,
+            "get_free_space must use isosize as fallback",
+        )
+
+    def test_get_free_space_proper_default(self):
+        """get_free_space() must use ${free:-0} for proper default handling.
+        
+        Previously used broken syntax ${free%.*:-0} which doesn't work.
+        Now uses ${free%%.*} to strip decimals and ${free:-0} for default.
+        """
+        # The function should use ${free:-0} for default value handling
+        self.assertIn(
+            '${free:-0}',
+            self.content,
+            "get_free_space must use ${free:-0} for proper default value handling",
+        )
+
+    def test_setup_checks_ext4_partitions(self):
+        """setup_persistence() must scan for ext4 partitions as fallback.
+        
+        After checking for labeled persistence partition, script should scan
+        for any unlabeled ext4 partitions that could be used.
+        """
+        # Look for blkid checking TYPE and comparing to ext4
+        self.assertIn(
+            'blkid -s TYPE',
+            self.content,
+            "setup_persistence must scan for ext4 partitions using blkid -s TYPE",
+        )
+        # Verify it checks for ext4 filesystem type
+        self.assertIn(
+            '"ext4"',
+            self.content,
+            "setup_persistence must check for ext4 filesystem type",
+        )
+
+    def test_ext4_scan_excludes_iso_partition(self):
+        """ext4 scan must use find_iso_partition to exclude ISO partition.
+        
+        The script should call find_iso_partition and compare against it
+        to avoid using the ISO partition as persistence.
+        """
+        # Check for find_iso_partition call in context of ext4 scanning
+        # Find the ext4 scanning section and verify find_iso_partition is used
+        ext4_scan_start = self.content.find('scanning for ext4 partitions')
+        self.assertNotEqual(ext4_scan_start, -1, "Must have ext4 scanning code")
+        
+        # Get the ext4 scanning region (next 500 chars)
+        ext4_region = self.content[ext4_scan_start:ext4_scan_start + 500]
+        self.assertIn(
+            'find_iso_partition',
+            ext4_region,
+            "ext4 scan must call find_iso_partition to exclude ISO partition",
+        )
+
+    def test_ext4_scan_labels_found_partition(self):
+        """ext4 scan must use e2label to add persistence label to found partitions.
+        
+        When an unlabeled ext4 partition is found, the script should use
+        e2label to add the persistence label to it.
+        """
+        self.assertIn(
+            'e2label',
+            self.content,
+            "ext4 scan must use e2label to label found ext4 partitions",
+        )
+        # Verify e2label is used with PERSIST_LABEL
+        self.assertRegex(
+            self.content,
+            r'e2label.*\$PERSIST_LABEL',
+            "e2label must add the persistence label to found ext4 partitions",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Partition protection safety checks
@@ -405,8 +490,8 @@ class TestPartitionProtection(unittest.TestCase):
         # Extract create_persist_partition function body
         start = self.content.find('create_persist_partition()')
         self.assertNotEqual(start, -1)
-        # Increased to 16000 to accommodate full function including label verification
-        self.create_fn = self.content[start:start + 16000]
+        # Increased to 24000 to accommodate full function including sfdisk fallback and label verification
+        self.create_fn = self.content[start:start + 24000]
 
     def test_checks_partition_table_type(self):
         """Must detect MBR partition table to enforce 4-partition limit."""
@@ -513,6 +598,54 @@ class TestPartitionProtection(unittest.TestCase):
             'Label verification failed',
             self.create_fn,
             "Must log error if label doesn't match",
+        )
+
+    def test_has_sfdisk_fallback(self):
+        """create_persist_partition() must have sfdisk --append as partition creation method.
+        
+        The function should try sfdisk --append before falling back to the
+        complex parted-based approach. This provides a simpler method for
+        partition creation on many systems.
+        """
+        self.assertIn(
+            'sfdisk --append',
+            self.create_fn,
+            "create_persist_partition must use sfdisk --append as primary method",
+        )
+
+    def test_sfdisk_checks_mbr_limit(self):
+        """sfdisk approach must also check for MBR 4-partition limit.
+        
+        Even though sfdisk is used, we must still verify we don't exceed
+        the MBR partition limit before attempting to create a partition.
+        """
+        # Find the sfdisk section
+        sfdisk_section_start = self.create_fn.find('sfdisk --append')
+        self.assertNotEqual(sfdisk_section_start, -1, "Must have sfdisk --append")
+        
+        # Look backwards from sfdisk to find MBR check
+        # The check should happen before the sfdisk call
+        before_sfdisk = self.create_fn[:sfdisk_section_start]
+        
+        # Should check existing_count >= 4 for msdos tables
+        self.assertRegex(
+            before_sfdisk,
+            r'existing_count.*-ge\s*4',
+            "sfdisk approach must check partition count >= 4 for MBR",
+        )
+
+    def test_sfdisk_aligns_partition(self):
+        """sfdisk approach must align partition to 1MB boundary.
+        
+        Proper partition alignment is critical for USB performance.
+        1MB alignment = 2048 sectors (at 512 bytes/sector).
+        """
+        # The sfdisk approach should include 2048 for 1MB alignment
+        # Look for it in the entire create_persist_partition function
+        self.assertIn(
+            '2048',
+            self.create_fn,
+            "sfdisk approach must align to 1MB boundary (2048 sectors)",
         )
 
 

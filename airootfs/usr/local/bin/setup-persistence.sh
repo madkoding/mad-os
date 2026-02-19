@@ -218,9 +218,42 @@ find_persist_partition() {
 get_free_space() {
     local device=$1
     local free
+
+    # Method 1: parted free space detection
     free=$(parted -s "$device" unit MB print free 2>/dev/null \
            | grep "Free Space" | tail -1 | awk '{print $3}' | sed 's/MB//')
-    echo "${free%.*:-0}"
+    free="${free%%.*}"  # strip decimal portion
+
+    # Method 2: calculate from disk size minus end of last partition
+    # This handles isohybrid ISOs where parted may not report free space
+    if [ -z "$free" ] || [ "${free:-0}" -eq 0 ]; then
+        local disk_mb last_end_mb
+        disk_mb=$(( $(blockdev --getsize64 "$device" 2>/dev/null || echo 0) / 1048576 ))
+        last_end_mb=$(parted -s "$device" unit MB print 2>/dev/null \
+                      | grep "^ [0-9]" | awk '{gsub(/MB/,""); print $3}' \
+                      | sort -n | tail -1)
+        last_end_mb="${last_end_mb%%.*}"
+        if [ "${disk_mb:-0}" -gt 0 ] && [ "${last_end_mb:-0}" -gt 0 ]; then
+            free=$((disk_mb - last_end_mb))
+            log "Free space calculated from disk size ($disk_mb MB) - last partition end ($last_end_mb MB) = $free MB"
+        fi
+    fi
+
+    # Method 3: calculate from disk size minus ISO size (for raw iso9660 on device)
+    if [ -z "$free" ] || [ "${free:-0}" -eq 0 ]; then
+        local disk_mb iso_size_bytes
+        disk_mb=$(( $(blockdev --getsize64 "$device" 2>/dev/null || echo 0) / 1048576 ))
+        if [ "${disk_mb:-0}" -gt 0 ] && command -v isosize >/dev/null 2>&1; then
+            iso_size_bytes=$(isosize "$device" 2>/dev/null)
+            if [ -n "$iso_size_bytes" ] && [ "${iso_size_bytes:-0}" -gt 0 ]; then
+                local iso_mb=$((iso_size_bytes / 1048576))
+                free=$((disk_mb - iso_mb))
+                log "Free space calculated from disk size ($disk_mb MB) - ISO size ($iso_mb MB) = $free MB"
+            fi
+        fi
+    fi
+
+    echo "${free:-0}"
 }
 
 # ── Partition creation ───────────────────────────────────────────────────────
@@ -246,6 +279,111 @@ create_persist_partition() {
 
     local part_suffix=""
     [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* || "$device" == *"loop"* ]] && part_suffix="p"
+
+    # ── Simple approach (preferred for isohybrid ISOs) ────────────────────
+    # Find where the last data ends on the device and create a partition in
+    # the remaining free space using sfdisk, which handles isohybrid
+    # partition tables more reliably than parted.
+    if command -v sfdisk >/dev/null 2>&1; then
+        log "Attempting simple sfdisk-based partition creation"
+        local used_end_sector=0
+        local sector_line
+        while IFS= read -r sector_line; do
+            local s_start s_size s_end
+            s_start=$(echo "$sector_line" | sed -n 's/.*start=\s*\([0-9]*\).*/\1/p')
+            s_size=$(echo "$sector_line" | sed -n 's/.*size=\s*\([0-9]*\).*/\1/p')
+            if [ -n "$s_start" ] && [ -n "$s_size" ]; then
+                s_end=$((s_start + s_size))
+                [ "$s_end" -gt "$used_end_sector" ] && used_end_sector=$s_end
+            fi
+        done < <(sfdisk -d "$device" 2>/dev/null | grep "^/")
+
+        if [ "$used_end_sector" -gt 0 ]; then
+            # Align start to 1MB boundary (2048 sectors)
+            local new_start=$(( ((used_end_sector + 2047) / 2048) * 2048 ))
+            local disk_sectors
+            disk_sectors=$(blockdev --getsz "$device" 2>/dev/null || echo "0")
+
+            # Check there's enough space (at least 100MB = 204800 sectors)
+            if [ "$disk_sectors" -gt 0 ] && [ $((disk_sectors - new_start)) -ge 204800 ]; then
+                # Check MBR 4-partition limit
+                local existing_count
+                existing_count=$(sfdisk -d "$device" 2>/dev/null | grep -c "^/")
+                if [ "$table_type" = "msdos" ] && [ "${existing_count:-0}" -ge 4 ]; then
+                    log "SAFETY: MBR partition table already has $existing_count partitions (max 4)"
+                else
+                    log "Creating partition at sector $new_start using sfdisk (disk size: $disk_sectors sectors)"
+                    local sfdisk_result
+                    if sfdisk_result=$(echo "start=$new_start, type=linux" | sfdisk --append --no-reread "$device" 2>&1); then
+                        log "sfdisk append succeeded: $sfdisk_result"
+                        sleep 2
+                        partprobe "$device" 2>/dev/null || true
+                        udevadm settle --timeout=10 2>/dev/null || true
+
+                        # Find the newly created partition
+                        local new_dev=""
+                        local pnum
+                        for pnum in $(sfdisk -d "$device" 2>/dev/null | grep "^/" \
+                                     | sed -n 's|.*'"$device"'[p]*\([0-9]*\).*|\1|p' | sort -n); do
+                            local candidate="${device}${part_suffix}${pnum}"
+                            if [ -b "$candidate" ]; then
+                                local c_label
+                                c_label=$(blkid -s LABEL -o value "$candidate" 2>/dev/null)
+                                local c_type
+                                c_type=$(blkid -s TYPE -o value "$candidate" 2>/dev/null)
+                                # Newly created partition has no filesystem yet
+                                if [ -z "$c_type" ] && [ -z "$c_label" ]; then
+                                    new_dev="$candidate"
+                                    break
+                                fi
+                            fi
+                        done
+
+                        # Fallback: check for highest numbered partition device node
+                        if [ -z "$new_dev" ]; then
+                            local highest=0
+                            local cand_node
+                            for cand_node in "${device}${part_suffix}"[0-9]* "${device}"[0-9]*; do
+                                if [ -b "$cand_node" ]; then
+                                    local cnum
+                                    if [ -n "$part_suffix" ]; then
+                                        cnum=$(echo "$cand_node" | sed 's/.*p\([0-9]*\)$/\1/')
+                                    else
+                                        cnum=$(echo "$cand_node" | sed 's/.*[^0-9]\([0-9]*\)$/\1/')
+                                    fi
+                                    [ -n "$cnum" ] && [ "$cnum" -gt "$highest" ] && { highest=$cnum; new_dev="$cand_node"; }
+                                fi
+                            done
+                        fi
+
+                        if [ -n "$new_dev" ] && [ -b "$new_dev" ]; then
+                            log "Formatting $new_dev as ext4 with label '$PERSIST_LABEL'"
+                            if mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$new_dev" 2>&1; then
+                                sleep 2
+                                udevadm settle --timeout=10 2>/dev/null || true
+                                log "Simple sfdisk partition creation succeeded: $new_dev"
+                                echo "$new_dev"
+                                return 0
+                            else
+                                log "WARNING: mkfs.ext4 failed on $new_dev, falling back to complex method"
+                            fi
+                        else
+                            log "WARNING: Could not find new partition device node, falling back to complex method"
+                        fi
+                    else
+                        log "WARNING: sfdisk append failed: $sfdisk_result"
+                        log "Falling back to complex parted-based method"
+                    fi
+                fi
+            else
+                log "Insufficient space for sfdisk method (need 100MB, have $((disk_sectors - new_start)) sectors)"
+            fi
+        else
+            log "Could not determine used space via sfdisk, trying parted-based method"
+        fi
+    fi
+
+    # ── Complex approach (original parted-based method) ───────────────────
 
     # Find the highest partition number in the partition table
     local last_part_num
@@ -852,6 +990,31 @@ setup_persistence() {
                 log "WARNING: Found partition with persistence label ($global_persist) but it belongs to /dev/$part_parent, not $iso_device - ignoring"
             fi
         fi
+    fi
+
+    # Fallback: scan for any ext4 partition on the device that could serve
+    # as persistence (even without the label).  This handles cases where a
+    # user manually created an ext4 partition or the label was lost.
+    if [ -z "$persist_dev" ]; then
+        log "Debug: No labeled persistence partition found, scanning for ext4 partitions"
+        local iso_part
+        iso_part=$(find_iso_partition)
+        for part in $(lsblk -nlo NAME "$iso_device" 2>/dev/null | tail -n +2); do
+            local full_part="/dev/$part"
+            if [ -b "$full_part" ] && [ "$full_part" != "$iso_part" ]; then
+                local fstype
+                fstype=$(blkid -s TYPE -o value "$full_part" 2>/dev/null)
+                if [ "$fstype" = "ext4" ]; then
+                    ui_info "Found unlabeled ext4 partition: $full_part"
+                    log "Found ext4 partition without persistence label: $full_part"
+                    e2label "$full_part" "$PERSIST_LABEL" 2>/dev/null && \
+                        log "Added persistence label to $full_part" || \
+                        log "WARNING: Could not add label to $full_part"
+                    persist_dev="$full_part"
+                    break
+                fi
+            fi
+        done
     fi
 
     if [ -z "$persist_dev" ]; then
