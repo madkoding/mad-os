@@ -23,7 +23,6 @@
         "cpu",
         "memory",
         "network",
-        "custom/bluetooth",
         "pulseaudio",
         "backlight",
         "battery"
@@ -115,7 +114,7 @@
         "tooltip-format-wifi": "WiFi: {essid}\nSeñal: {signalStrength}%\nIP: {ipaddr}/{cidr}",
         "tooltip-format-ethernet": "Ethernet: {ifname}\nIP: {ipaddr}/{cidr}",
         "tooltip-format-disconnected": "Sin conexión",
-        "on-click": "mados-wifi",
+        "on-click": "nm-connection-editor",
         "interval": 30
     },
 
@@ -159,14 +158,5 @@
         "format-alt": "<span size='x-large'>{icon}</span>  {time}",
         "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
         "tooltip-format": "{capacity}% • {timeTo}"
-    },
-
-    "custom/bluetooth": {
-        "format": "{}",
-        "return-type": "json",
-        "exec": "~/.config/waybar/scripts/bluetooth-status.sh",
-        "exec-if": "~/.config/waybar/scripts/bluetooth-check.sh",
-        "on-click": "mados-bluetooth",
-        "interval": 10
     }
 }

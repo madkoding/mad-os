@@ -223,84 +223,6 @@ class TestInstallerResponsiveLayout(unittest.TestCase):
         )
 
 
-class TestWiFiBluetoothResponsiveLayout(unittest.TestCase):
-    """Test that WiFi and Bluetooth apps use proportional paned positions."""
-
-    def test_wifi_no_fixed_paned_position(self):
-        """WiFi app should not use fixed set_position for paned widget."""
-        wifi_app_path = os.path.join(LIB_DIR, "mados_wifi", "app.py")
-        self.assertTrue(
-            os.path.exists(wifi_app_path),
-            f"WiFi app not found at {wifi_app_path}"
-        )
-
-        with open(wifi_app_path, "r") as f:
-            content = f.read()
-
-        # Should NOT contain fixed paned position like set_position(380)
-        self.assertNotRegex(
-            content,
-            r'paned\.set_position\s*\(\s*380\s*\)',
-            "WiFi app should not use fixed paned.set_position(380)"
-        )
-        self.assertNotRegex(
-            content,
-            r'self\.paned\.set_position\s*\(\s*\d{3,}\s*\)',
-            "WiFi app should not use fixed paned position with 3+ digit values"
-        )
-
-    def test_wifi_uses_proportional_positioning(self):
-        """WiFi app should use proportional paned positioning."""
-        wifi_app_path = os.path.join(LIB_DIR, "mados_wifi", "app.py")
-
-        with open(wifi_app_path, "r") as f:
-            content = f.read()
-
-        # Should have _on_paned_allocate method for proportional positioning
-        self.assertIn(
-            "_on_paned_allocate",
-            content,
-            "WiFi app should use _on_paned_allocate for proportional positioning"
-        )
-
-    def test_bluetooth_no_fixed_paned_position(self):
-        """Bluetooth app should not use fixed set_position for paned widget."""
-        bluetooth_app_path = os.path.join(LIB_DIR, "mados_bluetooth", "app.py")
-        self.assertTrue(
-            os.path.exists(bluetooth_app_path),
-            f"Bluetooth app not found at {bluetooth_app_path}"
-        )
-
-        with open(bluetooth_app_path, "r") as f:
-            content = f.read()
-
-        # Should NOT contain fixed paned position like set_position(350)
-        self.assertNotRegex(
-            content,
-            r'paned\.set_position\s*\(\s*350\s*\)',
-            "Bluetooth app should not use fixed paned.set_position(350)"
-        )
-        self.assertNotRegex(
-            content,
-            r'self\.paned\.set_position\s*\(\s*\d{3,}\s*\)',
-            "Bluetooth app should not use fixed paned position with 3+ digit values"
-        )
-
-    def test_bluetooth_uses_proportional_positioning(self):
-        """Bluetooth app should use proportional paned positioning."""
-        bluetooth_app_path = os.path.join(LIB_DIR, "mados_bluetooth", "app.py")
-
-        with open(bluetooth_app_path, "r") as f:
-            content = f.read()
-
-        # Should have _on_paned_allocate method for proportional positioning
-        self.assertIn(
-            "_on_paned_allocate",
-            content,
-            "Bluetooth app should use _on_paned_allocate for proportional positioning"
-        )
-
-
 class TestEqualizerResponsiveLayout(unittest.TestCase):
     """Test that equalizer app uses smaller minimum sizes."""
 
@@ -561,8 +483,6 @@ class TestResponsiveLayoutIntegration(unittest.TestCase):
     def test_apps_use_responsive_patterns(self):
         """All GUI apps should use responsive patterns like hexpand or proportional sizing."""
         app_dirs = [
-            "mados_wifi",
-            "mados_bluetooth",
             "mados_equalizer",
             "mados_photo_viewer",
         ]

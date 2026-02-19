@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=madOS WiFi
-Comment=WiFi network configuration
-Exec=mados-wifi
-Icon=network-wireless
-Terminal=false
-Type=Application
-Categories=Settings;Network;

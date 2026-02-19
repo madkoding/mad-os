@@ -209,6 +209,12 @@ bindsym $mod+Shift+s exec grim -g "$(slurp)" - | wl-copy
 # Waybar
 exec_always --no-startup-id "pkill waybar || true; sleep 0.3; waybar"
 
+# WiFi tray applet (NetworkManager)
+exec nm-applet --indicator
+
+# Bluetooth tray applet (Blueman)
+exec blueman-applet
+
 # Xwayland (for maim screenshots)
 exec_always --no-startup-id "pgrep Xwayland || echo 'Xwayland should auto-start'"
 
@@ -224,17 +230,9 @@ for_window [app_id="mados-photo-viewer"] resize set 900 700
 for_window [app_id="mados-pdf-viewer"] floating enable
 for_window [app_id="mados-pdf-viewer"] resize set 900 700
 
-# WiFi Configuration - floating utility
-for_window [app_id="mados-wifi"] floating enable
-for_window [app_id="mados-wifi"] resize set 700 550
-
 # Audio Equalizer - floating utility
 for_window [app_id="mados-equalizer"] floating enable
 for_window [app_id="mados-equalizer"] resize set 750 450
-
-# Bluetooth Configuration - floating utility
-for_window [app_id="mados-bluetooth"] floating enable
-for_window [app_id="mados-bluetooth"] resize set 700 500
 
 ### System includes
 include /etc/sway/config.d/*
