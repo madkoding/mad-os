@@ -768,6 +768,141 @@ class TestPartitionProtection(unittest.TestCase):
         )
 
 
+class TestRebootOnPartitionTableFailure(unittest.TestCase):
+    """Verify the script handles kernel partition table refresh failures.
+
+    When the kernel cannot re-read the partition table (device busy), the
+    script must signal that a reboot is required and handle the post-reboot
+    recovery (formatting the unformatted partition).
+    """
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, "setup-persistence.sh")
+        with open(self.script_path) as f:
+            self.content = f.read()
+        start = self.content.find("create_persist_partition()")
+        self.assertNotEqual(start, -1)
+        self.create_fn = self.content[start : start + 24000]
+        # Extract setup_persistence function
+        setup_start = self.content.find("setup_persistence()")
+        self.assertNotEqual(setup_start, -1)
+        self.setup_fn = self.content[setup_start:]
+
+    def test_signals_reboot_needed_when_device_node_missing(self):
+        """Must echo REBOOT_NEEDED when kernel cannot see new partition."""
+        self.assertIn(
+            "REBOOT_NEEDED",
+            self.create_fn,
+            "create_persist_partition must signal REBOOT_NEEDED",
+        )
+
+    def test_reboot_signal_after_device_node_check(self):
+        """REBOOT_NEEDED must be emitted after failing to find device node."""
+        reboot_pos = self.create_fn.find('echo "REBOOT_NEEDED"')
+        self.assertNotEqual(
+            reboot_pos, -1,
+            "Must echo REBOOT_NEEDED when device node is missing",
+        )
+        before_reboot = self.create_fn[:reboot_pos]
+        self.assertIn(
+            "! -b",
+            before_reboot,
+            "Must check for block device existence before signalling reboot",
+        )
+
+    def test_setup_handles_reboot_needed(self):
+        """setup_persistence must check for REBOOT_NEEDED and trigger reboot."""
+        self.assertIn(
+            'REBOOT_NEEDED',
+            self.setup_fn,
+            "setup_persistence must handle REBOOT_NEEDED from create_persist_partition",
+        )
+        self.assertIn(
+            "systemctl reboot",
+            self.setup_fn,
+            "setup_persistence must trigger systemctl reboot",
+        )
+
+    def test_reboot_warning_shown(self):
+        """Must display warning before rebooting."""
+        reboot_section_start = self.setup_fn.find("REBOOT_NEEDED")
+        self.assertNotEqual(reboot_section_start, -1)
+        reboot_section = self.setup_fn[reboot_section_start : reboot_section_start + 600]
+        self.assertIn(
+            "reboot",
+            reboot_section.lower(),
+            "Must warn user about reboot",
+        )
+
+    def test_reboot_has_delay(self):
+        """Must give user time to read the warning before rebooting."""
+        reboot_section_start = self.setup_fn.find("REBOOT_NEEDED")
+        self.assertNotEqual(reboot_section_start, -1)
+        reboot_section = self.setup_fn[reboot_section_start : reboot_section_start + 600]
+        self.assertIn(
+            "sleep",
+            reboot_section,
+            "Must sleep before rebooting to let user read the warning",
+        )
+
+    def test_reboot_has_fallback(self):
+        """Must have a fallback if systemctl reboot fails."""
+        reboot_section_start = self.setup_fn.find("REBOOT_NEEDED")
+        self.assertNotEqual(reboot_section_start, -1)
+        reboot_section = self.setup_fn[reboot_section_start : reboot_section_start + 600]
+        self.assertIn(
+            "reboot -f",
+            reboot_section,
+            "Must fall back to reboot -f if systemctl reboot fails",
+        )
+
+    def test_detects_unformatted_partition_post_reboot(self):
+        """Must detect an unformatted partition from a previous interrupted setup."""
+        self.assertIn(
+            "unformatted partition",
+            self.create_fn.lower(),
+            "create_persist_partition must detect unformatted partitions",
+        )
+
+    def test_formats_unformatted_partition(self):
+        """Must format unformatted partition found after reboot."""
+        # The unformatted partition check should lead to mkfs.ext4
+        unformatted_pos = self.create_fn.lower().find("unformatted partition")
+        self.assertNotEqual(unformatted_pos, -1)
+        after_check = self.create_fn[unformatted_pos : unformatted_pos + 1500]
+        self.assertIn(
+            "mkfs.ext4",
+            after_check,
+            "Must format unformatted partition with mkfs.ext4",
+        )
+
+    def test_unformatted_check_validates_size(self):
+        """Must verify unformatted partition is large enough for persistence."""
+        self.assertIn(
+            "MIN_PERSIST_MB",
+            self.create_fn[
+                self.create_fn.lower().find("unformatted") : self.create_fn.lower().find("unformatted") + 1500
+            ],
+            "Must check partition size against MIN_PERSIST_MB",
+        )
+
+    def test_partx_fallback(self):
+        """Must try partx as fallback when partprobe fails."""
+        self.assertIn(
+            "partx",
+            self.create_fn,
+            "create_persist_partition must try partx as fallback for partition table refresh",
+        )
+
+    def test_persistence_resumes_after_reboot(self):
+        """Post-reboot recovery must log that it's resuming setup."""
+        self.assertIn(
+            "post-reboot recovery",
+            self.create_fn.lower(),
+            "Must log post-reboot recovery when formatting unformatted partition",
+        )
+
+
 class TestRemovePartitionSafety(unittest.TestCase):
     """Verify remove_persistence verifies label before deleting a partition."""
 
