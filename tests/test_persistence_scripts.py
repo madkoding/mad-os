@@ -143,6 +143,78 @@ class TestSetupPersistenceScript(unittest.TestCase):
                     f"Must have {func}() for styled console output",
                 )
 
+    def test_log_writes_only_to_file(self):
+        """log() must write only to the log file, not to stderr/screen."""
+        log_fn = re.search(r"^log\(\)\s*\{[^}]+\}", self.content, re.MULTILINE)
+        self.assertIsNotNone(log_fn, "Must have log() function")
+        log_body = log_fn.group(0)
+        self.assertNotIn(
+            "tee",
+            log_body,
+            "log() must not use tee (debug output should go only to the log file)",
+        )
+        self.assertIn(
+            ">> \"$LOG_FILE\"",
+            log_body,
+            "log() must append to $LOG_FILE",
+        )
+
+    def test_has_spinner_functions(self):
+        """Script must have start_spinner and stop_spinner functions."""
+        for func in ("start_spinner", "stop_spinner"):
+            with self.subTest(func=func):
+                self.assertRegex(
+                    self.content,
+                    rf"{func}\(\)\s*\{{",
+                    f"Must have {func}() for activity indication",
+                )
+
+    def test_spinner_cleanup_on_exit(self):
+        """Script must clean up spinner on exit via trap."""
+        self.assertIn(
+            "trap",
+            self.content,
+            "Must have a trap to clean up spinner on exit",
+        )
+        self.assertRegex(
+            self.content,
+            r"trap\s+'stop_spinner",
+            "Must trap EXIT to stop_spinner",
+        )
+
+    def test_ui_step_starts_spinner(self):
+        """ui_step must start the spinner for activity indication."""
+        start = self.content.find("ui_step()")
+        self.assertNotEqual(start, -1)
+        step_body = self.content[start : start + 300]
+        self.assertIn(
+            "start_spinner",
+            step_body,
+            "ui_step() must call start_spinner",
+        )
+
+    def test_ui_ok_stops_spinner(self):
+        """ui_ok must stop the spinner."""
+        start = self.content.find("ui_ok()")
+        self.assertNotEqual(start, -1)
+        ok_body = self.content[start : start + 200]
+        self.assertIn(
+            "stop_spinner",
+            ok_body,
+            "ui_ok() must call stop_spinner",
+        )
+
+    def test_ui_fail_stops_spinner(self):
+        """ui_fail must stop the spinner."""
+        start = self.content.find("ui_fail()")
+        self.assertNotEqual(start, -1)
+        fail_body = self.content[start : start + 200]
+        self.assertIn(
+            "stop_spinner",
+            fail_body,
+            "ui_fail() must call stop_spinner",
+        )
+
     def test_has_is_usb_device_function(self):
         self.assertRegex(self.content, r"is_usb_device\(\)\s*\{")
 
@@ -765,6 +837,136 @@ class TestPartitionProtection(unittest.TestCase):
             before_first_sfdisk,
             r"sfdisk_input.*sfdisk_new_part_num.*start=",
             "sfdisk must specify explicit partition number in input",
+        )
+
+
+class TestRebootOnPartitionTableFailure(unittest.TestCase):
+    """Verify the script handles kernel partition table refresh failures.
+
+    When the kernel cannot re-read the partition table (device busy), the
+    script must signal that a reboot is required and handle the post-reboot
+    recovery (formatting the unformatted partition).
+    """
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, "setup-persistence.sh")
+        with open(self.script_path) as f:
+            self.content = f.read()
+        start = self.content.find("create_persist_partition()")
+        self.assertNotEqual(start, -1)
+        self.create_fn = self.content[start : start + 24000]
+        self.create_fn_lower = self.create_fn.lower()
+        # Extract setup_persistence function
+        setup_start = self.content.find("setup_persistence()")
+        self.assertNotEqual(setup_start, -1)
+        self.setup_fn = self.content[setup_start:]
+        # Extract the reboot-handling section from setup_persistence
+        reboot_pos = self.setup_fn.find("REBOOT_NEEDED")
+        self.assertNotEqual(reboot_pos, -1, "setup_fn must contain REBOOT_NEEDED")
+        self.reboot_section = self.setup_fn[reboot_pos : reboot_pos + 600]
+        # Locate the unformatted partition recovery section
+        self.unformatted_pos = self.create_fn_lower.find("unformatted partition")
+        self.assertNotEqual(self.unformatted_pos, -1, "create_fn must reference unformatted partition")
+
+    def test_signals_reboot_needed_when_device_node_missing(self):
+        """Must echo REBOOT_NEEDED when kernel cannot see new partition."""
+        self.assertIn(
+            "REBOOT_NEEDED",
+            self.create_fn,
+            "create_persist_partition must signal REBOOT_NEEDED",
+        )
+
+    def test_reboot_signal_after_device_node_check(self):
+        """REBOOT_NEEDED must be emitted after failing to find device node."""
+        reboot_pos = self.create_fn.find('echo "REBOOT_NEEDED"')
+        self.assertNotEqual(
+            reboot_pos, -1,
+            "Must echo REBOOT_NEEDED when device node is missing",
+        )
+        before_reboot = self.create_fn[:reboot_pos]
+        self.assertIn(
+            "! -b",
+            before_reboot,
+            "Must check for block device existence before signalling reboot",
+        )
+
+    def test_setup_handles_reboot_needed(self):
+        """setup_persistence must check for REBOOT_NEEDED and trigger reboot."""
+        self.assertIn(
+            'REBOOT_NEEDED',
+            self.setup_fn,
+            "setup_persistence must handle REBOOT_NEEDED from create_persist_partition",
+        )
+        self.assertIn(
+            "systemctl reboot",
+            self.setup_fn,
+            "setup_persistence must trigger systemctl reboot",
+        )
+
+    def test_reboot_warning_shown(self):
+        """Must display warning before rebooting."""
+        self.assertIn(
+            "reboot",
+            self.reboot_section.lower(),
+            "Must warn user about reboot",
+        )
+
+    def test_reboot_has_delay(self):
+        """Must give user time to read the warning before rebooting."""
+        self.assertIn(
+            "sleep",
+            self.reboot_section,
+            "Must sleep before rebooting to let user read the warning",
+        )
+
+    def test_reboot_has_fallback(self):
+        """Must have a fallback if systemctl reboot fails."""
+        self.assertIn(
+            "reboot -f",
+            self.reboot_section,
+            "Must fall back to reboot -f if systemctl reboot fails",
+        )
+
+    def test_detects_unformatted_partition_post_reboot(self):
+        """Must detect an unformatted partition from a previous interrupted setup."""
+        self.assertIn(
+            "unformatted partition",
+            self.create_fn_lower,
+            "create_persist_partition must detect unformatted partitions",
+        )
+
+    def test_formats_unformatted_partition(self):
+        """Must format unformatted partition found after reboot."""
+        after_check = self.create_fn[self.unformatted_pos : self.unformatted_pos + 1500]
+        self.assertIn(
+            "mkfs.ext4",
+            after_check,
+            "Must format unformatted partition with mkfs.ext4",
+        )
+
+    def test_unformatted_check_validates_size(self):
+        """Must verify unformatted partition is large enough for persistence."""
+        recovery_section = self.create_fn[self.unformatted_pos : self.unformatted_pos + 1500]
+        self.assertIn(
+            "MIN_PERSIST_MB",
+            recovery_section,
+            "Must check partition size against MIN_PERSIST_MB",
+        )
+
+    def test_partx_fallback(self):
+        """Must try partx as fallback when partprobe fails."""
+        self.assertIn(
+            "partx",
+            self.create_fn,
+            "create_persist_partition must try partx as fallback for partition table refresh",
+        )
+
+    def test_persistence_resumes_after_reboot(self):
+        """Post-reboot recovery must log that it's resuming setup."""
+        self.assertIn(
+            "post-reboot recovery",
+            self.create_fn.lower(),
+            "Must log post-reboot recovery when formatting unformatted partition",
         )
 
 

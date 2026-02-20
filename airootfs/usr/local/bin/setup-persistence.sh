@@ -34,11 +34,43 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 STEP_NUM=0
+SPINNER_PID=""
 
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" >&2
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE" 2>/dev/null
     return 0
 }
+
+# ── Spinner helpers ──────────────────────────────────────────────────────────
+# Background spinner shown while a step is in progress.  start_spinner is
+# called by ui_step(); stop_spinner is called by ui_ok/ui_fail/ui_warn/ui_skip.
+
+start_spinner() {
+    stop_spinner  # ensure no stale spinner
+    local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+    (
+        while true; do
+            for f in "${frames[@]}"; do
+                printf "\r  ${CYAN}  %s${NC} " "$f" >&2
+                sleep 0.1
+            done
+        done
+    ) &
+    SPINNER_PID=$!
+    disown "$SPINNER_PID" 2>/dev/null
+}
+
+stop_spinner() {
+    if [[ -n "${SPINNER_PID:-}" ]] && kill -0 "$SPINNER_PID" 2>/dev/null; then
+        kill "$SPINNER_PID" 2>/dev/null
+        wait "$SPINNER_PID" 2>/dev/null || true
+        printf "\r" >&2
+    fi
+    SPINNER_PID=""
+}
+
+# Clean up spinner on exit
+trap 'stop_spinner' EXIT
 
 ui_header() {
     echo -e "${BLUE}${BOLD}" >&2
@@ -50,25 +82,30 @@ ui_header() {
 }
 
 ui_step() {
+    stop_spinner
     STEP_NUM=$((STEP_NUM + 1))
     echo -e "  ${CYAN}${BOLD}[${STEP_NUM}]${NC} ${BOLD}$*${NC}" >&2
     log "STEP $STEP_NUM: $*"
+    start_spinner
     return 0
 }
 
 ui_ok() {
+    stop_spinner
     echo -e "  ${GREEN}  ✓${NC} $*" >&2
     log "  OK: $*"
     return 0
 }
 
 ui_warn() {
+    stop_spinner
     echo -e "  ${YELLOW}  ⚠${NC} $*" >&2
     log "  WARN: $*"
     return 0
 }
 
 ui_fail() {
+    stop_spinner
     echo -e "  ${RED}  ✗${NC} $*" >&2
     log "  FAIL: $*"
     return 0
@@ -81,6 +118,7 @@ ui_info() {
 }
 
 ui_done() {
+    stop_spinner
     echo "" >&2
     echo -e "  ${GREEN}${BOLD}── Persistence ready ──${NC}" >&2
     echo "" >&2
@@ -89,6 +127,7 @@ ui_done() {
 }
 
 ui_skip() {
+    stop_spinner
     echo -e "  ${DIM}  ─ $*${NC}" >&2
     log "  SKIP: $*"
     return 0
@@ -372,6 +411,40 @@ create_persist_partition() {
         return 1
     fi
 
+    # ── Check for unformatted partition from a previous interrupted setup ─
+    # After a reboot caused by the kernel failing to re-read the partition
+    # table, the partition exists in the on-disk table but was never
+    # formatted.  Detect it and format it instead of creating a new one.
+    local last_dev="${device}${part_suffix}${safe_last_part}"
+    if [[ "$safe_last_part" -gt 0 && -b "$last_dev" ]]; then
+        local cand_fstype
+        cand_fstype=$(blkid -s TYPE -o value "$last_dev" 2>/dev/null || echo "")
+        if [[ -z "$cand_fstype" ]]; then
+            local cand_size_mb
+            cand_size_mb=$(( $(lsblk -bnlo SIZE "$last_dev" 2>/dev/null | head -1 || echo 0) / 1048576 ))
+            if [[ "${cand_size_mb:-0}" -ge "$MIN_PERSIST_MB" ]]; then
+                log "Found unformatted partition $last_dev (${cand_size_mb} MB) – resuming setup after reboot"
+                log "Formatting ${last_dev} as ext4 with label '$PERSIST_LABEL'"
+                local mkfs_output
+                if ! mkfs_output=$(mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$last_dev" 2>&1); then
+                    log "ERROR: mkfs.ext4 failed on $last_dev: $mkfs_output"
+                    return 1
+                fi
+                [[ -n "$mkfs_output" ]] && log "mkfs.ext4: $mkfs_output"
+                sleep 2
+                udevadm settle --timeout=10 2>/dev/null || true
+                local written_label
+                written_label=$(blkid -s LABEL -o value "$last_dev" 2>/dev/null)
+                if [[ "$written_label" != "$PERSIST_LABEL" ]]; then
+                    log "WARNING: Label verification failed (expected '$PERSIST_LABEL', got '$written_label')"
+                fi
+                log "Formatted $last_dev (post-reboot recovery)"
+                echo "$last_dev"
+                return 0
+            fi
+        fi
+    fi
+
     # Snapshot existing partition boundaries for safety verification
     local pre_parts
     pre_parts=$(parted -s "$device" unit MB print 2>/dev/null \
@@ -459,9 +532,14 @@ create_persist_partition() {
         [[ -n "$parted_output" ]] && log "parted output: $parted_output"
     fi
 
-    # Settle devices and wait for new partition node
+    # Settle devices and ask kernel to re-read partition table
     sleep 2
-    partprobe "$device" 2>/dev/null || true
+    local kernel_updated=false
+    if partprobe "$device" 2>/dev/null; then
+        kernel_updated=true
+    elif command -v partx >/dev/null 2>&1 && partx -u "$device" 2>/dev/null; then
+        kernel_updated=true
+    fi
     udevadm settle --timeout=10 2>/dev/null || true
 
     # Wait for device node to appear
@@ -487,9 +565,11 @@ create_persist_partition() {
         fi
     fi
 
+    # If kernel could not recognize the new partition, a reboot is required
     if [[ ! -b "$persist_dev" ]]; then
-        log "ERROR: Device node $persist_dev not found after partition creation"
-        return 1
+        log "Kernel failed to recognize new partition $persist_dev – reboot required"
+        echo "REBOOT_NEEDED"
+        return 0
     fi
 
     # Safety: verify existing partitions were not modified
@@ -769,6 +849,16 @@ setup_persistence() {
 
         ui_info "No partition found – creating (${free_space} MB free)..."
         persist_dev=$(create_persist_partition "$iso_device")
+        if [[ "$persist_dev" == "REBOOT_NEEDED" ]]; then
+            ui_warn "Partition created but the kernel could not update the partition table"
+            ui_warn "The device is in use – a reboot is required"
+            ui_info "Persistence setup will resume automatically after reboot"
+            ui_info "The system will reboot in 10 seconds..."
+            log "Scheduling reboot for kernel partition table refresh"
+            sleep 10
+            systemctl reboot 2>/dev/null || reboot -f
+            exit 0
+        fi
         if [[ -z "$persist_dev" ]]; then
             ui_fail "Partition creation failed"
             return 1
