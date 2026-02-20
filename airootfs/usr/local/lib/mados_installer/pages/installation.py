@@ -11,20 +11,31 @@ import threading
 
 from gi.repository import Gtk, GLib
 
-from ..config import DEMO_MODE, PACKAGES, PACKAGES_PHASE1, PACKAGES_PHASE2, NORD_FROST, LOCALE_KB_MAP, TIMEZONES, LOCALE_MAP
+from ..config import (
+    DEMO_MODE,
+    PACKAGES,
+    PACKAGES_PHASE1,
+    PACKAGES_PHASE2,
+    NORD_FROST,
+    LOCALE_KB_MAP,
+    TIMEZONES,
+    LOCALE_MAP,
+)
 from ..utils import log_message, set_progress, show_error
 
 
 def _escape_shell(s):
     """Escape a string for safe use inside single quotes in shell"""
     return s.replace("'", "'\\''")
+
+
 from .base import create_page_header
 
 
 def create_installation_page(app):
     """Installation progress page with spinner, progress bar and log"""
     page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-    page.get_style_context().add_class('page-container')
+    page.get_style_context().add_class("page-container")
     page.set_valign(Gtk.Align.CENTER)
 
     content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -35,7 +46,7 @@ def create_installation_page(app):
 
     # Spinner
     app.install_spinner = Gtk.Spinner()
-    app.install_spinner.get_style_context().add_class('install-spinner')
+    app.install_spinner.get_style_context().add_class("install-spinner")
     app.install_spinner.set_halign(Gtk.Align.CENTER)
     app.install_spinner.set_margin_top(8)
     content.pack_start(app.install_spinner, False, False, 0)
@@ -70,14 +81,14 @@ def create_installation_page(app):
     toggle_label.set_markup(
         f'<span size="9000" foreground="{NORD_FROST["nord8"]}">{app.t("show_log")}</span>'
     )
-    toggle_label.get_style_context().add_class('log-toggle')
+    toggle_label.get_style_context().add_class("log-toggle")
     app.log_toggle.add(toggle_label)
-    app.log_toggle.connect('button-press-event', lambda w, e: _toggle_log(app))
+    app.log_toggle.connect("button-press-event", lambda w, e: _toggle_log(app))
     content.pack_start(app.log_toggle, False, False, 0)
 
     # Log viewer (hidden by default)
     log_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-    log_card.get_style_context().add_class('content-card')
+    log_card.get_style_context().add_class("content-card")
     log_card.set_margin_top(4)
     log_card.set_no_show_all(True)
     app.log_card = log_card
@@ -132,6 +143,267 @@ def on_start_installation(app):
     thread.start()
 
 
+SKEL_DIR = "/mnt/etc/skel/"
+
+
+def _get_partition_prefix(disk):
+    """Get partition prefix (nvme/mmcblk use 'p' separator)"""
+    return f"{disk}p" if "nvme" in disk or "mmcblk" in disk else disk
+
+
+def _step_partition_disk(app, disk, separate_home, disk_size_gb):
+    """Step 1: Partition the disk. Returns (boot_part, root_part, home_part)."""
+    set_progress(app, 0.05, "Partitioning disk...")
+    log_message(app, f"Partitioning {disk}...")
+
+    if DEMO_MODE:
+        for msg in [
+            "unmount/swapoff",
+            "wipefs",
+            "parted mklabel gpt",
+            "parted mkpart bios_boot",
+            "parted set bios_grub",
+            "parted mkpart EFI",
+            "parted set esp",
+        ]:
+            log_message(app, f"[DEMO] Simulating {msg}...")
+            time.sleep(0.3)
+    else:
+        log_message(app, f"Unmounting existing partitions on {disk}...")
+        for part in globmod.glob(f"{disk}[0-9]*") + globmod.glob(f"{disk}p[0-9]*"):
+            subprocess.run(["swapoff", part], stderr=subprocess.DEVNULL, check=False)
+            subprocess.run(
+                ["umount", "-l", part], stderr=subprocess.DEVNULL, check=False
+            )
+        time.sleep(1)
+        subprocess.run(["sgdisk", "--zap-all", disk], check=False)
+        subprocess.run(["wipefs", "-a", "-f", disk], check=True)
+        subprocess.run(["parted", "-s", disk, "mklabel", "gpt"], check=True)
+        subprocess.run(
+            ["parted", "-s", disk, "mkpart", "bios_boot", "1MiB", "2MiB"], check=True
+        )
+        subprocess.run(
+            ["parted", "-s", disk, "set", "1", "bios_grub", "on"], check=True
+        )
+        subprocess.run(
+            ["parted", "-s", disk, "mkpart", "EFI", "fat32", "2MiB", "1GiB"], check=True
+        )
+        subprocess.run(["parted", "-s", disk, "set", "2", "esp", "on"], check=True)
+
+    _create_root_partition(app, disk, separate_home, disk_size_gb)
+
+    if not DEMO_MODE:
+        log_message(app, "Waiting for partition devices...")
+        subprocess.run(["partprobe", disk], check=False)
+        subprocess.run(["udevadm", "settle", "--timeout=10"], check=False)
+        time.sleep(2)
+    else:
+        time.sleep(0.5)
+
+    part_prefix = _get_partition_prefix(disk)
+    return (
+        f"{part_prefix}2",
+        f"{part_prefix}3",
+        f"{part_prefix}4" if separate_home else None,
+    )
+
+
+def _create_root_partition(app, disk, separate_home, disk_size_gb):
+    """Create root (and optionally home) partition."""
+    if separate_home:
+        root_end = "51GiB" if disk_size_gb < 128 else "61GiB"
+        if DEMO_MODE:
+            log_message(app, f"[DEMO] Simulating parted mkpart root 1GiB-{root_end}...")
+            time.sleep(0.5)
+            log_message(app, "[DEMO] Simulating parted mkpart home...")
+            time.sleep(0.5)
+        else:
+            subprocess.run(
+                ["parted", "-s", disk, "mkpart", "root", "ext4", "1GiB", root_end],
+                check=True,
+            )
+            subprocess.run(
+                ["parted", "-s", disk, "mkpart", "home", "ext4", root_end, "100%"],
+                check=True,
+            )
+    else:
+        if DEMO_MODE:
+            log_message(app, "[DEMO] Simulating parted mkpart root 1GiB-100%...")
+            time.sleep(0.5)
+        else:
+            subprocess.run(
+                ["parted", "-s", disk, "mkpart", "root", "ext4", "1GiB", "100%"],
+                check=True,
+            )
+
+
+def _step_format_partitions(app, boot_part, root_part, home_part, separate_home):
+    """Step 2: Format partitions."""
+    set_progress(app, 0.15, "Formatting partitions...")
+    log_message(app, "Formatting partitions...")
+
+    if DEMO_MODE:
+        log_message(app, f"[DEMO] Simulating mkfs.fat {boot_part}...")
+        time.sleep(0.5)
+        log_message(app, f"[DEMO] Simulating mkfs.ext4 {root_part}...")
+        time.sleep(0.5)
+        if separate_home and home_part:
+            log_message(app, f"[DEMO] Simulating mkfs.ext4 {home_part}...")
+            time.sleep(0.5)
+    else:
+        partitions = [("EFI", boot_part), ("root", root_part)]
+        if separate_home and home_part:
+            partitions.append(("home", home_part))
+        for part_name, part_dev in partitions:
+            if not os.path.exists(part_dev):
+                raise RuntimeError(
+                    f"Partition device {part_dev} ({part_name}) does not exist!"
+                )
+        subprocess.run(["mkfs.fat", "-F32", boot_part], check=True)
+        subprocess.run(["mkfs.ext4", "-F", root_part], check=True)
+        if separate_home and home_part:
+            subprocess.run(["mkfs.ext4", "-F", home_part], check=True)
+
+
+def _step_mount_filesystems(app, boot_part, root_part, home_part, separate_home):
+    """Step 3: Mount filesystems."""
+    set_progress(app, 0.20, "Mounting filesystems...")
+    log_message(app, "Mounting filesystems...")
+
+    if DEMO_MODE:
+        log_message(app, f"[DEMO] Simulating mount {root_part} /mnt...")
+        time.sleep(0.5)
+        log_message(app, "[DEMO] Simulating mkdir /mnt/boot...")
+        time.sleep(0.3)
+        log_message(app, f"[DEMO] Simulating mount {boot_part} /mnt/boot...")
+        time.sleep(0.5)
+        if separate_home and home_part:
+            log_message(app, "[DEMO] Simulating mkdir /mnt/home...")
+            time.sleep(0.3)
+            log_message(app, f"[DEMO] Simulating mount {home_part} /mnt/home...")
+            time.sleep(0.5)
+    else:
+        subprocess.run(["mount", root_part, "/mnt"], check=True)
+        subprocess.run(["mkdir", "-p", "/mnt/boot"], check=True)
+        subprocess.run(["mount", boot_part, "/mnt/boot"], check=True)
+        if separate_home and home_part:
+            subprocess.run(["mkdir", "-p", "/mnt/home"], check=True)
+            subprocess.run(["mount", home_part, "/mnt/home"], check=True)
+
+
+def _copy_item(src, dst):
+    """Copy file or directory if it exists."""
+    if os.path.exists(src):
+        subprocess.run(["cp", "-a", src, dst], check=False)
+
+
+def _step_copy_live_files(app):
+    """Step 6: Copy files from live ISO to installed system."""
+    set_progress(app, 0.51, "Copying boot splash assets...")
+    log_message(app, "Copying Plymouth boot splash assets...")
+    subprocess.run(["mkdir", "-p", "/mnt/usr/share/plymouth/themes/mados"], check=True)
+    _copy_item(
+        "/usr/share/plymouth/themes/mados/logo.png",
+        "/mnt/usr/share/plymouth/themes/mados/",
+    )
+    _copy_item(
+        "/usr/share/plymouth/themes/mados/dot.png",
+        "/mnt/usr/share/plymouth/themes/mados/",
+    )
+
+    set_progress(app, 0.52, "Copying desktop configuration files...")
+    log_message(app, "Copying desktop configuration files...")
+    for item in [
+        ".config",
+        "Pictures",
+        ".bash_profile",
+        ".zshrc",
+        ".bashrc",
+        ".gtkrc-2.0",
+    ]:
+        _copy_item(f"/etc/skel/{item}", f"{SKEL_DIR}{item}")
+
+    subprocess.run(["mkdir", "-p", "/mnt/etc/gtk-3.0"], check=False)
+    _copy_item("/etc/gtk-3.0/settings.ini", "/mnt/etc/gtk-3.0/")
+
+    _copy_item("/usr/share/themes/Nordic", "/mnt/usr/share/themes/")
+    _copy_item("/etc/skel/.oh-my-zsh", SKEL_DIR)
+
+    for binary in ["opencode", "ollama", "kew"]:
+        _copy_item(f"/usr/local/bin/{binary}", "/mnt/usr/local/bin/")
+
+    _step_copy_scripts(app)
+    _step_copy_desktop_files(app)
+
+
+def _step_copy_scripts(app):
+    """Copy system scripts and launchers."""
+    set_progress(app, 0.53, "Copying system scripts...")
+    log_message(app, "Copying system scripts...")
+    subprocess.run(["mkdir", "-p", "/mnt/usr/local/bin"], check=False)
+
+    scripts = [
+        "setup-ohmyzsh.sh",
+        "detect-legacy-hardware",
+        "cage-greeter",
+        "sway-session",
+        "hyprland-session",
+        "select-compositor",
+        "mados-audio-quality.sh",
+    ]
+    for script in scripts:
+        _copy_item(f"/usr/local/bin/{script}", "/mnt/usr/local/bin/")
+
+    for launcher in [
+        "mados-photo-viewer",
+        "mados-pdf-viewer",
+        "mados-equalizer",
+        "mados-debug",
+    ]:
+        _copy_item(f"/usr/local/bin/{launcher}", "/mnt/usr/local/bin/")
+
+    subprocess.run(["mkdir", "-p", "/mnt/usr/local/lib"], check=False)
+    for lib in ["mados_photo_viewer", "mados_pdf_viewer", "mados_equalizer"]:
+        _copy_item(f"/usr/local/lib/{lib}", "/mnt/usr/local/lib/")
+
+    for script in scripts[1:] + [
+        "mados-photo-viewer",
+        "mados-pdf-viewer",
+        "mados-equalizer",
+        "mados-debug",
+    ]:
+        subprocess.run(["chmod", "+x", f"/mnt/usr/local/bin/{script}"], check=False)
+
+
+def _step_copy_desktop_files(app):
+    """Copy session and desktop files."""
+    set_progress(app, 0.54, "Copying session files...")
+    log_message(app, "Copying session files...")
+    subprocess.run(["mkdir", "-p", "/mnt/usr/share/wayland-sessions"], check=False)
+    _copy_item(
+        "/usr/share/wayland-sessions/sway.desktop", "/mnt/usr/share/wayland-sessions/"
+    )
+    _copy_item(
+        "/usr/share/wayland-sessions/hyprland.desktop",
+        "/mnt/usr/share/wayland-sessions/",
+    )
+
+    subprocess.run(["mkdir", "-p", "/mnt/usr/share/backgrounds"], check=False)
+    _copy_item(
+        "/usr/share/backgrounds/mad-os-wallpaper.jpg", "/mnt/usr/share/backgrounds/"
+    )
+
+    subprocess.run(["mkdir", "-p", "/mnt/usr/share/applications"], check=False)
+    for desktop in [
+        "mados-photo-viewer.desktop",
+        "mados-pdf-viewer.desktop",
+        "mados-equalizer.desktop",
+    ]:
+        _copy_item(f"/usr/share/applications/{desktop}", "/mnt/usr/share/applications/")
+
+    _copy_item("/usr/share/fonts/dseg", "/mnt/usr/share/fonts/")
+
+
 def _run_installation(app):
     """Perform Phase 1 installation (runs in background thread).
 
@@ -143,134 +415,20 @@ def _run_installation(app):
     """
     try:
         data = app.install_data
-        disk = data['disk']
-        separate_home = data['separate_home']
-        disk_size_gb = data['disk_size_gb']
+        disk = data["disk"]
+        separate_home = data["separate_home"]
+        disk_size_gb = data["disk_size_gb"]
 
         # Step 1: Partition
-        set_progress(app, 0.05, "Partitioning disk...")
-        log_message(app, f"Partitioning {disk}...")
-        if DEMO_MODE:
-            log_message(app, "[DEMO] Simulating unmount/swapoff...")
-            time.sleep(0.3)
-            log_message(app, "[DEMO] Simulating wipefs...")
-            time.sleep(0.5)
-            log_message(app, "[DEMO] Simulating parted mklabel gpt...")
-            time.sleep(0.5)
-            log_message(app, "[DEMO] Simulating parted mkpart bios_boot 1MiB-2MiB...")
-            time.sleep(0.3)
-            log_message(app, "[DEMO] Simulating parted set bios_grub on...")
-            time.sleep(0.3)
-            log_message(app, "[DEMO] Simulating parted mkpart EFI 2MiB-1GiB...")
-            time.sleep(0.5)
-            log_message(app, "[DEMO] Simulating parted set esp on...")
-            time.sleep(0.5)
-        else:
-            log_message(app, f"Unmounting existing partitions on {disk}...")
-            for part in globmod.glob(f'{disk}[0-9]*') + globmod.glob(f'{disk}p[0-9]*'):
-                subprocess.run(['swapoff', part], stderr=subprocess.DEVNULL, check=False)
-                subprocess.run(['umount', '-l', part], stderr=subprocess.DEVNULL, check=False)
-            time.sleep(1)
-            # Thorough disk cleanup: remove GPT/MBR structures + all filesystem signatures
-            subprocess.run(['sgdisk', '--zap-all', disk], check=False)
-            subprocess.run(['wipefs', '-a', '-f', disk], check=True)
-            subprocess.run(['parted', '-s', disk, 'mklabel', 'gpt'], check=True)
-            # BIOS boot partition (required by grub-install --target=i386-pc on GPT disks)
-            subprocess.run(['parted', '-s', disk, 'mkpart', 'bios_boot', '1MiB', '2MiB'], check=True)
-            subprocess.run(['parted', '-s', disk, 'set', '1', 'bios_grub', 'on'], check=True)
-            # EFI System Partition for UEFI boot
-            subprocess.run(['parted', '-s', disk, 'mkpart', 'EFI', 'fat32', '2MiB', '1GiB'], check=True)
-            subprocess.run(['parted', '-s', disk, 'set', '2', 'esp', 'on'], check=True)
-
-        if separate_home:
-            if disk_size_gb < 128:
-                if DEMO_MODE:
-                    log_message(app, "[DEMO] Simulating parted mkpart root 1GiB-51GiB...")
-                    time.sleep(0.5)
-                    log_message(app, "[DEMO] Simulating parted mkpart home 51GiB-100%...")
-                    time.sleep(0.5)
-                else:
-                    subprocess.run(['parted', '-s', disk, 'mkpart', 'root', 'ext4', '1GiB', '51GiB'], check=True)
-                    subprocess.run(['parted', '-s', disk, 'mkpart', 'home', 'ext4', '51GiB', '100%'], check=True)
-            else:
-                if DEMO_MODE:
-                    log_message(app, "[DEMO] Simulating parted mkpart root 1GiB-61GiB...")
-                    time.sleep(0.5)
-                    log_message(app, "[DEMO] Simulating parted mkpart home 61GiB-100%...")
-                    time.sleep(0.5)
-                else:
-                    subprocess.run(['parted', '-s', disk, 'mkpart', 'root', 'ext4', '1GiB', '61GiB'], check=True)
-                    subprocess.run(['parted', '-s', disk, 'mkpart', 'home', 'ext4', '61GiB', '100%'], check=True)
-        else:
-            if DEMO_MODE:
-                log_message(app, "[DEMO] Simulating parted mkpart root 1GiB-100%...")
-                time.sleep(0.5)
-            else:
-                subprocess.run(['parted', '-s', disk, 'mkpart', 'root', 'ext4', '1GiB', '100%'], check=True)
-
-        if not DEMO_MODE:
-            # Force kernel to re-read partition table and wait for device nodes
-            log_message(app, "Waiting for partition devices...")
-            subprocess.run(['partprobe', disk], check=False)
-            subprocess.run(['udevadm', 'settle', '--timeout=10'], check=False)
-            time.sleep(2)
-        else:
-            time.sleep(0.5)
-
-        # Partition naming (NVMe/MMC use 'p' separator)
-        if 'nvme' in disk or 'mmcblk' in disk:
-            part_prefix = f"{disk}p"
-        else:
-            part_prefix = disk
-
-        # Partition 1 = BIOS boot (no filesystem), Partition 2 = EFI, Partition 3 = root, Partition 4 = home
-        boot_part = f"{part_prefix}2"
-        root_part = f"{part_prefix}3"
-        home_part = f"{part_prefix}4" if separate_home else None
+        boot_part, root_part, home_part = _step_partition_disk(
+            app, disk, separate_home, disk_size_gb
+        )
 
         # Step 2: Format
-        set_progress(app, 0.15, "Formatting partitions...")
-        log_message(app, "Formatting partitions...")
-        if DEMO_MODE:
-            log_message(app, f"[DEMO] Simulating mkfs.fat {boot_part}...")
-            time.sleep(0.5)
-            log_message(app, f"[DEMO] Simulating mkfs.ext4 {root_part}...")
-            time.sleep(0.5)
-            if separate_home:
-                log_message(app, f"[DEMO] Simulating mkfs.ext4 {home_part}...")
-                time.sleep(0.5)
-        else:
-            # Verify partition device nodes exist before formatting
-            for part_name, part_dev in [('EFI', boot_part), ('root', root_part)] + ([('home', home_part)] if separate_home else []):
-                if not os.path.exists(part_dev):
-                    raise RuntimeError(f"Partition device {part_dev} ({part_name}) does not exist! Partitioning may have failed.")
-            subprocess.run(['mkfs.fat', '-F32', boot_part], check=True)
-            subprocess.run(['mkfs.ext4', '-F', root_part], check=True)
-            if separate_home:
-                subprocess.run(['mkfs.ext4', '-F', home_part], check=True)
+        _step_format_partitions(app, boot_part, root_part, home_part, separate_home)
 
         # Step 3: Mount
-        set_progress(app, 0.20, "Mounting filesystems...")
-        log_message(app, "Mounting filesystems...")
-        if DEMO_MODE:
-            log_message(app, f"[DEMO] Simulating mount {root_part} /mnt...")
-            time.sleep(0.5)
-            log_message(app, "[DEMO] Simulating mkdir /mnt/boot...")
-            time.sleep(0.3)
-            log_message(app, f"[DEMO] Simulating mount {boot_part} /mnt/boot...")
-            time.sleep(0.5)
-            if separate_home:
-                log_message(app, "[DEMO] Simulating mkdir /mnt/home...")
-                time.sleep(0.3)
-                log_message(app, f"[DEMO] Simulating mount {home_part} /mnt/home...")
-                time.sleep(0.5)
-        else:
-            subprocess.run(['mount', root_part, '/mnt'], check=True)
-            subprocess.run(['mkdir', '-p', '/mnt/boot'], check=True)
-            subprocess.run(['mount', boot_part, '/mnt/boot'], check=True)
-            if separate_home:
-                subprocess.run(['mkdir', '-p', '/mnt/home'], check=True)
-                subprocess.run(['mount', home_part, '/mnt/home'], check=True)
+        _step_mount_filesystems(app, boot_part, root_part, home_part, separate_home)
 
         # Step 4: Prepare package manager and install Phase 1 packages
         if DEMO_MODE:
@@ -294,10 +452,12 @@ def _run_installation(app):
             log_message(app, "[DEMO] Simulating package downloads in groups:")
             group_size = 10
             for i in range(0, len(packages), group_size):
-                group = packages[i:i + group_size]
+                group = packages[i : i + group_size]
                 end = min(i + group_size, len(packages))
                 progress = 0.25 + (0.11 * end / len(packages))
-                set_progress(app, progress, f"Downloading packages ({end}/{len(packages)})...")
+                set_progress(
+                    app, progress, f"Downloading packages ({end}/{len(packages)})..."
+                )
                 for pkg in group:
                     log_message(app, f"[DEMO] Downloading {pkg}...")
                 time.sleep(0.3)
@@ -329,8 +489,10 @@ def _run_installation(app):
             log_message(app, "[DEMO] Would write fstab to /mnt/etc/fstab")
             time.sleep(0.5)
         else:
-            result = subprocess.run(['genfstab', '-U', '/mnt'], capture_output=True, text=True, check=True)
-            with open('/mnt/etc/fstab', 'w') as f:
+            result = subprocess.run(
+                ["genfstab", "-U", "/mnt"], capture_output=True, text=True, check=True
+            )
+            with open("/mnt/etc/fstab", "w") as f:
                 f.write(result.stdout)
 
         # Step 6: Configure system (Phase 1 only)
@@ -340,7 +502,9 @@ def _run_installation(app):
         config_script = _build_config_script(data)
 
         if DEMO_MODE:
-            log_message(app, "[DEMO] Would write configuration script to /mnt/root/configure.sh")
+            log_message(
+                app, "[DEMO] Would write configuration script to /mnt/root/configure.sh"
+            )
             time.sleep(0.5)
             log_message(app, "[DEMO] Configuration would include:")
             log_message(app, "[DEMO]   - Timezone setup")
@@ -351,138 +515,13 @@ def _run_installation(app):
             log_message(app, "[DEMO]   - First-boot service for Phase 2")
             time.sleep(1)
         else:
-            fd = os.open('/mnt/root/configure.sh', os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o700)
-            with os.fdopen(fd, 'w') as f:
+            fd = os.open(
+                "/mnt/root/configure.sh", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o700
+            )
+            with os.fdopen(fd, "w") as f:
                 f.write(config_script)
 
-            # Copy Plymouth assets
-            set_progress(app, 0.51, "Copying boot splash assets...")
-            log_message(app, "Copying Plymouth boot splash assets...")
-            subprocess.run(['mkdir', '-p', '/mnt/usr/share/plymouth/themes/mados'], check=True)
-            subprocess.run(['cp', '/usr/share/plymouth/themes/mados/logo.png',
-                            '/mnt/usr/share/plymouth/themes/mados/logo.png'], check=False)
-            subprocess.run(['cp', '/usr/share/plymouth/themes/mados/dot.png',
-                            '/mnt/usr/share/plymouth/themes/mados/dot.png'], check=False)
-
-            # Copy skel configs from live ISO to installed system
-            set_progress(app, 0.52, "Copying desktop configuration files...")
-            log_message(app, "Copying desktop configuration files...")
-            subprocess.run(['cp', '-a', '/etc/skel/.config', '/mnt/etc/skel/'], check=False)
-            subprocess.run(['cp', '-a', '/etc/skel/Pictures', '/mnt/etc/skel/'], check=False)
-            subprocess.run(['cp', '-a', '/etc/skel/.bash_profile', '/mnt/etc/skel/'], check=False)
-            subprocess.run(['cp', '-a', '/etc/skel/.zshrc', '/mnt/etc/skel/'], check=False)
-            subprocess.run(['cp', '-a', '/etc/skel/.bashrc', '/mnt/etc/skel/'], check=False)
-            subprocess.run(['cp', '-a', '/etc/skel/.gtkrc-2.0', '/mnt/etc/skel/'], check=False)
-
-            # Copy system-wide GTK settings for dark theme
-            subprocess.run(['mkdir', '-p', '/mnt/etc/gtk-3.0'], check=False)
-            subprocess.run(['cp', '-a', '/etc/gtk-3.0/settings.ini', '/mnt/etc/gtk-3.0/'], check=False)
-
-            # Copy Nordic GTK theme from live ISO if installed
-            if os.path.isdir('/usr/share/themes/Nordic'):
-                log_message(app, "Copying Nordic GTK theme from live environment...")
-                subprocess.run(['mkdir', '-p', '/mnt/usr/share/themes'], check=False)
-                subprocess.run(['cp', '-a', '/usr/share/themes/Nordic',
-                                '/mnt/usr/share/themes/'], check=False)
-
-            # Copy Oh My Zsh from live ISO if already installed
-            if os.path.isdir('/etc/skel/.oh-my-zsh'):
-                log_message(app, "Copying Oh My Zsh from live environment...")
-                subprocess.run(['cp', '-a', '/etc/skel/.oh-my-zsh', '/mnt/etc/skel/'], check=False)
-
-            # Copy OpenCode binary from live ISO if already installed
-            if os.path.isfile('/usr/local/bin/opencode'):
-                log_message(app, "Copying OpenCode from live environment...")
-                subprocess.run(['cp', '-a', '/usr/local/bin/opencode',
-                                '/mnt/usr/local/bin/opencode'], check=False)
-
-            # Copy Ollama binary from live ISO if already installed
-            if os.path.isfile('/usr/local/bin/ollama'):
-                log_message(app, "Copying Ollama from live environment...")
-                subprocess.run(['cp', '-a', '/usr/local/bin/ollama',
-                                '/mnt/usr/local/bin/ollama'], check=False)
-
-            # Copy kew binary from live ISO if already installed
-            if os.path.isfile('/usr/local/bin/kew'):
-                log_message(app, "Copying kew from live environment...")
-                subprocess.run(['cp', '-a', '/usr/local/bin/kew',
-                                '/mnt/usr/local/bin/kew'], check=False)
-
-            # Copy setup-ohmyzsh.sh script for first-boot fallback
-            set_progress(app, 0.53, "Copying system scripts...")
-            log_message(app, "Copying system scripts...")
-            subprocess.run(['mkdir', '-p', '/mnt/usr/local/bin'], check=False)
-            subprocess.run(['cp', '-a', '/usr/local/bin/setup-ohmyzsh.sh',
-                            '/mnt/usr/local/bin/setup-ohmyzsh.sh'], check=False)
-
-            # Copy detect-legacy-hardware script for software rendering fallback
-            subprocess.run(['cp', '-a', '/usr/local/bin/detect-legacy-hardware',
-                            '/mnt/usr/local/bin/detect-legacy-hardware'], check=False)
-
-            # Copy cage-greeter, sway-session, hyprland-session and select-compositor wrappers
-            subprocess.run(['cp', '-a', '/usr/local/bin/cage-greeter',
-                            '/mnt/usr/local/bin/cage-greeter'], check=False)
-            subprocess.run(['cp', '-a', '/usr/local/bin/sway-session',
-                            '/mnt/usr/local/bin/sway-session'], check=False)
-            subprocess.run(['cp', '-a', '/usr/local/bin/hyprland-session',
-                            '/mnt/usr/local/bin/hyprland-session'], check=False)
-            subprocess.run(['cp', '-a', '/usr/local/bin/select-compositor',
-                            '/mnt/usr/local/bin/select-compositor'], check=False)
-
-            # Copy audio quality auto-detection script
-            subprocess.run(['cp', '-a', '/usr/local/bin/mados-audio-quality.sh',
-                            '/mnt/usr/local/bin/mados-audio-quality.sh'], check=False)
-
-            # Copy custom Python application launchers
-            for launcher in ['mados-photo-viewer', 'mados-pdf-viewer',
-                             'mados-equalizer',
-                             'mados-debug']:
-                subprocess.run(['cp', '-a', f'/usr/local/bin/{launcher}',
-                                f'/mnt/usr/local/bin/{launcher}'], check=False)
-
-            # Copy custom Python application libraries
-            subprocess.run(['mkdir', '-p', '/mnt/usr/local/lib'], check=False)
-            for lib in ['mados_photo_viewer', 'mados_pdf_viewer',
-                        'mados_equalizer']:
-                if os.path.isdir(f'/usr/local/lib/{lib}'):
-                    subprocess.run(['cp', '-a', f'/usr/local/lib/{lib}',
-                                    '/mnt/usr/local/lib/'], check=False)
-
-            # Ensure copied scripts are executable in the installed system
-            for script in ['detect-legacy-hardware', 'cage-greeter', 'sway-session',
-                           'hyprland-session', 'select-compositor',
-                           'mados-photo-viewer', 'mados-pdf-viewer',
-                           'mados-equalizer',
-                           'mados-debug']:
-                subprocess.run(['chmod', '+x', f'/mnt/usr/local/bin/{script}'], check=False)
-
-            # Copy madOS session desktop files for ReGreet
-            set_progress(app, 0.54, "Copying session files...")
-            log_message(app, "Copying session files...")
-            subprocess.run(['mkdir', '-p', '/mnt/usr/share/wayland-sessions'], check=False)
-            subprocess.run(['cp', '-a', '/usr/share/wayland-sessions/sway.desktop',
-                            '/mnt/usr/share/wayland-sessions/sway.desktop'], check=False)
-            if os.path.isfile('/usr/share/wayland-sessions/hyprland.desktop'):
-                subprocess.run(['cp', '-a', '/usr/share/wayland-sessions/hyprland.desktop',
-                                '/mnt/usr/share/wayland-sessions/hyprland.desktop'], check=False)
-
-            # Copy greeter wallpaper (same as session wallpaper)
-            subprocess.run(['mkdir', '-p', '/mnt/usr/share/backgrounds'], check=False)
-            subprocess.run(['cp', '-a', '/usr/share/backgrounds/mad-os-wallpaper.jpg',
-                            '/mnt/usr/share/backgrounds/mad-os-wallpaper.jpg'], check=False)
-
-            # Copy custom application desktop entries
-            subprocess.run(['mkdir', '-p', '/mnt/usr/share/applications'], check=False)
-            for desktop in ['mados-photo-viewer.desktop', 'mados-pdf-viewer.desktop',
-                            'mados-equalizer.desktop']:
-                if os.path.isfile(f'/usr/share/applications/{desktop}'):
-                    subprocess.run(['cp', '-a', f'/usr/share/applications/{desktop}',
-                                    f'/mnt/usr/share/applications/{desktop}'], check=False)
-
-            # Copy custom fonts (DSEG7 for waybar LED theme)
-            if os.path.isdir('/usr/share/fonts/dseg'):
-                subprocess.run(['mkdir', '-p', '/mnt/usr/share/fonts/dseg'], check=False)
-                subprocess.run(['cp', '-a', '/usr/share/fonts/dseg/', '/mnt/usr/share/fonts/'], check=False)
+            _step_copy_live_files(app)
 
         # Step 7: Run Phase 1 chroot configuration
         set_progress(app, 0.55, "Applying configurations...")
@@ -511,11 +550,11 @@ def _run_installation(app):
             log_message(app, "[DEMO] Would unmount filesystems")
             time.sleep(0.5)
         else:
-            subprocess.run(['rm', '/mnt/root/configure.sh'], check=True)
+            subprocess.run(["rm", "/mnt/root/configure.sh"], check=True)
             # Sync and unmount all filesystems cleanly
             log_message(app, "Syncing and unmounting filesystems...")
-            subprocess.run(['sync'], check=False)
-            subprocess.run(['umount', '-R', '/mnt'], check=False)
+            subprocess.run(["sync"], check=False)
+            subprocess.run(["umount", "-R", "/mnt"], check=False)
 
         set_progress(app, 1.0, "Installation complete!")
         if DEMO_MODE:
@@ -524,7 +563,10 @@ def _run_installation(app):
             log_message(app, "[DEMO] Set DEMO_MODE = False for real installation.")
         else:
             log_message(app, "\n[OK] Phase 1 installation completed successfully!")
-            log_message(app, "Remaining packages and configuration will be installed on first boot.")
+            log_message(
+                app,
+                "Remaining packages and configuration will be installed on first boot.",
+            )
 
         GLib.idle_add(_finish_installation, app)
 
@@ -533,7 +575,7 @@ def _run_installation(app):
         # Cleanup: try to unmount filesystems on failure
         if not DEMO_MODE:
             log_message(app, "Cleaning up after error...")
-            subprocess.run(['umount', '-R', '/mnt'], capture_output=True)
+            subprocess.run(["umount", "-R", "/mnt"], capture_output=True)
         GLib.idle_add(app.install_spinner.stop)
         GLib.idle_add(show_error, app, "Installation Failed", str(e))
 
@@ -543,7 +585,6 @@ def _finish_installation(app):
     app.install_spinner.stop()
     app.notebook.next_page()
     return False
-
 
 
 def _prepare_pacman(app):
@@ -564,14 +605,15 @@ def _prepare_pacman(app):
 
     try:
         result = subprocess.run(
-            ['systemctl', 'is-active', 'pacman-init.service'],
-            capture_output=True, text=True
+            ["systemctl", "is-active", "pacman-init.service"],
+            capture_output=True,
+            text=True,
         )
         status = result.stdout.strip()
     except Exception:
-        status = 'unknown'
+        status = "unknown"
 
-    if status == 'activating':
+    if status == "activating":
         log_message(app, "  Pacman keyring is still being initialized, waiting...")
         log_message(app, "  (This can take several minutes on slow hardware)")
         poll_count = 0
@@ -580,24 +622,27 @@ def _prepare_pacman(app):
             poll_count += 1
             try:
                 result = subprocess.run(
-                    ['systemctl', 'is-active', 'pacman-init.service'],
-                    capture_output=True, text=True
+                    ["systemctl", "is-active", "pacman-init.service"],
+                    capture_output=True,
+                    text=True,
                 )
                 status = result.stdout.strip()
             except Exception:
-                status = 'unknown'
+                status = "unknown"
                 break
-            if status != 'activating':
+            if status != "activating":
                 break
             # Show periodic feedback so the user knows it's not stuck
             if poll_count % 6 == 0:  # every ~30 seconds
                 elapsed = poll_count * 5
-                log_message(app, f"  Still initializing keyring... ({elapsed}s elapsed)")
+                log_message(
+                    app, f"  Still initializing keyring... ({elapsed}s elapsed)"
+                )
 
-    if status == 'failed':
+    if status == "failed":
         log_message(app, "  Keyring service failed, re-initializing manually...")
-        subprocess.run(['pacman-key', '--init'], check=True)
-        subprocess.run(['pacman-key', '--populate'], check=True)
+        subprocess.run(["pacman-key", "--init"], check=True)
+        subprocess.run(["pacman-key", "--populate"], check=True)
 
     log_message(app, "  Pacman keyring is ready")
 
@@ -605,11 +650,11 @@ def _prepare_pacman(app):
     set_progress(app, 0.23, "Synchronizing package databases...")
     log_message(app, "Synchronizing package databases...")
     proc = subprocess.Popen(
-        ['pacman', '-Sy', '--noconfirm'],
+        ["pacman", "-Sy", "--noconfirm"],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        bufsize=1
+        bufsize=1,
     )
     while True:
         line = proc.stdout.readline()
@@ -620,7 +665,9 @@ def _prepare_pacman(app):
             log_message(app, f"  {line}")
     proc.wait()
     if proc.returncode != 0:
-        log_message(app, "  Warning: database sync returned non-zero, pacstrap will retry")
+        log_message(
+            app, "  Warning: database sync returned non-zero, pacstrap will retry"
+        )
     else:
         log_message(app, "  Package databases synchronized")
 
@@ -641,20 +688,20 @@ def _download_packages_with_progress(app, packages):
 
     downloaded = 0
     for i in range(0, total, group_size):
-        group = packages[i:i + group_size]
+        group = packages[i : i + group_size]
         end = min(i + group_size, total)
         progress = progress_start + (progress_end - progress_start) * (i / total)
         set_progress(app, progress, f"Downloading packages ({downloaded}/{total})...")
 
-        group_preview = ', '.join(group[:3]) + ('...' if len(group) > 3 else '')
+        group_preview = ", ".join(group[:3]) + ("..." if len(group) > 3 else "")
         log_message(app, f"  Downloading group: {group_preview}")
 
         proc = subprocess.Popen(
-            ['pacman', '-Sw', '--noconfirm'] + group,
+            ["pacman", "-Sw", "--noconfirm"] + group,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            bufsize=1
+            bufsize=1,
         )
 
         while True:
@@ -665,17 +712,22 @@ def _download_packages_with_progress(app, packages):
             if not line:
                 continue
             # Skip noisy progress-bar lines (e.g. "  100%  [####...]" or "---")
-            if re.match(r'^\s*\d+%\s*\[|^\s*[-#]+\s*$', line):
+            if re.match(r"^\s*\d+%\s*\[|^\s*[-#]+\s*$", line):
                 continue
             log_message(app, f"    {line}")
 
         proc.wait()
         if proc.returncode != 0:
-            log_message(app, f"  Warning: download failed for group {i // group_size + 1} "
-                             f"(exit code {proc.returncode}), pacstrap will retry")
+            log_message(
+                app,
+                f"  Warning: download failed for group {i // group_size + 1} "
+                f"(exit code {proc.returncode}), pacstrap will retry",
+            )
 
         downloaded = end
-        progress = progress_start + (progress_end - progress_start) * (downloaded / total)
+        progress = progress_start + (progress_end - progress_start) * (
+            downloaded / total
+        )
         set_progress(app, progress, f"Downloading packages ({downloaded}/{total})...")
 
     set_progress(app, progress_end, "All packages downloaded")
@@ -692,34 +744,38 @@ def _run_pacstrap_with_progress(app, packages):
     progress_end = 0.48
 
     proc = subprocess.Popen(
-        ['pacstrap', '/mnt'] + packages,
+        ["pacstrap", "/mnt"] + packages,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        bufsize=1
+        bufsize=1,
     )
 
     # Patterns to detect package installation progress from pacman output
     # Match "(N/M) installing pkg-name" format used by pacman
-    numbered_pkg_pattern = re.compile(r'\((\d+)/(\d+)\)\s+installing\s+(\S+)', re.IGNORECASE)
-    pkg_pattern = re.compile(r'installing\s+(\S+)', re.IGNORECASE)
-    downloading_pattern = re.compile(r'downloading\s+(\S+)', re.IGNORECASE)
-    resolving_pattern = re.compile(r'resolving dependencies|looking for conflicting', re.IGNORECASE)
-    total_pattern = re.compile(r'Packages\s+\((\d+)\)', re.IGNORECASE)
+    numbered_pkg_pattern = re.compile(
+        r"\((\d+)/(\d+)\)\s+installing\s+(\S+)", re.IGNORECASE
+    )
+    pkg_pattern = re.compile(r"installing\s+(\S+)", re.IGNORECASE)
+    downloading_pattern = re.compile(r"downloading\s+(\S+)", re.IGNORECASE)
+    resolving_pattern = re.compile(
+        r"resolving dependencies|looking for conflicting", re.IGNORECASE
+    )
+    total_pattern = re.compile(r"Packages\s+\((\d+)\)", re.IGNORECASE)
     # Detect section markers like ":: Processing package changes..."
-    section_pattern = re.compile(r'^::')
+    section_pattern = re.compile(r"^::")
     # Detect hook lines like "(1/5) Arming ConditionNeedsUpdate..."
-    hook_pattern = re.compile(r'^\((\d+)/(\d+)\)\s+(?!installing)', re.IGNORECASE)
+    hook_pattern = re.compile(r"^\((\d+)/(\d+)\)\s+(?!installing)", re.IGNORECASE)
     # Detect early-phase output: keyring checks, integrity verification, syncing
     keyring_pattern = re.compile(
-        r'checking keyring|checking keys|checking integrity|'
-        r'checking package integrity|checking available disk|'
-        r'synchronizing package|loading package|'
-        r'checking for file conflicts|upgrading|retrieving',
-        re.IGNORECASE
+        r"checking keyring|checking keys|checking integrity|"
+        r"checking package integrity|checking available disk|"
+        r"synchronizing package|loading package|"
+        r"checking for file conflicts|upgrading|retrieving",
+        re.IGNORECASE,
     )
     # Skip noisy progress-bar lines (e.g. "  100%  [####...]")
-    progress_bar_pattern = re.compile(r'^\s*\d+%\s*\[|^\s*[-#]+\s*$|^$')
+    progress_bar_pattern = re.compile(r"^\s*\d+%\s*\[|^\s*[-#]+\s*$|^$")
 
     # Use readline() instead of iterator to avoid Python's internal
     # read-ahead buffering which delays output on piped subprocesses
@@ -743,23 +799,35 @@ def _run_pacstrap_with_progress(app, packages):
         if numbered_match:
             installed_count = int(numbered_match.group(1))
             total_from_line = int(numbered_match.group(2))
-            current_pkg = numbered_match.group(3).rstrip('.')
+            current_pkg = numbered_match.group(3).rstrip(".")
             if total_from_line > 0:
                 total_packages = total_from_line
-            progress = progress_start + (progress_end - progress_start) * (installed_count / max(total_packages, 1))
+            progress = progress_start + (progress_end - progress_start) * (
+                installed_count / max(total_packages, 1)
+            )
             progress = min(progress, progress_end)
-            set_progress(app, progress, f"Installing packages ({installed_count}/{total_packages})...")
+            set_progress(
+                app,
+                progress,
+                f"Installing packages ({installed_count}/{total_packages})...",
+            )
             log_message(app, f"  Installing {current_pkg}...")
             continue
 
         # Fallback: detect "installing pkg" without numbering
         pkg_match = pkg_pattern.search(line)
         if pkg_match:
-            current_pkg = pkg_match.group(1).rstrip('.')
+            current_pkg = pkg_match.group(1).rstrip(".")
             installed_count += 1
-            progress = progress_start + (progress_end - progress_start) * (installed_count / max(total_packages, 1))
+            progress = progress_start + (progress_end - progress_start) * (
+                installed_count / max(total_packages, 1)
+            )
             progress = min(progress, progress_end)
-            set_progress(app, progress, f"Installing packages ({installed_count}/{total_packages})...")
+            set_progress(
+                app,
+                progress,
+                f"Installing packages ({installed_count}/{total_packages})...",
+            )
             log_message(app, f"  Installing {current_pkg}...")
             continue
 
@@ -799,7 +867,7 @@ def _run_pacstrap_with_progress(app, packages):
 
     proc.wait()
     if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, 'pacstrap')
+        raise subprocess.CalledProcessError(proc.returncode, "pacstrap")
 
     set_progress(app, progress_end, "Base system installed")
     log_message(app, f"Base system installed ({installed_count} packages)")
@@ -812,15 +880,15 @@ def _run_chroot_with_progress(app):
     progress_end = 0.90
 
     proc = subprocess.Popen(
-        ['arch-chroot', '/mnt', '/root/configure.sh'],
+        ["arch-chroot", "/mnt", "/root/configure.sh"],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        bufsize=1
+        bufsize=1,
     )
 
     # Pattern to detect progress markers: [PROGRESS N/M] description
-    progress_pattern = re.compile(r'\[PROGRESS\s+(\d+)/(\d+)\]\s+(.*)')
+    progress_pattern = re.compile(r"\[PROGRESS\s+(\d+)/(\d+)\]\s+(.*)")
 
     while True:
         line = proc.stdout.readline()
@@ -836,7 +904,9 @@ def _run_chroot_with_progress(app):
             step = int(progress_match.group(1))
             total = int(progress_match.group(2))
             description = progress_match.group(3)
-            progress = progress_start + (progress_end - progress_start) * (step / max(total, 1))
+            progress = progress_start + (progress_end - progress_start) * (
+                step / max(total, 1)
+            )
             progress = min(progress, progress_end)
             set_progress(app, progress, description)
             log_message(app, f"  {description}")
@@ -847,7 +917,7 @@ def _run_chroot_with_progress(app):
 
     proc.wait()
     if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, 'arch-chroot')
+        raise subprocess.CalledProcessError(proc.returncode, "arch-chroot")
 
     set_progress(app, progress_end, "System configured")
     log_message(app, "System configuration complete")
@@ -860,26 +930,26 @@ def _build_config_script(data):
     Plymouth, initramfs, essential services, system optimizations, desktop
     environment basics, and sets up the first-boot service for Phase 2.
     """
-    disk = data['disk']
+    disk = data["disk"]
 
     # Validate timezone against whitelist to prevent path traversal
-    timezone = data['timezone']
+    timezone = data["timezone"]
     if timezone not in TIMEZONES:
         raise ValueError(f"Invalid timezone: {timezone}")
 
     # Validate locale against whitelist
-    locale = data['locale']
+    locale = data["locale"]
     valid_locales = list(LOCALE_MAP.values())
     if locale not in valid_locales:
         raise ValueError(f"Invalid locale: {locale}")
 
     # Validate disk path (must be a simple block device path like /dev/sda or /dev/nvme0n1)
-    if not re.match(r'^/dev/[a-zA-Z0-9]+$', disk):
+    if not re.match(r"^/dev/[a-zA-Z0-9]+$", disk):
         raise ValueError(f"Invalid disk path: {disk}")
 
     # Validate username (defense-in-depth, also checked in user.py)
-    username = data['username']
-    if not re.match(r'^[a-z_][a-z0-9_-]*$', username):
+    username = data["username"]
+    if not re.match(r"^[a-z_][a-z0-9_-]*$", username):
         raise ValueError(f"Invalid username: {username}")
 
     # Build the Phase 2 first-boot script content
@@ -901,16 +971,16 @@ echo "LANG={locale}" > /etc/locale.conf
 
 echo '[PROGRESS 2/9] Creating user account...'
 # Hostname
-echo '{_escape_shell(data['hostname'])}' > /etc/hostname
+echo '{_escape_shell(data["hostname"])}' > /etc/hostname
 cat > /etc/hosts <<EOF
 127.0.0.1   localhost
 ::1         localhost
-127.0.1.1   {_escape_shell(data['hostname'])}.localdomain {_escape_shell(data['hostname'])}
+127.0.1.1   {_escape_shell(data["hostname"])}.localdomain {_escape_shell(data["hostname"])}
 EOF
 
 # User
 useradd -m -G wheel,audio,video,storage -s /bin/zsh {username}
-echo '{username}:{_escape_shell(data['password'])}' | chpasswd
+echo '{username}:{_escape_shell(data["password"])}' | chpasswd
 
 # Sudo
 echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
@@ -1227,7 +1297,7 @@ cp /etc/skel/.gtkrc-2.0 /home/{username}/.gtkrc-2.0 2>/dev/null || true
 chown -R {username}:{username} /home/{username}
 
 # Set keyboard layout in Sway and Hyprland configs based on locale
-KB_LAYOUT="{LOCALE_KB_MAP.get(locale, 'us')}"
+KB_LAYOUT="{LOCALE_KB_MAP.get(locale, "us")}"
 if [ -f /home/{username}/.config/sway/config ]; then
     sed -i "s/xkb_layout \"es\"/xkb_layout \"$KB_LAYOUT\"/" /home/{username}/.config/sway/config
 elif [ -f /etc/skel/.config/sway/config ]; then
@@ -1290,17 +1360,17 @@ def _build_first_boot_script(data):
     remaining packages, configures audio/bluetooth/desktop services, installs
     Oh My Zsh and OpenCode, then disables itself.
     """
-    username = data['username']
-    locale = data['locale']
+    username = data["username"]
+    locale = data["locale"]
 
     # Build the Phase 2 package list as a shell array
     phase2_packages = list(PACKAGES_PHASE2)
-    if locale in ('zh_CN.UTF-8', 'ja_JP.UTF-8'):
-        phase2_packages.append('noto-fonts-cjk')
+    if locale in ("zh_CN.UTF-8", "ja_JP.UTF-8"):
+        phase2_packages.append("noto-fonts-cjk")
 
-    packages_str = ' '.join(phase2_packages)
+    packages_str = " ".join(phase2_packages)
 
-    return f'''#!/bin/bash
+    return f"""#!/bin/bash
 # madOS First Boot Setup (Phase 2)
 # Installs remaining packages and configures services
 # This script runs once on first boot and then disables itself
@@ -1714,4 +1784,4 @@ systemctl disable mados-first-boot.service 2>/dev/null || true
 rm -f /usr/local/bin/mados-first-boot.sh
 
 log "madOS is fully configured. Enjoy!"
-'''
+"""
