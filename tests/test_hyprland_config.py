@@ -623,12 +623,14 @@ class TestHyprlandEnvVars(unittest.TestCase):
                         0,
                         f"Empty VALUE in env: {line}",
                     )
-                    self.assertTrue(
-                        len(parts[0]) > 0,
+                    self.assertGreater(
+                        len(parts[0]),
+                        0,
                         f"Empty KEY in env: {line}",
                     )
-                    self.assertTrue(
-                        len(parts[1]) > 0,
+                    self.assertGreater(
+                        len(parts[1]),
+                        0,
                         f"Empty VALUE in env: {line}",
                     )
 
