@@ -372,6 +372,35 @@ class TestSetupPersistenceScript(unittest.TestCase):
             "Must copy current /home contents to persistence partition on first boot",
         )
 
+    def test_checks_directory_structure_before_init(self):
+        """setup_persistence must check overlay directory structure to decide
+        if initialisation is needed, not just init script existence.
+
+        This handles the case where the partition was created but the
+        initialisation was interrupted before directories were set up.
+        """
+        # Extract setup_persistence function body
+        start = self.content.find("setup_persistence()")
+        self.assertNotEqual(start, -1, "Must have setup_persistence function")
+        setup_fn = self.content[start : start + 8000]
+
+        # Must check for overlay directory existence
+        self.assertIn(
+            "needs_init",
+            setup_fn,
+            "Must use needs_init flag based on directory structure check",
+        )
+        self.assertIn(
+            "overlays/$dir/upper",
+            setup_fn,
+            "Must check for overlay upper directory existence",
+        )
+        self.assertIn(
+            "overlays/$dir/work",
+            setup_fn,
+            "Must check for overlay work directory existence",
+        )
+
     def test_init_script_seeds_empty_home(self):
         """Embedded init script must seed persistent /home if it's empty."""
         init_content = self._get_init_script_content()
