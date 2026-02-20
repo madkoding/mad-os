@@ -86,6 +86,7 @@ find_iso_device() {
 }
 
 # Find persistence partition – ONLY on the ISO boot device
+# Checks by label first, then scans for ext4 partition >1 GB.
 find_persist_partition() {
     local iso_dev
     iso_dev=$(find_iso_device)
@@ -97,6 +98,7 @@ find_persist_partition() {
 
     local dev=""
     if [ -n "$iso_dev" ] && [ -b "$iso_dev" ]; then
+        # 1) Check by persistence label (fast path)
         dev=$(lsblk -nlo NAME,LABEL "$iso_dev" 2>/dev/null \
             | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
         if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
@@ -108,6 +110,29 @@ find_persist_partition() {
                     label=$(blkid -s LABEL -o value "$part" 2>/dev/null)
                     if [ "$label" = "$PERSIST_LABEL" ]; then
                         dev="$part"
+                        break
+                    fi
+                fi
+            done
+        fi
+
+        # 2) Scan for any ext4 partition >1 GB on the boot device
+        if [ -z "$dev" ]; then
+            local iso_part
+            iso_part=$(lsblk -nlo NAME,FSTYPE 2>/dev/null \
+                | awk '$2 == "iso9660" {print "/dev/" $1}' | head -1)
+            for part in $(lsblk -nlo NAME "$iso_dev" 2>/dev/null | tail -n +2); do
+                local full_part="/dev/$part"
+                [ -b "$full_part" ] || continue
+                [ "$full_part" = "$iso_part" ] && continue
+                local fstype
+                fstype=$(blkid -s TYPE -o value "$full_part" 2>/dev/null)
+                if [ "$fstype" = "ext4" ]; then
+                    local size_mb
+                    size_mb=$(lsblk -bnlo SIZE "$full_part" 2>/dev/null | head -1)
+                    size_mb=$(( ${size_mb:-0} / 1048576 ))
+                    if [ "$size_mb" -ge 1024 ]; then
+                        dev="$full_part"
                         break
                     fi
                 fi
