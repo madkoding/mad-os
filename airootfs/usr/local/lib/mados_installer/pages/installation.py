@@ -396,6 +396,12 @@ def _run_installation(app):
                 subprocess.run(['cp', '-a', '/usr/local/bin/opencode',
                                 '/mnt/usr/local/bin/opencode'], check=False)
 
+            # Copy Ollama binary from live ISO if already installed
+            if os.path.isfile('/usr/local/bin/ollama'):
+                log_message(app, "Copying Ollama from live environment...")
+                subprocess.run(['cp', '-a', '/usr/local/bin/ollama',
+                                '/mnt/usr/local/bin/ollama'], check=False)
+
             # Copy kew binary from live ISO if already installed
             if os.path.isfile('/usr/local/bin/kew'):
                 log_message(app, "Copying kew from live environment...")
@@ -908,7 +914,7 @@ echo '{username}:{_escape_shell(data['password'])}' | chpasswd
 
 # Sudo
 echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
-echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/opencode,/usr/local/bin/opencode,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/opencode-nopasswd
+echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/opencode,/usr/local/bin/opencode,/usr/local/bin/ollama,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/opencode-nopasswd
 chmod 440 /etc/sudoers.d/opencode-nopasswd
 
 echo '[PROGRESS 3/9] Installing GRUB bootloader...'

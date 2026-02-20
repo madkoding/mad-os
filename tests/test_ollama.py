@@ -256,6 +256,24 @@ class TestPostInstallOllama(unittest.TestCase):
             "Installer must verify ollama is available after install",
         )
 
+    def test_installer_copies_ollama_binary_from_live(self):
+        """Installer should copy Ollama binary from live environment if available."""
+        self.assertIn(
+            "/usr/local/bin/ollama", self.content,
+            "Installer must reference /usr/local/bin/ollama for binary copy",
+        )
+        self.assertIn(
+            "/mnt/usr/local/bin/ollama", self.content,
+            "Installer must copy ollama binary to /mnt/usr/local/bin/ollama",
+        )
+
+    def test_installer_adds_ollama_to_sudoers(self):
+        """Installer should add ollama to NOPASSWD sudoers."""
+        self.assertIn(
+            "/usr/local/bin/ollama", self.content,
+            "Installer must include /usr/local/bin/ollama in sudoers NOPASSWD",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Live USB – packages.x86_64 has Ollama dependencies
