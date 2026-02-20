@@ -507,10 +507,12 @@ create_persist_partition() {
 
     # Format as ext4
     log "Formatting ${persist_dev} as ext4 with label '$PERSIST_LABEL'"
-    mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$persist_dev" 2>&1 || {
-        log "ERROR: mkfs.ext4 failed on $persist_dev"
+    local mkfs_output
+    if ! mkfs_output=$(mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$persist_dev" 2>&1); then
+        log "ERROR: mkfs.ext4 failed on $persist_dev: $mkfs_output"
         return 1
-    }
+    fi
+    [[ -n "$mkfs_output" ]] && log "mkfs.ext4: $mkfs_output"
 
     sleep 2
     udevadm settle --timeout=10 2>/dev/null || true
@@ -603,7 +605,7 @@ fi
 # Mount persistence partition if not already mounted
 if ! mountpoint -q "$PERSIST_MOUNT" 2>/dev/null; then
     mkdir -p "$PERSIST_MOUNT"
-    mount -o noatime,commit=60,data=writeback,barrier=0 "$persist_dev" "$PERSIST_MOUNT" || { log "Failed to mount $persist_dev"; exit 1; }
+    mount -o noatime,commit=60,data=writeback "$persist_dev" "$PERSIST_MOUNT" || { log "Failed to mount $persist_dev"; exit 1; }
     log "Mounted $persist_dev at $PERSIST_MOUNT with USB-optimized options"
 fi
 
@@ -791,7 +793,7 @@ setup_persistence() {
         blockdev --flushbufs "$persist_dev" 2>/dev/null || true
 
         local mount_output
-        if ! mount_output=$(mount -o noatime,commit=60,data=writeback,barrier=0 "$persist_dev" "$PERSIST_MOUNT" 2>&1); then
+        if ! mount_output=$(mount -o noatime,commit=60,data=writeback "$persist_dev" "$PERSIST_MOUNT" 2>&1); then
             ui_fail "Failed to mount $persist_dev"
             log "Mount error: $mount_output"
             return 1

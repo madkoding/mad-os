@@ -629,6 +629,25 @@ class TestPartitionProtection(unittest.TestCase):
             "Must log error if label doesn't match",
         )
 
+    def test_mkfs_output_captured_in_variable(self):
+        """mkfs.ext4 output must be captured in a variable to prevent stdout leak.
+
+        When create_persist_partition is called via command substitution
+        (persist_dev=$(create_persist_partition ...)), any stdout from mkfs.ext4
+        would contaminate the return value. The mkfs output must be captured in
+        a local variable so only the final echo with the device path goes to stdout.
+        """
+        self.assertIn(
+            "mkfs_output",
+            self.create_fn,
+            "mkfs.ext4 output must be captured in mkfs_output variable",
+        )
+        self.assertRegex(
+            self.create_fn,
+            r"mkfs_output=\$\(mkfs\.ext4",
+            "mkfs.ext4 must be called via command substitution into mkfs_output",
+        )
+
     def test_has_sfdisk_fallback(self):
         """create_persist_partition() must have sfdisk --append as partition creation method.
 
