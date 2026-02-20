@@ -783,10 +783,18 @@ class TestRebootOnPartitionTableFailure(unittest.TestCase):
         start = self.content.find("create_persist_partition()")
         self.assertNotEqual(start, -1)
         self.create_fn = self.content[start : start + 24000]
+        self.create_fn_lower = self.create_fn.lower()
         # Extract setup_persistence function
         setup_start = self.content.find("setup_persistence()")
         self.assertNotEqual(setup_start, -1)
         self.setup_fn = self.content[setup_start:]
+        # Extract the reboot-handling section from setup_persistence
+        reboot_pos = self.setup_fn.find("REBOOT_NEEDED")
+        self.assertNotEqual(reboot_pos, -1, "setup_fn must contain REBOOT_NEEDED")
+        self.reboot_section = self.setup_fn[reboot_pos : reboot_pos + 600]
+        # Locate the unformatted partition recovery section
+        self.unformatted_pos = self.create_fn_lower.find("unformatted partition")
+        self.assertNotEqual(self.unformatted_pos, -1, "create_fn must reference unformatted partition")
 
     def test_signals_reboot_needed_when_device_node_missing(self):
         """Must echo REBOOT_NEEDED when kernel cannot see new partition."""
@@ -825,34 +833,25 @@ class TestRebootOnPartitionTableFailure(unittest.TestCase):
 
     def test_reboot_warning_shown(self):
         """Must display warning before rebooting."""
-        reboot_section_start = self.setup_fn.find("REBOOT_NEEDED")
-        self.assertNotEqual(reboot_section_start, -1)
-        reboot_section = self.setup_fn[reboot_section_start : reboot_section_start + 600]
         self.assertIn(
             "reboot",
-            reboot_section.lower(),
+            self.reboot_section.lower(),
             "Must warn user about reboot",
         )
 
     def test_reboot_has_delay(self):
         """Must give user time to read the warning before rebooting."""
-        reboot_section_start = self.setup_fn.find("REBOOT_NEEDED")
-        self.assertNotEqual(reboot_section_start, -1)
-        reboot_section = self.setup_fn[reboot_section_start : reboot_section_start + 600]
         self.assertIn(
             "sleep",
-            reboot_section,
+            self.reboot_section,
             "Must sleep before rebooting to let user read the warning",
         )
 
     def test_reboot_has_fallback(self):
         """Must have a fallback if systemctl reboot fails."""
-        reboot_section_start = self.setup_fn.find("REBOOT_NEEDED")
-        self.assertNotEqual(reboot_section_start, -1)
-        reboot_section = self.setup_fn[reboot_section_start : reboot_section_start + 600]
         self.assertIn(
             "reboot -f",
-            reboot_section,
+            self.reboot_section,
             "Must fall back to reboot -f if systemctl reboot fails",
         )
 
@@ -860,16 +859,13 @@ class TestRebootOnPartitionTableFailure(unittest.TestCase):
         """Must detect an unformatted partition from a previous interrupted setup."""
         self.assertIn(
             "unformatted partition",
-            self.create_fn.lower(),
+            self.create_fn_lower,
             "create_persist_partition must detect unformatted partitions",
         )
 
     def test_formats_unformatted_partition(self):
         """Must format unformatted partition found after reboot."""
-        # The unformatted partition check should lead to mkfs.ext4
-        unformatted_pos = self.create_fn.lower().find("unformatted partition")
-        self.assertNotEqual(unformatted_pos, -1)
-        after_check = self.create_fn[unformatted_pos : unformatted_pos + 1500]
+        after_check = self.create_fn[self.unformatted_pos : self.unformatted_pos + 1500]
         self.assertIn(
             "mkfs.ext4",
             after_check,
@@ -878,11 +874,10 @@ class TestRebootOnPartitionTableFailure(unittest.TestCase):
 
     def test_unformatted_check_validates_size(self):
         """Must verify unformatted partition is large enough for persistence."""
+        recovery_section = self.create_fn[self.unformatted_pos : self.unformatted_pos + 1500]
         self.assertIn(
             "MIN_PERSIST_MB",
-            self.create_fn[
-                self.create_fn.lower().find("unformatted") : self.create_fn.lower().find("unformatted") + 1500
-            ],
+            recovery_section,
             "Must check partition size against MIN_PERSIST_MB",
         )
 
