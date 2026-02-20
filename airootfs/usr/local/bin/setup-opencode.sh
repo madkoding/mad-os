@@ -7,7 +7,7 @@ INSTALL_DIR="/usr/local/bin"
 MEDIA_HELPER="/usr/local/lib/mados-media-helper.sh"
 
 # Check if running on read-only media (DVD/CD) without persistence
-if [ -f "$MEDIA_HELPER" ]; then
+if [[ -f "$MEDIA_HELPER" ]]; then
     # shellcheck source=/dev/null
     source "$MEDIA_HELPER"
     if ! can_install_software; then
@@ -39,27 +39,21 @@ fi
 echo "Instalando OpenCode..."
 
 # Method 1: curl install script (most reliable, downloads binary directly)
-if curl -fsSL https://opencode.ai/install | OPENCODE_INSTALL_DIR="$INSTALL_DIR" bash; then
-    if command -v "$OPENCODE_CMD" &>/dev/null; then
-        echo ""
-        echo "✓ OpenCode instalado correctamente."
-        "$OPENCODE_CMD" --version 2>/dev/null || true
-        exit 0
-    fi
+if curl -fsSL https://opencode.ai/install | OPENCODE_INSTALL_DIR="$INSTALL_DIR" bash && command -v "$OPENCODE_CMD" &>/dev/null; then
+    echo ""
+    echo "✓ OpenCode instalado correctamente."
+    "$OPENCODE_CMD" --version 2>/dev/null || true
+    exit 0
 fi
 
 echo "⚠ Método curl falló, intentando con npm..."
 
 # Method 2: npm install (fallback)
-if command -v npm &>/dev/null; then
-    if npm install -g --unsafe-perm opencode-ai; then
-        if command -v "$OPENCODE_CMD" &>/dev/null; then
-            echo ""
-            echo "✓ OpenCode instalado correctamente via npm."
-            "$OPENCODE_CMD" --version 2>/dev/null || true
-            exit 0
-        fi
-    fi
+if command -v npm &>/dev/null && npm install -g --unsafe-perm opencode-ai && command -v "$OPENCODE_CMD" &>/dev/null; then
+    echo ""
+    echo "✓ OpenCode instalado correctamente via npm."
+    "$OPENCODE_CMD" --version 2>/dev/null || true
+    exit 0
 fi
 
 echo "⚠ No se pudo instalar OpenCode."

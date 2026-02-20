@@ -4,17 +4,15 @@
 PERSIST_INFO_SHOWN="/tmp/.mados-persistence-info-shown"
 
 # Only show once per boot
-if [ -f "$PERSIST_INFO_SHOWN" ]; then
+if [[ -f "$PERSIST_INFO_SHOWN" ]]; then
     exit 0
 fi
 
-# Only in live environment
-if [ ! -d /run/archiso ]; then
+if [[ ! -d /run/archiso ]]; then
     exit 0
 fi
 
-# Check if we're on a TTY
-if [ -t 0 ] && [ -t 1 ]; then
+if [[ -t 0 && -t 1 ]]; then
     cat << 'INNER_EOF'
 
 ╔════════════════════════════════════════════════════════════════╗
@@ -35,11 +33,9 @@ if [ -t 0 ] && [ -t 1 ]; then
 INNER_EOF
     
     # Show persistence status if configured
-    if command -v mados-persistence >/dev/null 2>&1; then
-        if lsblk -nlo LABEL 2>/dev/null | grep -q "persistence"; then
-            echo "✓ Persistent storage is enabled"
-            echo ""
-        fi
+    if command -v mados-persistence >/dev/null 2>&1 && lsblk -nlo LABEL 2>/dev/null | grep -q "persistence"; then
+        echo "✓ Persistent storage is enabled"
+        echo ""
     fi
     
     # Mark as shown
