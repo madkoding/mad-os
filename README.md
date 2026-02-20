@@ -10,6 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Arch Linux](https://img.shields.io/badge/Arch-Linux-blue?style=flat-square)](https://archlinux.org)
 
+[![Version](https://img.shields.io/github/v/release/madkoding/mad-os?logo=github)](https://github.com/madkoding/mad-os/releases) [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org)
 </div>
 
 madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB), featuring integrated OpenCode AI assistance for intelligent system management and orchestration. Includes open source drivers for Intel, AMD, and NVIDIA GPUs.
