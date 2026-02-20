@@ -143,6 +143,78 @@ class TestSetupPersistenceScript(unittest.TestCase):
                     f"Must have {func}() for styled console output",
                 )
 
+    def test_log_writes_only_to_file(self):
+        """log() must write only to the log file, not to stderr/screen."""
+        log_fn = re.search(r"^log\(\)\s*\{[^}]+\}", self.content, re.MULTILINE)
+        self.assertIsNotNone(log_fn, "Must have log() function")
+        log_body = log_fn.group(0)
+        self.assertNotIn(
+            "tee",
+            log_body,
+            "log() must not use tee (debug output should go only to the log file)",
+        )
+        self.assertIn(
+            ">> \"$LOG_FILE\"",
+            log_body,
+            "log() must append to $LOG_FILE",
+        )
+
+    def test_has_spinner_functions(self):
+        """Script must have start_spinner and stop_spinner functions."""
+        for func in ("start_spinner", "stop_spinner"):
+            with self.subTest(func=func):
+                self.assertRegex(
+                    self.content,
+                    rf"{func}\(\)\s*\{{",
+                    f"Must have {func}() for activity indication",
+                )
+
+    def test_spinner_cleanup_on_exit(self):
+        """Script must clean up spinner on exit via trap."""
+        self.assertIn(
+            "trap",
+            self.content,
+            "Must have a trap to clean up spinner on exit",
+        )
+        self.assertRegex(
+            self.content,
+            r"trap\s+'stop_spinner",
+            "Must trap EXIT to stop_spinner",
+        )
+
+    def test_ui_step_starts_spinner(self):
+        """ui_step must start the spinner for activity indication."""
+        start = self.content.find("ui_step()")
+        self.assertNotEqual(start, -1)
+        step_body = self.content[start : start + 300]
+        self.assertIn(
+            "start_spinner",
+            step_body,
+            "ui_step() must call start_spinner",
+        )
+
+    def test_ui_ok_stops_spinner(self):
+        """ui_ok must stop the spinner."""
+        start = self.content.find("ui_ok()")
+        self.assertNotEqual(start, -1)
+        ok_body = self.content[start : start + 200]
+        self.assertIn(
+            "stop_spinner",
+            ok_body,
+            "ui_ok() must call stop_spinner",
+        )
+
+    def test_ui_fail_stops_spinner(self):
+        """ui_fail must stop the spinner."""
+        start = self.content.find("ui_fail()")
+        self.assertNotEqual(start, -1)
+        fail_body = self.content[start : start + 200]
+        self.assertIn(
+            "stop_spinner",
+            fail_body,
+            "ui_fail() must call stop_spinner",
+        )
+
     def test_has_is_usb_device_function(self):
         self.assertRegex(self.content, r"is_usb_device\(\)\s*\{")
 

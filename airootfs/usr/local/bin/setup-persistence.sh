@@ -34,11 +34,43 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 STEP_NUM=0
+SPINNER_PID=""
 
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" >&2
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE" 2>/dev/null
     return 0
 }
+
+# ── Spinner helpers ──────────────────────────────────────────────────────────
+# Background spinner shown while a step is in progress.  start_spinner is
+# called by ui_step(); stop_spinner is called by ui_ok/ui_fail/ui_warn/ui_skip.
+
+start_spinner() {
+    stop_spinner  # ensure no stale spinner
+    local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+    (
+        while true; do
+            for f in "${frames[@]}"; do
+                printf "\r  ${CYAN}  %s${NC} " "$f" >&2
+                sleep 0.1
+            done
+        done
+    ) &
+    SPINNER_PID=$!
+    disown "$SPINNER_PID" 2>/dev/null
+}
+
+stop_spinner() {
+    if [[ -n "${SPINNER_PID:-}" ]] && kill -0 "$SPINNER_PID" 2>/dev/null; then
+        kill "$SPINNER_PID" 2>/dev/null
+        wait "$SPINNER_PID" 2>/dev/null || true
+        printf "\r" >&2
+    fi
+    SPINNER_PID=""
+}
+
+# Clean up spinner on exit
+trap 'stop_spinner' EXIT
 
 ui_header() {
     echo -e "${BLUE}${BOLD}" >&2
@@ -50,25 +82,30 @@ ui_header() {
 }
 
 ui_step() {
+    stop_spinner
     STEP_NUM=$((STEP_NUM + 1))
     echo -e "  ${CYAN}${BOLD}[${STEP_NUM}]${NC} ${BOLD}$*${NC}" >&2
     log "STEP $STEP_NUM: $*"
+    start_spinner
     return 0
 }
 
 ui_ok() {
+    stop_spinner
     echo -e "  ${GREEN}  ✓${NC} $*" >&2
     log "  OK: $*"
     return 0
 }
 
 ui_warn() {
+    stop_spinner
     echo -e "  ${YELLOW}  ⚠${NC} $*" >&2
     log "  WARN: $*"
     return 0
 }
 
 ui_fail() {
+    stop_spinner
     echo -e "  ${RED}  ✗${NC} $*" >&2
     log "  FAIL: $*"
     return 0
@@ -81,6 +118,7 @@ ui_info() {
 }
 
 ui_done() {
+    stop_spinner
     echo "" >&2
     echo -e "  ${GREEN}${BOLD}── Persistence ready ──${NC}" >&2
     echo "" >&2
@@ -89,6 +127,7 @@ ui_done() {
 }
 
 ui_skip() {
+    stop_spinner
     echo -e "  ${DIM}  ─ $*${NC}" >&2
     log "  SKIP: $*"
     return 0
