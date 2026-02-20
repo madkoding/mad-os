@@ -372,6 +372,35 @@ class TestSetupPersistenceScript(unittest.TestCase):
             "Must copy current /home contents to persistence partition on first boot",
         )
 
+    def test_checks_directory_structure_before_init(self):
+        """setup_persistence must check overlay directory structure to decide
+        if initialisation is needed, not just init script existence.
+
+        This handles the case where the partition was created but the
+        initialisation was interrupted before directories were set up.
+        """
+        # Extract setup_persistence function body
+        start = self.content.find("setup_persistence()")
+        self.assertNotEqual(start, -1, "Must have setup_persistence function")
+        setup_fn = self.content[start : start + 8000]
+
+        # Must check for overlay directory existence
+        self.assertIn(
+            "needs_init",
+            setup_fn,
+            "Must use needs_init flag based on directory structure check",
+        )
+        self.assertIn(
+            "overlays/$dir/upper",
+            setup_fn,
+            "Must check for overlay upper directory existence",
+        )
+        self.assertIn(
+            "overlays/$dir/work",
+            setup_fn,
+            "Must check for overlay work directory existence",
+        )
+
     def test_init_script_seeds_empty_home(self):
         """Embedded init script must seed persistent /home if it's empty."""
         init_content = self._get_init_script_content()
@@ -627,6 +656,25 @@ class TestPartitionProtection(unittest.TestCase):
             "Label verification failed",
             self.create_fn,
             "Must log error if label doesn't match",
+        )
+
+    def test_mkfs_output_captured_in_variable(self):
+        """mkfs.ext4 output must be captured in a variable to prevent stdout leak.
+
+        When create_persist_partition is called via command substitution
+        (persist_dev=$(create_persist_partition ...)), any stdout from mkfs.ext4
+        would contaminate the return value. The mkfs output must be captured in
+        a local variable so only the final echo with the device path goes to stdout.
+        """
+        self.assertIn(
+            "mkfs_output",
+            self.create_fn,
+            "mkfs.ext4 output must be captured in mkfs_output variable",
+        )
+        self.assertRegex(
+            self.create_fn,
+            r"mkfs_output=\$\(mkfs\.ext4",
+            "mkfs.ext4 must be called via command substitution into mkfs_output",
         )
 
     def test_has_sfdisk_fallback(self):

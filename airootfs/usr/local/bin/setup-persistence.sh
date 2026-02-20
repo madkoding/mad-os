@@ -507,10 +507,12 @@ create_persist_partition() {
 
     # Format as ext4
     log "Formatting ${persist_dev} as ext4 with label '$PERSIST_LABEL'"
-    mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$persist_dev" 2>&1 || {
-        log "ERROR: mkfs.ext4 failed on $persist_dev"
+    local mkfs_output
+    if ! mkfs_output=$(mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$persist_dev" 2>&1); then
+        log "ERROR: mkfs.ext4 failed on $persist_dev: $mkfs_output"
         return 1
-    }
+    fi
+    [[ -n "$mkfs_output" ]] && log "mkfs.ext4: $mkfs_output"
 
     sleep 2
     udevadm settle --timeout=10 2>/dev/null || true
@@ -603,7 +605,7 @@ fi
 # Mount persistence partition if not already mounted
 if ! mountpoint -q "$PERSIST_MOUNT" 2>/dev/null; then
     mkdir -p "$PERSIST_MOUNT"
-    mount -o noatime,commit=60,data=writeback,barrier=0 "$persist_dev" "$PERSIST_MOUNT" || { log "Failed to mount $persist_dev"; exit 1; }
+    mount -o noatime,commit=60,data=writeback "$persist_dev" "$PERSIST_MOUNT" || { log "Failed to mount $persist_dev"; exit 1; }
     log "Mounted $persist_dev at $PERSIST_MOUNT with USB-optimized options"
 fi
 
@@ -791,7 +793,7 @@ setup_persistence() {
         blockdev --flushbufs "$persist_dev" 2>/dev/null || true
 
         local mount_output
-        if ! mount_output=$(mount -o noatime,commit=60,data=writeback,barrier=0 "$persist_dev" "$PERSIST_MOUNT" 2>&1); then
+        if ! mount_output=$(mount -o noatime,commit=60,data=writeback "$persist_dev" "$PERSIST_MOUNT" 2>&1); then
             ui_fail "Failed to mount $persist_dev"
             log "Mount error: $mount_output"
             return 1
@@ -806,17 +808,20 @@ setup_persistence() {
         return 1
     fi
 
-    # ── Step 5: First boot – set up overlayfs and move data ──────────────
-    if [[ -x "$PERSIST_MOUNT/mados-persist-init.sh" ]]; then
-        # Subsequent boot: just run the init script
-        ui_step "Restoring persistent overlays"
-        "$PERSIST_MOUNT/mados-persist-init.sh" || {
-            ui_warn "Init script returned exit code $?"
-        }
-        ui_ok "Overlays restored from previous session"
-    else
-        # First boot: create directory structure and install files
-        ui_step "Initialising partition (first boot)"
+    # ── Step 5: Initialise or restore persistence ──────────────────────────
+    # Check if directory structure is complete (handles interrupted first boot)
+    local needs_init=false
+    for dir in $OVERLAY_DIRS; do
+        if [[ ! -d "$PERSIST_MOUNT/overlays/$dir/upper" || ! -d "$PERSIST_MOUNT/overlays/$dir/work" ]]; then
+            needs_init=true
+            break
+        fi
+    done
+    [[ ! -d "$PERSIST_MOUNT/home" ]] && needs_init=true
+
+    if [[ "$needs_init" == true ]]; then
+        # Directory structure incomplete – create/repair it
+        ui_step "Initialising persistence directories"
 
         for dir in $OVERLAY_DIRS; do
             mkdir -p "$PERSIST_MOUNT/overlays/$dir/upper" \
@@ -829,14 +834,15 @@ setup_persistence() {
         chmod 755 "$PERSIST_MOUNT"
         ui_ok "Directory structure created"
 
-        # Copy current /home contents to persistence partition
+        # Copy current /home contents if persistent home is empty
         ui_step "Copying user configuration"
-        if [[ -d /home && -n "$(ls -A /home 2>/dev/null)" ]]; then
+        if [[ -z "$(ls -A "$PERSIST_MOUNT/home" 2>/dev/null)" ]] && \
+           [[ -d /home && -n "$(ls -A /home 2>/dev/null)" ]]; then
             cp -a /home/. "$PERSIST_MOUNT/home/" 2>/dev/null && \
                 ui_ok "Home contents preserved" || \
                 ui_warn "Some home contents could not be copied"
         else
-            ui_skip "No existing home contents"
+            ui_skip "Home contents already present or source empty"
         fi
 
         # Record the boot device
@@ -851,13 +857,21 @@ setup_persistence() {
             return 1
         }
         ui_ok "Init script and service installed"
+    else
+        ui_step "Persistence directories verified"
+        ui_ok "Directory structure already complete"
+    fi
 
-        # Run init now to mount overlays immediately
-        ui_step "Activating overlays"
+    # Run init script to activate overlays (both fresh and existing setups)
+    if [[ -x "$PERSIST_MOUNT/mados-persist-init.sh" ]]; then
+        ui_step "Activating persistent overlays"
         "$PERSIST_MOUNT/mados-persist-init.sh" || {
             ui_warn "Init script returned exit code $?"
         }
         ui_ok "Overlays active: /etc /usr /var /opt /home"
+    else
+        ui_fail "Init script not found after initialisation"
+        return 1
     fi
 
     # ── Step 6: Confirm partition is mounted and directories are ready ───
