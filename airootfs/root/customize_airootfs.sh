@@ -12,7 +12,7 @@ echo "=== madOS: Pre-installing Oh My Zsh, OpenCode, and kew ==="
 # ── Nordic GTK Theme (from EliverLara/Nordic) ─────────────────────────────
 NORDIC_DIR="/usr/share/themes/Nordic"
 
-if [ -d "$NORDIC_DIR" ]; then
+if [[ -d "$NORDIC_DIR" ]]; then
     echo "✓ Nordic GTK theme already installed"
 else
     echo "Installing Nordic GTK theme..."
@@ -26,7 +26,7 @@ else
     else
         echo "⚠ Failed to clone Nordic GTK theme"
     fi
-    [ -n "$NORDIC_BUILD_DIR" ] && rm -rf "$NORDIC_BUILD_DIR"
+    [[ -n "$NORDIC_BUILD_DIR" ]] && rm -rf "$NORDIC_BUILD_DIR"
 fi
 
 # ── kew (terminal music player from source) ──────────────────────────────
@@ -48,13 +48,13 @@ else
     else
         echo "⚠ Failed to clone kew (will not be available)"
     fi
-    [ -n "$KEW_BUILD_DIR" ] && rm -rf "$KEW_BUILD_DIR"
+    [[ -n "$KEW_BUILD_DIR" ]] && rm -rf "$KEW_BUILD_DIR"
 fi
 
 # ── Oh My Zsh ────────────────────────────────────────────────────────────
 OMZ_DIR="/etc/skel/.oh-my-zsh"
 
-if [ ! -d "$OMZ_DIR" ]; then
+if [[ ! -d "$OMZ_DIR" ]]; then
     echo "Installing Oh My Zsh to /etc/skel..."
     if git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$OMZ_DIR" 2>&1; then
         echo "✓ Oh My Zsh installed to /etc/skel"
@@ -66,20 +66,20 @@ else
 fi
 
 # Copy to mados user home if it exists
-if [ -d "$OMZ_DIR" ] && [ -d /home/mados ] && [ ! -d /home/mados/.oh-my-zsh ]; then
+if [[ -d "$OMZ_DIR" && -d /home/mados && ! -d /home/mados/.oh-my-zsh ]]; then
     cp -a "$OMZ_DIR" /home/mados/.oh-my-zsh
     chown -R 1000:1000 /home/mados/.oh-my-zsh
     echo "  → Copied Oh My Zsh to /home/mados"
 fi
 
 # Copy to root
-if [ -d "$OMZ_DIR" ] && [ ! -d /root/.oh-my-zsh ]; then
+if [[ -d "$OMZ_DIR" && ! -d /root/.oh-my-zsh ]]; then
     cp -a "$OMZ_DIR" /root/.oh-my-zsh
     echo "  → Copied Oh My Zsh to /root"
 fi
 
 # Copy .zshrc to root if not present
-if [ ! -f /root/.zshrc ] && [ -f /etc/skel/.zshrc ]; then
+if [[ ! -f /root/.zshrc && -f /etc/skel/.zshrc ]]; then
     cp /etc/skel/.zshrc /root/.zshrc
     echo "  → Copied .zshrc to /root"
 fi
@@ -95,7 +95,7 @@ else
 
     # Method 1: curl install script (downloads binary directly)
     if curl -fsSL https://opencode.ai/install | OPENCODE_INSTALL_DIR="$INSTALL_DIR" bash; then
-        if [ -x "$INSTALL_DIR/$OPENCODE_CMD" ] || command -v "$OPENCODE_CMD" &>/dev/null; then
+        if [[ -x "$INSTALL_DIR/$OPENCODE_CMD" ]] || command -v "$OPENCODE_CMD" &>/dev/null; then
             echo "✓ OpenCode installed via curl"
         else
             echo "⚠ curl install completed but opencode not found"
@@ -105,7 +105,7 @@ else
     fi
 
     # Method 2: npm fallback
-    if ! command -v "$OPENCODE_CMD" &>/dev/null && [ ! -x "$INSTALL_DIR/$OPENCODE_CMD" ]; then
+    if ! command -v "$OPENCODE_CMD" &>/dev/null && [[ ! -x "$INSTALL_DIR/$OPENCODE_CMD" ]]; then
         echo "Trying npm fallback..."
         if command -v npm &>/dev/null; then
             if npm install -g --unsafe-perm opencode-ai 2>&1; then

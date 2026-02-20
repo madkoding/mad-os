@@ -8,7 +8,7 @@ OMZ_DIR="/etc/skel/.oh-my-zsh"
 MEDIA_HELPER="/usr/local/lib/mados-media-helper.sh"
 
 # Check if running on read-only media (DVD/CD) without persistence
-if [ -f "$MEDIA_HELPER" ]; then
+if [[ -f "$MEDIA_HELPER" ]]; then
     # shellcheck source=/dev/null
     source "$MEDIA_HELPER"
     if ! can_install_software; then
@@ -20,14 +20,14 @@ if [ -f "$MEDIA_HELPER" ]; then
 fi
 
 # Check if Oh My Zsh is already installed in skel
-if [ -d "$OMZ_DIR" ]; then
+if [[ -d "$OMZ_DIR" ]]; then
     echo "✓ Oh My Zsh already installed in /etc/skel"
     exit 0
 fi
 
 # Check if git is available
 if ! command -v git &>/dev/null; then
-    echo "✗ Error: git is not installed."
+    echo "✗ Error: git is not installed." >&2
     exit 1
 fi
 
@@ -49,23 +49,21 @@ echo "✓ Oh My Zsh installed in /etc/skel"
 
 # Copy to existing user homes that have zsh as shell
 while IFS=: read -r username _ uid gid _ home shell; do
-    if [ "$shell" = "/usr/bin/zsh" ] && [ -d "$home" ] && [ "$uid" -ge 1000 ] 2>/dev/null; then
-        if [ ! -d "$home/.oh-my-zsh" ]; then
-            cp -a "$OMZ_DIR" "$home/.oh-my-zsh"
-            chown -R "$username:$gid" "$home/.oh-my-zsh"
-            echo "  → Installed for user $username"
-        fi
+    if [[ "$shell" == "/usr/bin/zsh" && -d "$home" && "$uid" -ge 1000 ]] 2>/dev/null && [[ ! -d "$home/.oh-my-zsh" ]]; then
+        cp -a "$OMZ_DIR" "$home/.oh-my-zsh"
+        chown -R "$username:$gid" "$home/.oh-my-zsh"
+        echo "  → Installed for user $username"
     fi
 done < /etc/passwd
 
 # Copy to root if root uses zsh
-if grep -q "^root:.*:/usr/bin/zsh" /etc/passwd && [ ! -d /root/.oh-my-zsh ]; then
+if grep -q "^root:.*:/usr/bin/zsh" /etc/passwd && [[ ! -d /root/.oh-my-zsh ]]; then
     cp -a "$OMZ_DIR" /root/.oh-my-zsh
     echo "  → Installed for root"
 fi
 
 # Copy .zshrc to root if not present
-if [ ! -f /root/.zshrc ] && [ -f /etc/skel/.zshrc ]; then
+if [[ ! -f /root/.zshrc && -f /etc/skel/.zshrc ]]; then
     cp /etc/skel/.zshrc /root/.zshrc
     echo "  → Copied .zshrc to root"
 fi

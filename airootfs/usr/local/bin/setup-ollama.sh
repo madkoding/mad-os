@@ -6,7 +6,7 @@ OLLAMA_CMD="ollama"
 MEDIA_HELPER="/usr/local/lib/mados-media-helper.sh"
 
 # Check if running on read-only media (DVD/CD) without persistence
-if [ -f "$MEDIA_HELPER" ]; then
+if [[ -f "$MEDIA_HELPER" ]]; then
     # shellcheck source=/dev/null
     source "$MEDIA_HELPER"
     if ! can_install_software; then
@@ -38,13 +38,11 @@ fi
 echo "Instalando Ollama..."
 
 # Method: curl install script (official installer from ollama.com)
-if curl -fsSL https://ollama.com/install.sh | sh; then
-    if command -v "$OLLAMA_CMD" &>/dev/null; then
-        echo ""
-        echo "✓ Ollama instalado correctamente."
-        "$OLLAMA_CMD" --version 2>/dev/null || true
-        exit 0
-    fi
+if curl -fsSL https://ollama.com/install.sh | sh && command -v "$OLLAMA_CMD" &>/dev/null; then
+    echo ""
+    echo "✓ Ollama instalado correctamente."
+    "$OLLAMA_CMD" --version 2>/dev/null || true
+    exit 0
 fi
 
 echo "⚠ No se pudo instalar Ollama."

@@ -13,7 +13,9 @@ set -euo pipefail
 LOG_TAG="mados-audio-quality"
 
 log() {
-    systemd-cat -t "$LOG_TAG" printf "%s\n" "$1"
+    local msg="$1"
+    systemd-cat -t "$LOG_TAG" printf "%s\n" "$msg"
+    return 0
 }
 
 # Default high-quality settings
@@ -72,6 +74,7 @@ detect_max_sample_rate() {
     fi
     
     echo "$max_rate"
+    return 0
 }
 
 # Detect maximum bit depth (format)
@@ -107,6 +110,7 @@ detect_max_bit_depth() {
     fi
     
     echo "$max_depth"
+    return 0
 }
 
 # Calculate optimal buffer sizes based on sample rate
@@ -136,6 +140,7 @@ calculate_quantum() {
     fi
     
     echo "$quantum $min_quantum $max_quantum"
+    return 0
 }
 
 # Build list of allowed rates up to the detected maximum
@@ -152,6 +157,7 @@ build_allowed_rates() {
         allowed_rates="44100 48000 88200 96000 176400 192000"
     fi
     echo "$allowed_rates"
+    return 0
 }
 
 # Create PipeWire configuration
@@ -224,6 +230,7 @@ stream.properties = {
 EOF
     
     log "Created PipeWire configuration in $config_dir"
+    return 0
 }
 
 # Create WirePlumber configuration for device quality
@@ -288,6 +295,7 @@ monitor.alsa-midi.rules = [
 EOF
     
     log "Created WirePlumber configuration in $config_dir"
+    return 0
 }
 
 # Apply configuration system-wide
@@ -304,8 +312,9 @@ apply_system_config() {
         create_wireplumber_config "$sample_rate" "$allowed_rates" "$SYSTEM_CONFIG_DIR"
         log "System-wide configuration applied"
     else
-        log "Not running as root, skipping system-wide configuration"
+        log "Warning: Could not set up real-time privileges"
     fi
+    return 0
 }
 
 # Apply configuration for current user
@@ -323,6 +332,7 @@ apply_user_config() {
         create_wireplumber_config "$sample_rate" "$allowed_rates" "$USER_CONFIG_DIR"
         log "User configuration applied to $USER_CONFIG_DIR"
     fi
+    return 0
 }
 
 # Copy configuration to skel for new users
@@ -342,19 +352,18 @@ copy_to_skel() {
             log "Configuration copied to /etc/skel for new users"
         fi
     fi
+    return 0
 }
 
 # Restart audio services if running
 restart_audio_services() {
-    if [[ $EUID -ne 0 ]]; then
-        # User services
-        if systemctl --user is-active --quiet pipewire.service 2>/dev/null; then
-            systemctl --user restart pipewire.service || log "Failed to restart pipewire.service"
-            systemctl --user restart pipewire-pulse.service 2>/dev/null || true
-            systemctl --user restart wireplumber.service 2>/dev/null || true
-            log "User audio services restarted"
-        fi
+    if [[ $EUID -ne 0 ]] && systemctl --user is-active --quiet pipewire.service 2>/dev/null; then
+        systemctl --user restart pipewire.service || log "Failed to restart pipewire.service"
+        systemctl --user restart pipewire-pulse.service 2>/dev/null || true
+        systemctl --user restart wireplumber.service 2>/dev/null || true
+        log "User audio services restarted"
     fi
+    return 0
 }
 
 # Main function

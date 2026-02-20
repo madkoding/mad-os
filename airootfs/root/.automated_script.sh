@@ -8,8 +8,12 @@ script_cmdline() {
                 echo "${param#*=}"
                 return 0
                 ;;
+            *)
+                :
+                ;;
         esac
     done
+    return 0
 }
 
 automated_script() {
@@ -40,6 +44,7 @@ automated_script() {
         fi
         rm -f "${tmp_script}"
     fi
+    return 0
 }
 
 if [[ $(tty) == "/dev/tty1" ]]; then
