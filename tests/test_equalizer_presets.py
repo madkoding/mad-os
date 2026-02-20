@@ -232,21 +232,21 @@ class TestPresetManagerOperations(unittest.TestCase):
         self.assertIn("disk_test", data)
 
     def test_save_empty_name_rejected(self):
-        success, msg, key = self.manager.save_custom_preset("", [0] * 8)
+        success, _, _ = self.manager.save_custom_preset("", [0] * 8)
         self.assertFalse(success)
 
     def test_save_whitespace_name_rejected(self):
-        success, msg, key = self.manager.save_custom_preset("   ", [0] * 8)
+        success, _, _ = self.manager.save_custom_preset("   ", [0] * 8)
         self.assertFalse(success)
 
     def test_save_builtin_name_rejected(self):
         """Cannot overwrite a built-in preset."""
-        success, msg, key = self.manager.save_custom_preset("Rock", [0] * 8)
+        success, msg, _ = self.manager.save_custom_preset("Rock", [0] * 8)
         self.assertFalse(success)
         self.assertEqual(msg, "preset_exists")
 
     def test_save_invalid_gains_length(self):
-        success, msg, key = self.manager.save_custom_preset("Bad", [0, 0])
+        success, _, _ = self.manager.save_custom_preset("Bad", [0, 0])
         self.assertFalse(success)
 
     def test_save_gains_clamped(self):
@@ -260,16 +260,16 @@ class TestPresetManagerOperations(unittest.TestCase):
 
     def test_delete_custom_preset(self):
         self.manager.save_custom_preset("ToDelete", [0] * 8)
-        success, msg = self.manager.delete_custom_preset("todelete")
+        success, _ = self.manager.delete_custom_preset("todelete")
         self.assertTrue(success)
         self.assertNotIn("todelete", self.manager.custom_presets)
 
     def test_delete_builtin_rejected(self):
-        success, msg = self.manager.delete_custom_preset("rock")
+        success, _ = self.manager.delete_custom_preset("rock")
         self.assertFalse(success)
 
     def test_delete_nonexistent_rejected(self):
-        success, msg = self.manager.delete_custom_preset("nope")
+        success, _ = self.manager.delete_custom_preset("nope")
         self.assertFalse(success)
 
     def test_is_builtin(self):
