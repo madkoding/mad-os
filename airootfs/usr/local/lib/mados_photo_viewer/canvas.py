@@ -19,14 +19,24 @@ import math
 import cairo
 
 import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('Gdk', '3.0')
-gi.require_version('GdkPixbuf', '2.0')
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
 
 from .tools import (
-    TOOL_NONE, TOOL_PAINT, TOOL_TEXT, TOOL_BLUR, TOOL_PIXELATE, TOOL_ERASER,
-    PaintStroke, TextStroke, BlurStroke, PixelateStroke, EditHistory,
+    TOOL_NONE,
+    TOOL_PAINT,
+    TOOL_TEXT,
+    TOOL_BLUR,
+    TOOL_PIXELATE,
+    TOOL_ERASER,
+    PaintStroke,
+    TextStroke,
+    BlurStroke,
+    PixelateStroke,
+    EditHistory,
 )
 
 # Zoom limits
@@ -43,14 +53,14 @@ class ImageCanvas(Gtk.DrawingArea):
         super().__init__()
 
         # Image data
-        self._pixbuf = None       # Original loaded GdkPixbuf
-        self._filepath = None     # Path of the currently loaded image
+        self._pixbuf = None  # Original loaded GdkPixbuf
+        self._filepath = None  # Path of the currently loaded image
 
         # View state
-        self._zoom = 1.0          # Current zoom factor
-        self._pan_x = 0.0         # Pan offset X (in screen pixels)
-        self._pan_y = 0.0         # Pan offset Y (in screen pixels)
-        self._fit_mode = True     # Auto-fit to window
+        self._zoom = 1.0  # Current zoom factor
+        self._pan_x = 0.0  # Pan offset X (in screen pixels)
+        self._pan_y = 0.0  # Pan offset Y (in screen pixels)
+        self._fit_mode = True  # Auto-fit to window
 
         # Drag state for panning
         self._dragging = False
@@ -64,8 +74,8 @@ class ImageCanvas(Gtk.DrawingArea):
         self._tool_color = (1.0, 1.0, 1.0, 1.0)
         self._brush_size = 5.0
         self._font_size = 24.0
-        self._text_content = ''
-        self._drawing = False      # Is user currently drawing a stroke?
+        self._text_content = ""
+        self._drawing = False  # Is user currently drawing a stroke?
         self._current_stroke = None  # Stroke being actively drawn
 
         # Edit history
@@ -76,24 +86,24 @@ class ImageCanvas(Gtk.DrawingArea):
 
         # Enable events
         self.add_events(
-            Gdk.EventMask.BUTTON_PRESS_MASK |
-            Gdk.EventMask.BUTTON_RELEASE_MASK |
-            Gdk.EventMask.POINTER_MOTION_MASK |
-            Gdk.EventMask.SCROLL_MASK |
-            Gdk.EventMask.SMOOTH_SCROLL_MASK
+            Gdk.EventMask.BUTTON_PRESS_MASK
+            | Gdk.EventMask.BUTTON_RELEASE_MASK
+            | Gdk.EventMask.POINTER_MOTION_MASK
+            | Gdk.EventMask.SCROLL_MASK
+            | Gdk.EventMask.SMOOTH_SCROLL_MASK
         )
 
         # Connect signals
-        self.connect('draw', self._on_draw)
-        self.connect('button-press-event', self._on_button_press)
-        self.connect('button-release-event', self._on_button_release)
-        self.connect('motion-notify-event', self._on_motion)
-        self.connect('scroll-event', self._on_scroll)
-        self.connect('size-allocate', self._on_size_allocate)
+        self.connect("draw", self._on_draw)
+        self.connect("button-press-event", self._on_button_press)
+        self.connect("button-release-event", self._on_button_release)
+        self.connect("motion-notify-event", self._on_motion)
+        self.connect("scroll-event", self._on_scroll)
+        self.connect("size-allocate", self._on_size_allocate)
 
         # Style
         style = self.get_style_context()
-        style.add_class('canvas-area')
+        style.add_class("canvas-area")
 
     # ------------------------------------------------------------------
     # Public API
@@ -180,13 +190,13 @@ class ImageCanvas(Gtk.DrawingArea):
         if tool == TOOL_NONE:
             window.set_cursor(None)
         elif tool == TOOL_ERASER:
-            cursor = Gdk.Cursor.new_from_name(self.get_display(), 'not-allowed')
+            cursor = Gdk.Cursor.new_from_name(self.get_display(), "not-allowed")
             window.set_cursor(cursor)
         elif tool == TOOL_TEXT:
-            cursor = Gdk.Cursor.new_from_name(self.get_display(), 'text')
+            cursor = Gdk.Cursor.new_from_name(self.get_display(), "text")
             window.set_cursor(cursor)
         else:
-            cursor = Gdk.Cursor.new_from_name(self.get_display(), 'crosshair')
+            cursor = Gdk.Cursor.new_from_name(self.get_display(), "crosshair")
             window.set_cursor(cursor)
 
     def set_tool_color(self, r, g, b, a=1.0):
@@ -379,13 +389,15 @@ class ImageCanvas(Gtk.DrawingArea):
         if self._pixbuf is None:
             # No image - draw placeholder text
             cr.set_source_rgb(0.30, 0.34, 0.42)  # nord3
-            cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+            cr.select_font_face(
+                "Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL
+            )
             cr.set_font_size(18)
             text = "Open an image to begin"
             extents = cr.text_extents(text)
             cr.move_to(
                 (alloc.width - extents.width) / 2.0,
-                (alloc.height + extents.height) / 2.0
+                (alloc.height + extents.height) / 2.0,
             )
             cr.show_text(text)
             return
@@ -418,7 +430,7 @@ class ImageCanvas(Gtk.DrawingArea):
         # for performance, we only show them in the final composite.
         # For blur/pixelate strokes, show a translucent overlay path instead.
         for stroke in self.history.strokes:
-            if stroke.type in ('blur', 'pixelate'):
+            if stroke.type in ("blur", "pixelate"):
                 self._draw_effect_preview(cr, stroke, draw_x, draw_y)
 
         # Draw paint/text strokes in canvas coordinates
@@ -434,7 +446,7 @@ class ImageCanvas(Gtk.DrawingArea):
             cr.save()
             cr.translate(draw_x, draw_y)
             cr.scale(self._zoom, self._zoom)
-            if hasattr(self._current_stroke, 'draw'):
+            if hasattr(self._current_stroke, "draw"):
                 self._current_stroke.draw(cr)
             cr.restore()
 
@@ -477,7 +489,7 @@ class ImageCanvas(Gtk.DrawingArea):
         cr.translate(draw_x, draw_y)
         cr.scale(self._zoom, self._zoom)
 
-        if stroke.type == 'blur':
+        if stroke.type == "blur":
             cr.set_source_rgba(0.53, 0.75, 0.82, 0.15)  # nord8 translucent
         else:
             cr.set_source_rgba(0.75, 0.56, 0.68, 0.15)  # nord15 translucent
@@ -525,7 +537,7 @@ class ImageCanvas(Gtk.DrawingArea):
             return False
 
         # Determine scroll direction
-        has_delta, dx, dy = event.get_scroll_deltas()
+        has_delta, _, dy = event.get_scroll_deltas()
         if has_delta:
             if dy < 0:
                 direction = 1  # zoom in
@@ -573,7 +585,7 @@ class ImageCanvas(Gtk.DrawingArea):
                 self._drag_start_pan_y = self._pan_y
                 window = self.get_window()
                 if window:
-                    cursor = Gdk.Cursor.new_from_name(self.get_display(), 'grabbing')
+                    cursor = Gdk.Cursor.new_from_name(self.get_display(), "grabbing")
                     window.set_cursor(cursor)
             elif self._active_tool == TOOL_PAINT:
                 ix, iy = self._screen_to_image(event.x, event.y)
@@ -584,7 +596,9 @@ class ImageCanvas(Gtk.DrawingArea):
             elif self._active_tool == TOOL_TEXT:
                 ix, iy = self._screen_to_image(event.x, event.y)
                 if self._text_content.strip():
-                    stroke = TextStroke(ix, iy, self._text_content, self._tool_color, self._font_size)
+                    stroke = TextStroke(
+                        ix, iy, self._text_content, self._tool_color, self._font_size
+                    )
                     self.history.add_stroke(stroke)
                     self._notify_edits_changed()
                     self.queue_draw()

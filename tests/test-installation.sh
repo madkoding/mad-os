@@ -39,19 +39,20 @@ TEST_LOCALE="en_US.UTF-8"
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 ERRORS=0; WARNINGS=0
 
-step()    { echo -e "\n${CYAN}══════════════════════════════════════════════════${NC}"; echo -e "${GREEN}==> $1${NC}"; }
-info()    { echo -e "    ${YELLOW}$1${NC}"; }
-ok()      { echo -e "    ${GREEN}✓ $1${NC}"; }
-fail()    { echo -e "    ${RED}✗ $1${NC}"; ERRORS=$((ERRORS + 1)); }
-warn()    { echo -e "    ${YELLOW}⚠ $1${NC}"; WARNINGS=$((WARNINGS + 1)); }
+step()    { local msg="$1"; echo -e "\n${CYAN}══════════════════════════════════════════════════${NC}"; echo -e "${GREEN}==> $msg${NC}"; return 0; }
+info()    { local msg="$1"; echo -e "    ${YELLOW}$msg${NC}"; return 0; }
+ok()      { local msg="$1"; echo -e "    ${GREEN}✓ $msg${NC}"; return 0; }
+fail()    { local msg="$1"; echo -e "    ${RED}✗ $msg${NC}"; ERRORS=$((ERRORS + 1)); return 0; }
+warn()    { local msg="$1"; echo -e "    ${YELLOW}⚠ $msg${NC}"; WARNINGS=$((WARNINGS + 1)); return 0; }
 
 # ── Cleanup on exit ──────────────────────────────────────────────────────────
 cleanup() {
     step "Cleanup"
     umount -R "$MOUNT_POINT" 2>/dev/null || true
-    [ -n "${LOOP_DEV:-}" ] && losetup -d "$LOOP_DEV" 2>/dev/null || true
+    [[ -n "${LOOP_DEV:-}" ]] && losetup -d "$LOOP_DEV" 2>/dev/null || true
     rm -f "$DISK_IMAGE"
     ok "Cleanup finished"
+    return 0
 }
 trap cleanup EXIT
 
@@ -85,7 +86,7 @@ for f in $PYTHON_FILES; do
     fi
 done
 
-if [ "$PY_ERRORS" -eq 0 ]; then
+if [[ "$PY_ERRORS" -eq 0 ]]; then
     ok "All Python modules have valid syntax"
 else
     fail "$PY_ERRORS Python file(s) with syntax errors"
@@ -130,7 +131,7 @@ udevadm settle --timeout=10 2>/dev/null || true
 
 # Wait for partition device nodes with retries
 for attempt in $(seq 1 10); do
-    [ -b "$BOOT_PART" ] && [ -b "$ROOT_PART" ] && [ -b "$HOME_PART" ] && break
+    [[ -b "$BOOT_PART" ]] && [[ -b "$ROOT_PART" ]] && [[ -b "$HOME_PART" ]] && break
     info "Waiting for partition device nodes (attempt ${attempt}/10)..."
     partprobe "$LOOP_DEV" 2>/dev/null || true
     partx -a "$LOOP_DEV" 2>/dev/null || true
@@ -146,7 +147,7 @@ LOOP_NAME=$(basename "$LOOP_DEV")
 for i in 1 2 3 4; do
     PART_DEV="${LOOP_DEV}p${i}"
     SYSFS_DEV="/sys/block/${LOOP_NAME}/${LOOP_NAME}p${i}/dev"
-    if ! [ -b "$PART_DEV" ] && [ -f "$SYSFS_DEV" ]; then
+    if ! [[ -b "$PART_DEV" ]] && [[ -f "$SYSFS_DEV" ]]; then
         MAJOR=$(cut -d: -f1 < "$SYSFS_DEV" | tr -d '[:space:]')
         MINOR=$(cut -d: -f2 < "$SYSFS_DEV" | tr -d '[:space:]')
         info "Creating device node ${PART_DEV} (${MAJOR}:${MINOR}) via mknod"
@@ -156,11 +157,11 @@ done
 
 for label_part in "EFI:${BOOT_PART}" "root:${ROOT_PART}" "home:${HOME_PART}"; do
     label="${label_part%%:*}"; part="${label_part##*:}"
-    [ -b "$part" ] && ok "Partition ${label} (${part}) exists" || fail "Partition ${label} (${part}) missing"
+    [[ -b "$part" ]] && ok "Partition ${label} (${part}) exists" || fail "Partition ${label} (${part}) missing"
 done
 
 # Abort early if any partition is still missing (prevents cryptic mkfs errors)
-if ! [ -b "$BOOT_PART" ] || ! [ -b "$ROOT_PART" ] || ! [ -b "$HOME_PART" ]; then
+if ! [[ -b "$BOOT_PART" ]] || ! [[ -b "$ROOT_PART" ]] || ! [[ -b "$HOME_PART" ]]; then
     info "Diagnostics: ls -la ${LOOP_DEV}*"
     ls -la "${LOOP_DEV}"* 2>/dev/null || true
     info "Diagnostics: /sys/block/${LOOP_NAME}/"
@@ -223,7 +224,7 @@ step "Phase 4 – Generating filesystem table"
 
 genfstab -U "$MOUNT_POINT" > "$MOUNT_POINT/etc/fstab"
 
-if [ -s "$MOUNT_POINT/etc/fstab" ]; then
+if [[ -s "$MOUNT_POINT/etc/fstab" ]]; then
     ok "fstab generated ($(wc -l < "$MOUNT_POINT/etc/fstab") lines)"
 else
     fail "fstab is empty"
@@ -246,7 +247,7 @@ python3 "${TESTS_DIR}/generate-config.py" \
     --locale "$TEST_LOCALE" \
     > "$CONFIG_SCRIPT_PATH"
 
-if [ -s "$CONFIG_SCRIPT_PATH" ]; then
+if [[ -s "$CONFIG_SCRIPT_PATH" ]]; then
     ok "Config script generated ($(wc -l < "$CONFIG_SCRIPT_PATH") lines)"
 else
     fail "Config script is empty"
@@ -298,14 +299,14 @@ grub-install() {
 grub-mkconfig() {
     stub "grub-mkconfig $*"
     local outfile=""
-    while [ $# -gt 0 ]; do
-        if [ "$1" = "-o" ] && [ -n "${2:-}" ]; then
+    while [[ $# -gt 0 ]]; do
+        if [[ "$1" == "-o" ]] && [[ -n "${2:-}" ]]; then
             outfile="$2"; shift 2
         else
             shift
         fi
     done
-    if [ -n "$outfile" ]; then
+    if [[ -n "$outfile" ]]; then
         mkdir -p "$(dirname "$outfile")"
         echo "# CI stub grub.cfg" > "$outfile"
     fi
@@ -340,16 +341,18 @@ step "Phase 7 – Verifying installed system"
 
 check_file() {
     local desc="$1" path="$2"
-    if [ -e "$MOUNT_POINT$path" ]; then ok "$desc"; else fail "$desc — $path missing"; fi
+    if [[ -e "$MOUNT_POINT$path" ]]; then ok "$desc"; else fail "$desc — $path missing"; fi
+    return 0
 }
 
 check_content() {
     local desc="$1" path="$2" pattern="$3"
-    if [ -e "$MOUNT_POINT$path" ] && grep -q "$pattern" "$MOUNT_POINT$path" 2>/dev/null; then
+    if [[ -e "$MOUNT_POINT$path" ]] && grep -q "$pattern" "$MOUNT_POINT$path" 2>/dev/null; then
         ok "$desc"
     else
         fail "$desc — pattern '$pattern' not found in $path"
     fi
+    return 0
 }
 
 # Timezone
@@ -402,7 +405,7 @@ check_content "NM uses iwd backend" "/etc/NetworkManager/conf.d/wifi-backend.con
 # =============================================================================
 step "Results"
 echo ""
-if [ "$ERRORS" -eq 0 ]; then
+if [[ "$ERRORS" -eq 0 ]]; then
     echo -e "${GREEN}═══════════════════════════════════════════${NC}"
     echo -e "${GREEN}  ✓ ALL TESTS PASSED  (warnings: ${WARNINGS})${NC}"
     echo -e "${GREEN}═══════════════════════════════════════════${NC}"

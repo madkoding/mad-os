@@ -5,20 +5,22 @@ function extractVersionFromURL() {
     const downloadLink = document.querySelector('a[href*="archive.org"]');
     if (downloadLink) {
         // Check data-version attribute first (set by CI/CD)
-        const dataVersion = downloadLink.getAttribute('data-version');
+        const dataVersion = downloadLink.dataset.version;
         if (dataVersion) {
             return dataVersion;
         }
         // Fallback: try to extract from URL
         const url = downloadLink.getAttribute('href');
         // Match stable: mados-1.2.3/
-        const stableMatch = url.match(/mados-(\d+(?:\.\d+)*)\//);
-        if (stableMatch && stableMatch[1]) {
+        const stableRegex = /mados-(\d+(?:\.\d+)*)\//;
+        const stableMatch = stableRegex.exec(url);
+        if (stableMatch?.[1]) {
             return stableMatch[1];
         }
         // Match prefixed: mados-beta-1.2.3- or mados-dev-1.2.3-
-        const prefixedMatch = url.match(/mados-\w+-(\d+\.\d+\.\d+)/);
-        if (prefixedMatch && prefixedMatch[1]) {
+        const prefixedRegex = /mados-\w+-(\d+\.\d+\.\d+)/;
+        const prefixedMatch = prefixedRegex.exec(url);
+        if (prefixedMatch?.[1]) {
             return prefixedMatch[1];
         }
     }
@@ -328,7 +330,7 @@ const i18n = {
         let translation = translations[this.currentLang][key] || translations[this.defaultLang][key] || key;
 
         Object.keys(vars).forEach(varKey => {
-            const regex = new RegExp(`\\{${varKey}\\}`, 'g');
+            const regex = new RegExp(String.raw`\{${varKey}\}`, 'g');
             translation = translation.replace(regex, vars[varKey]);
         });
 
@@ -339,7 +341,7 @@ const i18n = {
         const version = extractVersionFromURL();
 
         document.querySelectorAll('[data-i18n]').forEach(element => {
-            const key = element.getAttribute('data-i18n');
+            const key = element.dataset.i18n;
             const translation = this.t(key, { version });
 
             if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
@@ -350,7 +352,7 @@ const i18n = {
         });
 
         document.querySelectorAll('[data-i18n-html]').forEach(element => {
-            const key = element.getAttribute('data-i18n-html');
+            const key = element.dataset.i18nHtml;
             element.innerHTML = this.t(key, { version });
         });
     },

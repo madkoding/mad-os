@@ -124,6 +124,7 @@ main() {
     fi
 
     log "Audio initialization complete"
+    return 0
 }
 
 main "$@"
