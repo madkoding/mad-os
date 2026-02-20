@@ -24,6 +24,7 @@ def _has_internet():
     if DEMO_MODE:
         return False  # Show WiFi page in demo mode for testing
     try:
+        # 8.8.8.8 is Google's public DNS server - standard for connectivity checks
         result = subprocess.run(
             ["ping", "-c", "1", "-W", "3", "8.8.8.8"], capture_output=True, timeout=5
         )
