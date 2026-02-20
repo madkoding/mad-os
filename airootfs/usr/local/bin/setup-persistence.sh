@@ -238,7 +238,7 @@ find_persist_partition() {
                     local size_mb
                     size_mb=$(lsblk -bnlo SIZE "$full_part" 2>/dev/null | head -1)
                     size_mb=$(( ${size_mb:-0} / 1048576 ))
-                    if [[ "$size_mb" -ge "$MIN_PERSIST_MB" ]]; then
+                    if [[[ "$size_mb" -ge "$MIN_PERSIST_MB" ]]]; then
                         log "Found ext4 partition $full_part (${size_mb} MB) – using as persistence"
                         # Add label so future lookups are faster
                         e2label "$full_part" "$PERSIST_LABEL" 2>/dev/null && \
@@ -333,14 +333,14 @@ create_persist_partition() {
     local highest_dev_num=0
     local dev_node
     for dev_node in "${device}${part_suffix}"[0-9]* "${device}"[0-9]*; do
-        if [ -b "$dev_node" ]; then
+        if [[ -b "$dev_node" ]]; then
             local dnum
-            if [ -n "$part_suffix" ]; then
+            if [[ -n "$part_suffix" ]]; then
                 dnum=$(echo "$dev_node" | sed 's/.*p\([0-9]*\)$/\1/')
             else
                 dnum=$(echo "$dev_node" | sed 's/.*[^0-9]\([0-9]*\)$/\1/')
             fi
-            if [ -n "$dnum" ] && [ "$dnum" -gt "$highest_dev_num" ]; then
+            if [ -n "$dnum" ] && [[ "$dnum" -gt "$highest_dev_num" ]]; then
                 highest_dev_num=$dnum
                 log "Debug: Found existing device node: $dev_node (partition $dnum)"
             fi
@@ -356,17 +356,17 @@ create_persist_partition() {
     log "Debug: Highest partition in table: $last_part_num"
 
     local safe_last_part=$last_part_num
-    [ "$highest_dev_num" -gt "$safe_last_part" ] && safe_last_part=$highest_dev_num
+    [[ "$highest_dev_num" -gt "$safe_last_part" ]] && safe_last_part=$highest_dev_num
     local sfdisk_new_part_num=$((safe_last_part + 1))
     local new_part_num=$sfdisk_new_part_num
     log "Debug: Will create partition number: $new_part_num"
 
     # MBR 4-partition limit check
-    if [ "$table_type" = "msdos" ] && [ "$new_part_num" -gt 4 ]; then
+    if [[ "$table_type" == "msdos" ]] && [ "$new_part_num" -gt 4 ]; then
         log "SAFETY: MBR partition table – new partition would be #$new_part_num (max 4)"
         return 1
     fi
-    if [ "$table_type" = "msdos" ] && [ "$sfdisk_new_part_num" -gt 4 ]; then
+    if [[ "$table_type" == "msdos" ]] && [ "$sfdisk_new_part_num" -gt 4 ]; then
         log "SAFETY: MBR table - new partition would be #$sfdisk_new_part_num (max 4)"
         return 1
     fi
@@ -385,9 +385,9 @@ create_persist_partition() {
             local s_start s_size s_end
             s_start=$(echo "$sector_line" | sed -n 's/.*start=\s*\([0-9]*\).*/\1/p')
             s_size=$(echo "$sector_line" | sed -n 's/.*size=\s*\([0-9]*\).*/\1/p')
-            if [ -n "$s_start" ] && [ -n "$s_size" ]; then
+            if [[ -n "$s_start" && -n "$s_size" ]]; then
                 s_end=$((s_start + s_size))
-                [ "$s_end" -gt "$used_end_sector" ] && used_end_sector=$s_end
+                [[ "$s_end" -gt "$used_end_sector" ]] && used_end_sector=$s_end
             fi
         done < <(sfdisk -d "$device" 2>/dev/null | grep "^/")
     fi
@@ -418,7 +418,7 @@ create_persist_partition() {
 
     # Need at least MIN_PERSIST_MB (1 GB)
     local avail_mb=$((avail_sectors / 2048))
-    if [ "$disk_sectors" -eq 0 ] || [ "$avail_mb" -lt "$MIN_PERSIST_MB" ]; then
+    if [ "$disk_sectors" -eq 0 ] || [[ "$avail_mb" -lt "$MIN_PERSIST_MB" ]]; then
         log "Insufficient free space: ${avail_mb} MB available, need $MIN_PERSIST_MB MB"
         return 1
     fi
@@ -431,7 +431,7 @@ create_persist_partition() {
 
     if command -v sfdisk >/dev/null 2>&1; then
         local sfdisk_input
-        if [ "$table_type" = "gpt" ]; then
+        if [[ "$table_type" == "gpt" ]]; then
             sfdisk_input="$sfdisk_new_part_num : start=$new_start, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4"
         else
             sfdisk_input="$sfdisk_new_part_num : start=$new_start, type=83"
@@ -477,7 +477,7 @@ create_persist_partition() {
         base_dev_name=$(basename "$device")
         local part_name="${base_dev_name}${part_suffix}${new_part_num}"
         local sysfs_path="/sys/block/${base_dev_name}/${part_name}/dev"
-        if [ -f "$sysfs_path" ]; then
+        if [[ -f "$sysfs_path" ]]; then
             local s_major s_minor
             s_major=$(cut -d: -f1 < "$sysfs_path" | tr -d '[:space:]')
             s_minor=$(cut -d: -f2 < "$sysfs_path" | tr -d '[:space:]')
@@ -500,7 +500,7 @@ create_persist_partition() {
     post_pre_parts=$(parted -s "$device" unit MB print 2>/dev/null \
                      | grep "^ [0-9]" | sort -n | head -n "$last_part_num" \
                      | awk '{print $1 ":" $2 ":" $3}')
-    if [ "$pre_parts" != "$post_pre_parts" ]; then
+    if [[ "$pre_parts" != "$post_pre_parts" ]]; then
         log "WARNING: Existing partition boundaries changed after mkpart!"
     fi
 
@@ -517,7 +517,7 @@ create_persist_partition() {
     # Verify the label was written correctly
     local written_label
     written_label=$(blkid -s LABEL -o value "$persist_dev" 2>/dev/null)
-    if [ "$written_label" != "$PERSIST_LABEL" ]; then
+    if [[ "$written_label" != "$PERSIST_LABEL" ]]; then
         log "WARNING: Label verification failed (expected '$PERSIST_LABEL', got '$written_label')"
     fi
 
@@ -554,7 +554,7 @@ find_persist_dev() {
     local parent_device="${1:-}"
     local dev=""
 
-    if [ -n "$parent_device" ] && [ -b "$parent_device" ]; then
+    if [[ -n "$parent_device" && -b "$parent_device" ]]; then
         # Only search partitions belonging to the parent device
         dev=$(lsblk -nlo NAME,LABEL "$parent_device" 2>/dev/null \
             | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
@@ -562,10 +562,10 @@ find_persist_dev() {
             local part
             for part in $(lsblk -nlo NAME "$parent_device" 2>/dev/null \
                           | tail -n +2 | awk '{print "/dev/" $1}'); do
-                if [ -b "$part" ]; then
+                if [[ -b "$part" ]]; then
                     local label
                     label=$(blkid -s LABEL -o value "$part" 2>/dev/null)
-                    if [ "$label" = "$PERSIST_LABEL" ]; then
+                    if [[ "$label" == "$PERSIST_LABEL" ]]; then
                         dev="$part"
                         break
                     fi
@@ -592,7 +592,7 @@ if mountpoint -q "$PERSIST_MOUNT" 2>/dev/null && \
 fi
 
 persist_dev=$(find_persist_dev "$boot_device")
-if [ -z "$persist_dev" ]; then
+if [[ -z "$persist_dev" ]]; then
     log "No partition with label '$PERSIST_LABEL' found – skipping"
     exit 0
 fi
@@ -605,12 +605,12 @@ if ! mountpoint -q "$PERSIST_MOUNT" 2>/dev/null; then
 fi
 
 # Re-read boot device after mount (it's stored inside the partition)
-if [ -f "$PERSIST_MOUNT/.mados-boot-device" ]; then
+if [[ -f "$PERSIST_MOUNT/.mados-boot-device" ]]; then
     boot_device=$(cat "$PERSIST_MOUNT/.mados-boot-device" 2>/dev/null)
     # Verify the persistence partition actually belongs to the recorded boot device
     local_parent=$(lsblk -ndo PKNAME "$persist_dev" 2>/dev/null)
-    if [ -n "$boot_device" ] && [ -n "$local_parent" ] && \
-       [ "/dev/$local_parent" != "$boot_device" ]; then
+    if [[ -n "$boot_device" && -n "$local_parent" ]] && \
+       [[ "/dev/$local_parent" != "$boot_device" ]]; then
         log "SAFETY: Persistence partition $persist_dev belongs to /dev/$local_parent but boot device is $boot_device – skipping"
         umount "$PERSIST_MOUNT" 2>/dev/null || true
         exit 0
@@ -713,7 +713,7 @@ setup_persistence() {
     local iso_device
     iso_device=$(find_iso_device)
 
-    if [ -z "$iso_device" ]; then
+    if [[ -z "$iso_device" ]]; then
         ui_fail "Could not determine boot device"
         log "Debug: /run/archiso/bootmnt exists=$([ -d /run/archiso/bootmnt ] && echo yes || echo no)"
         log "Debug: findmnt output=$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null || echo 'N/A')"
@@ -740,7 +740,7 @@ setup_persistence() {
     else
         local removable_flag
         removable_flag=$(cat "/sys/block/${iso_device#/dev/}/removable" 2>/dev/null || echo "")
-        if [ "$removable_flag" = "0" ]; then
+        if [[ "$removable_flag" == "0" ]]; then
             ui_skip "Fixed disk detected – persistence not needed"
             return 0
         fi
@@ -752,19 +752,19 @@ setup_persistence() {
     local persist_dev
     persist_dev=$(find_persist_partition "$iso_device")
 
-    if [ -z "$persist_dev" ]; then
+    if [[ -z "$persist_dev" ]]; then
         # ── Step 3: Create ext4 partition in remaining free space ─────────
         local free_space
         free_space=$(get_free_space "$iso_device")
 
-        if [ "${free_space:-0}" -lt "$MIN_PERSIST_MB" ]; then
+        if [[ "${free_space:-0}" -lt "$MIN_PERSIST_MB" ]]; then
             ui_fail "Insufficient free space (${free_space:-0} MB < $MIN_PERSIST_MB MB)"
             return 1
         fi
 
         ui_info "No partition found – creating (${free_space} MB free)..."
         persist_dev=$(create_persist_partition "$iso_device")
-        if [ -z "$persist_dev" ]; then
+        if [[ -z "$persist_dev" ]]; then
             ui_fail "Partition creation failed"
             return 1
         fi
@@ -804,7 +804,7 @@ setup_persistence() {
     fi
 
     # ── Step 5: First boot – set up overlayfs and move data ──────────────
-    if [ -x "$PERSIST_MOUNT/mados-persist-init.sh" ]; then
+    if [[ -x "$PERSIST_MOUNT/mados-persist-init.sh" ]]; then
         # Subsequent boot: just run the init script
         ui_step "Restoring persistent overlays"
         "$PERSIST_MOUNT/mados-persist-init.sh" || {

@@ -11,15 +11,17 @@ interface for embedding.
 """
 
 import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('Gdk', '3.0')
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
 
 # GStreamer may not be available on all systems
 GST_AVAILABLE = False
 try:
-    gi.require_version('Gst', '1.0')
-    gi.require_version('GstVideo', '1.0')
+    gi.require_version("Gst", "1.0")
+    gi.require_version("GstVideo", "1.0")
     from gi.repository import Gst, GstVideo
+
     Gst.init(None)
     GST_AVAILABLE = True
 except (ValueError, ImportError):
@@ -70,24 +72,24 @@ class VideoPlayer(Gtk.Box):
         self._video_area.set_hexpand(True)
         self._video_area.set_vexpand(True)
         self._video_area.set_size_request(320, 180)
-        self._video_area.connect('realize', self._on_video_realize)
-        self._video_area.connect('draw', self._on_video_draw)
+        self._video_area.connect("realize", self._on_video_realize)
+        self._video_area.connect("draw", self._on_video_draw)
         self.pack_start(self._video_area, True, True, 0)
 
         # Controls bar
         controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        controls.get_style_context().add_class('video-controls')
+        controls.get_style_context().add_class("video-controls")
 
         # Play/Pause button
-        self._play_btn = Gtk.Button(label="\u25B6")
+        self._play_btn = Gtk.Button(label="\u25b6")
         self._play_btn.set_tooltip_text("Play")
-        self._play_btn.connect('clicked', self._on_play_clicked)
+        self._play_btn.connect("clicked", self._on_play_clicked)
         controls.pack_start(self._play_btn, False, False, 0)
 
         # Stop button
-        self._stop_btn = Gtk.Button(label="\u25A0")
+        self._stop_btn = Gtk.Button(label="\u25a0")
         self._stop_btn.set_tooltip_text("Stop")
-        self._stop_btn.connect('clicked', self._on_stop_clicked)
+        self._stop_btn.connect("clicked", self._on_stop_clicked)
         controls.pack_start(self._stop_btn, False, False, 0)
 
         # Time label (current)
@@ -101,9 +103,9 @@ class VideoPlayer(Gtk.Box):
         )
         self._seek_scale.set_draw_value(False)
         self._seek_scale.set_hexpand(True)
-        self._seek_scale.connect('button-press-event', self._on_seek_press)
-        self._seek_scale.connect('button-release-event', self._on_seek_release)
-        self._seek_scale.connect('value-changed', self._on_seek_changed)
+        self._seek_scale.connect("button-press-event", self._on_seek_press)
+        self._seek_scale.connect("button-release-event", self._on_seek_release)
+        self._seek_scale.connect("value-changed", self._on_seek_changed)
         controls.pack_start(self._seek_scale, True, True, 0)
 
         # Duration label
@@ -112,7 +114,7 @@ class VideoPlayer(Gtk.Box):
         controls.pack_start(self._duration_label, False, False, 0)
 
         # Volume icon
-        vol_label = Gtk.Label(label="\U0001F50A")
+        vol_label = Gtk.Label(label="\U0001f50a")
         controls.pack_start(vol_label, False, False, 0)
 
         # Volume slider
@@ -122,7 +124,7 @@ class VideoPlayer(Gtk.Box):
         self._volume_scale.set_draw_value(False)
         self._volume_scale.set_value(80)
         self._volume_scale.set_size_request(80, -1)
-        self._volume_scale.connect('value-changed', self._on_volume_changed)
+        self._volume_scale.connect("value-changed", self._on_volume_changed)
         controls.pack_start(self._volume_scale, False, False, 0)
 
         self.pack_start(controls, False, False, 0)
@@ -137,17 +139,17 @@ class VideoPlayer(Gtk.Box):
 
     def _setup_pipeline(self):
         """Create the GStreamer playbin pipeline."""
-        self._pipeline = Gst.ElementFactory.make('playbin', 'player')
+        self._pipeline = Gst.ElementFactory.make("playbin", "player")
         if self._pipeline is None:
             print("Warning: Could not create GStreamer playbin element")
             return
 
         # Try to use gtksink first (works well with Wayland)
-        gtksink = Gst.ElementFactory.make('gtksink', 'videosink')
+        gtksink = Gst.ElementFactory.make("gtksink", "videosink")
         if gtksink is not None:
-            self._pipeline.set_property('video-sink', gtksink)
+            self._pipeline.set_property("video-sink", gtksink)
             # Replace the drawing area with gtksink's widget
-            video_widget = gtksink.get_property('widget')
+            video_widget = gtksink.get_property("widget")
             if video_widget is not None:
                 self.remove(self._video_area)
                 self._video_area = video_widget
@@ -158,24 +160,24 @@ class VideoPlayer(Gtk.Box):
                 self.reorder_child(self._video_area, 0)
         else:
             # Fall back to autovideosink
-            autosink = Gst.ElementFactory.make('autovideosink', 'videosink')
+            autosink = Gst.ElementFactory.make("autovideosink", "videosink")
             if autosink:
-                self._pipeline.set_property('video-sink', autosink)
+                self._pipeline.set_property("video-sink", autosink)
 
         # Set initial volume
-        self._pipeline.set_property('volume', 0.8)
+        self._pipeline.set_property("volume", 0.8)
 
         # Bus for messages
         self._bus = self._pipeline.get_bus()
         self._bus.add_signal_watch()
-        self._bus.connect('message::eos', self._on_eos)
-        self._bus.connect('message::error', self._on_error)
-        self._bus.connect('message::state-changed', self._on_state_changed)
+        self._bus.connect("message::eos", self._on_eos)
+        self._bus.connect("message::error", self._on_error)
+        self._bus.connect("message::state-changed", self._on_state_changed)
 
     def _on_video_realize(self, widget):
         """Handle the video area being realized (for X11 embedding)."""
         window = widget.get_window()
-        if window and hasattr(window, 'get_xid'):
+        if window and hasattr(window, "get_xid"):
             self._xid = window.get_xid()
 
     def _on_video_draw(self, widget, cr):
@@ -205,7 +207,7 @@ class VideoPlayer(Gtk.Box):
         self.stop()
         self._filepath = filepath
         uri = GLib.filename_to_uri(filepath, None)
-        self._pipeline.set_property('uri', uri)
+        self._pipeline.set_property("uri", uri)
         self._duration = -1
         self._seek_scale.set_value(0)
         self._time_label.set_text("00:00")
@@ -218,7 +220,7 @@ class VideoPlayer(Gtk.Box):
             return
         self._pipeline.set_state(Gst.State.PLAYING)
         self._playing = True
-        self._play_btn.set_label("\u275A\u275A")  # pause symbol
+        self._play_btn.set_label("\u275a\u275a")  # pause symbol
         self._play_btn.set_tooltip_text("Pause")
         self._start_update_timer()
 
@@ -228,7 +230,7 @@ class VideoPlayer(Gtk.Box):
             return
         self._pipeline.set_state(Gst.State.PAUSED)
         self._playing = False
-        self._play_btn.set_label("\u25B6")
+        self._play_btn.set_label("\u25b6")
         self._play_btn.set_tooltip_text("Play")
         self._stop_update_timer()
 
@@ -238,7 +240,7 @@ class VideoPlayer(Gtk.Box):
             return
         self._pipeline.set_state(Gst.State.NULL)
         self._playing = False
-        self._play_btn.set_label("\u25B6")
+        self._play_btn.set_label("\u25b6")
         self._play_btn.set_tooltip_text("Play")
         self._seek_scale.set_value(0)
         self._time_label.set_text("00:00")
@@ -278,16 +280,15 @@ class VideoPlayer(Gtk.Box):
     def _on_seek_release(self, widget, event):
         """Execute the seek when user releases the slider."""
         self._seeking = False
-        if not GST_AVAILABLE or self._pipeline is None:
-            return False
-        value = self._seek_scale.get_value()
-        if self._duration > 0:
-            seek_pos = int(value / 100.0 * self._duration)
-            self._pipeline.seek_simple(
-                Gst.Format.TIME,
-                Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT,
-                seek_pos
-            )
+        if GST_AVAILABLE and self._pipeline is not None:
+            value = self._seek_scale.get_value()
+            if self._duration > 0:
+                seek_pos = int(value / 100.0 * self._duration)
+                self._pipeline.seek_simple(
+                    Gst.Format.TIME,
+                    Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT,
+                    seek_pos,
+                )
         return False
 
     def _on_seek_changed(self, scale):
@@ -301,7 +302,7 @@ class VideoPlayer(Gtk.Box):
         """Update playback volume."""
         if self._pipeline:
             vol = scale.get_value() / 100.0
-            self._pipeline.set_property('volume', vol)
+            self._pipeline.set_property("volume", vol)
 
     # ------------------------------------------------------------------
     # GStreamer bus messages
@@ -322,7 +323,7 @@ class VideoPlayer(Gtk.Box):
         """Handle state change: query duration when playing starts."""
         if message.src != self._pipeline:
             return
-        old, new, pending = message.parse_state_changed()
+        _, new, _ = message.parse_state_changed()
         if new == Gst.State.PLAYING and self._duration < 0:
             # Query duration
             success, duration = self._pipeline.query_duration(Gst.Format.TIME)

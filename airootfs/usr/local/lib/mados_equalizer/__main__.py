@@ -10,7 +10,8 @@ Usage:
 """
 
 import gi
-gi.require_version('Gtk', '3.0')
+
+gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 from .app import EqualizerApp
@@ -18,9 +19,9 @@ from .app import EqualizerApp
 
 def main():
     """Initialize and run the madOS Audio Equalizer application."""
-    app = EqualizerApp()
+    EqualizerApp()
     Gtk.main()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

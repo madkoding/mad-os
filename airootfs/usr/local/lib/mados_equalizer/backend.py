@@ -29,18 +29,23 @@ from pathlib import Path
 from .presets import FREQUENCY_BANDS
 
 
+CONFIG_DIR = ".config"
+DEFAULT_AUDIO_SINK = "@DEFAULT_AUDIO_SINK@"
+DEFAULT_SINK = "@DEFAULT_SINK@"
+
 # Config path for the standalone filter-chain (NOT in pipewire.conf.d to
 # avoid PipeWire auto-loading it — the EQ process is managed separately)
-EQ_CONFIG_DIR = Path.home() / '.config' / 'mados' / 'equalizer'
-EQ_CONFIG_FILE = EQ_CONFIG_DIR / 'filter-chain.conf'
+EQ_CONFIG_DIR = Path.home() / CONFIG_DIR / "mados" / "equalizer"
+EQ_CONFIG_FILE = EQ_CONFIG_DIR / "filter-chain.conf"
 
 # Legacy config location (pipewire.conf.d) — cleaned up to prevent conflicts
-LEGACY_PIPEWIRE_CONFIG_FILE = (Path.home() / '.config' / 'pipewire'
-                               / 'pipewire.conf.d' / 'mados-eq.conf')
+LEGACY_PIPEWIRE_CONFIG_FILE = (
+    Path.home() / CONFIG_DIR / "pipewire" / "pipewire.conf.d" / "mados-eq.conf"
+)
 
 # Node name used to identify the EQ in PipeWire
-EQ_NODE_NAME = 'mados-eq'
-EQ_NODE_DESCRIPTION = 'madOS Equalizer'
+EQ_NODE_NAME = "mados-eq"
+EQ_NODE_DESCRIPTION = "madOS Equalizer"
 
 # Q factor for peaking EQ filters (bandwidth)
 DEFAULT_Q = 1.0
@@ -69,16 +74,16 @@ class AudioBackend:
         self.enabled = False
         self.master_volume = 1.0
         self.muted = False
-        self.active_sink = ''
-        self.active_sink_name = ''
+        self.active_sink = ""
+        self.active_sink_name = ""
         self._apply_lock = threading.Lock()
         self._eq_process = None  # Subprocess running 'pipewire -c'
-        self._last_error = ''  # Last error message from PipeWire
+        self._last_error = ""  # Last error message from PipeWire
 
         # Detect available audio systems
-        self.has_pipewire = self._check_command('pw-cli')
-        self.has_wpctl = self._check_command('wpctl')
-        self.has_pulseaudio = self._check_command('pactl')
+        self.has_pipewire = self._check_command("pw-cli")
+        self.has_wpctl = self._check_command("wpctl")
+        self.has_pulseaudio = self._check_command("pactl")
 
         # Clean up legacy configs and orphaned EQ nodes from prior sessions
         self._cleanup_legacy_config()
@@ -111,8 +116,13 @@ class AudioBackend:
             if LEGACY_PIPEWIRE_CONFIG_FILE.exists():
                 LEGACY_PIPEWIRE_CONFIG_FILE.unlink()
             # Also clean the old filter-chain.conf.d location
-            legacy_alt = (Path.home() / '.config' / 'pipewire'
-                          / 'filter-chain.conf.d' / 'mados-eq.conf')
+            legacy_alt = (
+                Path.home()
+                / CONFIG_DIR
+                / "pipewire"
+                / "filter-chain.conf.d"
+                / "mados-eq.conf"
+            )
             if legacy_alt.exists():
                 legacy_alt.unlink()
         except OSError:
@@ -126,7 +136,7 @@ class AudioBackend:
         method removes it so the next apply starts fresh.
         """
         if self.has_pipewire:
-            self._run_command(['pw-cli', 'destroy', EQ_NODE_NAME], timeout=2)
+            self._run_command(["pw-cli", "destroy", EQ_NODE_NAME], timeout=2)
 
     def _run_command(self, args, timeout=5):
         """Run a subprocess command and return its output.
@@ -147,11 +157,11 @@ class AudioBackend:
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
-            return -1, '', 'Command timed out'
+            return -1, "", "Command timed out"
         except FileNotFoundError:
-            return -1, '', f'Command not found: {args[0]}'
+            return -1, "", f"Command not found: {args[0]}"
         except Exception as e:
-            return -1, '', str(e)
+            return -1, "", str(e)
 
     def _detect_output_device(self):
         """Detect the currently active audio output device.
@@ -159,24 +169,26 @@ class AudioBackend:
         Tries wpctl first (PipeWire), then falls back to pactl (PulseAudio).
         Updates self.active_sink and self.active_sink_name.
         """
-        self.active_sink = ''
-        self.active_sink_name = ''
+        self.active_sink = ""
+        self.active_sink_name = ""
 
         # Try wpctl (PipeWire WirePlumber)
         if self.has_wpctl:
             try:
-                rc, stdout, _ = self._run_command(['wpctl', 'inspect', '@DEFAULT_AUDIO_SINK@'])
+                rc, stdout, _ = self._run_command(
+                    ["wpctl", "inspect", DEFAULT_AUDIO_SINK]
+                )
                 if rc == 0 and stdout:
                     for line in stdout.splitlines():
                         line = line.strip()
-                        if 'node.name' in line and '=' in line:
+                        if "node.name" in line and "=" in line:
                             # Parse: node.name = "alsa_output..."
-                            parts = line.split('=', 1)
+                            parts = line.split("=", 1)
                             if len(parts) == 2:
                                 name = parts[1].strip().strip('"').strip("'")
                                 self.active_sink = name
-                        if 'node.description' in line and '=' in line:
-                            parts = line.split('=', 1)
+                        if "node.description" in line and "=" in line:
+                            parts = line.split("=", 1)
                             if len(parts) == 2:
                                 desc = parts[1].strip().strip('"').strip("'")
                                 self.active_sink_name = desc
@@ -188,26 +200,32 @@ class AudioBackend:
         # Try wpctl status as alternative
         if self.has_wpctl:
             try:
-                rc, stdout, _ = self._run_command(['wpctl', 'status'])
+                rc, stdout, _ = self._run_command(["wpctl", "status"])
                 if rc == 0 and stdout:
                     # Look for the default sink marked with *
                     in_sinks = False
                     for line in stdout.splitlines():
-                        if 'Sinks:' in line:
+                        if "Sinks:" in line:
                             in_sinks = True
                             continue
                         if in_sinks:
-                            if line.strip() == '' or ('Sources:' in line) or ('Filters:' in line):
+                            if (
+                                line.strip() == ""
+                                or ("Sources:" in line)
+                                or ("Filters:" in line)
+                            ):
                                 in_sinks = False
                                 continue
-                            if '*' in line:
+                            if "*" in line:
                                 # Extract the sink name after the asterisk
-                                parts = line.split('.', 1)
+                                parts = line.split(".", 1)
                                 if len(parts) == 2:
                                     sink_desc = parts[1].strip()
                                     # Remove volume info in brackets
-                                    if '[' in sink_desc:
-                                        sink_desc = sink_desc[:sink_desc.index('[')].strip()
+                                    if "[" in sink_desc:
+                                        sink_desc = sink_desc[
+                                            : sink_desc.index("[")
+                                        ].strip()
                                     self.active_sink_name = sink_desc
                                     self.active_sink = sink_desc
                                 return
@@ -217,20 +235,16 @@ class AudioBackend:
         # Fallback: try pactl
         if self.has_pulseaudio:
             try:
-                rc, stdout, _ = self._run_command([
-                    'pactl', 'get-default-sink'
-                ])
+                rc, stdout, _ = self._run_command(["pactl", "get-default-sink"])
                 if rc == 0 and stdout.strip():
                     self.active_sink = stdout.strip()
 
                 # Get description
-                rc2, stdout2, _ = self._run_command([
-                    'pactl', 'list', 'sinks', 'short'
-                ])
+                rc2, stdout2, _ = self._run_command(["pactl", "list", "sinks", "short"])
                 if rc2 == 0 and stdout2:
                     for line in stdout2.splitlines():
                         if self.active_sink in line:
-                            parts = line.split('\t')
+                            parts = line.split("\t")
                             if len(parts) >= 2:
                                 self.active_sink_name = parts[1]
                             break
@@ -250,7 +264,7 @@ class AudioBackend:
             return self.active_sink_name
         if self.active_sink:
             return self.active_sink
-        return ''
+        return ""
 
     def refresh_output_device(self):
         """Re-detect the active output device.
@@ -271,7 +285,7 @@ class AudioBackend:
             The complete PipeWire filter-chain configuration as a string.
         """
         # Build nodes for each EQ band
-        nodes_str = ''
+        nodes_str = ""
         for i, (freq, gain) in enumerate(zip(FREQUENCY_BANDS, self.gains)):
             band_num = i + 1
             freq_float = float(freq)
@@ -285,7 +299,7 @@ class AudioBackend:
                     }}"""
 
         # Build links to chain bands in series
-        links_str = ''
+        links_str = ""
         for i in range(7):
             band_out = i + 1
             band_in = i + 2
@@ -293,7 +307,11 @@ class AudioBackend:
                     {{ output = "eq_band_{band_out}:Out" input = "eq_band_{band_in}:In" }}"""
 
         # Determine target sink
-        target_sink = self.active_sink if self.active_sink else 'alsa_output.pci-0000_00_1b.0.analog-stereo'
+        target_sink = (
+            self.active_sink
+            if self.active_sink
+            else "alsa_output.pci-0000_00_1b.0.analog-stereo"
+        )
 
         config = f"""# madOS Equalizer - Standalone PipeWire filter-chain config
 # Auto-generated by madOS Equalizer — do not edit manually
@@ -360,8 +378,8 @@ context.modules = [
             config_content = self._generate_filter_chain_config()
 
             # Write atomically: write to temp file, then rename
-            tmp_file = EQ_CONFIG_FILE.with_suffix('.tmp')
-            with open(tmp_file, 'w', encoding='utf-8') as f:
+            tmp_file = EQ_CONFIG_FILE.with_suffix(".tmp")
+            with open(tmp_file, "w", encoding="utf-8") as f:
                 f.write(config_content)
             tmp_file.rename(EQ_CONFIG_FILE)
 
@@ -393,7 +411,7 @@ context.modules = [
         # Safety net: destroy orphaned nodes via pw-cli
         if self.has_pipewire:
             self._run_command(
-                ['pw-cli', 'destroy', EQ_NODE_NAME],
+                ["pw-cli", "destroy", EQ_NODE_NAME],
                 timeout=2,
             )
 
@@ -412,7 +430,7 @@ context.modules = [
 
         try:
             self._eq_process = subprocess.Popen(
-                ['pipewire', '-c', str(EQ_CONFIG_FILE)],
+                ["pipewire", "-c", str(EQ_CONFIG_FILE)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
             )
@@ -421,11 +439,13 @@ context.modules = [
 
             # Verify the process is still running
             if self._eq_process.poll() is not None:
-                stderr_output = ''
+                stderr_output = ""
                 try:
-                    stderr_output = self._eq_process.stderr.read().decode(
-                        'utf-8', errors='replace'
-                    ).strip()
+                    stderr_output = (
+                        self._eq_process.stderr.read()
+                        .decode("utf-8", errors="replace")
+                        .strip()
+                    )
                 except Exception:
                     pass
                 self._eq_process = None
@@ -459,7 +479,7 @@ context.modules = [
         with self._apply_lock:
             if gains is not None:
                 if len(gains) != 8:
-                    return False, 'Invalid number of gain values'
+                    return False, "Invalid number of gain values"
                 self.gains = [float(g) for g in gains]
 
             if not self.enabled:
@@ -471,13 +491,13 @@ context.modules = [
 
             # Write config and (re)start the filter-chain process
             if not self._write_config():
-                return False, 'Failed to write filter-chain configuration'
+                return False, "Failed to write filter-chain configuration"
 
             if not self._start_eq_process():
-                detail = self._last_error or 'unknown error'
-                return False, f'Failed to start filter-chain: {detail}'
+                detail = self._last_error or "unknown error"
+                return False, f"Failed to start filter-chain: {detail}"
 
-            return True, 'eq_applied'
+            return True, "eq_applied"
 
     def apply_eq_async(self, gains=None, callback=None):
         """Apply equalizer settings asynchronously in a background thread.
@@ -487,6 +507,7 @@ context.modules = [
             callback: Optional callable(success, message) to invoke when done.
                       Will be called from the background thread.
         """
+
         def _apply():
             success, message = self.apply_eq(gains)
             if callback:
@@ -523,7 +544,7 @@ context.modules = [
         elif self.has_pulseaudio:
             self._disable_eq_pulseaudio()
 
-        return True, 'eq_disabled'
+        return True, "eq_disabled"
 
     def _apply_eq_pulseaudio(self):
         """Apply EQ using PulseAudio LADSPA module as fallback.
@@ -535,7 +556,7 @@ context.modules = [
             Tuple of (success: bool, message: str).
         """
         if not self.has_pulseaudio:
-            return False, 'No audio system available'
+            return False, "No audio system available"
 
         try:
             # First unload any existing mados EQ module
@@ -568,35 +589,39 @@ context.modules = [
             mbeq_gains[13] = self.gains[7]
             mbeq_gains[14] = self.gains[7]
 
-            control_str = ','.join(str(g) for g in mbeq_gains)
+            control_str = ",".join(str(g) for g in mbeq_gains)
 
             # Get current default sink
-            rc, sink_name, _ = self._run_command(['pactl', 'get-default-sink'])
+            rc, sink_name, _ = self._run_command(["pactl", "get-default-sink"])
             if rc != 0 or not sink_name.strip():
-                return False, 'Could not determine default audio sink'
+                return False, "Could not determine default audio sink"
 
             sink_name = sink_name.strip()
 
             # Load LADSPA mbeq module
-            rc, stdout, stderr = self._run_command([
-                'pactl', 'load-module', 'module-ladspa-sink',
-                f'sink_name=mados_eq',
-                f'sink_properties=device.description="madOS Equalizer"',
-                f'master={sink_name}',
-                'plugin=mbeq',
-                'label=mbeq',
-                f'control={control_str}',
-            ])
+            rc, _, stderr = self._run_command(
+                [
+                    "pactl",
+                    "load-module",
+                    "module-ladspa-sink",
+                    "sink_name=mados_eq",
+                    'sink_properties=device.description="madOS Equalizer"',
+                    f"master={sink_name}",
+                    "plugin=mbeq",
+                    "label=mbeq",
+                    f"control={control_str}",
+                ]
+            )
 
             if rc == 0:
                 # Set the LADSPA sink as default
-                self._run_command(['pactl', 'set-default-sink', 'mados_eq'])
-                return True, 'eq_applied'
+                self._run_command(["pactl", "set-default-sink", "mados_eq"])
+                return True, "eq_applied"
             else:
-                return False, f'Failed to load LADSPA module: {stderr}'
+                return False, f"Failed to load LADSPA module: {stderr}"
 
         except Exception as e:
-            return False, f'PulseAudio EQ error: {e}'
+            return False, f"PulseAudio EQ error: {e}"
 
     def _disable_eq_pulseaudio(self):
         """Remove PulseAudio LADSPA EQ module if loaded."""
@@ -605,16 +630,14 @@ context.modules = [
 
         try:
             # Find and unload the mados_eq module
-            rc, stdout, _ = self._run_command(['pactl', 'list', 'modules', 'short'])
+            rc, stdout, _ = self._run_command(["pactl", "list", "modules", "short"])
             if rc == 0 and stdout:
                 for line in stdout.splitlines():
-                    if 'mados_eq' in line or 'mados-eq' in line:
-                        parts = line.split('\t')
+                    if "mados_eq" in line or "mados-eq" in line:
+                        parts = line.split("\t")
                         if parts:
                             module_id = parts[0].strip()
-                            self._run_command([
-                                'pactl', 'unload-module', module_id
-                            ])
+                            self._run_command(["pactl", "unload-module", module_id])
         except Exception:
             pass
 
@@ -626,16 +649,16 @@ context.modules = [
         """
         if self.has_wpctl:
             try:
-                rc, stdout, _ = self._run_command([
-                    'wpctl', 'get-volume', '@DEFAULT_AUDIO_SINK@'
-                ])
+                rc, stdout, _ = self._run_command(
+                    ["wpctl", "get-volume", DEFAULT_AUDIO_SINK]
+                )
                 if rc == 0 and stdout:
                     # Output format: "Volume: 0.75" or "Volume: 0.75 [MUTED]"
                     parts = stdout.strip().split()
                     if len(parts) >= 2:
                         try:
                             vol = float(parts[1])
-                            muted = '[MUTED]' in stdout
+                            muted = "[MUTED]" in stdout
                             self.master_volume = vol
                             self.muted = muted
                             return vol, muted
@@ -646,25 +669,25 @@ context.modules = [
 
         if self.has_pulseaudio:
             try:
-                rc, stdout, _ = self._run_command([
-                    'pactl', 'get-sink-volume', '@DEFAULT_SINK@'
-                ])
+                rc, stdout, _ = self._run_command(
+                    ["pactl", "get-sink-volume", DEFAULT_SINK]
+                )
                 if rc == 0 and stdout:
                     # Parse percentage from output
                     for part in stdout.split():
-                        if '%' in part:
+                        if "%" in part:
                             try:
-                                pct = int(part.replace('%', ''))
+                                pct = int(part.replace("%", ""))
                                 self.master_volume = pct / 100.0
                                 break
                             except ValueError:
                                 continue
 
-                rc2, stdout2, _ = self._run_command([
-                    'pactl', 'get-sink-mute', '@DEFAULT_SINK@'
-                ])
+                rc2, stdout2, _ = self._run_command(
+                    ["pactl", "get-sink-mute", DEFAULT_SINK]
+                )
                 if rc2 == 0 and stdout2:
-                    self.muted = 'yes' in stdout2.lower()
+                    self.muted = "yes" in stdout2.lower()
 
                 return self.master_volume, self.muted
             except Exception:
@@ -686,10 +709,9 @@ context.modules = [
 
         if self.has_wpctl:
             try:
-                rc, _, _ = self._run_command([
-                    'wpctl', 'set-volume', '@DEFAULT_AUDIO_SINK@',
-                    f'{volume:.2f}'
-                ])
+                rc, _, _ = self._run_command(
+                    ["wpctl", "set-volume", DEFAULT_AUDIO_SINK, f"{volume:.2f}"]
+                )
                 return rc == 0
             except Exception:
                 pass
@@ -697,10 +719,9 @@ context.modules = [
         if self.has_pulseaudio:
             try:
                 pct = int(volume * 100)
-                rc, _, _ = self._run_command([
-                    'pactl', 'set-sink-volume', '@DEFAULT_SINK@',
-                    f'{pct}%'
-                ])
+                rc, _, _ = self._run_command(
+                    ["pactl", "set-sink-volume", DEFAULT_SINK, f"{pct}%"]
+                )
                 return rc == 0
             except Exception:
                 pass
@@ -715,9 +736,7 @@ context.modules = [
         """
         if self.has_wpctl:
             try:
-                self._run_command([
-                    'wpctl', 'set-mute', '@DEFAULT_AUDIO_SINK@', 'toggle'
-                ])
+                self._run_command(["wpctl", "set-mute", DEFAULT_AUDIO_SINK, "toggle"])
                 self.muted = not self.muted
                 return self.muted
             except Exception:
@@ -725,9 +744,7 @@ context.modules = [
 
         if self.has_pulseaudio:
             try:
-                self._run_command([
-                    'pactl', 'set-sink-mute', '@DEFAULT_SINK@', 'toggle'
-                ])
+                self._run_command(["pactl", "set-sink-mute", DEFAULT_SINK, "toggle"])
                 self.muted = not self.muted
                 return self.muted
             except Exception:
@@ -746,23 +763,23 @@ context.modules = [
             True if the operation was successful.
         """
         self.muted = muted
-        state = '1' if muted else '0'
+        state = "1" if muted else "0"
 
         if self.has_wpctl:
             try:
-                rc, _, _ = self._run_command([
-                    'wpctl', 'set-mute', '@DEFAULT_AUDIO_SINK@', state
-                ])
+                rc, _, _ = self._run_command(
+                    ["wpctl", "set-mute", DEFAULT_AUDIO_SINK, state]
+                )
                 return rc == 0
             except Exception:
                 pass
 
         if self.has_pulseaudio:
-            pa_state = 'yes' if muted else 'no'
+            pa_state = "yes" if muted else "no"
             try:
-                rc, _, _ = self._run_command([
-                    'pactl', 'set-sink-mute', '@DEFAULT_SINK@', pa_state
-                ])
+                rc, _, _ = self._run_command(
+                    ["pactl", "set-sink-mute", DEFAULT_SINK, pa_state]
+                )
                 return rc == 0
             except Exception:
                 pass
@@ -776,11 +793,11 @@ context.modules = [
             Dictionary with backend detection results.
         """
         return {
-            'pipewire': self.has_pipewire,
-            'wpctl': self.has_wpctl,
-            'pulseaudio': self.has_pulseaudio,
-            'active_sink': self.active_sink,
-            'active_sink_name': self.active_sink_name,
+            "pipewire": self.has_pipewire,
+            "wpctl": self.has_wpctl,
+            "pulseaudio": self.has_pulseaudio,
+            "active_sink": self.active_sink,
+            "active_sink_name": self.active_sink_name,
         }
 
     def cleanup(self):

@@ -27,11 +27,11 @@ TEST_LOCALE="en_US.UTF-8"
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 ERRORS=0; WARNINGS=0
 
-step()    { echo -e "\n${CYAN}══════════════════════════════════════════════════${NC}"; echo -e "${GREEN}==> $1${NC}"; }
-info()    { echo -e "    ${YELLOW}$1${NC}"; }
-ok()      { echo -e "    ${GREEN}✓ $1${NC}"; }
-fail()    { echo -e "    ${RED}✗ $1${NC}"; ERRORS=$((ERRORS + 1)); }
-warn()    { echo -e "    ${YELLOW}⚠ $1${NC}"; WARNINGS=$((WARNINGS + 1)); }
+step()    { local msg="$1"; echo -e "\n${CYAN}══════════════════════════════════════════════════${NC}"; echo -e "${GREEN}==> $msg${NC}"; return 0; }
+info()    { local msg="$1"; echo -e "    ${YELLOW}$msg${NC}"; return 0; }
+ok()      { local msg="$1"; echo -e "    ${GREEN}✓ $msg${NC}"; return 0; }
+fail()    { local msg="$1"; echo -e "    ${RED}✗ $msg${NC}"; ERRORS=$((ERRORS + 1)); return 0; }
+warn()    { local msg="$1"; echo -e "    ${YELLOW}⚠ $msg${NC}"; WARNINGS=$((WARNINGS + 1)); return 0; }
 
 # =============================================================================
 # Phase 0: Environment setup
@@ -63,7 +63,7 @@ python3 "${TESTS_DIR}/generate-config.py" \
     --locale "$TEST_LOCALE" \
     > "$CONFIG_SCRIPT_PATH"
 
-if [ -s "$CONFIG_SCRIPT_PATH" ]; then
+if [[ -s "$CONFIG_SCRIPT_PATH" ]]; then
     ok "Config script generated ($(wc -l < "$CONFIG_SCRIPT_PATH") lines)"
 else
     fail "Config script is empty"
@@ -82,7 +82,7 @@ fi
 # =============================================================================
 step "Results"
 echo ""
-if [ "$ERRORS" -eq 0 ]; then
+if [[ "$ERRORS" -eq 0 ]]; then
     echo -e "${GREEN}═══════════════════════════════════════════${NC}"
     echo -e "${GREEN}  ✓ ALL TESTS PASSED  (warnings: ${WARNINGS})${NC}"
     echo -e "${GREEN}═══════════════════════════════════════════${NC}"

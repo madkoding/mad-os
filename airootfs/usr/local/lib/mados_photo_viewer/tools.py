@@ -17,20 +17,21 @@ import math
 import cairo
 
 import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('GdkPixbuf', '2.0')
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import GdkPixbuf, GLib
 
 
 # ---------------------------------------------------------------------------
 # Tool type constants
 # ---------------------------------------------------------------------------
-TOOL_NONE = 'none'
-TOOL_PAINT = 'paint'
-TOOL_TEXT = 'text'
-TOOL_BLUR = 'blur'
-TOOL_PIXELATE = 'pixelate'
-TOOL_ERASER = 'eraser'
+TOOL_NONE = "none"
+TOOL_PAINT = "paint"
+TOOL_TEXT = "text"
+TOOL_BLUR = "blur"
+TOOL_PIXELATE = "pixelate"
+TOOL_ERASER = "eraser"
 
 
 # ---------------------------------------------------------------------------
@@ -149,9 +150,7 @@ class BlurStroke:
 
             # Extract sub-region
             sub = GdkPixbuf.Pixbuf.new(
-                GdkPixbuf.Colorspace.RGB,
-                pixbuf.get_has_alpha(),
-                8, rw, rh
+                GdkPixbuf.Colorspace.RGB, pixbuf.get_has_alpha(), 8, rw, rh
             )
             pixbuf.copy_area(x0, y0, rw, rh, sub, 0, 0)
 
@@ -219,9 +218,7 @@ class PixelateStroke:
                 continue
 
             sub = GdkPixbuf.Pixbuf.new(
-                GdkPixbuf.Colorspace.RGB,
-                pixbuf.get_has_alpha(),
-                8, rw, rh
+                GdkPixbuf.Colorspace.RGB, pixbuf.get_has_alpha(), 8, rw, rh
             )
             pixbuf.copy_area(x0, y0, rw, rh, sub, 0, 0)
 
@@ -308,20 +305,14 @@ class EditHistory:
         """
         to_remove = []
         for i, stroke in enumerate(self.strokes):
-            if stroke.type == TOOL_PAINT:
+            if stroke.type in (TOOL_PAINT, TOOL_BLUR, TOOL_PIXELATE):
                 for px, py in stroke.points:
                     if math.hypot(px - x, py - y) < radius + stroke.brush_size / 2:
                         to_remove.append(i)
                         break
             elif stroke.type == TOOL_TEXT:
-                # Approximate hit test: near the text anchor
                 if math.hypot(stroke.x - x, stroke.y - y) < radius + stroke.font_size:
                     to_remove.append(i)
-            elif stroke.type in (TOOL_BLUR, TOOL_PIXELATE):
-                for px, py in stroke.points:
-                    if math.hypot(px - x, py - y) < radius + stroke.brush_size / 2:
-                        to_remove.append(i)
-                        break
 
         if to_remove:
             for i in reversed(to_remove):
@@ -383,8 +374,10 @@ def compose_edits_onto_pixbuf(pixbuf, history):
 
         # Draw the pixbuf onto the surface
         import gi
-        gi.require_version('Gdk', '3.0')
+
+        gi.require_version("Gdk", "3.0")
         from gi.repository import Gdk
+
         Gdk.cairo_set_source_pixbuf(cr, result, 0, 0)
         cr.paint()
 
