@@ -13,7 +13,9 @@ set -euo pipefail
 LOG_TAG="mados-audio-init"
 
 log() {
-    systemd-cat -t "$LOG_TAG" printf "%s\n" "$1"
+    local msg="$1"
+    systemd-cat -t "$LOG_TAG" printf "%s\n" "$msg"
+    return 0
 }
 
 # Get list of sound card indices
@@ -21,24 +23,28 @@ get_card_indices() {
     if [[ -f /proc/asound/cards ]]; then
         sed -n -e 's/^[[:space:]]*\([0-9]\+\)[[:space:]].*/\1/p' /proc/asound/cards
     fi
+    return 0
 }
 
 # Unmute and set volume for a control (failures are expected for non-existent controls)
 set_control() {
     local card="$1" control="$2" level="$3"
     amixer -c "$card" set "$control" "$level" unmute 2>/dev/null || true
+    return 0
 }
 
 # Mute a control
 mute_control() {
     local card="$1" control="$2"
     amixer -c "$card" set "$control" "0%" mute 2>/dev/null || true
+    return 0
 }
 
 # Switch a control on/off
 switch_control() {
     local card="$1" control="$2" state="$3"
     amixer -c "$card" set "$control" "$state" 2>/dev/null || true
+    return 0
 }
 
 # Set sensible levels on a single card
@@ -93,6 +99,7 @@ init_card() {
     switch_control "$card" "IEC958 Capture Monitor" "off"
     switch_control "$card" "Headphone Jack Sense" "off"
     switch_control "$card" "Line Jack Sense" "off"
+    return 0
 }
 
 # Main
@@ -112,10 +119,8 @@ main() {
     done
 
     # Store ALSA state so it persists across reboots (installed system)
-    if command -v alsactl &>/dev/null; then
-        if alsactl store 2>/dev/null; then
-            log "ALSA state saved"
-        fi
+    if command -v alsactl &>/dev/null && alsactl store 2>/dev/null; then
+        log "ALSA state saved"
     fi
 
     log "Audio initialization complete"

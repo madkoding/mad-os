@@ -34,9 +34,6 @@ on:
         default: false
         type: boolean
 
-permissions:
-  contents: write
-
 concurrency:
   group: ci-cd-${{ github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
@@ -405,6 +402,8 @@ jobs:
     needs: build
     if: (startsWith(github.ref, 'refs/tags/v') && needs.build.outputs.is_release == 'true') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout

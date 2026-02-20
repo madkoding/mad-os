@@ -36,6 +36,7 @@ STEP_NUM=0
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" >&2
+    return 0
 }
 
 ui_header() {
@@ -44,32 +45,38 @@ ui_header() {
     echo -e "  │          madOS Persistence Setup              │" >&2
     echo -e "  └──────────────────────────────────────────────┘" >&2
     echo -e "${NC}" >&2
+    return 0
 }
 
 ui_step() {
     STEP_NUM=$((STEP_NUM + 1))
     echo -e "  ${CYAN}${BOLD}[${STEP_NUM}]${NC} ${BOLD}$*${NC}" >&2
     log "STEP $STEP_NUM: $*"
+    return 0
 }
 
 ui_ok() {
     echo -e "  ${GREEN}  ✓${NC} $*" >&2
     log "  OK: $*"
+    return 0
 }
 
 ui_warn() {
     echo -e "  ${YELLOW}  ⚠${NC} $*" >&2
     log "  WARN: $*"
+    return 0
 }
 
 ui_fail() {
     echo -e "  ${RED}  ✗${NC} $*" >&2
     log "  FAIL: $*"
+    return 0
 }
 
 ui_info() {
     echo -e "  ${DIM}    $*${NC}" >&2
     log "  INFO: $*"
+    return 0
 }
 
 ui_done() {
@@ -77,11 +84,13 @@ ui_done() {
     echo -e "  ${GREEN}${BOLD}── Persistence ready ──${NC}" >&2
     echo "" >&2
     log "Persistence setup finished successfully"
+    return 0
 }
 
 ui_skip() {
     echo -e "  ${DIM}  ─ $*${NC}" >&2
     log "  SKIP: $*"
+    return 0
 }
 
 # ── Device helpers ───────────────────────────────────────────────────────────
@@ -89,7 +98,7 @@ ui_skip() {
 is_usb_device() {
     local device=${1#/dev/}
 
-    if [ -e "/sys/block/$device" ]; then
+    if [[ -e "/sys/block/$device" ]]; then
         local device_path
         device_path=$(readlink -f "/sys/block/$device" 2>/dev/null)
         [[ "$device_path" == *"/usb"* ]] && return 0
@@ -99,12 +108,12 @@ is_usb_device() {
         local id_bus
         id_bus=$(udevadm info --query=property --name="/dev/$device" 2>/dev/null \
                  | grep "^ID_BUS=" | cut -d= -f2)
-        [ "$id_bus" = "usb" ] && return 0
+        [[ "$id_bus" == "usb" ]] && return 0
     fi
 
     # Fallback: check sysfs removable flag
-    if [ -f "/sys/block/$device/removable" ]; then
-        [ "$(cat "/sys/block/$device/removable" 2>/dev/null)" = "1" ] && return 0
+    if [[ -f "/sys/block/$device/removable" ]]; then
+        [[ "$(cat "/sys/block/$device/removable" 2>/dev/null)" == "1" ]] && return 0
     fi
 
     return 1
@@ -117,15 +126,15 @@ is_optical_device() {
     [[ "$device" == sr* ]] && return 0
 
     # Check SCSI device type (type 5 = CD-ROM)
-    if [ -f "/sys/block/$device/device/type" ]; then
-        [ "$(cat "/sys/block/$device/device/type" 2>/dev/null)" = "5" ] && return 0
+    if [[ -f "/sys/block/$device/device/type" ]]; then
+        [[ "$(cat "/sys/block/$device/device/type" 2>/dev/null)" == "5" ]] && return 0
     fi
 
     if command -v udevadm >/dev/null 2>&1; then
         local id_cdrom
         id_cdrom=$(udevadm info --query=property --name="/dev/$device" 2>/dev/null \
                    | grep "^ID_CDROM=" | cut -d= -f2)
-        [ "$id_cdrom" = "1" ] && return 0
+        [[ "$id_cdrom" == "1" ]] && return 0
     fi
 
     return 1
@@ -141,46 +150,49 @@ strip_partition() {
     else
         echo "$dev" | sed 's/[0-9]*$//'
     fi
+    return 0
 }
 
 find_iso_device() {
     local iso_device=""
 
-    if [ -d /run/archiso/bootmnt ]; then
+    if [[ -d /run/archiso/bootmnt ]]; then
         local raw_source
         raw_source=$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null \
                      | sed 's/\[.*\]//')
 
-        if [ -n "$raw_source" ] && [ -b "$raw_source" ]; then
+        if [[ -n "$raw_source" && -b "$raw_source" ]]; then
             # If findmnt returned a loop device, resolve its backing file
             if [[ "$raw_source" == /dev/loop* ]]; then
                 local backing
                 backing=$(losetup -nO BACK-FILE "$raw_source" 2>/dev/null | head -1)
-                if [ -n "$backing" ]; then
+                if [[ -n "$backing" ]]; then
                     local back_dev
                     back_dev=$(df --output=source "$backing" 2>/dev/null | tail -1)
-                    [ -n "$back_dev" ] && [ -b "$back_dev" ] && raw_source="$back_dev"
+                    [[ -n "$back_dev" && -b "$back_dev" ]] && raw_source="$back_dev"
                 fi
             fi
             iso_device=$(strip_partition "$raw_source")
         fi
     fi
 
-    if [ -z "$iso_device" ]; then
+    if [[ -z "$iso_device" ]]; then
         iso_device=$(lsblk -nlo NAME,LABEL 2>/dev/null \
                      | grep -iE "(ARCHISO|MADOS)" | head -1 \
                      | awk '{print $1}')
-        if [ -n "$iso_device" ]; then
+        if [[ -n "$iso_device" ]]; then
             iso_device=$(strip_partition "/dev/$iso_device")
         fi
     fi
     echo "$iso_device"
+    return 0
 }
 
 # Find the partition with the ISO filesystem (iso9660)
 find_iso_partition() {
     lsblk -nlo NAME,FSTYPE 2>/dev/null \
         | awk '$2 == "iso9660" {print "/dev/" $1}' | head -1
+    return 0
 }
 
 # Find persistence partition on the given parent device.
@@ -190,18 +202,18 @@ find_persist_partition() {
     local parent_device="${1:-}"
     local dev=""
 
-    if [ -n "$parent_device" ] && [ -b "$parent_device" ]; then
+    if [[ -n "$parent_device" && -b "$parent_device" ]]; then
         # 1) Check by persistence label (fast path)
         dev=$(lsblk -nlo NAME,LABEL "$parent_device" 2>/dev/null \
             | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
-        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+        if [[ -z "$dev" ]] && command -v blkid >/dev/null 2>&1; then
             local part
             for part in $(lsblk -nlo NAME "$parent_device" 2>/dev/null \
                           | tail -n +2 | awk '{print "/dev/" $1}'); do
-                if [ -b "$part" ]; then
+                if [[ -b "$part" ]]; then
                     local label
                     label=$(blkid -s LABEL -o value "$part" 2>/dev/null)
-                    if [ "$label" = "$PERSIST_LABEL" ]; then
+                    if [[ "$label" == "$PERSIST_LABEL" ]]; then
                         dev="$part"
                         break
                     fi
@@ -210,23 +222,23 @@ find_persist_partition() {
         fi
 
         # 2) Scan for any ext4 partition >1 GB (simplified validation)
-        if [ -z "$dev" ]; then
+        if [[ -z "$dev" ]]; then
             log "Debug: scanning for ext4 partitions on $parent_device"
             local iso_part
             iso_part=$(find_iso_partition)
             log "Debug: excluding ISO partition: $iso_part (via find_iso_partition)"
             for part in $(lsblk -nlo NAME "$parent_device" 2>/dev/null | tail -n +2); do
                 local full_part="/dev/$part"
-                [ -b "$full_part" ] || continue
-                [ "$full_part" = "$iso_part" ] && continue
+                [[ -b "$full_part" ]] || continue
+                [[ "$full_part" == "$iso_part" ]] && continue
                 local fstype
                 fstype=$(blkid -s TYPE -o value "$full_part" 2>/dev/null)
-                if [ "$fstype" = "ext4" ]; then
+                if [[ "$fstype" == "ext4" ]]; then
                     # Check size ≥ MIN_PERSIST_MB
                     local size_mb
                     size_mb=$(lsblk -bnlo SIZE "$full_part" 2>/dev/null | head -1)
                     size_mb=$(( ${size_mb:-0} / 1048576 ))
-                    if [ "$size_mb" -ge "$MIN_PERSIST_MB" ]; then
+                    if [[ "$size_mb" -ge "$MIN_PERSIST_MB" ]]; then
                         log "Found ext4 partition $full_part (${size_mb} MB) – using as persistence"
                         # Add label so future lookups are faster
                         e2label "$full_part" "$PERSIST_LABEL" 2>/dev/null && \
@@ -244,11 +256,12 @@ find_persist_partition() {
         # No parent device specified – search all devices (legacy fallback)
         dev=$(lsblk -nlo NAME,LABEL 2>/dev/null \
             | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
-        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+        if [[ -z "$dev" ]] && command -v blkid >/dev/null 2>&1; then
             dev=$(blkid -L "$PERSIST_LABEL" 2>/dev/null)
         fi
     fi
     echo "$dev"
+    return 0
 }
 
 get_free_space() {
@@ -261,26 +274,26 @@ get_free_space() {
     free="${free%%.*}"  # strip decimal portion
 
     # Method 2: calculate from disk size minus end of last partition
-    if [ -z "$free" ] || [ "${free:-0}" -eq 0 ]; then
+    if [[ -z "$free" || "${free:-0}" -eq 0 ]]; then
         local disk_mb last_end_mb
         disk_mb=$(( $(blockdev --getsize64 "$device" 2>/dev/null || echo 0) / 1048576 ))
         last_end_mb=$(parted -s "$device" unit MB print 2>/dev/null \
                       | grep "^ [0-9]" | awk '{gsub(/MB/,""); print $3}' \
                       | sort -n | tail -1)
         last_end_mb="${last_end_mb%%.*}"
-        if [ "${disk_mb:-0}" -gt 0 ] && [ "${last_end_mb:-0}" -gt 0 ]; then
+        if [[ "${disk_mb:-0}" -gt 0 && "${last_end_mb:-0}" -gt 0 ]]; then
             free=$((disk_mb - last_end_mb))
             log "Free space calculated from disk size ($disk_mb MB) - last partition end ($last_end_mb MB) = $free MB"
         fi
     fi
 
     # Method 3: calculate from disk size minus ISO size (for raw iso9660 on device)
-    if [ -z "$free" ] || [ "${free:-0}" -eq 0 ]; then
+    if [[ -z "$free" || "${free:-0}" -eq 0 ]]; then
         local disk_mb iso_size_bytes
         disk_mb=$(( $(blockdev --getsize64 "$device" 2>/dev/null || echo 0) / 1048576 ))
-        if [ "${disk_mb:-0}" -gt 0 ] && command -v isosize >/dev/null 2>&1; then
+        if [[ "${disk_mb:-0}" -gt 0 ]] && command -v isosize >/dev/null 2>&1; then
             iso_size_bytes=$(isosize "$device" 2>/dev/null)
-            if [ -n "$iso_size_bytes" ] && [ "${iso_size_bytes:-0}" -gt 0 ]; then
+            if [[ -n "$iso_size_bytes" && "${iso_size_bytes:-0}" -gt 0 ]]; then
                 local iso_mb=$((iso_size_bytes / 1048576))
                 free=$((disk_mb - iso_mb))
                 log "Free space calculated from disk size ($disk_mb MB) - ISO size ($iso_mb MB) = $free MB"
@@ -289,6 +302,7 @@ get_free_space() {
     fi
 
     echo "${free:-0}"
+    return 0
 }
 
 # ── Partition creation ───────────────────────────────────────────────────────
@@ -302,7 +316,7 @@ create_persist_partition() {
     # SAFETY: verify the target device is the ISO boot device.
     local expected_iso_device
     expected_iso_device=$(find_iso_device)
-    if [ -n "$expected_iso_device" ] && [ "$device" != "$expected_iso_device" ]; then
+    if [[ -n "$expected_iso_device" && "$device" != "$expected_iso_device" ]]; then
         log "SAFETY: Refusing to create partition on $device (ISO device is $expected_iso_device)"
         return 1
     fi
