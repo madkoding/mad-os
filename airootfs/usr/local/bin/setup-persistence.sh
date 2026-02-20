@@ -20,6 +20,7 @@ PERSIST_MOUNT="/mnt/persistence"
 LOG_FILE="/var/log/mados-persistence.log"
 OVERLAY_DIRS="etc usr var opt"
 MIN_PERSIST_MB=1024   # minimum 1 GB for persistence partition
+PARTITION_LINE_REGEX='^ [0-9]'  # matches numbered partition lines in parted output
 
 # ── Console UI helpers ───────────────────────────────────────────────────────
 # Nord-inspired colors for professional boot output
@@ -238,7 +239,7 @@ find_persist_partition() {
                     local size_mb
                     size_mb=$(lsblk -bnlo SIZE "$full_part" 2>/dev/null | head -1)
                     size_mb=$(( ${size_mb:-0} / 1048576 ))
-                    if [[[ "$size_mb" -ge "$MIN_PERSIST_MB" ]]]; then
+                    if [[ "$size_mb" -ge "$MIN_PERSIST_MB" ]]; then
                         log "Found ext4 partition $full_part (${size_mb} MB) – using as persistence"
                         # Add label so future lookups are faster
                         e2label "$full_part" "$PERSIST_LABEL" 2>/dev/null && \
@@ -278,7 +279,7 @@ get_free_space() {
         local disk_mb last_end_mb
         disk_mb=$(( $(blockdev --getsize64 "$device" 2>/dev/null || echo 0) / 1048576 ))
         last_end_mb=$(parted -s "$device" unit MB print 2>/dev/null \
-                      | grep "^ [0-9]" | awk '{gsub(/MB/,""); print $3}' \
+                      | grep "$PARTITION_LINE_REGEX" | awk '{gsub(/MB/,""); print $3}' \
                       | sort -n | tail -1)
         last_end_mb="${last_end_mb%%.*}"
         if [[ "${disk_mb:-0}" -gt 0 && "${last_end_mb:-0}" -gt 0 ]]; then
@@ -340,7 +341,7 @@ create_persist_partition() {
             else
                 dnum=$(echo "$dev_node" | sed 's/.*[^0-9]\([0-9]*\)$/\1/')
             fi
-            if [ -n "$dnum" ] && [[ "$dnum" -gt "$highest_dev_num" ]]; then
+            if [[ -n "$dnum" && "$dnum" -gt "$highest_dev_num" ]]; then
                 highest_dev_num=$dnum
                 log "Debug: Found existing device node: $dev_node (partition $dnum)"
             fi
@@ -351,7 +352,7 @@ create_persist_partition() {
     # Also check partition table
     local last_part_num
     last_part_num=$(parted -s "$device" print 2>/dev/null \
-                    | grep "^ [0-9]" | awk '{print $1}' | sort -n | tail -1)
+                    | grep "$PARTITION_LINE_REGEX" | awk '{print $1}' | sort -n | tail -1)
     last_part_num="${last_part_num:-0}"
     log "Debug: Highest partition in table: $last_part_num"
 
@@ -362,11 +363,11 @@ create_persist_partition() {
     log "Debug: Will create partition number: $new_part_num"
 
     # MBR 4-partition limit check
-    if [[ "$table_type" == "msdos" ]] && [ "$new_part_num" -gt 4 ]; then
+    if [[ "$table_type" == "msdos" && "$new_part_num" -gt 4 ]]; then
         log "SAFETY: MBR partition table – new partition would be #$new_part_num (max 4)"
         return 1
     fi
-    if [[ "$table_type" == "msdos" ]] && [ "$sfdisk_new_part_num" -gt 4 ]; then
+    if [[ "$table_type" == "msdos" && "$sfdisk_new_part_num" -gt 4 ]]; then
         log "SAFETY: MBR table - new partition would be #$sfdisk_new_part_num (max 4)"
         return 1
     fi
@@ -374,7 +375,7 @@ create_persist_partition() {
     # Snapshot existing partition boundaries for safety verification
     local pre_parts
     pre_parts=$(parted -s "$device" unit MB print 2>/dev/null \
-                | grep "^ [0-9]" | sort -n | awk '{print $1 ":" $2 ":" $3}')
+                | grep "$PARTITION_LINE_REGEX" | sort -n | awk '{print $1 ":" $2 ":" $3}')
 
     # ── Find where existing data ends on disk ────────────────────────────
     local used_end_sector=0
@@ -393,19 +394,19 @@ create_persist_partition() {
     fi
 
     # Fallback: use parted to find end of last partition
-    if [ "$used_end_sector" -eq 0 ] && [ "$last_part_num" -gt 0 ]; then
+    if [[ "$used_end_sector" -eq 0 && "$last_part_num" -gt 0 ]]; then
         local last_end_mb
         last_end_mb=$(parted -s "$device" unit MB print 2>/dev/null \
                       | grep "^ ${last_part_num}" | awk '{print $3}' | sed 's/MB//')
         last_end_mb="${last_end_mb%%.*}"
-        if [ "${last_end_mb:-0}" -gt 0 ]; then
+        if [[ "${last_end_mb:-0}" -gt 0 ]]; then
             # Convert MB to sectors (512 byte sectors)
             used_end_sector=$((last_end_mb * 2048))
             log "Debug: Fallback – last partition ends at ${last_end_mb} MB (sector $used_end_sector)"
         fi
     fi
 
-    if [ "$used_end_sector" -eq 0 ]; then
+    if [[ "$used_end_sector" -eq 0 ]]; then
         log "ERROR: Cannot determine where existing partitions end on $device"
         return 1
     fi
@@ -418,7 +419,7 @@ create_persist_partition() {
 
     # Need at least MIN_PERSIST_MB (1 GB)
     local avail_mb=$((avail_sectors / 2048))
-    if [ "$disk_sectors" -eq 0 ] || [[ "$avail_mb" -lt "$MIN_PERSIST_MB" ]]; then
+    if [[ "$disk_sectors" -eq 0 || "$avail_mb" -lt "$MIN_PERSIST_MB" ]]; then
         log "Insufficient free space: ${avail_mb} MB available, need $MIN_PERSIST_MB MB"
         return 1
     fi
@@ -447,7 +448,7 @@ create_persist_partition() {
         fi
     fi
 
-    if [ "$created" != true ]; then
+    if [[ "$created" != true ]]; then
         local last_part_end_mb=$(( new_start / 2048 ))
         log "Command: parted -s $device mkpart primary ext4 ${last_part_end_mb}MB 100%"
         local parted_output
@@ -455,7 +456,7 @@ create_persist_partition() {
             log "ERROR: parted mkpart failed: $parted_output"
             return 1
         }
-        [ -n "$parted_output" ] && log "parted output: $parted_output"
+        [[ -n "$parted_output" ]] && log "parted output: $parted_output"
     fi
 
     # Settle devices and wait for new partition node
@@ -465,14 +466,14 @@ create_persist_partition() {
 
     # Wait for device node to appear
     local wait_count=0
-    while [ ! -b "$persist_dev" ] && [ "$wait_count" -lt 10 ]; do
+    while [[ ! -b "$persist_dev" && "$wait_count" -lt 10 ]]; do
         sleep 1
         wait_count=$((wait_count + 1))
         log "Debug: Waiting for $persist_dev... ($wait_count/10)"
     done
 
     # Manual device node creation if udev didn't create it
-    if [ ! -b "$persist_dev" ]; then
+    if [[ ! -b "$persist_dev" ]]; then
         local base_dev_name
         base_dev_name=$(basename "$device")
         local part_name="${base_dev_name}${part_suffix}${new_part_num}"
@@ -486,19 +487,19 @@ create_persist_partition() {
         fi
     fi
 
-    if [ ! -b "$persist_dev" ]; then
+    if [[ ! -b "$persist_dev" ]]; then
         log "ERROR: Device node $persist_dev not found after partition creation"
         return 1
     fi
 
     # Safety: verify existing partitions were not modified
     local post_part_count
-    post_part_count=$(parted -s "$device" print 2>/dev/null | grep -c "^ [0-9]")
+    post_part_count=$(parted -s "$device" print 2>/dev/null | grep -c "$PARTITION_LINE_REGEX")
     log "Debug: Partition count after: ${post_part_count:-0}"
 
     local post_pre_parts
     post_pre_parts=$(parted -s "$device" unit MB print 2>/dev/null \
-                     | grep "^ [0-9]" | sort -n | head -n "$last_part_num" \
+                     | grep "$PARTITION_LINE_REGEX" | sort -n | head -n "$last_part_num" \
                      | awk '{print $1 ":" $2 ":" $3}')
     if [[ "$pre_parts" != "$post_pre_parts" ]]; then
         log "WARNING: Existing partition boundaries changed after mkpart!"
@@ -523,6 +524,7 @@ create_persist_partition() {
 
     log "Created and formatted $persist_dev"
     echo "$persist_dev"
+    return 0
 }
 
 # ── Install init script + systemd unit INTO the persistence partition ────────
@@ -558,7 +560,7 @@ find_persist_dev() {
         # Only search partitions belonging to the parent device
         dev=$(lsblk -nlo NAME,LABEL "$parent_device" 2>/dev/null \
             | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
-        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+        if [[ -z "$dev" ]] && command -v blkid >/dev/null 2>&1; then
             local part
             for part in $(lsblk -nlo NAME "$parent_device" 2>/dev/null \
                           | tail -n +2 | awk '{print "/dev/" $1}'); do
@@ -576,11 +578,12 @@ find_persist_dev() {
         # No parent device specified – search all devices (fallback)
         dev=$(lsblk -nlo NAME,LABEL 2>/dev/null \
             | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
-        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+        if [[ -z "$dev" ]] && command -v blkid >/dev/null 2>&1; then
             dev=$(blkid -L "$PERSIST_LABEL" 2>/dev/null)
         fi
     fi
     echo "$dev"
+    return 0
 }
 
 # Try to read the recorded boot device from a previously mounted persistence
@@ -647,8 +650,8 @@ home_persist="$PERSIST_MOUNT/home"
 mkdir -p "$home_persist"
 
 # If persistent /home is empty, seed it with current /home contents
-if [ -z "$(ls -A "$home_persist" 2>/dev/null)" ] && \
-   [ -d /home ] && [ "$(ls -A /home 2>/dev/null)" ]; then
+if [[ -z "$(ls -A "$home_persist" 2>/dev/null)" ]] && \
+   [[ -d /home ]] && [[ -n "$(ls -A /home 2>/dev/null)" ]]; then
     cp -a /home/. "$home_persist/" 2>/dev/null && \
         log "Seeded persistent /home with current contents" || \
         log "WARNING: Failed to seed persistent /home"
@@ -721,7 +724,7 @@ setup_persistence() {
         return 1
     fi
 
-    if ! [ -b "$iso_device" ]; then
+    if [[ ! -b "$iso_device" ]]; then
         ui_fail "$iso_device is not a block device"
         return 1
     fi
@@ -773,7 +776,7 @@ setup_persistence() {
         ui_ok "Found existing partition: $persist_dev"
     fi
 
-    if [ ! -b "$persist_dev" ]; then
+    if [[ ! -b "$persist_dev" ]]; then
         ui_fail "Partition $persist_dev not found as block device"
         return 1
     fi
@@ -798,7 +801,7 @@ setup_persistence() {
         ui_ok "Already mounted at $PERSIST_MOUNT"
     fi
 
-    if [ ! -d "$PERSIST_MOUNT" ] || [ ! -w "$PERSIST_MOUNT" ]; then
+    if [[ ! -d "$PERSIST_MOUNT" || ! -w "$PERSIST_MOUNT" ]]; then
         ui_fail "Mount point is not accessible"
         return 1
     fi
@@ -828,7 +831,7 @@ setup_persistence() {
 
         # Copy current /home contents to persistence partition
         ui_step "Copying user configuration"
-        if [ -d /home ] && [ "$(ls -A /home 2>/dev/null)" ]; then
+        if [[ -d /home && -n "$(ls -A /home 2>/dev/null)" ]]; then
             cp -a /home/. "$PERSIST_MOUNT/home/" 2>/dev/null && \
                 ui_ok "Home contents preserved" || \
                 ui_warn "Some home contents could not be copied"
@@ -867,18 +870,18 @@ setup_persistence() {
     fi
 
     for dir in $OVERLAY_DIRS; do
-        if ! [ -d "$PERSIST_MOUNT/overlays/$dir/upper" ]; then
+        if [[ ! -d "$PERSIST_MOUNT/overlays/$dir/upper" ]]; then
             ui_warn "Missing overlay directory for /$dir"
             all_ok=false
         fi
     done
 
-    if ! [ -d "$PERSIST_MOUNT/home" ]; then
+    if [[ ! -d "$PERSIST_MOUNT/home" ]]; then
         ui_warn "Missing persistent /home directory"
         all_ok=false
     fi
 
-    if [ "$all_ok" = true ]; then
+    if [[ "$all_ok" == true ]]; then
         ui_ok "All persistence directories ready"
     fi
 
@@ -888,7 +891,7 @@ setup_persistence() {
 }
 
 # Only run in live environment
-if [ -d /run/archiso ]; then
+if [[ -d /run/archiso ]]; then
     setup_persistence
 else
     log "Not running in live environment, skipping"

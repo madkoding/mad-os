@@ -14,7 +14,7 @@ from .base import create_page_header, create_nav_buttons
 def create_user_page(app):
     """User account page with username, password, hostname fields"""
     page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-    page.get_style_context().add_class('page-container')
+    page.get_style_context().add_class("page-container")
 
     content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
     content.set_margin_start(30)
@@ -25,12 +25,12 @@ def create_user_page(app):
     content.set_hexpand(True)
 
     # Page header
-    header = create_page_header(app, app.t('create_user'), 4)
+    header = create_page_header(app, app.t("create_user"), 4)
     content.pack_start(header, False, False, 0)
 
     # Form card
     form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-    form.get_style_context().add_class('form-card')
+    form.get_style_context().add_class("form-card")
     form.set_margin_top(10)
     form.set_hexpand(True)
 
@@ -38,7 +38,7 @@ def create_user_page(app):
     user_label = Gtk.Label()
     user_label.set_markup(
         f'<span size="9000" weight="bold" foreground="{NORD_FROST["nord8"]}">'
-        f'{app.t("username").rstrip(":")}</span>'
+        f"{app.t('username').rstrip(':')}</span>"
     )
     user_label.set_halign(Gtk.Align.START)
     form.pack_start(user_label, False, False, 0)
@@ -51,7 +51,7 @@ def create_user_page(app):
     pwd_label = Gtk.Label()
     pwd_label.set_markup(
         f'<span size="9000" weight="bold" foreground="{NORD_FROST["nord8"]}">'
-        f'{app.t("password").rstrip(":")}</span>'
+        f"{app.t('pwd_label').rstrip(':')}</span>"
     )
     pwd_label.set_halign(Gtk.Align.START)
     pwd_label.set_margin_top(4)
@@ -66,7 +66,7 @@ def create_user_page(app):
     pwd2_label = Gtk.Label()
     pwd2_label.set_markup(
         f'<span size="9000" weight="bold" foreground="{NORD_FROST["nord8"]}">'
-        f'{app.t("confirm_pwd").rstrip(":")}</span>'
+        f"{app.t('pwd_confirm_label').rstrip(':')}</span>"
     )
     pwd2_label.set_halign(Gtk.Align.START)
     pwd2_label.set_margin_top(4)
@@ -81,23 +81,21 @@ def create_user_page(app):
     host_label = Gtk.Label()
     host_label.set_markup(
         f'<span size="9000" weight="bold" foreground="{NORD_FROST["nord8"]}">'
-        f'{app.t("hostname").rstrip(":")}</span>'
+        f"{app.t('hostname').rstrip(':')}</span>"
     )
     host_label.set_halign(Gtk.Align.START)
     host_label.set_margin_top(4)
     form.pack_start(host_label, False, False, 0)
 
     app.hostname_entry = Gtk.Entry()
-    app.hostname_entry.set_text(app.install_data['hostname'])
+    app.hostname_entry.set_text(app.install_data["hostname"])
     form.pack_start(app.hostname_entry, False, False, 0)
 
     content.pack_start(form, False, False, 0)
 
     # Navigation
     nav = create_nav_buttons(
-        app,
-        lambda x: app.notebook.prev_page(),
-        lambda x: _on_user_next(app)
+        app, lambda x: app.notebook.prev_page(), lambda x: _on_user_next(app)
     )
     nav.set_hexpand(True)
     content.pack_start(nav, False, False, 0)
@@ -113,9 +111,12 @@ def _on_user_next(app):
     password2 = app.password2_entry.get_text()
     hostname = app.hostname_entry.get_text()
 
-    if not re.match(r'^[a-z_][a-z0-9_-]*$', username):
-        show_error(app, "Invalid Username",
-                   "Username must start with a letter and contain only lowercase letters, numbers, - and _")
+    if not re.match(r"^[a-z_][a-z0-9_-]*$", username):
+        show_error(
+            app,
+            "Invalid Username",
+            "Username must start with a letter and contain only lowercase letters, numbers, - and _",
+        )
         return
 
     if not password:
@@ -130,17 +131,23 @@ def _on_user_next(app):
         show_error(app, "Empty Hostname", "Hostname cannot be empty.")
         return
 
-    if not re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$', hostname) or len(hostname) > 63:
-        show_error(app, "Invalid Hostname",
-                   "Hostname must contain only letters, numbers and hyphens, "
-                   "start/end with a letter or number, and be at most 63 characters.")
+    if (
+        not re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$", hostname)
+        or len(hostname) > 63
+    ):
+        show_error(
+            app,
+            "Invalid Hostname",
+            "Hostname must contain only letters, numbers and hyphens, "
+            "start/end with a letter or number, and be at most 63 characters.",
+        )
         return
 
     if len(password) < 8:
         show_error(app, "Weak Password", "Password must be at least 8 characters.")
         return
 
-    app.install_data['username'] = username
-    app.install_data['password'] = password
-    app.install_data['hostname'] = hostname
+    app.install_data["username"] = username
+    app.install_data["password"] = password
+    app.install_data["hostname"] = hostname
     app.notebook.next_page()
