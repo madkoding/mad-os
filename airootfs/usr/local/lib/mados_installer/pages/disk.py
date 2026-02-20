@@ -124,7 +124,7 @@ def _create_disk_badge(disk_type):
     return badge
 
 
-def _create_disk_button(app, name, size, model, on_click):
+def _create_disk_button(name, size, model, on_click):
     """Create a disk selection button widget."""
     btn = Gtk.Button()
     btn.get_style_context().add_class("disk-card")
@@ -186,7 +186,7 @@ def _populate_disks(app):
 
     try:
         for name, size, model in _get_disk_list():
-            btn = _create_disk_button(app, name, size, model, on_disk_click)
+            btn = _create_disk_button(name, size, model, on_disk_click)
             app.disk_buttons.append(btn)
             app.disk_buttons_box.pack_start(btn, False, False, 0)
     except Exception as e:

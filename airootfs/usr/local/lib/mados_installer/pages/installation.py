@@ -23,6 +23,8 @@ from ..config import (
 )
 from ..utils import log_message, set_progress, show_error
 
+MNT_USR_LOCAL_BIN = "/mnt/usr/local/bin/"
+
 
 def _escape_shell(s):
     """Escape a string for safe use inside single quotes in shell"""
@@ -243,26 +245,36 @@ def _step_format_partitions(app, boot_part, root_part, home_part, separate_home)
     log_message(app, "Formatting partitions...")
 
     if DEMO_MODE:
-        log_message(app, f"[DEMO] Simulating mkfs.fat {boot_part}...")
-        time.sleep(0.5)
-        log_message(app, f"[DEMO] Simulating mkfs.ext4 {root_part}...")
-        time.sleep(0.5)
-        if separate_home and home_part:
-            log_message(app, f"[DEMO] Simulating mkfs.ext4 {home_part}...")
-            time.sleep(0.5)
+        _format_partitions_demo(app, boot_part, root_part, home_part, separate_home)
     else:
-        partitions = [("EFI", boot_part), ("root", root_part)]
-        if separate_home and home_part:
-            partitions.append(("home", home_part))
-        for part_name, part_dev in partitions:
-            if not os.path.exists(part_dev):
-                raise RuntimeError(
-                    f"Partition device {part_dev} ({part_name}) does not exist!"
-                )
-        subprocess.run(["mkfs.fat", "-F32", boot_part], check=True)
-        subprocess.run(["mkfs.ext4", "-F", root_part], check=True)
-        if separate_home and home_part:
-            subprocess.run(["mkfs.ext4", "-F", home_part], check=True)
+        _format_partitions_real(boot_part, root_part, home_part, separate_home)
+
+
+def _format_partitions_demo(app, boot_part, root_part, home_part, separate_home):
+    """Demo mode partition formatting."""
+    log_message(app, f"[DEMO] Simulating mkfs.fat {boot_part}...")
+    time.sleep(0.5)
+    log_message(app, f"[DEMO] Simulating mkfs.ext4 {root_part}...")
+    time.sleep(0.5)
+    if separate_home and home_part:
+        log_message(app, f"[DEMO] Simulating mkfs.ext4 {home_part}...")
+        time.sleep(0.5)
+
+
+def _format_partitions_real(boot_part, root_part, home_part, separate_home):
+    """Real partition formatting."""
+    partitions = [("EFI", boot_part), ("root", root_part)]
+    if separate_home and home_part:
+        partitions.append(("home", home_part))
+    for part_name, part_dev in partitions:
+        if not os.path.exists(part_dev):
+            raise RuntimeError(
+                f"Partition device {part_dev} ({part_name}) does not exist!"
+            )
+    subprocess.run(["mkfs.fat", "-F32", boot_part], check=True)
+    subprocess.run(["mkfs.ext4", "-F", root_part], check=True)
+    if separate_home and home_part:
+        subprocess.run(["mkfs.ext4", "-F", home_part], check=True)
 
 
 def _step_mount_filesystems(app, boot_part, root_part, home_part, separate_home):
@@ -330,7 +342,7 @@ def _step_copy_live_files(app):
     _copy_item("/etc/skel/.oh-my-zsh", SKEL_DIR)
 
     for binary in ["opencode", "ollama", "kew"]:
-        _copy_item(f"/usr/local/bin/{binary}", "/mnt/usr/local/bin/")
+        _copy_item(f"/usr/local/bin/{binary}", MNT_USR_LOCAL_BIN)
 
     _step_copy_scripts(app)
     _step_copy_desktop_files(app)
@@ -352,7 +364,7 @@ def _step_copy_scripts(app):
         "mados-audio-quality.sh",
     ]
     for script in scripts:
-        _copy_item(f"/usr/local/bin/{script}", "/mnt/usr/local/bin/")
+        _copy_item(f"/usr/local/bin/{script}", MNT_USR_LOCAL_BIN)
 
     for launcher in [
         "mados-photo-viewer",
@@ -360,7 +372,7 @@ def _step_copy_scripts(app):
         "mados-equalizer",
         "mados-debug",
     ]:
-        _copy_item(f"/usr/local/bin/{launcher}", "/mnt/usr/local/bin/")
+        _copy_item(f"/usr/local/bin/{launcher}", MNT_USR_LOCAL_BIN)
 
     subprocess.run(["mkdir", "-p", "/mnt/usr/local/lib"], check=False)
     for lib in ["mados_photo_viewer", "mados_pdf_viewer", "mados_equalizer"]:
@@ -372,7 +384,7 @@ def _step_copy_scripts(app):
         "mados-equalizer",
         "mados-debug",
     ]:
-        subprocess.run(["chmod", "+x", f"/mnt/usr/local/bin/{script}"], check=False)
+        subprocess.run(["chmod", "+x", f"{MNT_USR_LOCAL_BIN}{script}"], check=False)
 
 
 def _step_copy_desktop_files(app):

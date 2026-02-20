@@ -156,7 +156,7 @@ def create_wifi_page(app):
     content.set_margin_bottom(14)
 
     # Page header (step 0 - before disk selection)
-    header = create_page_header(app, app.t("wifi_setup"), 1, total_steps=7)
+    header = create_page_header(app, app.t("wifi_setup"), 1)
     content.pack_start(header, False, False, 0)
 
     # Status banner
