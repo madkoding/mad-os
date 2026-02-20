@@ -269,9 +269,10 @@ class TestPostInstallOllama(unittest.TestCase):
 
     def test_installer_adds_ollama_to_sudoers(self):
         """Installer should add ollama to NOPASSWD sudoers."""
-        self.assertIn(
-            "/usr/local/bin/ollama", self.content,
-            "Installer must include /usr/local/bin/ollama in sudoers NOPASSWD",
+        pattern = re.compile(r'NOPASSWD:.*?/usr/local/bin/ollama')
+        self.assertRegex(
+            self.content, pattern,
+            "Installer must include /usr/local/bin/ollama in sudoers NOPASSWD line",
         )
 
 
