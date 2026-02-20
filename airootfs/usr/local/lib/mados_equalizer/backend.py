@@ -546,6 +546,24 @@ context.modules = [
 
         return True, "eq_disabled"
 
+    def _build_mbeq_gains(self):
+        """Build 15-band mbeq gains from 8-band equalizer gains."""
+        mbeq_gains = [0.0] * 15
+        mbeq_gains[0] = self.gains[0]
+        mbeq_gains[2] = self.gains[1]
+        mbeq_gains[3] = self.gains[1]
+        mbeq_gains[4] = self.gains[2]
+        mbeq_gains[6] = self.gains[3]
+        mbeq_gains[7] = self.gains[3]
+        mbeq_gains[8] = self.gains[4]
+        mbeq_gains[9] = self.gains[4]
+        mbeq_gains[10] = self.gains[5]
+        mbeq_gains[11] = self.gains[5]
+        mbeq_gains[12] = self.gains[6]
+        mbeq_gains[13] = self.gains[7]
+        mbeq_gains[14] = self.gains[7]
+        return mbeq_gains
+
     def _apply_eq_pulseaudio(self):
         """Apply EQ using PulseAudio LADSPA module as fallback.
 
@@ -559,46 +577,17 @@ context.modules = [
             return False, "No audio system available"
 
         try:
-            # First unload any existing mados EQ module
             self._disable_eq_pulseaudio()
 
-            # Build control values for mbeq (15-band, we map our 8 to the closest)
-            # mbeq has bands at: 50, 100, 156, 220, 311, 440, 622, 880, 1250,
-            # 1750, 2500, 3500, 5000, 10000, 20000 Hz
-            # Map our 8 bands to the closest mbeq bands
-            mbeq_gains = [0.0] * 15
-            # 60Hz -> band 0 (50Hz)
-            mbeq_gains[0] = self.gains[0]
-            # 170Hz -> band 2 (156Hz) and band 3 (220Hz)
-            mbeq_gains[2] = self.gains[1]
-            mbeq_gains[3] = self.gains[1]
-            # 310Hz -> band 4 (311Hz)
-            mbeq_gains[4] = self.gains[2]
-            # 600Hz -> band 7 (622Hz)
-            mbeq_gains[6] = self.gains[3]
-            mbeq_gains[7] = self.gains[3]
-            # 1kHz -> band 8 (880Hz) and band 9 (1250Hz)
-            mbeq_gains[8] = self.gains[4]
-            mbeq_gains[9] = self.gains[4]
-            # 3kHz -> band 11 (3500Hz)
-            mbeq_gains[10] = self.gains[5]
-            mbeq_gains[11] = self.gains[5]
-            # 6kHz -> band 12 (5000Hz)
-            mbeq_gains[12] = self.gains[6]
-            # 12kHz -> band 13 (10000Hz) and band 14 (20000Hz)
-            mbeq_gains[13] = self.gains[7]
-            mbeq_gains[14] = self.gains[7]
-
+            mbeq_gains = self._build_mbeq_gains()
             control_str = ",".join(str(g) for g in mbeq_gains)
 
-            # Get current default sink
             rc, sink_name, _ = self._run_command(["pactl", "get-default-sink"])
             if rc != 0 or not sink_name.strip():
                 return False, "Could not determine default audio sink"
 
             sink_name = sink_name.strip()
 
-            # Load LADSPA mbeq module
             rc, _, stderr = self._run_command(
                 [
                     "pactl",
@@ -614,7 +603,6 @@ context.modules = [
             )
 
             if rc == 0:
-                # Set the LADSPA sink as default
                 self._run_command(["pactl", "set-default-sink", "mados_eq"])
                 return True, "eq_applied"
             else:
