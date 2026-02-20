@@ -110,6 +110,71 @@ class TestBluetoothService(unittest.TestCase):
         self.assertIn("AutoEnable=true", content)
 
 
+class TestNetworkManagerService(unittest.TestCase):
+    """Verify NetworkManager.service is enabled for nm-applet in the live ISO."""
+
+    def test_live_usb_networkmanager_service_symlink(self):
+        """NetworkManager.service should be enabled in multi-user.target.wants."""
+        service_link = os.path.join(
+            AIROOTFS,
+            "etc",
+            "systemd",
+            "system",
+            "multi-user.target.wants",
+            "NetworkManager.service",
+        )
+        self.assertTrue(
+            os.path.islink(service_link),
+            "NetworkManager.service must be enabled as a symlink for live USB",
+        )
+
+    def test_no_systemd_networkd_conflict(self):
+        """systemd-networkd.service should NOT be enabled (conflicts with NM)."""
+        service_link = os.path.join(
+            AIROOTFS,
+            "etc",
+            "systemd",
+            "system",
+            "multi-user.target.wants",
+            "systemd-networkd.service",
+        )
+        self.assertFalse(
+            os.path.exists(service_link),
+            "systemd-networkd.service must not be enabled (conflicts with NetworkManager)",
+        )
+
+    def test_networkmanager_wait_online_enabled(self):
+        """NetworkManager-wait-online.service should be in network-online.target.wants."""
+        service_link = os.path.join(
+            AIROOTFS,
+            "etc",
+            "systemd",
+            "system",
+            "network-online.target.wants",
+            "NetworkManager-wait-online.service",
+        )
+        self.assertTrue(
+            os.path.islink(service_link),
+            "NetworkManager-wait-online.service must be enabled",
+        )
+
+    def test_wifi_backend_conf_exists(self):
+        """NetworkManager wifi-backend.conf should exist for iwd backend."""
+        conf_path = os.path.join(
+            AIROOTFS, "etc", "NetworkManager", "conf.d", "wifi-backend.conf"
+        )
+        self.assertTrue(os.path.isfile(conf_path))
+
+    def test_wifi_backend_conf_uses_iwd(self):
+        """wifi-backend.conf should configure iwd as Wi-Fi backend."""
+        conf_path = os.path.join(
+            AIROOTFS, "etc", "NetworkManager", "conf.d", "wifi-backend.conf"
+        )
+        with open(conf_path) as f:
+            content = f.read()
+        self.assertIn("wifi.backend=iwd", content)
+
+
 class TestSwayTrayApplets(unittest.TestCase):
     """Verify Sway config autostarts native WiFi and Bluetooth tray applets."""
 
