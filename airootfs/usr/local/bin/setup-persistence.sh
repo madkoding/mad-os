@@ -332,17 +332,20 @@ create_persist_partition() {
             fi
         fi
     done
+    log "Debug: Highest existing device partition number: $highest_dev_num"
 
     # Also check partition table
     local last_part_num
     last_part_num=$(parted -s "$device" print 2>/dev/null \
                     | grep "^ [0-9]" | awk '{print $1}' | sort -n | tail -1)
     last_part_num="${last_part_num:-0}"
+    log "Debug: Highest partition in table: $last_part_num"
 
     local safe_last_part=$last_part_num
     [ "$highest_dev_num" -gt "$safe_last_part" ] && safe_last_part=$highest_dev_num
     local sfdisk_new_part_num=$((safe_last_part + 1))
     local new_part_num=$sfdisk_new_part_num
+    log "Debug: Will create partition number: $new_part_num"
 
     # MBR 4-partition limit check
     if [ "$table_type" = "msdos" ] && [ "$new_part_num" -gt 4 ]; then
