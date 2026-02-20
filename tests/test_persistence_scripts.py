@@ -651,31 +651,23 @@ class TestPartitionProtection(unittest.TestCase):
         )
 
     def test_sfdisk_scans_device_nodes_for_gaps(self):
-        """sfdisk approach must scan device nodes to detect isohybrid gaps.
+        """create_persist_partition must scan device nodes to detect isohybrid gaps.
 
         On isohybrid ISOs, device nodes (e.g., /dev/sda1) may exist but not
-        be in the partition table. The sfdisk approach must detect these to
+        be in the partition table. The function must detect these to
         avoid filling gaps and overwriting existing data.
         """
-        # Find the simple sfdisk section (before the complex approach)
-        simple_start = self.create_fn.find('Simple approach')
-        complex_start = self.create_fn.find('Complex approach')
-        self.assertNotEqual(simple_start, -1, "Must have simple sfdisk section")
-        self.assertNotEqual(complex_start, -1, "Must have complex approach section")
-
-        simple_section = self.create_fn[simple_start:complex_start]
-
         # Must scan device nodes for highest partition number
         self.assertIn(
             'highest_dev_num',
-            simple_section,
-            "Simple sfdisk approach must scan device nodes for highest partition number",
+            self.create_fn,
+            "create_persist_partition must scan device nodes for highest partition number",
         )
         # Must compute safe partition number from device nodes
         self.assertIn(
             'sfdisk_new_part_num',
-            simple_section,
-            "Simple sfdisk approach must determine safe new partition number",
+            self.create_fn,
+            "create_persist_partition must determine safe new partition number",
         )
 
     def test_sfdisk_specifies_explicit_partition_number(self):
