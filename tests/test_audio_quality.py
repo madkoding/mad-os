@@ -475,9 +475,9 @@ class TestInstallerAudioQualityIntegration(unittest.TestCase):
         """Installer must copy mados-audio-quality.sh to installed system."""
         self.assertIn("mados-audio-quality.sh", self.content)
         self.assertIn(
-            "/mnt/usr/local/bin/mados-audio-quality.sh",
+            "MNT_USR_LOCAL_BIN",
             self.content,
-            "Installer must copy audio quality script to /mnt",
+            "Installer must use MNT_USR_LOCAL_BIN constant for copying scripts",
         )
 
     def test_installer_creates_system_service(self):
