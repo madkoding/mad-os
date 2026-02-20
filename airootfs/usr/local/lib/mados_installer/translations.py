@@ -2,7 +2,6 @@
 madOS Installer - Internationalization translations
 """
 
-# noqa:  hardcoded-passwords-local - these are translation keys, not credentials
 FEATURE_OPENCODE_AI = "• OpenCode AI"
 FEATURE_ZRAM_EARLYOOM = "• ZRAM + EarlyOOM"
 
