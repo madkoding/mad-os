@@ -1157,6 +1157,26 @@ class TestPromptPersistence(unittest.TestCase):
             "Must log when timeout expires",
         )
 
+    def test_timeout_proceeds_by_default(self):
+        """Timeout must proceed with persistence creation (return 0)."""
+        # After the read timeout, the function should return 0 (proceed)
+        timeout_section_start = self.func_body.find("timed out")
+        self.assertNotEqual(timeout_section_start, -1)
+        timeout_section = self.func_body[timeout_section_start : timeout_section_start + 200]
+        self.assertIn(
+            "return 0",
+            timeout_section,
+            "Timeout must return 0 (proceed with persistence)",
+        )
+
+    def test_user_can_decline_with_n(self):
+        """User must be able to press 'n' to skip persistence."""
+        self.assertRegex(
+            self.func_body,
+            r'answer.*==.*["\']n["\']',
+            "Must check for 'n' to decline persistence",
+        )
+
 
 class TestSetupPersistenceUnformattedFlow(unittest.TestCase):
     """Verify setup_persistence handles unformatted partitions and user prompts."""

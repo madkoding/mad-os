@@ -411,8 +411,8 @@ format_persist_partition() {
 }
 
 # ── Prompt user for persistence with timeout ─────────────────────────────────
-# Shows a 5-second timeout prompt asking if the user wants persistence.
-# Returns 0 if user accepts, 1 if user declines or timeout expires.
+# Shows a 5-second timeout prompt before creating persistence.
+# Returns 0 if user accepts or timeout expires, 1 if user declines.
 
 prompt_persistence() {
     local timeout=5
@@ -421,23 +421,23 @@ prompt_persistence() {
     echo -e "  ${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}" >&2
     echo -e "  ${YELLOW}${BOLD}│  Create persistent storage partition?         │${NC}" >&2
     echo -e "  ${YELLOW}${BOLD}│  Changes will persist across reboots.         │${NC}" >&2
-    echo -e "  ${YELLOW}${BOLD}│  Press 'y' to accept or wait ${timeout}s to skip.     │${NC}" >&2
+    echo -e "  ${YELLOW}${BOLD}│  Press 'n' to skip or wait ${timeout}s to continue.   │${NC}" >&2
     echo -e "  ${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}" >&2
     echo "" >&2
 
     local answer=""
     if read -r -t "$timeout" -n 1 answer < /dev/tty 2>/dev/null; then
         echo "" >&2
-        if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
-            log "User accepted persistence partition creation"
-            return 0
+        if [[ "$answer" == "n" || "$answer" == "N" ]]; then
+            log "User declined persistence partition creation"
+            return 1
         fi
-        log "User declined persistence partition creation (answer: '$answer')"
-        return 1
+        log "User accepted persistence partition creation (answer: '$answer')"
+        return 0
     fi
     echo "" >&2
-    log "Persistence prompt timed out after ${timeout}s – skipping"
-    return 1
+    log "Persistence prompt timed out after ${timeout}s – proceeding"
+    return 0
 }
 
 # ── Partition creation ───────────────────────────────────────────────────────
