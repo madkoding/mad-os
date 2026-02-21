@@ -856,7 +856,8 @@ class TestPartitionProtection(unittest.TestCase):
         sfdisk_pos = self.create_fn.find("sfdisk --append")
         self.assertNotEqual(sfdisk_pos, -1, "Must have sfdisk --append")
 
-        # partprobe must appear shortly after sfdisk (within the success block)
+        # partprobe must appear within the sfdisk success block (~400 chars covers
+        # the log line, created=true, and the else/fi that close the block)
         after_sfdisk = self.create_fn[sfdisk_pos : sfdisk_pos + 400]
         self.assertIn(
             "partprobe",
