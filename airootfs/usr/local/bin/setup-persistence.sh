@@ -600,6 +600,7 @@ create_persist_partition() {
         if sfdisk_result=$(echo "$sfdisk_input" | sfdisk --append --no-reread "$device" 2>&1); then
             log "sfdisk append succeeded: $sfdisk_result"
             created=true
+            partprobe "$device" 2>/dev/null || true
         else
             log "WARNING: sfdisk append failed: $sfdisk_result – falling back to parted"
         fi

@@ -845,6 +845,26 @@ class TestPartitionProtection(unittest.TestCase):
             "sfdisk must specify explicit partition number in input",
         )
 
+    def test_partprobe_after_sfdisk(self):
+        """partprobe must run immediately after sfdisk succeeds.
+
+        Because sfdisk uses --no-reread, the kernel does not learn about the
+        new partition automatically.  Running partprobe right after sfdisk
+        forces a partition-table re-read so the new block device appears
+        before mkfs.ext4 is called.
+        """
+        sfdisk_pos = self.create_fn.find("sfdisk --append")
+        self.assertNotEqual(sfdisk_pos, -1, "Must have sfdisk --append")
+
+        # partprobe must appear within the sfdisk success block (~400 chars covers
+        # the log line, created=true, and the else/fi that close the block)
+        after_sfdisk = self.create_fn[sfdisk_pos : sfdisk_pos + 400]
+        self.assertIn(
+            "partprobe",
+            after_sfdisk,
+            "partprobe must be called immediately after sfdisk --append succeeds",
+        )
+
 
 class TestRebootOnPartitionTableFailure(unittest.TestCase):
     """Verify the script handles kernel partition table refresh failures.
