@@ -345,6 +345,101 @@ get_free_space() {
     return 0
 }
 
+# ── Find unformatted "Linux" type partition (post-reboot recovery) ───────────
+# After creating a partition and rebooting, the partition exists in the table
+# but has no filesystem.  This function finds it so it can be formatted.
+
+find_unformatted_partition() {
+    local device=$1
+    local part_suffix=""
+    [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* || "$device" == *"loop"* ]] && part_suffix="p"
+
+    local highest_dev_num=0
+    local dev_node
+    for dev_node in "${device}${part_suffix}"[0-9]* "${device}"[0-9]*; do
+        if [[ -b "$dev_node" ]]; then
+            local dnum
+            if [[ -n "$part_suffix" ]]; then
+                dnum=$(echo "$dev_node" | sed 's/.*p\([0-9]*\)$/\1/')
+            else
+                dnum=$(echo "$dev_node" | sed 's/.*[^0-9]\([0-9]*\)$/\1/')
+            fi
+            if [[ -n "$dnum" && "$dnum" -gt "$highest_dev_num" ]]; then
+                highest_dev_num=$dnum
+            fi
+        fi
+    done
+
+    local last_dev="${device}${part_suffix}${highest_dev_num}"
+    if [[ "$highest_dev_num" -gt 0 && -b "$last_dev" ]]; then
+        local cand_fstype
+        cand_fstype=$(blkid -s TYPE -o value "$last_dev" 2>/dev/null || echo "")
+        if [[ -z "$cand_fstype" ]]; then
+            local cand_size_mb
+            cand_size_mb=$(( $(lsblk -bnlo SIZE "$last_dev" 2>/dev/null | head -1 || echo 0) / 1048576 ))
+            if [[ "${cand_size_mb:-0}" -ge "$MIN_PERSIST_MB" ]]; then
+                log "Found unformatted partition $last_dev (${cand_size_mb} MB)"
+                echo "$last_dev"
+                return 0
+            fi
+        fi
+    fi
+    echo ""
+    return 0
+}
+
+# ── Format a raw partition as ext4 with persistence label ────────────────────
+
+format_persist_partition() {
+    local dev=$1
+    log "Formatting ${dev} as ext4 with label '$PERSIST_LABEL'"
+    local mkfs_output
+    if ! mkfs_output=$(mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$dev" 2>&1); then
+        log "ERROR: mkfs.ext4 failed on $dev: $mkfs_output"
+        return 1
+    fi
+    [[ -n "$mkfs_output" ]] && log "mkfs.ext4: $mkfs_output"
+    sleep 2
+    udevadm settle --timeout=10 2>/dev/null || true
+    local written_label
+    written_label=$(blkid -s LABEL -o value "$dev" 2>/dev/null)
+    if [[ "$written_label" != "$PERSIST_LABEL" ]]; then
+        log "WARNING: Label verification failed (expected '$PERSIST_LABEL', got '$written_label')"
+    fi
+    log "Formatted $dev as ext4 with label '$PERSIST_LABEL'"
+    return 0
+}
+
+# ── Prompt user for persistence with timeout ─────────────────────────────────
+# Shows a 5-second timeout prompt asking if the user wants persistence.
+# Returns 0 if user accepts, 1 if user declines or timeout expires.
+
+prompt_persistence() {
+    local timeout=5
+    stop_spinner
+    echo "" >&2
+    echo -e "  ${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}" >&2
+    echo -e "  ${YELLOW}${BOLD}│  Create persistent storage partition?         │${NC}" >&2
+    echo -e "  ${YELLOW}${BOLD}│  Changes will persist across reboots.         │${NC}" >&2
+    echo -e "  ${YELLOW}${BOLD}│  Press 'y' to accept or wait ${timeout}s to skip.     │${NC}" >&2
+    echo -e "  ${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}" >&2
+    echo "" >&2
+
+    local answer=""
+    if read -r -t "$timeout" -n 1 answer < /dev/tty 2>/dev/null; then
+        echo "" >&2
+        if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
+            log "User accepted persistence partition creation"
+            return 0
+        fi
+        log "User declined persistence partition creation (answer: '$answer')"
+        return 1
+    fi
+    echo "" >&2
+    log "Persistence prompt timed out after ${timeout}s – skipping"
+    return 1
+}
+
 # ── Partition creation ───────────────────────────────────────────────────────
 # Calculates where existing partitions (ISO + EFI) end on the disk and
 # creates a new ext4 partition using all remaining free space.
@@ -424,19 +519,8 @@ create_persist_partition() {
             cand_size_mb=$(( $(lsblk -bnlo SIZE "$last_dev" 2>/dev/null | head -1 || echo 0) / 1048576 ))
             if [[ "${cand_size_mb:-0}" -ge "$MIN_PERSIST_MB" ]]; then
                 log "Found unformatted partition $last_dev (${cand_size_mb} MB) – resuming setup after reboot"
-                log "Formatting ${last_dev} as ext4 with label '$PERSIST_LABEL'"
-                local mkfs_output
-                if ! mkfs_output=$(mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$last_dev" 2>&1); then
-                    log "ERROR: mkfs.ext4 failed on $last_dev: $mkfs_output"
+                if ! format_persist_partition "$last_dev"; then
                     return 1
-                fi
-                [[ -n "$mkfs_output" ]] && log "mkfs.ext4: $mkfs_output"
-                sleep 2
-                udevadm settle --timeout=10 2>/dev/null || true
-                local written_label
-                written_label=$(blkid -s LABEL -o value "$last_dev" 2>/dev/null)
-                if [[ "$written_label" != "$PERSIST_LABEL" ]]; then
-                    log "WARNING: Label verification failed (expected '$PERSIST_LABEL', got '$written_label')"
                 fi
                 log "Formatted $last_dev (post-reboot recovery)"
                 echo "$last_dev"
@@ -585,27 +669,11 @@ create_persist_partition() {
         log "WARNING: Existing partition boundaries changed after mkpart!"
     fi
 
-    # Format as ext4
-    log "Formatting ${persist_dev} as ext4 with label '$PERSIST_LABEL'"
-    local mkfs_output
-    if ! mkfs_output=$(mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$persist_dev" 2>&1); then
-        log "ERROR: mkfs.ext4 failed on $persist_dev: $mkfs_output"
-        return 1
-    fi
-    [[ -n "$mkfs_output" ]] && log "mkfs.ext4: $mkfs_output"
-
-    sleep 2
-    udevadm settle --timeout=10 2>/dev/null || true
-
-    # Verify the label was written correctly
-    local written_label
-    written_label=$(blkid -s LABEL -o value "$persist_dev" 2>/dev/null)
-    if [[ "$written_label" != "$PERSIST_LABEL" ]]; then
-        log "WARNING: Label verification failed (expected '$PERSIST_LABEL', got '$written_label')"
-    fi
-
-    log "Created and formatted $persist_dev"
-    echo "$persist_dev"
+    # Always reboot after creating a new partition so the kernel picks it up
+    # cleanly.  The partition will be formatted on the next boot when
+    # find_unformatted_partition() detects the raw "Linux" type partition.
+    log "New partition created – reboot required for clean kernel recognition"
+    echo "REBOOT_NEEDED"
     return 0
 }
 
@@ -838,32 +906,53 @@ setup_persistence() {
     persist_dev=$(find_persist_partition "$iso_device")
 
     if [[ -z "$persist_dev" ]]; then
-        # ── Step 3: Create ext4 partition in remaining free space ─────────
-        local free_space
-        free_space=$(get_free_space "$iso_device")
+        # ── Step 2b: Check for unformatted "Linux" type partition ─────────
+        # After a reboot, the partition exists but has no filesystem yet.
+        # If found, format it and continue – no user prompt needed.
+        local unformatted_dev
+        unformatted_dev=$(find_unformatted_partition "$iso_device")
 
-        if [[ "${free_space:-0}" -lt "$MIN_PERSIST_MB" ]]; then
-            ui_fail "Insufficient free space (${free_space:-0} MB < $MIN_PERSIST_MB MB)"
-            return 1
-        fi
+        if [[ -n "$unformatted_dev" ]]; then
+            ui_info "Found unformatted partition $unformatted_dev – formatting..."
+            if ! format_persist_partition "$unformatted_dev"; then
+                ui_fail "Failed to format $unformatted_dev"
+                return 1
+            fi
+            persist_dev="$unformatted_dev"
+            ui_ok "Formatted partition: $persist_dev"
+        else
+            # ── Step 3: Ask user and create partition ─────────────────────
+            local free_space
+            free_space=$(get_free_space "$iso_device")
 
-        ui_info "No partition found – creating (${free_space} MB free)..."
-        persist_dev=$(create_persist_partition "$iso_device")
-        if [[ "$persist_dev" == "REBOOT_NEEDED" ]]; then
-            ui_warn "Partition created but the kernel could not update the partition table"
-            ui_warn "The device is in use – a reboot is required"
-            ui_info "Persistence setup will resume automatically after reboot"
-            ui_info "The system will reboot in 10 seconds..."
-            log "Scheduling reboot for kernel partition table refresh"
-            sleep 10
-            systemctl reboot 2>/dev/null || reboot -f
-            exit 0
+            if [[ "${free_space:-0}" -lt "$MIN_PERSIST_MB" ]]; then
+                ui_fail "Insufficient free space (${free_space:-0} MB < $MIN_PERSIST_MB MB)"
+                return 1
+            fi
+
+            ui_info "No persistence partition found (${free_space} MB free)"
+            if ! prompt_persistence; then
+                ui_skip "Persistence partition creation skipped by user"
+                return 0
+            fi
+
+            ui_info "Creating persistence partition (${free_space} MB free)..."
+            persist_dev=$(create_persist_partition "$iso_device")
+            if [[ "$persist_dev" == "REBOOT_NEEDED" ]]; then
+                ui_warn "Partition created – a reboot is required"
+                ui_info "Persistence setup will resume automatically after reboot"
+                ui_info "The system will reboot in 5 seconds..."
+                log "Scheduling reboot for partition table refresh"
+                sleep 5
+                systemctl reboot 2>/dev/null || reboot -f
+                exit 0
+            fi
+            if [[ -z "$persist_dev" ]]; then
+                ui_fail "Partition creation failed"
+                return 1
+            fi
+            ui_ok "Created partition: $persist_dev"
         fi
-        if [[ -z "$persist_dev" ]]; then
-            ui_fail "Partition creation failed"
-            return 1
-        fi
-        ui_ok "Created partition: $persist_dev"
     else
         ui_ok "Found existing partition: $persist_dev"
     fi

@@ -719,32 +719,38 @@ class TestPartitionProtection(unittest.TestCase):
 
     def test_verifies_label_after_format(self):
         """Must verify the ext4 label was written correctly after mkfs."""
+        # Label verification is in format_persist_partition function
+        fmt_start = self.content.find("format_persist_partition()")
+        self.assertNotEqual(fmt_start, -1, "Must have format_persist_partition function")
+        fmt_fn = self.content[fmt_start : fmt_start + 2000]
         self.assertIn(
             "written_label",
-            self.create_fn,
+            fmt_fn,
             "Must read back label after mkfs.ext4",
         )
         self.assertIn(
             "Label verification failed",
-            self.create_fn,
+            fmt_fn,
             "Must log error if label doesn't match",
         )
 
     def test_mkfs_output_captured_in_variable(self):
         """mkfs.ext4 output must be captured in a variable to prevent stdout leak.
 
-        When create_persist_partition is called via command substitution
-        (persist_dev=$(create_persist_partition ...)), any stdout from mkfs.ext4
-        would contaminate the return value. The mkfs output must be captured in
-        a local variable so only the final echo with the device path goes to stdout.
+        The format_persist_partition function captures mkfs output in a local
+        variable so only the final echo with the device path goes to stdout.
         """
+        # format_persist_partition is defined before create_persist_partition
+        fmt_start = self.content.find("format_persist_partition()")
+        self.assertNotEqual(fmt_start, -1, "Must have format_persist_partition function")
+        fmt_fn = self.content[fmt_start : fmt_start + 2000]
         self.assertIn(
             "mkfs_output",
-            self.create_fn,
+            fmt_fn,
             "mkfs.ext4 output must be captured in mkfs_output variable",
         )
         self.assertRegex(
-            self.create_fn,
+            fmt_fn,
             r"mkfs_output=\$\(mkfs\.ext4",
             "mkfs.ext4 must be called via command substitution into mkfs_output",
         )
@@ -936,12 +942,12 @@ class TestRebootOnPartitionTableFailure(unittest.TestCase):
         )
 
     def test_formats_unformatted_partition(self):
-        """Must format unformatted partition found after reboot."""
+        """Must format unformatted partition found after reboot via format_persist_partition."""
         after_check = self.create_fn[self.unformatted_pos : self.unformatted_pos + 1500]
         self.assertIn(
-            "mkfs.ext4",
+            "format_persist_partition",
             after_check,
-            "Must format unformatted partition with mkfs.ext4",
+            "Must call format_persist_partition for unformatted partition",
         )
 
     def test_unformatted_check_validates_size(self):
@@ -967,6 +973,265 @@ class TestRebootOnPartitionTableFailure(unittest.TestCase):
             "post-reboot recovery",
             self.create_fn.lower(),
             "Must log post-reboot recovery when formatting unformatted partition",
+        )
+
+    def test_create_always_reboots_after_new_partition(self):
+        """create_persist_partition must always signal REBOOT_NEEDED after creating a new partition.
+
+        After writing a new partition to disk, the script must always reboot
+        so the kernel cleanly picks up the new partition table.  Formatting
+        happens on the next boot via find_unformatted_partition().
+        """
+        # After the partition creation section (sfdisk/parted), the function
+        # should signal REBOOT_NEEDED regardless of whether the kernel saw it
+        reboot_occurrences = self.create_fn.count('echo "REBOOT_NEEDED"')
+        self.assertGreaterEqual(
+            reboot_occurrences,
+            1,
+            "create_persist_partition must echo REBOOT_NEEDED after partition creation",
+        )
+
+
+class TestFindUnformattedPartition(unittest.TestCase):
+    """Verify find_unformatted_partition() function for post-reboot recovery."""
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, "setup-persistence.sh")
+        with open(self.script_path) as f:
+            self.content = f.read()
+        start = self.content.find("find_unformatted_partition()")
+        self.assertNotEqual(start, -1, "Must have find_unformatted_partition function")
+        self.func_body = self.content[start : start + 3000]
+
+    def test_function_exists(self):
+        """Script must have find_unformatted_partition function."""
+        self.assertRegex(
+            self.content,
+            r"find_unformatted_partition\(\)\s*\{",
+            "Must have find_unformatted_partition() function",
+        )
+
+    def test_accepts_device_parameter(self):
+        """find_unformatted_partition must accept a device parameter."""
+        self.assertIn(
+            "local device=$1",
+            self.func_body,
+            "Must accept device as first parameter",
+        )
+
+    def test_checks_blkid_for_no_filesystem(self):
+        """Must use blkid to detect partitions with no filesystem type."""
+        self.assertIn(
+            "blkid -s TYPE",
+            self.func_body,
+            "Must check filesystem type via blkid",
+        )
+
+    def test_validates_partition_size(self):
+        """Must check partition is large enough for persistence."""
+        self.assertIn(
+            "MIN_PERSIST_MB",
+            self.func_body,
+            "Must verify partition meets minimum size requirement",
+        )
+
+    def test_handles_nvme_loop_devices(self):
+        """Must handle nvme/mmcblk/loop device naming with 'p' suffix."""
+        self.assertIn(
+            "part_suffix",
+            self.func_body,
+            "Must handle device naming variants (nvme/mmcblk/loop)",
+        )
+
+
+class TestFormatPersistPartition(unittest.TestCase):
+    """Verify format_persist_partition() function for ext4 formatting."""
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, "setup-persistence.sh")
+        with open(self.script_path) as f:
+            self.content = f.read()
+        start = self.content.find("format_persist_partition()")
+        self.assertNotEqual(start, -1, "Must have format_persist_partition function")
+        self.func_body = self.content[start : start + 2000]
+
+    def test_function_exists(self):
+        """Script must have format_persist_partition function."""
+        self.assertRegex(
+            self.content,
+            r"format_persist_partition\(\)\s*\{",
+            "Must have format_persist_partition() function",
+        )
+
+    def test_formats_as_ext4(self):
+        """Must format partition as ext4."""
+        self.assertIn(
+            "mkfs.ext4",
+            self.func_body,
+            "Must use mkfs.ext4 to format partition",
+        )
+
+    def test_applies_persistence_label(self):
+        """Must apply the persistence label during formatting."""
+        self.assertIn(
+            "PERSIST_LABEL",
+            self.func_body,
+            "Must use PERSIST_LABEL when formatting",
+        )
+
+    def test_verifies_label_after_format(self):
+        """Must verify label was written correctly."""
+        self.assertIn(
+            "written_label",
+            self.func_body,
+            "Must verify label after formatting",
+        )
+        self.assertIn(
+            "Label verification failed",
+            self.func_body,
+            "Must log warning if label verification fails",
+        )
+
+    def test_captures_mkfs_output(self):
+        """Must capture mkfs output in variable to prevent stdout contamination."""
+        self.assertRegex(
+            self.func_body,
+            r"mkfs_output=\$\(mkfs\.ext4",
+            "Must capture mkfs.ext4 output in variable",
+        )
+
+
+class TestPromptPersistence(unittest.TestCase):
+    """Verify prompt_persistence() function with timeout."""
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, "setup-persistence.sh")
+        with open(self.script_path) as f:
+            self.content = f.read()
+        start = self.content.find("prompt_persistence()")
+        self.assertNotEqual(start, -1, "Must have prompt_persistence function")
+        self.func_body = self.content[start : start + 2000]
+
+    def test_function_exists(self):
+        """Script must have prompt_persistence function."""
+        self.assertRegex(
+            self.content,
+            r"prompt_persistence\(\)\s*\{",
+            "Must have prompt_persistence() function",
+        )
+
+    def test_has_timeout(self):
+        """Must use a timeout for the prompt."""
+        self.assertIn(
+            "timeout",
+            self.func_body.lower(),
+            "Must have a timeout for user prompt",
+        )
+
+    def test_uses_read_with_timeout(self):
+        """Must use read -t for timeout-based input."""
+        self.assertRegex(
+            self.func_body,
+            r"read\s.*-t",
+            "Must use read with -t flag for timeout",
+        )
+
+    def test_timeout_is_5_seconds(self):
+        """Timeout must be 5 seconds as specified."""
+        self.assertIn(
+            "timeout=5",
+            self.func_body,
+            "Timeout must be set to 5 seconds",
+        )
+
+    def test_logs_user_decision(self):
+        """Must log whether user accepted or declined."""
+        self.assertIn(
+            "User accepted",
+            self.func_body,
+            "Must log when user accepts",
+        )
+        self.assertIn(
+            "timed out",
+            self.func_body.lower(),
+            "Must log when timeout expires",
+        )
+
+
+class TestSetupPersistenceUnformattedFlow(unittest.TestCase):
+    """Verify setup_persistence handles unformatted partitions and user prompts."""
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, "setup-persistence.sh")
+        with open(self.script_path) as f:
+            self.content = f.read()
+        start = self.content.find("setup_persistence()")
+        self.assertNotEqual(start, -1)
+        self.setup_fn = self.content[start:]
+
+    def test_calls_find_unformatted_partition(self):
+        """setup_persistence must check for unformatted partitions before prompting."""
+        self.assertIn(
+            "find_unformatted_partition",
+            self.setup_fn,
+            "Must call find_unformatted_partition to detect post-reboot partitions",
+        )
+
+    def test_calls_format_persist_partition_for_unformatted(self):
+        """setup_persistence must format unformatted partitions found after reboot."""
+        self.assertIn(
+            "format_persist_partition",
+            self.setup_fn,
+            "Must call format_persist_partition for unformatted partitions",
+        )
+
+    def test_calls_prompt_persistence_before_creating(self):
+        """setup_persistence must prompt user before creating a new partition."""
+        self.assertIn(
+            "prompt_persistence",
+            self.setup_fn,
+            "Must call prompt_persistence before partition creation",
+        )
+
+    def test_prompt_before_create(self):
+        """User prompt must occur before create_persist_partition call."""
+        prompt_pos = self.setup_fn.find("prompt_persistence")
+        create_pos = self.setup_fn.find("create_persist_partition")
+        self.assertNotEqual(prompt_pos, -1, "Must have prompt_persistence call")
+        self.assertNotEqual(create_pos, -1, "Must have create_persist_partition call")
+        self.assertLess(
+            prompt_pos,
+            create_pos,
+            "prompt_persistence must be called before create_persist_partition",
+        )
+
+    def test_skips_gracefully_on_decline(self):
+        """setup_persistence must skip gracefully if user declines persistence."""
+        self.assertIn(
+            "skipped",
+            self.setup_fn.lower(),
+            "Must indicate persistence was skipped when user declines",
+        )
+
+    def test_unformatted_check_before_prompt(self):
+        """Unformatted partition check must happen before user prompt."""
+        unformatted_pos = self.setup_fn.find("find_unformatted_partition")
+        prompt_pos = self.setup_fn.find("prompt_persistence")
+        self.assertNotEqual(unformatted_pos, -1)
+        self.assertNotEqual(prompt_pos, -1)
+        self.assertLess(
+            unformatted_pos,
+            prompt_pos,
+            "find_unformatted_partition must be called before prompt_persistence",
+        )
+
+    def test_reboot_after_partition_creation(self):
+        """setup_persistence must reboot after creating a new partition."""
+        # After create_persist_partition, REBOOT_NEEDED should trigger reboot
+        self.assertIn(
+            "systemctl reboot",
+            self.setup_fn,
+            "Must trigger reboot after partition creation",
         )
 
 
