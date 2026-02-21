@@ -35,7 +35,6 @@ journalctl -f
 # Logs from a specific unit
 journalctl -u NetworkManager
 journalctl -u setup-opencode.service
-journalctl -u mados-persistence.service
 
 # Kernel messages
 journalctl -k
@@ -156,19 +155,6 @@ cat /tmp/mados-install.log 2>/dev/null
 
 # Run installer manually with verbose output
 sudo /usr/local/bin/install-mados-gtk.py 2>&1 | tee /tmp/installer-debug.log
-```
-
-### Persistence
-
-```bash
-# Persistence status
-mados-persistence status
-
-# Persistence setup log
-cat /var/log/mados-persistence.log 2>/dev/null
-
-# Persistence service
-journalctl -u mados-persistence.service -b
 ```
 
 ## Common Issues

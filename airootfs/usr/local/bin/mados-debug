@@ -42,7 +42,6 @@ Log Locations Quick Reference:
   Audio:              journalctl --user -u pipewire -b
   Network:            journalctl -u NetworkManager -b
   Installer:          /tmp/mados-install.log
-  Persistence:        /var/log/mados-persistence.log
   Chromium flags:     /etc/chromium-flags.conf
 
 Full documentation: /usr/share/doc/madOS/DEBUGGING.md
@@ -190,14 +189,6 @@ debug_installer() {
         tail -n 30 /tmp/mados-install.log
     else
         echo "(no installer log found at /tmp/mados-install.log)"
-    fi
-    echo ""
-
-    if [ -f /var/log/mados-persistence.log ]; then
-        echo -e "${YELLOW}Persistence log:${NC}"
-        cat /var/log/mados-persistence.log
-    else
-        echo "(no persistence log found)"
     fi
 }
 

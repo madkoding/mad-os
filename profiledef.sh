@@ -42,12 +42,10 @@ file_permissions=(
   ["/usr/local/bin/setup-opencode.sh"]="0:0:755"
   ["/usr/local/bin/setup-ollama.sh"]="0:0:755"
   ["/usr/local/bin/setup-ohmyzsh.sh"]="0:0:755"
-  ["/usr/local/bin/setup-persistence.sh"]="0:0:755"
   ["/usr/local/bin/toggle-demo-mode.sh"]="0:0:755"
   ["/usr/local/bin/mados-photo-viewer"]="0:0:755"
   ["/usr/local/bin/mados-pdf-viewer"]="0:0:755"
-  ["/usr/local/bin/mados-persistence"]="0:0:755"
-  ["/usr/local/bin/diagnose-persistence"]="0:0:755"
+
   ["/usr/local/bin/mados-equalizer"]="0:0:755"
   ["/usr/local/lib/mados_photo_viewer/"]="0:0:755"
   ["/usr/local/lib/mados_pdf_viewer/"]="0:0:755"

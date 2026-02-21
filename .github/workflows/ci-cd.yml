@@ -103,7 +103,7 @@ jobs:
           - category: "Apps & Media"
             files: "tests/test_equalizer_presets.py tests/test_photo_navigator.py tests/test_installer_config.py"
           - category: "Live USB"
-            files: "tests/test_persistence_scripts.py tests/test_liveusb_scripts.py"
+            files: "tests/test_liveusb_scripts.py"
 
     steps:
       - name: Checkout
@@ -140,10 +140,6 @@ jobs:
       fail-fast: false
       matrix:
         test:
-          - name: "USB Persistence"
-            script: "tests/test-liveusb-persistence.sh"
-          - name: "Isohybrid Detection"
-            script: "tests/test-liveusb-isohybrid.sh"
           - name: "First-Boot Simulation"
             script: "tests/test-first-boot-simulation.sh"
 

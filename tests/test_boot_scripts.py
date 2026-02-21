@@ -37,7 +37,6 @@ class TestBootScriptSyntax(unittest.TestCase):
         "setup-ohmyzsh.sh",
         "setup-opencode.sh",
         "setup-ollama.sh",
-        "setup-persistence.sh",
     ]
 
     def test_all_boot_scripts_valid_syntax(self):
@@ -443,7 +442,6 @@ class TestProfiledefPermissions(unittest.TestCase):
         "setup-ohmyzsh.sh",
         "setup-opencode.sh",
         "setup-ollama.sh",
-        "setup-persistence.sh",
     ]
 
     def setUp(self):
