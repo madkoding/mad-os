@@ -267,8 +267,6 @@ class TestCriticalLiveUSBScriptsExist(unittest.TestCase):
         "sway-session",
         "hyprland-session",
         "cage-greeter",
-        "setup-persistence.sh",
-        "mados-persistence",
         "setup-opencode.sh",
         "setup-ohmyzsh.sh",
         "setup-ollama.sh",

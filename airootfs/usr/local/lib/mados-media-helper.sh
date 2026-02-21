@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # madOS Media Helper
-# Shared functions for detecting boot media type and persistence availability.
-# Source this file from setup scripts that need to check if persistent storage
-# is available before installing software.
+# Shared functions for detecting boot media type.
+# Source this file from setup scripts that need to check if software
+# can be installed before proceeding.
 
 # Detect if the system booted from optical media (CD/DVD)
 is_optical_media() {
@@ -54,44 +54,18 @@ is_optical_media() {
     return 1
 }
 
-# Check if persistence partition is available and mounted
-has_persistence() {
-    local persist_mount="${1:-/mnt/persistence}"
-
-    # Check if persistence partition is mounted
-    if mountpoint -q "$persist_mount" 2>/dev/null; then
-        return 0
-    fi
-
-    # Check if a persistence partition exists (even if not mounted yet)
-    local persist_dev
-    persist_dev=$(lsblk -nlo NAME,LABEL 2>/dev/null \
-                  | grep -w "persistence" | awk '{print "/dev/" $1}' | head -1)
-    if [[ -z "$persist_dev" ]] && command -v blkid >/dev/null 2>&1; then
-        persist_dev=$(blkid -L "persistence" 2>/dev/null)
-    fi
-
-    [[ -n "$persist_dev" ]] && return 0
-    return 1
-}
-
-# Check if the environment supports installing software persistently.
-# Returns 0 if software can be installed (writable and persistent),
-# returns 1 if on read-only media without persistence.
+# Check if the environment supports installing software.
+# Returns 0 if software can be installed (writable media),
+# returns 1 if on read-only media (CD/DVD).
 can_install_software() {
     # Not in live environment – assume installed system (always OK)
     [[ ! -d /run/archiso ]] && return 0
 
-    # If persistence is available, installations will survive reboots
-    has_persistence && return 0
-
-    # If on optical media without persistence, can't persist installations
+    # If on optical media, can't persist installations
     if is_optical_media; then
         return 1
     fi
 
-    # USB or other writable media – persistence might be set up later,
-    # but installations in tmpfs will be lost. Still allow it since
-    # the user might be testing or persistence will be set up soon.
+    # USB or other writable media – allow installation
     return 0
 }

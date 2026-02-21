@@ -56,20 +56,12 @@ madOS is a custom Arch Linux distribution optimized for low-RAM systems (1.9GB),
 - **madOS Photo Viewer** (`mados-photo-viewer`) - Photo viewer/editor with video playback
 - **madOS WiFi** - Native tray applet via `nm-applet` (NetworkManager)
 - **madOS Bluetooth** - Native tray applet via `blueman-applet`
-- **madOS Persistence** (`mados-persistence`) - Persistent storage manager for live USB
 
 ### Audio Quality
 - **Auto-Detection** - Automatically detects and applies maximum audio quality (up to 192kHz/32-bit)
 - **High-Quality Resampling** - PipeWire configured with quality level 10 (maximum)
 - **Hardware Optimization** - Optimal buffer sizes and sample rates for your audio hardware
-- **Persistent Configuration** - Quality settings survive reboots in both live and installed systems
 - See [Audio Quality Documentation](docs/AUDIO_QUALITY.md) for details
-
-### Persistent Storage
-- **Dynamic Persistence** - Automatically uses free USB space for persistent storage
-- **Auto-Configuration** - Persistence partition created on first boot if space available
-- **User-Friendly Management** - Simple CLI tool to enable, disable, and monitor persistence
-- **Full Data Persistence** - Saves packages, files, and configurations across reboots
 
 ### Developer Tools
 - **OpenCode** - AI assistant (`opencode` command)
@@ -158,39 +150,6 @@ The system automatically switches to software rendering when legacy hardware is 
    - Review and confirm settings
 
 5. **Reboot** into your new madOS system
-
-### Using Live USB with Persistence
-
-madOS can save changes on the USB drive for persistent storage.
-
-**Note**: Persistence is only available when booting from USB devices. When booting from ISO files (e.g., in VMs), persistence is automatically disabled.
-
-1. **Create bootable USB with extra space:**
-   ```bash
-   # Use dd to write ISO, leaving free space on USB
-   sudo dd if=madOS-*.iso of=/dev/sdX bs=4M status=progress oflag=sync
-   ```
-
-2. **Boot from USB** - Persistence will auto-configure if space available
-
-3. **Check persistence status:**
-   ```bash
-   mados-persistence status
-   ```
-
-4. **Manually enable if needed:**
-   ```bash
-   sudo mados-persistence enable
-   ```
-
-5. **Your changes now persist across reboots!**
-   - Installed packages
-   - User files and settings
-   - System configurations
-
-**For VMs**: Boot from ISO normally - changes will be stored in RAM only. To use persistence in a VM, write the ISO to a physical USB drive and use USB passthrough.
-
-📖 **Full documentation:** [docs/PERSISTENCE.md](docs/PERSISTENCE.md)
 
 ### Installer Options
 

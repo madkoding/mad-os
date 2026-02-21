@@ -6,12 +6,12 @@ OPENCODE_CMD="opencode"
 INSTALL_DIR="/usr/local/bin"
 MEDIA_HELPER="/usr/local/lib/mados-media-helper.sh"
 
-# Check if running on read-only media (DVD/CD) without persistence
+# Check if running on read-only media (DVD/CD)
 if [[ -f "$MEDIA_HELPER" ]]; then
     # shellcheck source=/dev/null
     source "$MEDIA_HELPER"
     if ! can_install_software; then
-        echo "⚠ Medio óptico (DVD/CD) detectado sin almacenamiento persistente."
+        echo "⚠ Medio óptico (DVD/CD) detectado."
         echo "  Las instalaciones no sobrevivirán un reinicio."
         echo "  Para usar OpenCode, instala madOS en disco con: sudo install-mados"
         exit 0

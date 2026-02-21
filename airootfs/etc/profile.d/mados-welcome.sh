@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Show persistence info on first login
+# Show madOS welcome info on first login
 
-PERSIST_INFO_SHOWN="/tmp/.mados-persistence-info-shown"
+WELCOME_INFO_SHOWN="/tmp/.mados-welcome-info-shown"
 
 # Only show once per boot
-if [[ -f "$PERSIST_INFO_SHOWN" ]]; then
+if [[ -f "$WELCOME_INFO_SHOWN" ]]; then
     exit 0
 fi
 
@@ -19,12 +19,6 @@ if [[ -t 0 && -t 1 ]]; then
 ║                    madOS Live Environment                      ║
 ╚════════════════════════════════════════════════════════════════╝
 
-💾 Persistent Storage: Automatically configured if USB has free space
-
-   Check status:        mados-persistence status
-   Enable manually:     sudo mados-persistence enable
-   View documentation:  less /usr/share/doc/madOS/PERSISTENCE.md
-
 🔧 Quick Commands:
    • Install madOS:     sudo install-mados
    • AI Assistant:      opencode
@@ -32,12 +26,6 @@ if [[ -t 0 && -t 1 ]]; then
 
 INNER_EOF
     
-    # Show persistence status if configured
-    if command -v mados-persistence >/dev/null 2>&1 && lsblk -nlo LABEL 2>/dev/null | grep -q "persistence"; then
-        echo "✓ Persistent storage is enabled"
-        echo ""
-    fi
-    
     # Mark as shown
-    touch "$PERSIST_INFO_SHOWN"
+    touch "$WELCOME_INFO_SHOWN"
 fi
