@@ -669,11 +669,14 @@ create_persist_partition() {
         log "WARNING: Existing partition boundaries changed after mkpart!"
     fi
 
-    # Always reboot after creating a new partition so the kernel picks it up
-    # cleanly.  The partition will be formatted on the next boot when
-    # find_unformatted_partition() detects the raw "Linux" type partition.
-    log "New partition created – reboot required for clean kernel recognition"
-    echo "REBOOT_NEEDED"
+    # Kernel recognised the new partition – format it now.
+    if ! format_persist_partition "$persist_dev"; then
+        log "ERROR: format_persist_partition failed on $persist_dev"
+        return 1
+    fi
+
+    log "Created and formatted $persist_dev"
+    echo "$persist_dev"
     return 0
 }
 

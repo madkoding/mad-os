@@ -975,20 +975,18 @@ class TestRebootOnPartitionTableFailure(unittest.TestCase):
             "Must log post-reboot recovery when formatting unformatted partition",
         )
 
-    def test_create_always_reboots_after_new_partition(self):
-        """create_persist_partition must always signal REBOOT_NEEDED after creating a new partition.
+    def test_create_reboots_when_device_not_visible(self):
+        """create_persist_partition must signal REBOOT_NEEDED when kernel cannot see the partition.
 
-        After writing a new partition to disk, the script must always reboot
-        so the kernel cleanly picks up the new partition table.  Formatting
-        happens on the next boot via find_unformatted_partition().
+        When the device node does not exist after partition creation, a reboot
+        is required so the kernel picks up the new partition table.  When the
+        device node IS visible, the partition is formatted and returned directly.
         """
-        # After the partition creation section (sfdisk/parted), the function
-        # should signal REBOOT_NEEDED regardless of whether the kernel saw it
         reboot_occurrences = self.create_fn.count('echo "REBOOT_NEEDED"')
         self.assertGreaterEqual(
             reboot_occurrences,
             1,
-            "create_persist_partition must echo REBOOT_NEEDED after partition creation",
+            "create_persist_partition must echo REBOOT_NEEDED when device node is missing",
         )
 
 
