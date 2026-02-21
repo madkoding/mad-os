@@ -189,12 +189,182 @@ jobs:
             ${{ env.ARCHLINUX_IMAGE }} bash /build/${{ matrix.component.script }}
 
   # ================================================================
-  # Stage 5: Build ISO
+  # Stage 5a: Auto Version Tag (on branch pushes)
+  # ================================================================
+  auto-tag:
+    name: "🏷️ Auto Version Tag"
+    needs: validate-installer
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      new_tag: ${{ steps.create_tag.outputs.new_tag }}
+      version: ${{ steps.create_tag.outputs.version }}
+      is_release: ${{ steps.create_tag.outputs.is_release }}
+      is_prerelease: ${{ steps.create_tag.outputs.is_prerelease }}
+      release_type: ${{ steps.create_tag.outputs.release_type }}
+      version_bump: ${{ steps.create_tag.outputs.version_bump }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create version tag
+        id: create_tag
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          echo "Branch: $BRANCH"
+
+          if [[ "$BRANCH" == "develop" ]]; then
+            # --- Develop: analyze commits and create beta tag ---
+            LAST_TAG=$(git tag -l --sort=-version:refname 'v*' | head -1)
+            LAST_TAG="${LAST_TAG:-v0.0.0}"
+            echo "Last tag: $LAST_TAG"
+
+            BASE_VERSION=$(echo "$LAST_TAG" | sed 's/^v//; s/-.*$//')
+            MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
+            MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
+            PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
+
+            # Analyze commits since last tag
+            if git rev-parse "$LAST_TAG" >/dev/null 2>&1; then
+              COMMITS=$(git log "${LAST_TAG}..HEAD" --pretty=format:"%s" 2>/dev/null || echo "")
+            else
+              COMMITS=$(git log --pretty=format:"%s")
+            fi
+
+            HAS_BREAKING=false
+            HAS_FEATURE=false
+            HAS_FIX=false
+
+            if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-zA-Z0-9]+!:"; then
+              HAS_BREAKING=true
+            fi
+            if echo "$COMMITS" | grep -qiE "^feat(\(|:)"; then
+              HAS_FEATURE=true
+            fi
+            if echo "$COMMITS" | grep -qiE "^fix(\(|:)|^hotfix(\(|:)"; then
+              HAS_FIX=true
+            fi
+
+            BUMP="minor (default)"
+            if [ "$HAS_BREAKING" = "true" ]; then
+              MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+              BUMP="major (breaking change)"
+            elif [ "$HAS_FEATURE" = "true" ]; then
+              MINOR=$((MINOR + 1)); PATCH=0
+              BUMP="minor (feature)"
+            elif [ "$HAS_FIX" = "true" ]; then
+              PATCH=$((PATCH + 1))
+              BUMP="patch (fix)"
+            else
+              MINOR=$((MINOR + 1)); PATCH=0
+            fi
+
+            NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}-beta"
+            VERSION="${MAJOR}.${MINOR}.${PATCH}-beta"
+
+            echo "version_bump=$BUMP" >> "$GITHUB_OUTPUT"
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "release_type=beta" >> "$GITHUB_OUTPUT"
+
+          elif [[ "$BRANCH" == "main" ]]; then
+            # --- Main: use last develop beta tag as reference ---
+            LAST_BETA_TAG=$(git tag -l --sort=-version:refname 'v*-beta' | head -1)
+            echo "Last beta tag: ${LAST_BETA_TAG:-none}"
+
+            if [ -n "$LAST_BETA_TAG" ]; then
+              # Strip -beta suffix to create release version
+              VERSION=$(echo "$LAST_BETA_TAG" | sed 's/^v//; s/-beta$//')
+              NEW_TAG="v${VERSION}"
+              BUMP="from beta tag $LAST_BETA_TAG"
+            else
+              # Fallback: analyze commits for version bump
+              LAST_STABLE_TAG=$(git tag -l --sort=-version:refname 'v*' | grep -v '-' | head -1)
+              LAST_STABLE_TAG="${LAST_STABLE_TAG:-v0.0.0}"
+              echo "Last stable tag: $LAST_STABLE_TAG"
+
+              BASE_VERSION=$(echo "$LAST_STABLE_TAG" | sed 's/^v//')
+              MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
+              MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
+              PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
+
+              if git rev-parse "$LAST_STABLE_TAG" >/dev/null 2>&1; then
+                COMMITS=$(git log "${LAST_STABLE_TAG}..HEAD" --pretty=format:"%s" 2>/dev/null || echo "")
+              else
+                COMMITS=$(git log --pretty=format:"%s")
+              fi
+
+              HAS_BREAKING=false
+              HAS_FEATURE=false
+              HAS_FIX=false
+
+              if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-zA-Z0-9]+!:"; then
+                HAS_BREAKING=true
+              fi
+              if echo "$COMMITS" | grep -qiE "^feat(\(|:)"; then
+                HAS_FEATURE=true
+              fi
+              if echo "$COMMITS" | grep -qiE "^fix(\(|:)|^hotfix(\(|:)"; then
+                HAS_FIX=true
+              fi
+
+              BUMP="minor (default)"
+              if [ "$HAS_BREAKING" = "true" ]; then
+                MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+                BUMP="major (breaking change)"
+              elif [ "$HAS_FEATURE" = "true" ]; then
+                MINOR=$((MINOR + 1)); PATCH=0
+                BUMP="minor (feature)"
+              elif [ "$HAS_FIX" = "true" ]; then
+                PATCH=$((PATCH + 1))
+                BUMP="patch (fix)"
+              else
+                MINOR=$((MINOR + 1)); PATCH=0
+              fi
+
+              NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+              VERSION="${MAJOR}.${MINOR}.${PATCH}"
+            fi
+
+            echo "version_bump=$BUMP" >> "$GITHUB_OUTPUT"
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "release_type=stable" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Check if tag already exists
+          if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
+            echo "::warning::Tag $NEW_TAG already exists, skipping tag creation"
+            echo "new_tag=" >> "$GITHUB_OUTPUT"
+            echo "version=" >> "$GITHUB_OUTPUT"
+          else
+            echo "✅ Creating tag $NEW_TAG (bump: $BUMP)"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "$NEW_TAG" -m "Auto-generated tag $NEW_TAG ($BUMP)"
+            git push origin "$NEW_TAG"
+            echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ================================================================
+  # Stage 5b: Build ISO
   # ================================================================
   build:
     name: "🏗️ Build ISO"
-    needs: validate-installer
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: [validate-installer, auto-tag]
+    if: |
+      always() && !cancelled() &&
+      (
+        (startsWith(github.ref, 'refs/tags/v') && needs.validate-installer.result == 'success') ||
+        github.event_name == 'workflow_dispatch' ||
+        (needs.auto-tag.result == 'success' && needs.auto-tag.outputs.new_tag != '' && needs.auto-tag.outputs.is_release == 'true')
+      )
     runs-on: ubuntu-latest
 
     outputs:
@@ -215,99 +385,24 @@ jobs:
         with:
           fetch-depth: 0  # Necesario para obtener todos los tags
 
-      - name: Analyze commits for version bump
-        id: version_analysis
-        run: |
-          # Obtener última versión de tag
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          BASE_VERSION=$(echo "$LAST_TAG" | sed 's/^v//; s/-.*$//')
-          
-          # Parse version components
-          MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
-          MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
-          PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
-          
-          # Analizar commits desde el último tag
-          COMMITS=$(git log "${LAST_TAG}..HEAD" --pretty=format:"%s" 2>/dev/null || echo "")
-          
-          # Detectar tipo de cambio
-          HAS_FEATURE=false
-          HAS_FIX=false
-          
-          if echo "$COMMITS" | grep -qiE "^feat\(|feature\(|^feat:"; then
-            HAS_FEATURE=true
-          fi
-          
-          if echo "$COMMITS" | grep -qiE "^fix\(|hotfix\(|^fix:|^hotfix:"; then
-            HAS_FIX=true
-          fi
-          
-          echo "has_feature=$HAS_FEATURE" >> "$GITHUB_OUTPUT"
-          echo "has_fix=$HAS_FIX" >> "$GITHUB_OUTPUT"
-          echo "last_tag=$LAST_TAG" >> "$GITHUB_OUTPUT"
-          echo "base_version=$BASE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "major=$MAJOR" >> "$GITHUB_OUTPUT"
-          echo "minor=$MINOR" >> "$GITHUB_OUTPUT"
-          echo "patch=$PATCH" >> "$GITHUB_OUTPUT"
-
       - name: Determine build type and version
         id: build_type
         run: |
-          # Obtener valores del paso anterior
-          HAS_FEATURE="${{ steps.version_analysis.outputs.has_feature }}"
-          HAS_FIX="${{ steps.version_analysis.outputs.has_fix }}"
-          MAJOR="${{ steps.version_analysis.outputs.major }}"
-          MINOR="${{ steps.version_analysis.outputs.minor }}"
-          PATCH="${{ steps.version_analysis.outputs.patch }}"
-          
-          if [[ "$GITHUB_REF" == refs/heads/develop ]]; then
-            # Develop: analizar commits y determinar bump
-            if [ "$HAS_FEATURE" = "true" ]; then
-              # Feature: incrementar minor, reset patch
-              NEW_MINOR=$((MINOR + 1))
-              VERSION="${MAJOR}.${NEW_MINOR}.0-beta"
-              echo "version_bump=minor (feature)" >> "$GITHUB_OUTPUT"
-            elif [ "$HAS_FIX" = "true" ]; then
-              # Fix/Hotfix: incrementar patch
-              NEW_PATCH=$((PATCH + 1))
-              VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}-beta"
-              echo "version_bump=patch (fix/hotfix)" >> "$GITHUB_OUTPUT"
-            else
-              # Sin cambio semántico detectado: minor por defecto
-              NEW_MINOR=$((MINOR + 1))
-              VERSION="${MAJOR}.${NEW_MINOR}.0-beta"
-              echo "version_bump=minor (default)" >> "$GITHUB_OUTPUT"
-            fi
-            
-            echo "is_release=false" >> "$GITHUB_OUTPUT"
-            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
-            echo "release_type=beta" >> "$GITHUB_OUTPUT"
-            echo "auto_tag=v${VERSION}" >> "$GITHUB_OUTPUT"
-            
-          elif [[ "$GITHUB_REF" == refs/heads/main ]]; then
-            # Main: merge desde develop → auto tag de producción
-            if [ "$HAS_FEATURE" = "true" ]; then
-              NEW_MINOR=$((MINOR + 1))
-              VERSION="${MAJOR}.${NEW_MINOR}.0"
-              echo "version_bump=minor (feature)" >> "$GITHUB_OUTPUT"
-            elif [ "$HAS_FIX" = "true" ]; then
-              NEW_PATCH=$((PATCH + 1))
-              VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
-              echo "version_bump=patch (fix/hotfix)" >> "$GITHUB_OUTPUT"
-            else
-              # Default: minor bump
-              NEW_MINOR=$((MINOR + 1))
-              VERSION="${MAJOR}.${NEW_MINOR}.0"
-              echo "version_bump=minor (default)" >> "$GITHUB_OUTPUT"
-            fi
-            
-            echo "is_release=true" >> "$GITHUB_OUTPUT"
-            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
-            echo "release_type=stable" >> "$GITHUB_OUTPUT"
-            echo "auto_tag=v${VERSION}" >> "$GITHUB_OUTPUT"
-            
+          # Check if auto-tag job provided version info
+          AUTO_TAG="${{ needs.auto-tag.outputs.new_tag }}"
+          AUTO_VERSION="${{ needs.auto-tag.outputs.version }}"
+
+          if [ -n "$AUTO_TAG" ]; then
+            # Use version from auto-tag job
+            echo "Using auto-tag: $AUTO_TAG (version: $AUTO_VERSION)"
+            echo "is_release=${{ needs.auto-tag.outputs.is_release }}" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=${{ needs.auto-tag.outputs.is_prerelease }}" >> "$GITHUB_OUTPUT"
+            echo "release_type=${{ needs.auto-tag.outputs.release_type }}" >> "$GITHUB_OUTPUT"
+            echo "auto_tag=$AUTO_TAG" >> "$GITHUB_OUTPUT"
+            echo "version=$AUTO_VERSION" >> "$GITHUB_ENV"
+
           elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            # Tag manual: usar el tag tal cual
+            # Manual tag push: use the tag as-is
             TAG="${GITHUB_REF_NAME}"
             if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta$ ]]; then
               echo "is_release=false" >> "$GITHUB_OUTPUT"
@@ -330,15 +425,16 @@ jobs:
               echo "release_type=dev" >> "$GITHUB_OUTPUT"
               echo "auto_tag=" >> "$GITHUB_OUTPUT"
             fi
+            VERSION="${TAG#v}"
+            echo "version=$VERSION" >> "$GITHUB_ENV"
+
           else
-            # Main sin tag o manual dispatch
+            # Manual dispatch or other
             echo "is_release=false" >> "$GITHUB_OUTPUT"
             echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
             echo "release_type=dev" >> "$GITHUB_OUTPUT"
             echo "auto_tag=" >> "$GITHUB_OUTPUT"
           fi
-          
-          echo "version=$VERSION" >> "$GITHUB_ENV"
 
       - name: Build ISO in Arch container
         run: |
@@ -400,7 +496,13 @@ jobs:
   release:
     name: "🚀 Release & Deploy"
     needs: build
-    if: (startsWith(github.ref, 'refs/tags/v') && needs.build.outputs.is_release == 'true') || github.event_name == 'workflow_dispatch'
+    if: |
+      needs.build.result == 'success' &&
+      (
+        (startsWith(github.ref, 'refs/tags/v') && needs.build.outputs.is_release == 'true') ||
+        github.event_name == 'workflow_dispatch' ||
+        (needs.build.outputs.auto_tag != '' && needs.build.outputs.is_release == 'true')
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -470,7 +572,11 @@ jobs:
       - name: Set release tag
         id: release_tag
         run: |
-          echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          if [ -n "${{ needs.build.outputs.auto_tag }}" ]; then
+            echo "tag=${{ needs.build.outputs.auto_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
