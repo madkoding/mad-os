@@ -99,20 +99,22 @@ class TestLocaleMap(unittest.TestCase):
         self.assertGreater(len(LOCALE_MAP), 0)
 
     def test_english_present(self):
-        self.assertIn('English', LOCALE_MAP)
+        self.assertIn("English", LOCALE_MAP)
 
     def test_spanish_present(self):
-        self.assertIn('Español', LOCALE_MAP)
+        self.assertIn("Español", LOCALE_MAP)
 
     def test_values_are_utf8_locales(self):
         for lang, locale in LOCALE_MAP.items():
             with self.subTest(lang=lang):
-                self.assertTrue(locale.endswith('.UTF-8'),
-                                f"Locale '{locale}' for '{lang}' should end with .UTF-8")
+                self.assertTrue(
+                    locale.endswith(".UTF-8"),
+                    f"Locale '{locale}' for '{lang}' should end with .UTF-8",
+                )
 
     def test_all_locales_have_country(self):
         """Every locale should be in xx_YY.UTF-8 format."""
-        pattern = re.compile(r'^[a-z]{2}_[A-Z]{2}\.UTF-8$')
+        pattern = re.compile(r"^[a-z]{2}_[A-Z]{2}\.UTF-8$")
         for lang, locale in LOCALE_MAP.items():
             with self.subTest(lang=lang):
                 self.assertRegex(locale, pattern)
@@ -125,12 +127,16 @@ class TestTimezones(unittest.TestCase):
         self.assertGreater(len(TIMEZONES), 0)
 
     def test_utc_present(self):
-        self.assertIn('UTC', TIMEZONES)
+        self.assertIn("UTC", TIMEZONES)
 
     def test_major_timezones(self):
         expected = [
-            'America/New_York', 'America/Los_Angeles', 'Europe/London',
-            'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai',
+            "America/New_York",
+            "America/Los_Angeles",
+            "Europe/London",
+            "Europe/Berlin",
+            "Asia/Tokyo",
+            "Asia/Shanghai",
         ]
         for tz in expected:
             with self.subTest(timezone=tz):
@@ -141,43 +147,48 @@ class TestTimezones(unittest.TestCase):
 
     def test_sorted_by_region(self):
         """Verify UTC is first, then timezones are generally sorted."""
-        self.assertEqual(TIMEZONES[0], 'UTC')
+        self.assertEqual(TIMEZONES[0], "UTC")
 
     def test_format_region_slash_city(self):
         """All non-UTC timezones should have Region/City format."""
         for tz in TIMEZONES:
-            if tz == 'UTC':
+            if tz == "UTC":
                 continue
             with self.subTest(timezone=tz):
-                self.assertIn('/', tz, f"Timezone '{tz}' should have Region/City format")
+                self.assertIn(
+                    "/", tz, f"Timezone '{tz}' should have Region/City format"
+                )
 
 
 class TestNordColors(unittest.TestCase):
     """Verify Nord color palette values are valid hex colors."""
 
-    HEX_PATTERN = re.compile(r'^#[0-9A-Fa-f]{6}$')
+    HEX_PATTERN = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
     def _check_palette(self, palette, name):
         for key, color in palette.items():
             with self.subTest(palette=name, key=key):
-                self.assertRegex(color, self.HEX_PATTERN,
-                                 f"Color '{key}' value '{color}' is not a valid hex color")
+                self.assertRegex(
+                    color,
+                    self.HEX_PATTERN,
+                    f"Color '{key}' value '{color}' is not a valid hex color",
+                )
 
     def test_polar_night(self):
         self.assertEqual(len(NORD_POLAR_NIGHT), 4)
-        self._check_palette(NORD_POLAR_NIGHT, 'POLAR_NIGHT')
+        self._check_palette(NORD_POLAR_NIGHT, "POLAR_NIGHT")
 
     def test_snow_storm(self):
         self.assertEqual(len(NORD_SNOW_STORM), 3)
-        self._check_palette(NORD_SNOW_STORM, 'SNOW_STORM')
+        self._check_palette(NORD_SNOW_STORM, "SNOW_STORM")
 
     def test_frost(self):
         self.assertEqual(len(NORD_FROST), 4)
-        self._check_palette(NORD_FROST, 'FROST')
+        self._check_palette(NORD_FROST, "FROST")
 
     def test_aurora(self):
         self.assertEqual(len(NORD_AURORA), 5)
-        self._check_palette(NORD_AURORA, 'AURORA')
+        self._check_palette(NORD_AURORA, "AURORA")
 
     def test_nord_keys_numbered(self):
         """Nord keys should be nord0-nord15."""
@@ -185,7 +196,7 @@ class TestNordColors(unittest.TestCase):
         for palette in (NORD_POLAR_NIGHT, NORD_SNOW_STORM, NORD_FROST, NORD_AURORA):
             all_keys.update(palette.keys())
         for i in range(16):
-            self.assertIn(f'nord{i}', all_keys)
+            self.assertIn(f"nord{i}", all_keys)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -207,33 +218,42 @@ class TestPackageLists(unittest.TestCase):
     def test_no_duplicate_packages(self):
         """No package should appear in both Phase 1 and Phase 2."""
         overlap = set(PACKAGES_PHASE1) & set(PACKAGES_PHASE2)
-        self.assertEqual(overlap, set(),
-                         f"Packages in both phases: {overlap}")
+        self.assertEqual(overlap, set(), f"Packages in both phases: {overlap}")
 
     def test_essential_phase1_packages(self):
-        essential = ['base', 'linux', 'grub', 'networkmanager', 'sudo',
-                     'python', 'gtk3', 'nodejs', 'npm']
+        essential = [
+            "base",
+            "linux",
+            "grub",
+            "networkmanager",
+            "sudo",
+            "python",
+            "gtk3",
+            "nodejs",
+            "npm",
+        ]
         for pkg in essential:
             with self.subTest(package=pkg):
                 self.assertIn(pkg, PACKAGES_PHASE1)
 
     def test_essential_phase2_packages(self):
-        essential = ['chromium', 'code', 'git', 'pipewire', 'bluez']
+        essential = ["chromium", "code", "git", "pipewire", "bluez"]
         for pkg in essential:
             with self.subTest(package=pkg):
                 self.assertIn(pkg, PACKAGES_PHASE2)
 
     def test_package_names_valid(self):
         """Package names should only contain valid characters."""
-        pattern = re.compile(r'^[a-z0-9][a-z0-9._+-]*$')
+        pattern = re.compile(r"^[a-z0-9][a-z0-9._+-]*$")
         for pkg in PACKAGES:
             with self.subTest(package=pkg):
-                self.assertRegex(pkg, pattern,
-                                 f"Package name '{pkg}' contains invalid characters")
+                self.assertRegex(
+                    pkg, pattern, f"Package name '{pkg}' contains invalid characters"
+                )
 
     def test_gtk_dependencies_in_phase1(self):
         """GTK dependencies needed for installer must be in Phase 1."""
-        gtk_deps = ['python', 'python-gobject', 'gtk3']
+        gtk_deps = ["python", "python-gobject", "gtk3"]
         for pkg in gtk_deps:
             with self.subTest(package=pkg):
                 self.assertIn(pkg, PACKAGES_PHASE1)
@@ -246,15 +266,20 @@ class TestLocaleKeyboardMap(unittest.TestCase):
         """Every locale in LOCALE_MAP should have a keyboard mapping."""
         for lang, locale in LOCALE_MAP.items():
             with self.subTest(lang=lang, locale=locale):
-                self.assertIn(locale, LOCALE_KB_MAP,
-                              f"Locale '{locale}' for '{lang}' has no keyboard mapping")
+                self.assertIn(
+                    locale,
+                    LOCALE_KB_MAP,
+                    f"Locale '{locale}' for '{lang}' has no keyboard mapping",
+                )
 
     def test_keyboard_layouts_valid(self):
         """Keyboard layouts should be short alphanumeric strings."""
         for locale, layout in LOCALE_KB_MAP.items():
             with self.subTest(locale=locale):
-                self.assertTrue(layout.isalpha() and len(layout) <= 4,
-                                f"Layout '{layout}' for '{locale}' seems invalid")
+                self.assertTrue(
+                    layout.isalpha() and len(layout) <= 4,
+                    f"Layout '{layout}' for '{locale}' seems invalid",
+                )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -266,21 +291,25 @@ class TestTranslations(unittest.TestCase):
     def test_all_locale_map_languages_have_translations(self):
         for lang in LOCALE_MAP.keys():
             with self.subTest(lang=lang):
-                self.assertIn(lang, TRANSLATIONS,
-                              f"Language '{lang}' in LOCALE_MAP has no translations")
+                self.assertIn(
+                    lang,
+                    TRANSLATIONS,
+                    f"Language '{lang}' in LOCALE_MAP has no translations",
+                )
 
     def test_english_is_reference(self):
-        self.assertIn('English', TRANSLATIONS)
+        self.assertIn("English", TRANSLATIONS)
 
     def test_all_languages_have_same_keys(self):
         """Every language should have the same set of translation keys."""
-        reference_keys = set(TRANSLATIONS['English'].keys())
+        reference_keys = set(TRANSLATIONS["English"].keys())
         for lang, trans in TRANSLATIONS.items():
             with self.subTest(lang=lang):
                 trans_keys = set(trans.keys())
                 missing = reference_keys - trans_keys
-                self.assertEqual(missing, set(),
-                                 f"Language '{lang}' is missing keys: {missing}")
+                self.assertEqual(
+                    missing, set(), f"Language '{lang}' is missing keys: {missing}"
+                )
 
     def test_no_empty_translations(self):
         """No translation value should be an empty string."""
@@ -288,26 +317,29 @@ class TestTranslations(unittest.TestCase):
             for key, value in trans.items():
                 if isinstance(value, str):
                     with self.subTest(lang=lang, key=key):
-                        self.assertTrue(len(value) > 0,
-                                        f"Empty translation for '{key}' in '{lang}'")
+                        self.assertGreater(
+                            len(value), 0, f"Empty translation for '{key}' in '{lang}'"
+                        )
 
     def test_features_structure(self):
         """Features should be a list of tuples with 2 strings each."""
         for lang, trans in TRANSLATIONS.items():
             with self.subTest(lang=lang):
-                features = trans.get('features', [])
+                features = trans.get("features", [])
                 self.assertIsInstance(features, list)
                 for i, feat in enumerate(features):
-                    self.assertIsInstance(feat, tuple,
-                                         f"Feature {i} in '{lang}' is not a tuple")
-                    self.assertEqual(len(feat), 2,
-                                     f"Feature {i} in '{lang}' should have 2 elements")
+                    self.assertIsInstance(
+                        feat, tuple, f"Feature {i} in '{lang}' is not a tuple"
+                    )
+                    self.assertEqual(
+                        len(feat), 2, f"Feature {i} in '{lang}' should have 2 elements"
+                    )
 
     def test_title_consistent(self):
         """Title should be 'madOS' in all languages."""
         for lang, trans in TRANSLATIONS.items():
             with self.subTest(lang=lang):
-                self.assertEqual(trans.get('title'), 'madOS')
+                self.assertEqual(trans.get("title"), "madOS")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -338,5 +370,5 @@ class TestRandomSuffix(unittest.TestCase):
         self.assertGreater(len(suffixes), 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

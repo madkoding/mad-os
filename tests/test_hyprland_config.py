@@ -81,18 +81,19 @@ class TestHyprlandBraceBalance(unittest.TestCase):
         """Every opening { must have a matching closing }."""
         content = _read_config()
         # Remove comments and strings to avoid false positives
-        clean = re.sub(r'#.*$', '', content, flags=re.MULTILINE)
+        clean = re.sub(r"#.*$", "", content, flags=re.MULTILINE)
         opens = clean.count("{")
         closes = clean.count("}")
         self.assertEqual(
-            opens, closes,
+            opens,
+            closes,
             f"Unbalanced braces: {opens} opening vs {closes} closing",
         )
 
     def test_no_nested_section_beyond_two_levels(self):
         """Hyprland supports at most 2-level nesting (e.g. decoration { blur { } })."""
         content = _read_config()
-        clean = re.sub(r'#.*$', '', content, flags=re.MULTILINE)
+        clean = re.sub(r"#.*$", "", content, flags=re.MULTILINE)
         depth = 0
         max_depth = 0
         for char in clean:
@@ -102,11 +103,13 @@ class TestHyprlandBraceBalance(unittest.TestCase):
             elif char == "}":
                 depth -= 1
         self.assertLessEqual(
-            max_depth, 3,
+            max_depth,
+            3,
             f"Nesting too deep ({max_depth} levels) – Hyprland supports max 2-level sections",
         )
         self.assertGreaterEqual(
-            depth, 0,
+            depth,
+            0,
             "Brace depth went negative – more } than { at some point",
         )
 
@@ -120,17 +123,45 @@ class TestHyprlandKeywords(unittest.TestCase):
     # Known valid top-level keywords in Hyprland config
     VALID_TOP_LEVEL_KEYWORDS = {
         # Sections (categories)
-        "general", "decoration", "animations", "input", "misc",
-        "dwindle", "master", "gestures", "group", "xwayland",
-        "opengl", "render", "cursor", "debug", "binds",
+        "general",
+        "decoration",
+        "animations",
+        "input",
+        "misc",
+        "dwindle",
+        "master",
+        "gestures",
+        "group",
+        "xwayland",
+        "opengl",
+        "render",
+        "cursor",
+        "debug",
+        "binds",
         "ecosystem",
         # Commands / keywords
-        "exec-once", "exec", "bind", "binde", "bindel", "bindm",
-        "bindr", "bindl", "bindn", "bindrl",
-        "monitor", "workspace", "windowrule", "windowrulev2",
-        "layerrule", "layerrulev2",
-        "source", "env", "bezier", "animation",
-        "submap", "plugin",
+        "exec-once",
+        "exec",
+        "bind",
+        "binde",
+        "bindel",
+        "bindm",
+        "bindr",
+        "bindl",
+        "bindn",
+        "bindrl",
+        "monitor",
+        "workspace",
+        "windowrule",
+        "windowrulev2",
+        "layerrule",
+        "layerrulev2",
+        "source",
+        "env",
+        "bezier",
+        "animation",
+        "submap",
+        "plugin",
         "device",
         # Variable definitions
     }
@@ -154,7 +185,7 @@ class TestHyprlandKeywords(unittest.TestCase):
             pre_depth = depth - stripped.count("{") + stripped.count("}")
             if pre_depth == 0:
                 # Extract the keyword (before = or {)
-                match = re.match(r'^\$?\w[\w-]*', stripped)
+                match = re.match(r"^\$?\w[\w-]*", stripped)
                 if match:
                     keywords.append(match.group(0))
         return keywords
@@ -168,7 +199,8 @@ class TestHyprlandKeywords(unittest.TestCase):
                 continue
             with self.subTest(keyword=kw):
                 self.assertIn(
-                    kw, self.VALID_TOP_LEVEL_KEYWORDS,
+                    kw,
+                    self.VALID_TOP_LEVEL_KEYWORDS,
                     f"Unknown top-level keyword '{kw}' in hyprland.conf. "
                     f"If this is a new valid keyword, add it to VALID_TOP_LEVEL_KEYWORDS.",
                 )
@@ -181,7 +213,7 @@ class TestHyprlandKeywords(unittest.TestCase):
         rules must now use the unified 'windowrule' keyword.
         """
         content = _read_config()
-        clean = re.sub(r'#.*$', '', content, flags=re.MULTILINE)
+        clean = re.sub(r"#.*$", "", content, flags=re.MULTILINE)
         self.assertNotIn(
             "windowrulev2",
             clean,
@@ -202,9 +234,10 @@ class TestHyprlandRequiredSections(unittest.TestCase):
         content = _read_config()
         for section in self.REQUIRED_SECTIONS:
             with self.subTest(section=section):
-                pattern = rf'^\s*{re.escape(section)}\s*\{{' 
+                pattern = rf"^\s*{re.escape(section)}\s*\{{"
                 self.assertRegex(
-                    content, re.compile(pattern, re.MULTILINE),
+                    content,
+                    re.compile(pattern, re.MULTILINE),
                     f"Required section '{section}' missing from hyprland.conf",
                 )
 
@@ -218,22 +251,23 @@ class TestHyprlandVariables(unittest.TestCase):
     def _get_defined_vars(self):
         """Return set of defined variable names ($varName = ...)."""
         content = _read_config()
-        return set(re.findall(r'^\s*\$(\w+)\s*=', content, re.MULTILINE))
+        return set(re.findall(r"^\s*\$(\w+)\s*=", content, re.MULTILINE))
 
     def _get_used_vars(self):
         """Return set of variable names used in the config ($varName)."""
         content = _read_config()
         # Remove definition lines to only find usage
-        clean = re.sub(r'^\s*\$\w+\s*=.*$', '', content, flags=re.MULTILINE)
+        clean = re.sub(r"^\s*\$\w+\s*=.*$", "", content, flags=re.MULTILINE)
         # Remove comments
-        clean = re.sub(r'#.*$', '', clean, flags=re.MULTILINE)
-        return set(re.findall(r'\$(\w+)', clean))
+        clean = re.sub(r"#.*$", "", clean, flags=re.MULTILINE)
+        return set(re.findall(r"\$(\w+)", clean))
 
     def test_mainmod_defined(self):
         """$mainMod must be defined (standard Hyprland convention)."""
         defined = self._get_defined_vars()
         self.assertIn(
-            "mainMod", defined,
+            "mainMod",
+            defined,
             "$mainMod must be defined for keybindings",
         )
 
@@ -243,7 +277,8 @@ class TestHyprlandVariables(unittest.TestCase):
         used = self._get_used_vars()
         undefined = used - defined
         self.assertEqual(
-            undefined, set(),
+            undefined,
+            set(),
             f"Variables used but never defined: {undefined}",
         )
 
@@ -254,14 +289,23 @@ class TestHyprlandVariables(unittest.TestCase):
 class TestHyprlandBindSyntax(unittest.TestCase):
     """Verify keybindings use correct syntax."""
 
-    VALID_BIND_TYPES = {"bind", "binde", "bindel", "bindm", "bindr", "bindl", "bindn", "bindrl"}
+    VALID_BIND_TYPES = {
+        "bind",
+        "binde",
+        "bindel",
+        "bindm",
+        "bindr",
+        "bindl",
+        "bindn",
+        "bindrl",
+    }
 
     def _get_bind_lines(self):
         """Return all bind lines from the config."""
         lines = _config_lines()
         bind_lines = []
         for line in lines:
-            match = re.match(r'^(bind\w*)\s*=\s*(.+)', line)
+            match = re.match(r"^(bind\w*)\s*=\s*(.+)", line)
             if match:
                 bind_lines.append((match.group(1), match.group(2), line))
         return bind_lines
@@ -272,7 +316,8 @@ class TestHyprlandBindSyntax(unittest.TestCase):
         for bind_type, _, line in bind_lines:
             with self.subTest(line=line[:60]):
                 self.assertIn(
-                    bind_type, self.VALID_BIND_TYPES,
+                    bind_type,
+                    self.VALID_BIND_TYPES,
                     f"Invalid bind type '{bind_type}'",
                 )
 
@@ -283,7 +328,8 @@ class TestHyprlandBindSyntax(unittest.TestCase):
             with self.subTest(line=line[:60]):
                 parts = [p.strip() for p in value.split(",")]
                 self.assertGreaterEqual(
-                    len(parts), 3,
+                    len(parts),
+                    3,
                     f"Bind must have at least 3 fields (MODS, KEY, DISPATCHER): {line}",
                 )
 
@@ -295,27 +341,39 @@ class TestHyprlandBindSyntax(unittest.TestCase):
                 parts = [p.strip() for p in value.split(",")]
                 if len(parts) >= 3:
                     dispatcher = parts[2]
-                    self.assertTrue(
-                        len(dispatcher) > 0,
+                    self.assertGreater(
+                        len(dispatcher),
+                        0,
                         f"Empty dispatcher in bind: {line}",
                     )
 
     def test_valid_modifiers(self):
         """Modifier keys should be valid Hyprland modifiers."""
-        valid_mods = {"SUPER", "SHIFT", "ALT", "CTRL", "CONTROL", "MOD2", "MOD3", "MOD5", ""}
+        valid_mods = {
+            "SUPER",
+            "SHIFT",
+            "ALT",
+            "CTRL",
+            "CONTROL",
+            "MOD2",
+            "MOD3",
+            "MOD5",
+            "",
+        }
         bind_lines = self._get_bind_lines()
         for bind_type, value, line in bind_lines:
             parts = [p.strip() for p in value.split(",")]
             if len(parts) >= 1:
                 mod_str = parts[0].strip()
                 # Handle variable references like $mainMod
-                mod_str = re.sub(r'\$\w+', '', mod_str)
+                mod_str = re.sub(r"\$\w+", "", mod_str)
                 mods = mod_str.split()
                 for mod in mods:
                     if mod:
                         with self.subTest(line=line[:60], modifier=mod):
                             self.assertIn(
-                                mod, valid_mods,
+                                mod,
+                                valid_mods,
                                 f"Invalid modifier '{mod}' in bind: {line}",
                             )
 
@@ -339,13 +397,13 @@ class TestHyprlandNoDuplicateBinds(unittest.TestCase):
                 continue
 
             # Track submap changes
-            submap_match = re.match(r'^submap\s*=\s*(.+)', stripped)
+            submap_match = re.match(r"^submap\s*=\s*(.+)", stripped)
             if submap_match:
                 current_submap = submap_match.group(1).strip()
                 continue
 
             # Collect binds
-            bind_match = re.match(r'^(bind\w*)\s*=\s*(.+)', stripped)
+            bind_match = re.match(r"^(bind\w*)\s*=\s*(.+)", stripped)
             if bind_match:
                 bind_type = bind_match.group(1)
                 value = bind_match.group(2)
@@ -362,7 +420,8 @@ class TestHyprlandNoDuplicateBinds(unittest.TestCase):
         seen = Counter(b[0] for b in binds)
         duplicates = {k: v for k, v in seen.items() if v > 1}
         self.assertEqual(
-            len(duplicates), 0,
+            len(duplicates),
+            0,
             f"Duplicate keybindings found: {duplicates}",
         )
 
@@ -382,8 +441,14 @@ class TestHyprlandWindowRules(unittest.TestCase):
 
     # Static effects that require a value in Hyprland v0.53+
     EFFECTS_REQUIRING_VALUE = {
-        "float", "tile", "fullscreen", "maximize", "center",
-        "pseudo", "pin", "no_initial_focus",
+        "float",
+        "tile",
+        "fullscreen",
+        "maximize",
+        "center",
+        "pseudo",
+        "pin",
+        "no_initial_focus",
     }
 
     def _get_window_rules(self):
@@ -391,7 +456,7 @@ class TestHyprlandWindowRules(unittest.TestCase):
         lines = _config_lines()
         rules = []
         for line in lines:
-            match = re.match(r'^windowrule\s*=\s*(.+)', line)
+            match = re.match(r"^windowrule\s*=\s*(.+)", line)
             if match:
                 rules.append(match.group(1))
         return rules
@@ -403,7 +468,8 @@ class TestHyprlandWindowRules(unittest.TestCase):
             with self.subTest(rule=rule[:60]):
                 parts = [p.strip() for p in rule.split(",", 1)]
                 self.assertEqual(
-                    len(parts), 2,
+                    len(parts),
+                    2,
                     f"windowrule must have exactly 2 parts (action, match): {rule}",
                 )
 
@@ -414,8 +480,9 @@ class TestHyprlandWindowRules(unittest.TestCase):
             parts = [p.strip() for p in rule.split(",", 1)]
             if len(parts) == 2:
                 with self.subTest(rule=rule[:60]):
-                    self.assertTrue(
-                        len(parts[0]) > 0,
+                    self.assertGreater(
+                        len(parts[0]),
+                        0,
                         f"Empty action in windowrule: {rule}",
                     )
 
@@ -426,8 +493,9 @@ class TestHyprlandWindowRules(unittest.TestCase):
             parts = [p.strip() for p in rule.split(",", 1)]
             if len(parts) == 2:
                 with self.subTest(rule=rule[:60]):
-                    self.assertTrue(
-                        len(parts[1]) > 0,
+                    self.assertGreater(
+                        len(parts[1]),
+                        0,
                         f"Empty match criteria in windowrule: {rule}",
                     )
 
@@ -445,7 +513,10 @@ class TestHyprlandWindowRules(unittest.TestCase):
                 match_str = parts[1]
                 with self.subTest(rule=rule[:60]):
                     # Detect bare class:/title: without match: prefix
-                    bare = re.search(r'(?<!\w)(?<!match:)(class|title|initial_class|initial_title):', match_str)
+                    bare = re.search(
+                        r"(?<!\w)(?<!match:)(class|title|initial_class|initial_title):",
+                        match_str,
+                    )
                     if bare:
                         self.fail(
                             f"Use 'match:{bare.group(1)}' instead of bare '{bare.group(1)}:' "
@@ -467,7 +538,8 @@ class TestHyprlandWindowRules(unittest.TestCase):
                 with self.subTest(rule=rule[:60]):
                     if effect_name in self.EFFECTS_REQUIRING_VALUE:
                         self.assertGreater(
-                            len(effect_parts), 1,
+                            len(effect_parts),
+                            1,
                             f"Effect '{effect_name}' requires a value (e.g. '{effect_name} 1') "
                             f"in Hyprland v0.53+: {rule}",
                         )
@@ -480,7 +552,7 @@ class TestHyprlandWindowRules(unittest.TestCase):
             if len(parts) == 2:
                 match_str = parts[1]
                 # Extract regex from match:class ^(...)$ pattern (v0.53+ syntax)
-                regex_match = re.search(r'match:class\s+\^?\(?([^)]*)\)?\$?', match_str)
+                regex_match = re.search(r"match:class\s+\^?\(?([^)]*)\)?\$?", match_str)
                 if regex_match:
                     pattern = regex_match.group(1)
                     with self.subTest(pattern=pattern):
@@ -499,24 +571,24 @@ class TestHyprlandColors(unittest.TestCase):
     def test_rgba_colors_valid(self):
         """All rgba() colors must have valid hex format (8 hex digits)."""
         content = _read_config()
-        colors = re.findall(r'rgba\(([^)]+)\)', content)
+        colors = re.findall(r"rgba\(([^)]+)\)", content)
         for color in colors:
             with self.subTest(color=color):
                 self.assertRegex(
                     color,
-                    r'^[0-9a-fA-F]{8}$',
+                    r"^[0-9a-fA-F]{8}$",
                     f"Invalid rgba color '{color}' – must be 8 hex digits (RRGGBBAA)",
                 )
 
     def test_rgb_colors_valid(self):
         """All rgb() colors must have valid hex format (6 hex digits)."""
         content = _read_config()
-        colors = re.findall(r'(?<!a)rgb\(([^)]+)\)', content)
+        colors = re.findall(r"(?<!a)rgb\(([^)]+)\)", content)
         for color in colors:
             with self.subTest(color=color):
                 self.assertRegex(
                     color,
-                    r'^[0-9a-fA-F]{6}$',
+                    r"^[0-9a-fA-F]{6}$",
                     f"Invalid rgb color '{color}' – must be 6 hex digits (RRGGBB)",
                 )
 
@@ -531,21 +603,34 @@ class TestHyprlandEnvVars(unittest.TestCase):
         """Each env directive must have KEY,VALUE format."""
         lines = _config_lines()
         for line in lines:
-            match = re.match(r'^env\s*=\s*(.+)', line)
+            match = re.match(r"^env\s*=\s*(.+)", line)
             if match:
                 value = match.group(1)
                 parts = [p.strip() for p in value.split(",", 1)]
                 with self.subTest(line=line):
                     self.assertEqual(
-                        len(parts), 2,
+                        len(parts),
+                        2,
                         f"env must have KEY,VALUE format: {line}",
                     )
-                    self.assertTrue(
-                        len(parts[0]) > 0,
+                    self.assertGreater(
+                        len(parts[0]),
+                        0,
                         f"Empty KEY in env: {line}",
                     )
-                    self.assertTrue(
-                        len(parts[1]) > 0,
+                    self.assertGreater(
+                        len(parts[1]),
+                        0,
+                        f"Empty VALUE in env: {line}",
+                    )
+                    self.assertGreater(
+                        len(parts[0]),
+                        0,
+                        f"Empty KEY in env: {line}",
+                    )
+                    self.assertGreater(
+                        len(parts[1]),
+                        0,
                         f"Empty VALUE in env: {line}",
                     )
 
@@ -561,7 +646,8 @@ class TestHyprlandMonitor(unittest.TestCase):
         lines = _config_lines()
         monitor_lines = [l for l in lines if l.startswith("monitor")]
         self.assertGreater(
-            len(monitor_lines), 0,
+            len(monitor_lines),
+            0,
             "At least one monitor configuration is required",
         )
 
@@ -569,12 +655,13 @@ class TestHyprlandMonitor(unittest.TestCase):
         """monitor = name,resolution,position,scale (4 fields)."""
         lines = _config_lines()
         for line in lines:
-            match = re.match(r'^monitor\s*=\s*(.+)', line)
+            match = re.match(r"^monitor\s*=\s*(.+)", line)
             if match:
                 parts = [p.strip() for p in match.group(1).split(",")]
                 with self.subTest(line=line):
                     self.assertGreaterEqual(
-                        len(parts), 4,
+                        len(parts),
+                        4,
                         f"monitor needs at least 4 fields (name,res,pos,scale): {line}",
                     )
 
@@ -588,15 +675,16 @@ class TestHyprlandSubmaps(unittest.TestCase):
     def test_submaps_properly_closed(self):
         """Every submap = <name> must end with submap = reset."""
         content = _read_config()
-        clean = re.sub(r'#.*$', '', content, flags=re.MULTILINE)
-        submap_opens = re.findall(r'^submap\s*=\s*(\S+)', clean, re.MULTILINE)
+        clean = re.sub(r"#.*$", "", content, flags=re.MULTILINE)
+        submap_opens = re.findall(r"^submap\s*=\s*(\S+)", clean, re.MULTILINE)
 
         # Count non-reset submap activations
         opens = [s for s in submap_opens if s != "reset"]
         resets = [s for s in submap_opens if s == "reset"]
 
         self.assertEqual(
-            len(opens), len(resets),
+            len(opens),
+            len(resets),
             f"Unbalanced submaps: {len(opens)} opened, {len(resets)} reset. "
             f"Each submap must end with 'submap = reset'.",
         )
@@ -612,12 +700,13 @@ class TestHyprlandExecOnce(unittest.TestCase):
         """exec-once commands must have a non-empty command."""
         lines = _config_lines()
         for line in lines:
-            match = re.match(r'^exec-once\s*=\s*(.*)', line)
+            match = re.match(r"^exec-once\s*=\s*(.*)", line)
             if match:
                 cmd = match.group(1).strip()
                 with self.subTest(line=line[:60]):
-                    self.assertTrue(
-                        len(cmd) > 0,
+                    self.assertGreater(
+                        len(cmd),
+                        0,
                         f"Empty exec-once command: {line}",
                     )
 
@@ -625,12 +714,13 @@ class TestHyprlandExecOnce(unittest.TestCase):
         """exec commands must have a non-empty command."""
         lines = _config_lines()
         for line in lines:
-            match = re.match(r'^exec\s*=\s*(.*)', line)
+            match = re.match(r"^exec\s*=\s*(.*)", line)
             if match:
                 cmd = match.group(1).strip()
                 with self.subTest(line=line[:60]):
-                    self.assertTrue(
-                        len(cmd) > 0,
+                    self.assertGreater(
+                        len(cmd),
+                        0,
                         f"Empty exec command: {line}",
                     )
 
@@ -645,17 +735,19 @@ class TestHyprlandAnimations(unittest.TestCase):
         """bezier = name, x1, y1, x2, y2 (5 fields)."""
         lines = _config_lines()
         for line in lines:
-            match = re.match(r'^bezier\s*=\s*(.+)', line)
+            match = re.match(r"^bezier\s*=\s*(.+)", line)
             if match:
                 parts = [p.strip() for p in match.group(1).split(",")]
                 with self.subTest(line=line):
                     self.assertEqual(
-                        len(parts), 5,
+                        len(parts),
+                        5,
                         f"bezier needs 5 fields (name, x1, y1, x2, y2): {line}",
                     )
                     # Name should be non-empty
-                    self.assertTrue(
-                        len(parts[0]) > 0,
+                    self.assertGreater(
+                        len(parts[0]),
+                        0,
                         f"Bezier name must not be empty: {line}",
                     )
                     # Numeric values should be valid floats
@@ -663,18 +755,21 @@ class TestHyprlandAnimations(unittest.TestCase):
                         try:
                             float(val)
                         except ValueError:
-                            self.fail(f"Bezier field {i} is not a number: '{val}' in {line}")
+                            self.fail(
+                                f"Bezier field {i} is not a number: '{val}' in {line}"
+                            )
 
     def test_animation_has_minimum_fields(self):
         """animation = name, onoff, speed, curve[, style] (at least 4 fields)."""
         lines = _config_lines()
         for line in lines:
-            match = re.match(r'^animation\s*=\s*(.+)', line)
+            match = re.match(r"^animation\s*=\s*(.+)", line)
             if match:
                 parts = [p.strip() for p in match.group(1).split(",")]
                 with self.subTest(line=line):
                     self.assertGreaterEqual(
-                        len(parts), 4,
+                        len(parts),
+                        4,
                         f"animation needs at least 4 fields (name, onoff, speed, curve): {line}",
                     )
 
@@ -689,7 +784,8 @@ class TestHyprlandInputSection(unittest.TestCase):
         """Input section must define kb_layout."""
         content = _read_config()
         self.assertIn(
-            "kb_layout", content,
+            "kb_layout",
+            content,
             "Input section must define kb_layout for keyboard layout",
         )
 
@@ -697,7 +793,8 @@ class TestHyprlandInputSection(unittest.TestCase):
         """Input section should define follow_mouse behavior."""
         content = _read_config()
         self.assertIn(
-            "follow_mouse", content,
+            "follow_mouse",
+            content,
             "Input section should define follow_mouse",
         )
 
@@ -713,7 +810,7 @@ class TestHyprlandGeneralSection(unittest.TestCase):
         content = _read_config()
         self.assertRegex(
             content,
-            r'layout\s*=\s*(dwindle|master)',
+            r"layout\s*=\s*(dwindle|master)",
             "General section must define layout = dwindle or layout = master",
         )
 
@@ -721,7 +818,8 @@ class TestHyprlandGeneralSection(unittest.TestCase):
         """General section must define border_size."""
         content = _read_config()
         self.assertIn(
-            "border_size", content,
+            "border_size",
+            content,
             "General section must define border_size",
         )
 
@@ -741,21 +839,24 @@ class TestHyprlandSessionScript(unittest.TestCase):
     def test_sets_wayland_session_type(self):
         """hyprland-session must set XDG_SESSION_TYPE=wayland."""
         self.assertIn(
-            "XDG_SESSION_TYPE=wayland", self.content,
+            "XDG_SESSION_TYPE=wayland",
+            self.content,
             "Must set XDG_SESSION_TYPE=wayland",
         )
 
     def test_sets_desktop_to_hyprland(self):
         """hyprland-session must set XDG_CURRENT_DESKTOP=Hyprland."""
         self.assertIn(
-            "XDG_CURRENT_DESKTOP=Hyprland", self.content,
+            "XDG_CURRENT_DESKTOP=Hyprland",
+            self.content,
             "Must set XDG_CURRENT_DESKTOP=Hyprland",
         )
 
     def test_execs_hyprland(self):
         """hyprland-session must exec start-hyprland."""
         self.assertIn(
-            "exec start-hyprland", self.content,
+            "exec start-hyprland",
+            self.content,
             "Must exec start-hyprland at the end",
         )
 
@@ -775,27 +876,62 @@ class TestHyprlandDispatchers(unittest.TestCase):
 
     # Known valid dispatchers in Hyprland (verified against v0.53 source)
     VALID_DISPATCHERS = {
-        "exec", "execr", "pass", "killactive", "closewindow",
-        "workspace", "movetoworkspace", "movetoworkspacesilent",
-        "togglefloating", "fullscreen", "fakefullscreen",
-        "dpms", "pin", "movefocus", "movewindow", "swapwindow",
-        "centerwindow", "resizeactive", "moveactive",
-        "resizewindowpixel", "movewindowpixel",
-        "cyclenext", "swapnext", "focuswindow",
-        "focusmonitor", "splitratio", "toggleopaque",
-        "movecursortocorner", "movecursor",
-        "renameworkspace", "exit", "forcerendererreload",
-        "movecurrentworkspacetomonitor", "focusworkspaceoncurrentmonitor",
-        "moveworkspacetomonitor", "swapactiveworkspaces",
-        "bringactivetotop", "alterzorder",
-        "togglespecialworkspace", "focusurgentorlast",
-        "togglegroup", "changegroupactive", "focuscurrentorlast",
-        "lockgroups", "lockactivegroup", "moveintogroup",
-        "moveoutofgroup", "movewindoworgroup", "movegroupwindow",
+        "exec",
+        "execr",
+        "pass",
+        "killactive",
+        "closewindow",
+        "workspace",
+        "movetoworkspace",
+        "movetoworkspacesilent",
+        "togglefloating",
+        "fullscreen",
+        "fakefullscreen",
+        "dpms",
+        "pin",
+        "movefocus",
+        "movewindow",
+        "swapwindow",
+        "centerwindow",
+        "resizeactive",
+        "moveactive",
+        "resizewindowpixel",
+        "movewindowpixel",
+        "cyclenext",
+        "swapnext",
+        "focuswindow",
+        "focusmonitor",
+        "splitratio",
+        "toggleopaque",
+        "movecursortocorner",
+        "movecursor",
+        "renameworkspace",
+        "exit",
+        "forcerendererreload",
+        "movecurrentworkspacetomonitor",
+        "focusworkspaceoncurrentmonitor",
+        "moveworkspacetomonitor",
+        "swapactiveworkspaces",
+        "bringactivetotop",
+        "alterzorder",
+        "togglespecialworkspace",
+        "focusurgentorlast",
+        "togglegroup",
+        "changegroupactive",
+        "focuscurrentorlast",
+        "lockgroups",
+        "lockactivegroup",
+        "moveintogroup",
+        "moveoutofgroup",
+        "movewindoworgroup",
+        "movegroupwindow",
         "denywindowfromgroup",
-        "setfloating", "settiled",
-        "pseudo", "togglesplit",
-        "layoutmsg", "submap",
+        "setfloating",
+        "settiled",
+        "pseudo",
+        "togglesplit",
+        "layoutmsg",
+        "submap",
         "global",
         "sendshortcut",
         "event",
@@ -808,7 +944,7 @@ class TestHyprlandDispatchers(unittest.TestCase):
         lines = _config_lines()
         dispatchers = []
         for line in lines:
-            match = re.match(r'^(bind[emlrn]*)\s*=\s*(.+)', line)
+            match = re.match(r"^(bind[emlrn]*)\s*=\s*(.+)", line)
             if match:
                 parts = [p.strip() for p in match.group(2).split(",")]
                 if len(parts) >= 3:
@@ -821,7 +957,8 @@ class TestHyprlandDispatchers(unittest.TestCase):
         for dispatcher, line in dispatchers:
             with self.subTest(dispatcher=dispatcher, line=line[:60]):
                 self.assertIn(
-                    dispatcher, self.VALID_DISPATCHERS,
+                    dispatcher,
+                    self.VALID_DISPATCHERS,
                     f"Unknown dispatcher '{dispatcher}' in: {line}",
                 )
 
@@ -839,102 +976,182 @@ class TestHyprlandConfigVariables(unittest.TestCase):
     # Valid config variables registered in Hyprland v0.53 source code
     VALID_SECTION_VARS = {
         # input section
-        "input:kb_layout", "input:kb_variant", "input:kb_model",
-        "input:kb_options", "input:kb_rules", "input:kb_file",
-        "input:numlock_by_default", "input:resolve_binds_by_sym",
-        "input:repeat_rate", "input:repeat_delay",
-        "input:sensitivity", "input:accel_profile",
-        "input:force_no_accel", "input:left_handed",
-        "input:scroll_points", "input:scroll_method",
-        "input:scroll_button", "input:scroll_button_lock",
-        "input:scroll_factor", "input:natural_scroll",
-        "input:follow_mouse", "input:mouse_refocus",
+        "input:kb_layout",
+        "input:kb_variant",
+        "input:kb_model",
+        "input:kb_options",
+        "input:kb_rules",
+        "input:kb_file",
+        "input:numlock_by_default",
+        "input:resolve_binds_by_sym",
+        "input:repeat_rate",
+        "input:repeat_delay",
+        "input:sensitivity",
+        "input:accel_profile",
+        "input:force_no_accel",
+        "input:left_handed",
+        "input:scroll_points",
+        "input:scroll_method",
+        "input:scroll_button",
+        "input:scroll_button_lock",
+        "input:scroll_factor",
+        "input:natural_scroll",
+        "input:follow_mouse",
+        "input:mouse_refocus",
         "input:float_switch_override_focus",
-        "input:special_fallthrough", "input:off_window_axis_events",
+        "input:special_fallthrough",
+        "input:off_window_axis_events",
         "input:emulate_discrete_scroll",
         # input:touchpad
-        "input:touchpad:natural_scroll", "input:touchpad:disable_while_typing",
-        "input:touchpad:clickfinger_behavior", "input:touchpad:tap_button_map",
-        "input:touchpad:middle_button_emulation", "input:touchpad:tap-to-click",
-        "input:touchpad:tap-and-drag", "input:touchpad:drag_lock",
-        "input:touchpad:scroll_factor", "input:touchpad:flip_x",
-        "input:touchpad:flip_y", "input:touchpad:drag_3fg",
+        "input:touchpad:natural_scroll",
+        "input:touchpad:disable_while_typing",
+        "input:touchpad:clickfinger_behavior",
+        "input:touchpad:tap_button_map",
+        "input:touchpad:middle_button_emulation",
+        "input:touchpad:tap-to-click",
+        "input:touchpad:tap-and-drag",
+        "input:touchpad:drag_lock",
+        "input:touchpad:scroll_factor",
+        "input:touchpad:flip_x",
+        "input:touchpad:flip_y",
+        "input:touchpad:drag_3fg",
         # input:touchdevice
-        "input:touchdevice:transform", "input:touchdevice:output",
+        "input:touchdevice:transform",
+        "input:touchdevice:output",
         "input:touchdevice:enabled",
         # input:tablet
-        "input:tablet:transform", "input:tablet:output",
-        "input:tablet:region_position", "input:tablet:region_size",
-        "input:tablet:relative_input", "input:tablet:left_handed",
-        "input:tablet:active_area_size", "input:tablet:active_area_position",
+        "input:tablet:transform",
+        "input:tablet:output",
+        "input:tablet:region_position",
+        "input:tablet:region_size",
+        "input:tablet:relative_input",
+        "input:tablet:left_handed",
+        "input:tablet:active_area_size",
+        "input:tablet:active_area_position",
         # general section
-        "general:border_size", "general:gaps_in", "general:gaps_out",
-        "general:float_gaps", "general:gaps_workspaces",
-        "general:no_focus_fallback", "general:resize_on_border",
-        "general:extend_border_grab_area", "general:hover_icon_on_border",
-        "general:layout", "general:allow_tearing", "general:resize_corner",
-        "general:col.active_border", "general:col.inactive_border",
-        "general:col.nogroup_border", "general:col.nogroup_border_active",
-        "general:modal_parent_blocking", "general:locale",
-        "general:snap:enabled", "general:snap:window_gap",
-        "general:snap:monitor_gap", "general:snap:border_overlap",
+        "general:border_size",
+        "general:gaps_in",
+        "general:gaps_out",
+        "general:float_gaps",
+        "general:gaps_workspaces",
+        "general:no_focus_fallback",
+        "general:resize_on_border",
+        "general:extend_border_grab_area",
+        "general:hover_icon_on_border",
+        "general:layout",
+        "general:allow_tearing",
+        "general:resize_corner",
+        "general:col.active_border",
+        "general:col.inactive_border",
+        "general:col.nogroup_border",
+        "general:col.nogroup_border_active",
+        "general:modal_parent_blocking",
+        "general:locale",
+        "general:snap:enabled",
+        "general:snap:window_gap",
+        "general:snap:monitor_gap",
+        "general:snap:border_overlap",
         "general:snap:respect_gaps",
         # decoration section
-        "decoration:rounding", "decoration:rounding_power",
-        "decoration:active_opacity", "decoration:inactive_opacity",
+        "decoration:rounding",
+        "decoration:rounding_power",
+        "decoration:active_opacity",
+        "decoration:inactive_opacity",
         "decoration:fullscreen_opacity",
-        "decoration:blur:enabled", "decoration:blur:size",
-        "decoration:blur:passes", "decoration:blur:ignore_opacity",
-        "decoration:blur:new_optimizations", "decoration:blur:xray",
-        "decoration:blur:contrast", "decoration:blur:brightness",
-        "decoration:blur:vibrancy", "decoration:blur:vibrancy_darkness",
-        "decoration:blur:noise", "decoration:blur:special",
-        "decoration:blur:popups", "decoration:blur:popups_ignorealpha",
-        "decoration:blur:input_methods", "decoration:blur:input_methods_ignorealpha",
-        "decoration:shadow:enabled", "decoration:shadow:range",
-        "decoration:shadow:render_power", "decoration:shadow:ignore_window",
-        "decoration:shadow:offset", "decoration:shadow:scale",
-        "decoration:shadow:sharp", "decoration:shadow:color",
+        "decoration:blur:enabled",
+        "decoration:blur:size",
+        "decoration:blur:passes",
+        "decoration:blur:ignore_opacity",
+        "decoration:blur:new_optimizations",
+        "decoration:blur:xray",
+        "decoration:blur:contrast",
+        "decoration:blur:brightness",
+        "decoration:blur:vibrancy",
+        "decoration:blur:vibrancy_darkness",
+        "decoration:blur:noise",
+        "decoration:blur:special",
+        "decoration:blur:popups",
+        "decoration:blur:popups_ignorealpha",
+        "decoration:blur:input_methods",
+        "decoration:blur:input_methods_ignorealpha",
+        "decoration:shadow:enabled",
+        "decoration:shadow:range",
+        "decoration:shadow:render_power",
+        "decoration:shadow:ignore_window",
+        "decoration:shadow:offset",
+        "decoration:shadow:scale",
+        "decoration:shadow:sharp",
+        "decoration:shadow:color",
         "decoration:shadow:color_inactive",
         # animations section
-        "animations:enabled", "animations:first_launch_animation",
+        "animations:enabled",
+        "animations:first_launch_animation",
         # misc section
-        "misc:disable_hyprland_logo", "misc:disable_splash_rendering",
-        "misc:col.splash", "misc:splash_font_family", "misc:font_family",
-        "misc:force_default_wallpaper", "misc:vfr", "misc:vrr",
-        "misc:mouse_move_enables_dpms", "misc:key_press_enables_dpms",
-        "misc:always_follow_on_dnd", "misc:layers_hog_keyboard_focus",
-        "misc:animate_manual_resizes", "misc:animate_mouse_windowdragging",
-        "misc:disable_autoreload", "misc:enable_swallow",
-        "misc:swallow_regex", "misc:swallow_exception_regex",
-        "misc:focus_on_activate", "misc:mouse_move_focuses_monitor",
-        "misc:render_ahead_of_time", "misc:render_ahead_safezone",
-        "misc:allow_session_lock_restore", "misc:background_color",
-        "misc:close_special_on_empty", "misc:new_window_takes_over_fullscreen",
+        "misc:disable_hyprland_logo",
+        "misc:disable_splash_rendering",
+        "misc:col.splash",
+        "misc:splash_font_family",
+        "misc:font_family",
+        "misc:force_default_wallpaper",
+        "misc:vfr",
+        "misc:vrr",
+        "misc:mouse_move_enables_dpms",
+        "misc:key_press_enables_dpms",
+        "misc:always_follow_on_dnd",
+        "misc:layers_hog_keyboard_focus",
+        "misc:animate_manual_resizes",
+        "misc:animate_mouse_windowdragging",
+        "misc:disable_autoreload",
+        "misc:enable_swallow",
+        "misc:swallow_regex",
+        "misc:swallow_exception_regex",
+        "misc:focus_on_activate",
+        "misc:mouse_move_focuses_monitor",
+        "misc:render_ahead_of_time",
+        "misc:render_ahead_safezone",
+        "misc:allow_session_lock_restore",
+        "misc:background_color",
+        "misc:close_special_on_empty",
+        "misc:new_window_takes_over_fullscreen",
         "misc:exit_window_retains_fullscreen",
         "misc:initial_workspace_tracking",
         "misc:middle_click_paste",
         # dwindle section
-        "dwindle:pseudotile", "dwindle:force_split",
-        "dwindle:preserve_split", "dwindle:smart_split",
-        "dwindle:smart_resizing", "dwindle:permanent_direction_override",
-        "dwindle:special_scale_factor", "dwindle:split_width_multiplier",
-        "dwindle:use_active_for_splits", "dwindle:default_split_ratio",
+        "dwindle:pseudotile",
+        "dwindle:force_split",
+        "dwindle:preserve_split",
+        "dwindle:smart_split",
+        "dwindle:smart_resizing",
+        "dwindle:permanent_direction_override",
+        "dwindle:special_scale_factor",
+        "dwindle:split_width_multiplier",
+        "dwindle:use_active_for_splits",
+        "dwindle:default_split_ratio",
         "dwindle:split_bias",
         # master section
-        "master:new_status", "master:new_on_top",
-        "master:new_on_active", "master:no_gaps_when_only",
-        "master:special_scale_factor", "master:slave_count_for_center_master",
-        "master:orientation", "master:inherit_fullscreen",
-        "master:always_center_master", "master:smart_resizing",
-        "master:mfact", "master:center_ignores_reserved",
+        "master:new_status",
+        "master:new_on_top",
+        "master:new_on_active",
+        "master:no_gaps_when_only",
+        "master:special_scale_factor",
+        "master:slave_count_for_center_master",
+        "master:orientation",
+        "master:inherit_fullscreen",
+        "master:always_center_master",
+        "master:smart_resizing",
+        "master:mfact",
+        "master:center_ignores_reserved",
         # xwayland section
-        "xwayland:force_zero_scaling", "xwayland:use_nearest_neighbor",
+        "xwayland:force_zero_scaling",
+        "xwayland:use_nearest_neighbor",
         "xwayland:enabled",
         # gestures section
-        "gestures:workspace_swipe", "gestures:workspace_swipe_fingers",
-        "gestures:workspace_swipe_min_fingers", "gestures:workspace_swipe_distance",
-        "gestures:workspace_swipe_touch", "gestures:workspace_swipe_invert",
+        "gestures:workspace_swipe",
+        "gestures:workspace_swipe_fingers",
+        "gestures:workspace_swipe_min_fingers",
+        "gestures:workspace_swipe_distance",
+        "gestures:workspace_swipe_touch",
+        "gestures:workspace_swipe_invert",
         "gestures:workspace_swipe_min_speed_to_force",
         "gestures:workspace_swipe_cancel_ratio",
         "gestures:workspace_swipe_create_new",
@@ -943,13 +1160,20 @@ class TestHyprlandConfigVariables(unittest.TestCase):
         "gestures:workspace_swipe_forever",
         "gestures:workspace_swipe_use_r",
         # cursor section
-        "cursor:no_hardware_cursors", "cursor:no_break_fs_vrr",
-        "cursor:min_refresh_rate", "cursor:hotspot_padding",
-        "cursor:inactive_timeout", "cursor:no_warps",
-        "cursor:persistent_warps", "cursor:warp_on_change_workspace",
-        "cursor:default_monitor", "cursor:zoom_factor",
-        "cursor:zoom_rigid", "cursor:enable_hyprcursor",
-        "cursor:hide_on_key_press", "cursor:hide_on_touch",
+        "cursor:no_hardware_cursors",
+        "cursor:no_break_fs_vrr",
+        "cursor:min_refresh_rate",
+        "cursor:hotspot_padding",
+        "cursor:inactive_timeout",
+        "cursor:no_warps",
+        "cursor:persistent_warps",
+        "cursor:warp_on_change_workspace",
+        "cursor:default_monitor",
+        "cursor:zoom_factor",
+        "cursor:zoom_rigid",
+        "cursor:enable_hyprcursor",
+        "cursor:hide_on_key_press",
+        "cursor:hide_on_touch",
         "cursor:allow_dumb_copy",
     }
 
@@ -987,11 +1211,14 @@ class TestHyprlandConfigVariables(unittest.TestCase):
         variables = self._get_section_variables()
         for full_path, lineno, line in variables:
             # Skip animation/bezier definitions (these are keywords, not variables)
-            if full_path.startswith("animations:bezier") or full_path.startswith("animations:animation"):
+            if full_path.startswith("animations:bezier") or full_path.startswith(
+                "animations:animation"
+            ):
                 continue
             with self.subTest(variable=full_path, line=lineno):
                 self.assertIn(
-                    full_path, self.VALID_SECTION_VARS,
+                    full_path,
+                    self.VALID_SECTION_VARS,
                     f"L{lineno}: Unknown config variable '{full_path}' – "
                     f"may be deprecated, misspelled, or not valid for Hyprland v0.53+. "
                     f"Line: {line}",
@@ -1038,7 +1265,8 @@ class TestWallpaperGlitchScript(unittest.TestCase):
         """hyprland.conf must exec-once the wallpaper glitch script."""
         content = _read_config()
         self.assertIn(
-            "mados-wallpaper-glitch", content,
+            "mados-wallpaper-glitch",
+            content,
             "hyprland.conf must launch mados-wallpaper-glitch via exec-once",
         )
 
@@ -1048,7 +1276,8 @@ class TestWallpaperGlitchScript(unittest.TestCase):
         with open(profiledef) as f:
             content = f.read()
         self.assertIn(
-            "mados-wallpaper-glitch", content,
+            "mados-wallpaper-glitch",
+            content,
             "profiledef.sh must include permissions for mados-wallpaper-glitch",
         )
 
@@ -1073,7 +1302,8 @@ class TestWallpaperGlitchScript(unittest.TestCase):
         # Between daemon wait and socat, there must NOT be apply_glitch_effect
         between = content[daemon_wait_end:socat_pos]
         self.assertNotIn(
-            "apply_glitch_effect", between,
+            "apply_glitch_effect",
+            between,
             "Must NOT apply glitch effect on startup — initial wallpaper is "
             "set by hyprland.conf with --transition-type none",
         )
@@ -1088,11 +1318,13 @@ class TestWallpaperGlitchScript(unittest.TestCase):
             content = f.read()
 
         self.assertIn(
-            "command -v swww", content,
+            "command -v swww",
+            content,
             "Script must check if swww is available",
         )
         self.assertIn(
-            "command -v socat", content,
+            "command -v socat",
+            content,
             "Script must check if socat is available",
         )
 
@@ -1111,7 +1343,8 @@ class TestWallpaperGlitchScript(unittest.TestCase):
                 continue
             if "swww img" in stripped and "Pictures/Wallpapers" in stripped:
                 self.assertIn(
-                    "--transition-type none", stripped,
+                    "--transition-type none",
+                    stripped,
                     "Initial wallpaper must use --transition-type none "
                     "for reliable startup",
                 )
@@ -1132,7 +1365,8 @@ class TestSwayWallpaperStartup(unittest.TestCase):
         with open(self.SWAY_CONF) as f:
             content = f.read()
         self.assertIn(
-            "output * bg", content,
+            "output * bg",
+            content,
             "Sway config must have an 'output * bg' wallpaper directive",
         )
 
@@ -1141,7 +1375,8 @@ class TestSwayWallpaperStartup(unittest.TestCase):
         with open(self.SWAY_CONF) as f:
             content = f.read()
         self.assertIn(
-            "swaymsg", content,
+            "swaymsg",
+            content,
             "Sway config must use swaymsg to retry wallpaper after startup",
         )
 
@@ -1150,7 +1385,8 @@ class TestSwayWallpaperStartup(unittest.TestCase):
         with open(self.SWAY_CONF) as f:
             content = f.read()
         self.assertIn(
-            "for ", content,
+            "for ",
+            content,
             "Sway config must use a retry loop for wallpaper refresh "
             "(single-attempt retry is unreliable on slow hardware)",
         )

@@ -3,8 +3,8 @@
 
 CONFIG="/usr/local/lib/mados_installer/config.py"
 
-if [ ! -f "$CONFIG" ]; then
-    echo "Error: $CONFIG not found"
+if [[ ! -f "$CONFIG" ]]; then
+    echo "Error: $CONFIG not found" >&2
     exit 1
 fi
 
@@ -20,6 +20,6 @@ elif grep -q "^DEMO_MODE = False" "$CONFIG"; then
     echo "✅ Switched to DEMO mode"
     echo "ℹ️  Installer will simulate installation without disk changes"
 else
-    echo "Error: Could not find DEMO_MODE variable in $CONFIG"
+    echo "Error: Could not find DEMO_MODE variable in $CONFIG" >&2
     exit 1
 fi

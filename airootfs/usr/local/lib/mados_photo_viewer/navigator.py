@@ -13,8 +13,18 @@ Supported video formats: mp4, mkv, avi, webm, mov, ogv
 import os
 
 # Supported file extensions (lowercase)
-IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.tif'}
-VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.webm', '.mov', '.ogv'}
+IMAGE_EXTENSIONS = {
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".bmp",
+    ".webp",
+    ".svg",
+    ".tiff",
+    ".tif",
+}
+VIDEO_EXTENSIONS = {".mp4", ".mkv", ".avi", ".webm", ".mov", ".ogv"}
 ALL_EXTENSIONS = IMAGE_EXTENSIONS | VIDEO_EXTENSIONS
 
 
@@ -82,7 +92,7 @@ class FileNavigator:
         """Return just the filename of the current file, or empty string."""
         if 0 <= self._index < len(self._files):
             return self._files[self._index]
-        return ''
+        return ""
 
     @property
     def current_index(self):
@@ -140,8 +150,11 @@ class FileNavigator:
             return False
 
         # Filter to supported media files and sort case-insensitively
-        media_files = [f for f in entries
-                       if os.path.isfile(os.path.join(directory, f)) and is_media_file(f)]
+        media_files = [
+            f
+            for f in entries
+            if os.path.isfile(os.path.join(directory, f)) and is_media_file(f)
+        ]
         media_files.sort(key=lambda f: f.lower())
 
         self._files = media_files
@@ -221,8 +234,11 @@ class FileNavigator:
         except OSError:
             return
 
-        media_files = [f for f in entries
-                       if os.path.isfile(os.path.join(self._directory, f)) and is_media_file(f)]
+        media_files = [
+            f
+            for f in entries
+            if os.path.isfile(os.path.join(self._directory, f)) and is_media_file(f)
+        ]
         media_files.sort(key=lambda f: f.lower())
         self._files = media_files
 
@@ -233,14 +249,15 @@ class FileNavigator:
         else:
             self._index = -1
 
-    def get_image_filter():
+    def get_image_filter(self):
         """Create a Gtk.FileFilter for supported image formats.
 
         Returns:
             A Gtk.FileFilter for images.
         """
         import gi
-        gi.require_version('Gtk', '3.0')
+
+        gi.require_version("Gtk", "3.0")
         from gi.repository import Gtk
 
         filt = Gtk.FileFilter()
@@ -250,14 +267,15 @@ class FileNavigator:
             filt.add_pattern(f"*{ext.upper()}")
         return filt
 
-    def get_all_media_filter():
+    def get_all_media_filter(self):
         """Create a Gtk.FileFilter for all supported media formats.
 
         Returns:
             A Gtk.FileFilter for images and videos.
         """
         import gi
-        gi.require_version('Gtk', '3.0')
+
+        gi.require_version("Gtk", "3.0")
         from gi.repository import Gtk
 
         filt = Gtk.FileFilter()

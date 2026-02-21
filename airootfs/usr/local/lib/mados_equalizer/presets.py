@@ -20,12 +20,18 @@ from pathlib import Path
 FREQUENCY_BANDS = [60, 170, 310, 600, 1000, 3000, 6000, 12000]
 
 # Display labels for each frequency band
-BAND_LABELS = ['60', '170', '310', '600', '1k', '3k', '6k', '12k']
+BAND_LABELS = ["60", "170", "310", "600", "1k", "3k", "6k", "12k"]
 
 # Translation keys for each frequency band
 BAND_KEYS = [
-    'band_60', 'band_170', 'band_310', 'band_600',
-    'band_1k', 'band_3k', 'band_6k', 'band_12k'
+    "band_60",
+    "band_170",
+    "band_310",
+    "band_600",
+    "band_1k",
+    "band_3k",
+    "band_6k",
+    "band_12k",
 ]
 
 # Gain range in dB
@@ -35,72 +41,80 @@ GAIN_DEFAULT = 0.0
 
 # Built-in presets with gain values for each of the 8 bands (in dB)
 BUILTIN_PRESETS = {
-    'flat': {
-        'name': 'Flat',
-        'key': 'flat',
-        'gains': [0, 0, 0, 0, 0, 0, 0, 0],
-        'builtin': True,
+    "flat": {
+        "name": "Flat",
+        "key": "flat",
+        "gains": [0, 0, 0, 0, 0, 0, 0, 0],
+        "builtin": True,
     },
-    'rock': {
-        'name': 'Rock',
-        'key': 'rock',
-        'gains': [4, 3, 1, 0, -1, 1, 3, 4],
-        'builtin': True,
+    "rock": {
+        "name": "Rock",
+        "key": "rock",
+        "gains": [4, 3, 1, 0, -1, 1, 3, 4],
+        "builtin": True,
     },
-    'pop': {
-        'name': 'Pop',
-        'key': 'pop',
-        'gains': [-1, 2, 4, 4, 2, 0, -1, -2],
-        'builtin': True,
+    "pop": {
+        "name": "Pop",
+        "key": "pop",
+        "gains": [-1, 2, 4, 4, 2, 0, -1, -2],
+        "builtin": True,
     },
-    'jazz': {
-        'name': 'Jazz',
-        'key': 'jazz',
-        'gains': [3, 2, 1, 2, -1, -1, 0, 2],
-        'builtin': True,
+    "jazz": {
+        "name": "Jazz",
+        "key": "jazz",
+        "gains": [3, 2, 1, 2, -1, -1, 0, 2],
+        "builtin": True,
     },
-    'classical': {
-        'name': 'Classical',
-        'key': 'classical',
-        'gains': [4, 3, 2, 1, -1, 0, 2, 3],
-        'builtin': True,
+    "classical": {
+        "name": "Classical",
+        "key": "classical",
+        "gains": [4, 3, 2, 1, -1, 0, 2, 3],
+        "builtin": True,
     },
-    'bass_boost': {
-        'name': 'Bass Boost',
-        'key': 'bass_boost',
-        'gains': [6, 5, 4, 2, 0, 0, 0, 0],
-        'builtin': True,
+    "bass_boost": {
+        "name": "Bass Boost",
+        "key": "bass_boost",
+        "gains": [6, 5, 4, 2, 0, 0, 0, 0],
+        "builtin": True,
     },
-    'treble_boost': {
-        'name': 'Treble Boost',
-        'key': 'treble_boost',
-        'gains': [0, 0, 0, 0, 1, 3, 5, 6],
-        'builtin': True,
+    "treble_boost": {
+        "name": "Treble Boost",
+        "key": "treble_boost",
+        "gains": [0, 0, 0, 0, 1, 3, 5, 6],
+        "builtin": True,
     },
-    'vocal': {
-        'name': 'Vocal',
-        'key': 'vocal',
-        'gains': [-2, 0, 2, 4, 4, 2, 0, -2],
-        'builtin': True,
+    "vocal": {
+        "name": "Vocal",
+        "key": "vocal",
+        "gains": [-2, 0, 2, 4, 4, 2, 0, -2],
+        "builtin": True,
     },
-    'electronic': {
-        'name': 'Electronic',
-        'key': 'electronic',
-        'gains': [5, 4, 1, 0, -2, 1, 3, 5],
-        'builtin': True,
+    "electronic": {
+        "name": "Electronic",
+        "key": "electronic",
+        "gains": [5, 4, 1, 0, -2, 1, 3, 5],
+        "builtin": True,
     },
-    'acoustic': {
-        'name': 'Acoustic',
-        'key': 'acoustic',
-        'gains': [3, 2, 1, 0, 1, 1, 2, 3],
-        'builtin': True,
+    "acoustic": {
+        "name": "Acoustic",
+        "key": "acoustic",
+        "gains": [3, 2, 1, 0, 1, 1, 2, 3],
+        "builtin": True,
     },
 }
 
 # Ordered list of built-in preset keys for consistent UI display
 BUILTIN_PRESET_ORDER = [
-    'flat', 'rock', 'pop', 'jazz', 'classical',
-    'bass_boost', 'treble_boost', 'vocal', 'electronic', 'acoustic'
+    "flat",
+    "rock",
+    "pop",
+    "jazz",
+    "classical",
+    "bass_boost",
+    "treble_boost",
+    "vocal",
+    "electronic",
+    "acoustic",
 ]
 
 
@@ -115,8 +129,8 @@ class PresetManager:
 
     def __init__(self):
         """Initialize the PresetManager and load custom presets from disk."""
-        self.config_dir = Path.home() / '.config' / 'mados' / 'equalizer'
-        self.presets_file = self.config_dir / 'presets.json'
+        self.config_dir = Path.home() / ".config" / "mados" / "equalizer"
+        self.presets_file = self.config_dir / "presets.json"
         self.custom_presets = {}
         self._load_custom_presets()
 
@@ -137,27 +151,24 @@ class PresetManager:
             return
 
         try:
-            with open(self.presets_file, 'r', encoding='utf-8') as f:
+            with open(self.presets_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             self.custom_presets = {}
             for key, preset in data.items():
                 # Validate preset structure
-                if isinstance(preset, dict) and 'gains' in preset:
-                    gains = preset['gains']
+                if isinstance(preset, dict) and "gains" in preset:
+                    gains = preset["gains"]
                     if isinstance(gains, list) and len(gains) == 8:
                         # Clamp gains to valid range
-                        gains = [
-                            max(GAIN_MIN, min(GAIN_MAX, float(g)))
-                            for g in gains
-                        ]
+                        gains = [max(GAIN_MIN, min(GAIN_MAX, float(g))) for g in gains]
                         self.custom_presets[key] = {
-                            'name': preset.get('name', key),
-                            'key': key,
-                            'gains': gains,
-                            'builtin': False,
+                            "name": preset.get("name", key),
+                            "key": key,
+                            "gains": gains,
+                            "builtin": False,
                         }
-        except (json.JSONDecodeError, OSError, ValueError) as e:
+        except (json.JSONDecodeError, OSError) as e:
             print(f"Warning: Could not load custom presets: {e}")
             self.custom_presets = {}
 
@@ -173,11 +184,11 @@ class PresetManager:
             data = {}
             for key, preset in self.custom_presets.items():
                 data[key] = {
-                    'name': preset['name'],
-                    'gains': preset['gains'],
+                    "name": preset["name"],
+                    "gains": preset["gains"],
                 }
 
-            with open(self.presets_file, 'w', encoding='utf-8') as f:
+            with open(self.presets_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
             return True
         except OSError as e:
@@ -198,10 +209,7 @@ class PresetManager:
         Returns:
             List of preset dictionaries sorted alphabetically by name.
         """
-        return sorted(
-            self.custom_presets.values(),
-            key=lambda p: p['name'].lower()
-        )
+        return sorted(self.custom_presets.values(), key=lambda p: p["name"].lower())
 
     def get_all_presets(self):
         """Return all presets with built-in presets first, then custom.
@@ -236,7 +244,7 @@ class PresetManager:
             The key is the sanitized internal key for the preset.
         """
         if not name or not name.strip():
-            return False, 'Preset name cannot be empty', ''
+            return False, "Preset name cannot be empty", ""
 
         name = name.strip()
 
@@ -245,29 +253,26 @@ class PresetManager:
 
         # Check if this would overwrite a built-in preset
         if key in BUILTIN_PRESETS:
-            return False, 'preset_exists', key
+            return False, "preset_exists", key
 
         # Validate gains
         if not isinstance(gains, (list, tuple)) or len(gains) != 8:
-            return False, 'Invalid gain values', key
+            return False, "Invalid gain values", key
 
         # Clamp gains to valid range
-        clamped_gains = [
-            max(GAIN_MIN, min(GAIN_MAX, float(g)))
-            for g in gains
-        ]
+        clamped_gains = [max(GAIN_MIN, min(GAIN_MAX, float(g))) for g in gains]
 
         self.custom_presets[key] = {
-            'name': name,
-            'key': key,
-            'gains': clamped_gains,
-            'builtin': False,
+            "name": name,
+            "key": key,
+            "gains": clamped_gains,
+            "builtin": False,
         }
 
         if self._save_custom_presets():
-            return True, 'preset_saved', key
+            return True, "preset_saved", key
         else:
-            return False, 'error', key
+            return False, "error", key
 
     def delete_custom_preset(self, key):
         """Delete a custom preset by its key.
@@ -281,17 +286,17 @@ class PresetManager:
             Tuple of (success: bool, message: str).
         """
         if key in BUILTIN_PRESETS:
-            return False, 'Cannot delete built-in presets'
+            return False, "Cannot delete built-in presets"
 
         if key not in self.custom_presets:
-            return False, 'Preset not found'
+            return False, "Preset not found"
 
         del self.custom_presets[key]
 
         if self._save_custom_presets():
-            return True, 'preset_deleted'
+            return True, "preset_deleted"
         else:
-            return False, 'error'
+            return False, "error"
 
     def is_builtin(self, key):
         """Check if a preset key belongs to a built-in preset.
@@ -330,9 +335,9 @@ class PresetManager:
             The sanitized key string.
         """
         key = name.lower().strip()
-        key = key.replace(' ', '_')
-        key = ''.join(c for c in key if c.isalnum() or c == '_')
-        return key or 'unnamed'
+        key = key.replace(" ", "_")
+        key = "".join(c for c in key if c.isalnum() or c == "_")
+        return key or "unnamed"
 
     def get_flat_gains(self):
         """Return flat (all zeros) gain values.

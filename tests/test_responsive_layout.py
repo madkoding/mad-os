@@ -60,12 +60,9 @@ class TestInstallerResponsiveLayout(unittest.TestCase):
 
     def test_user_page_no_fixed_width(self):
         """User page should not use fixed-width set_size_request."""
-        user_page_path = os.path.join(
-            LIB_DIR, "mados_installer", "pages", "user.py"
-        )
+        user_page_path = os.path.join(LIB_DIR, "mados_installer", "pages", "user.py")
         self.assertTrue(
-            os.path.exists(user_page_path),
-            f"User page not found at {user_page_path}"
+            os.path.exists(user_page_path), f"User page not found at {user_page_path}"
         )
 
         with open(user_page_path, "r") as f:
@@ -74,36 +71,30 @@ class TestInstallerResponsiveLayout(unittest.TestCase):
         # Should NOT contain fixed width set_size_request patterns
         self.assertNotRegex(
             content,
-            r'set_size_request\s*\(\s*380\s*,',
-            "User page should not use set_size_request(380, ...)"
+            r"set_size_request\s*\(\s*380\s*,",
+            "User page should not use set_size_request(380, ...)",
         )
         self.assertNotRegex(
             content,
-            r'set_size_request\s*\(\s*\d{3,}\s*,',
-            "User page should not use fixed-width set_size_request with 3+ digit widths"
+            r"set_size_request\s*\(\s*\d{3,}\s*,",
+            "User page should not use fixed-width set_size_request with 3+ digit widths",
         )
 
     def test_user_page_uses_hexpand(self):
         """User page should use set_hexpand(True) for responsive layout."""
-        user_page_path = os.path.join(
-            LIB_DIR, "mados_installer", "pages", "user.py"
-        )
+        user_page_path = os.path.join(LIB_DIR, "mados_installer", "pages", "user.py")
 
         with open(user_page_path, "r") as f:
             content = f.read()
 
         # Should use set_hexpand(True)
         self.assertIn(
-            "set_hexpand(True)",
-            content,
-            "User page should use set_hexpand(True)"
+            "set_hexpand(True)", content, "User page should use set_hexpand(True)"
         )
 
     def test_user_page_uses_fill_alignment(self):
         """User page should use Gtk.Align.FILL instead of CENTER."""
-        user_page_path = os.path.join(
-            LIB_DIR, "mados_installer", "pages", "user.py"
-        )
+        user_page_path = os.path.join(LIB_DIR, "mados_installer", "pages", "user.py")
 
         with open(user_page_path, "r") as f:
             content = f.read()
@@ -112,7 +103,7 @@ class TestInstallerResponsiveLayout(unittest.TestCase):
         self.assertIn(
             "Gtk.Align.FILL",
             content,
-            "User page should use Gtk.Align.FILL for responsive layout"
+            "User page should use Gtk.Align.FILL for responsive layout",
         )
 
     def test_locale_page_no_fixed_width(self):
@@ -122,7 +113,7 @@ class TestInstallerResponsiveLayout(unittest.TestCase):
         )
         self.assertTrue(
             os.path.exists(locale_page_path),
-            f"Locale page not found at {locale_page_path}"
+            f"Locale page not found at {locale_page_path}",
         )
 
         with open(locale_page_path, "r") as f:
@@ -131,13 +122,13 @@ class TestInstallerResponsiveLayout(unittest.TestCase):
         # Should NOT contain fixed width set_size_request patterns
         self.assertNotRegex(
             content,
-            r'set_size_request\s*\(\s*380\s*,',
-            "Locale page should not use set_size_request(380, ...)"
+            r"set_size_request\s*\(\s*380\s*,",
+            "Locale page should not use set_size_request(380, ...)",
         )
         self.assertNotRegex(
             content,
-            r'set_size_request\s*\(\s*\d{3,}\s*,',
-            "Locale page should not use fixed-width set_size_request with 3+ digit widths"
+            r"set_size_request\s*\(\s*\d{3,}\s*,",
+            "Locale page should not use fixed-width set_size_request with 3+ digit widths",
         )
 
     def test_locale_page_uses_hexpand(self):
@@ -151,9 +142,7 @@ class TestInstallerResponsiveLayout(unittest.TestCase):
 
         # Should use set_hexpand(True)
         self.assertIn(
-            "set_hexpand(True)",
-            content,
-            "Locale page should use set_hexpand(True)"
+            "set_hexpand(True)", content, "Locale page should use set_hexpand(True)"
         )
 
     def test_completion_page_no_fixed_width(self):
@@ -163,7 +152,7 @@ class TestInstallerResponsiveLayout(unittest.TestCase):
         )
         self.assertTrue(
             os.path.exists(completion_page_path),
-            f"Completion page not found at {completion_page_path}"
+            f"Completion page not found at {completion_page_path}",
         )
 
         with open(completion_page_path, "r") as f:
@@ -172,18 +161,18 @@ class TestInstallerResponsiveLayout(unittest.TestCase):
         # Should NOT contain fixed width set_size_request patterns (420 or 380)
         self.assertNotRegex(
             content,
-            r'set_size_request\s*\(\s*420\s*,',
-            "Completion page should not use set_size_request(420, ...)"
+            r"set_size_request\s*\(\s*420\s*,",
+            "Completion page should not use set_size_request(420, ...)",
         )
         self.assertNotRegex(
             content,
-            r'set_size_request\s*\(\s*380\s*,',
-            "Completion page should not use set_size_request(380, ...)"
+            r"set_size_request\s*\(\s*380\s*,",
+            "Completion page should not use set_size_request(380, ...)",
         )
         self.assertNotRegex(
             content,
-            r'set_size_request\s*\(\s*\d{3,}\s*,',
-            "Completion page should not use fixed-width set_size_request with 3+ digit widths"
+            r"set_size_request\s*\(\s*\d{3,}\s*,",
+            "Completion page should not use fixed-width set_size_request with 3+ digit widths",
         )
 
     def test_completion_page_uses_hexpand(self):
@@ -197,9 +186,7 @@ class TestInstallerResponsiveLayout(unittest.TestCase):
 
         # Should use set_hexpand(True)
         self.assertIn(
-            "set_hexpand(True)",
-            content,
-            "Completion page should use set_hexpand(True)"
+            "set_hexpand(True)", content, "Completion page should use set_hexpand(True)"
         )
 
     def test_welcome_page_uses_flowbox(self):
@@ -209,7 +196,7 @@ class TestInstallerResponsiveLayout(unittest.TestCase):
         )
         self.assertTrue(
             os.path.exists(welcome_page_path),
-            f"Welcome page not found at {welcome_page_path}"
+            f"Welcome page not found at {welcome_page_path}",
         )
 
         with open(welcome_page_path, "r") as f:
@@ -219,7 +206,7 @@ class TestInstallerResponsiveLayout(unittest.TestCase):
         self.assertIn(
             "FlowBox",
             content,
-            "Welcome page should use FlowBox for responsive feature layout"
+            "Welcome page should use FlowBox for responsive feature layout",
         )
 
 
@@ -231,7 +218,7 @@ class TestEqualizerResponsiveLayout(unittest.TestCase):
         equalizer_app_path = os.path.join(LIB_DIR, "mados_equalizer", "app.py")
         self.assertTrue(
             os.path.exists(equalizer_app_path),
-            f"Equalizer app not found at {equalizer_app_path}"
+            f"Equalizer app not found at {equalizer_app_path}",
         )
 
         with open(equalizer_app_path, "r") as f:
@@ -240,15 +227,15 @@ class TestEqualizerResponsiveLayout(unittest.TestCase):
         # Should NOT use old size 30x120
         self.assertNotRegex(
             content,
-            r'set_size_request\s*\(\s*30\s*,\s*120\s*\)',
-            "GainIndicator should not use set_size_request(30, 120)"
+            r"set_size_request\s*\(\s*30\s*,\s*120\s*\)",
+            "GainIndicator should not use set_size_request(30, 120)",
         )
 
         # Should use new size 20x80
         self.assertRegex(
             content,
-            r'set_size_request\s*\(\s*20\s*,\s*80\s*\)',
-            "GainIndicator should use set_size_request(20, 80)"
+            r"set_size_request\s*\(\s*20\s*,\s*80\s*\)",
+            "GainIndicator should use set_size_request(20, 80)",
         )
 
     def test_equalizer_enable_button_smaller_size(self):
@@ -261,15 +248,13 @@ class TestEqualizerResponsiveLayout(unittest.TestCase):
         # Check for enable button with smaller size (should use 80, not 100)
         # Look for enable_button followed by set_size_request within reasonable proximity
         # Limit search to 200 characters to avoid false matches
-        enable_btn_pattern = r'enable_button.{0,200}?set_size_request\s*\(\s*(\d+)\s*,'
+        enable_btn_pattern = r"enable_button.{0,200}?set_size_request\s*\(\s*(\d+)\s*,"
         matches = re.findall(enable_btn_pattern, content, re.DOTALL)
-        
+
         for width_str in matches:
             width = int(width_str)
             self.assertLessEqual(
-                width,
-                80,
-                f"Enable button should use width 80 or less, not {width}"
+                width, 80, f"Enable button should use width 80 or less, not {width}"
             )
 
     def test_equalizer_preset_combo_smaller_size(self):
@@ -282,8 +267,8 @@ class TestEqualizerResponsiveLayout(unittest.TestCase):
         # Should NOT use old size 180
         self.assertNotRegex(
             content,
-            r'set_size_request\s*\(\s*180\s*,',
-            "Preset combo should not use set_size_request(180, ...)"
+            r"set_size_request\s*\(\s*180\s*,",
+            "Preset combo should not use set_size_request(180, ...)",
         )
 
     def test_equalizer_uses_hexpand(self):
@@ -297,7 +282,7 @@ class TestEqualizerResponsiveLayout(unittest.TestCase):
         self.assertIn(
             "set_hexpand(True)",
             content,
-            "Equalizer should use set_hexpand(True) for responsive layout"
+            "Equalizer should use set_hexpand(True) for responsive layout",
         )
 
     def test_equalizer_volume_box_smaller_size(self):
@@ -310,21 +295,18 @@ class TestEqualizerResponsiveLayout(unittest.TestCase):
         # Look for volume_box directly followed by set_size_request (within 300 chars)
         # This pattern matches "volume_box = Gtk.Box..." then "volume_box.set_size_request"
         # Limited search range to avoid performance issues and false matches
-        volume_box_pattern = r'volume_box\s*=.{0,300}?volume_box\.set_size_request\s*\(\s*(\d+)\s*,'
-        matches = re.findall(volume_box_pattern, content, re.DOTALL)
-        
-        # Should find at least one volume_box size request
-        self.assertTrue(
-            len(matches) > 0,
-            "Should find volume_box size request"
+        volume_box_pattern = (
+            r"volume_box\s*=.{0,300}?volume_box\.set_size_request\s*\(\s*(\d+)\s*,"
         )
-        
+        matches = re.findall(volume_box_pattern, content, re.DOTALL)
+
+        # Should find at least one volume_box size request
+        self.assertGreater(len(matches), 0, "Should find volume_box size request")
+
         for width_str in matches:
             width = int(width_str)
             self.assertLessEqual(
-                width,
-                60,
-                f"Volume box should use width 60 or less, not {width}"
+                width, 60, f"Volume box should use width 60 or less, not {width}"
             )
 
 
@@ -336,7 +318,7 @@ class TestPhotoViewerResponsiveLayout(unittest.TestCase):
         photo_viewer_path = os.path.join(LIB_DIR, "mados_photo_viewer", "app.py")
         self.assertTrue(
             os.path.exists(photo_viewer_path),
-            f"Photo viewer app not found at {photo_viewer_path}"
+            f"Photo viewer app not found at {photo_viewer_path}",
         )
 
         with open(photo_viewer_path, "r") as f:
@@ -345,17 +327,13 @@ class TestPhotoViewerResponsiveLayout(unittest.TestCase):
         # Should NOT use old size 120 for brush scale
         # Look for brush-related size requests
         brush_matches = re.findall(
-            r'brush.*?set_size_request\s*\(\s*(\d+)',
-            content,
-            re.DOTALL | re.IGNORECASE
+            r"brush.*?set_size_request\s*\(\s*(\d+)", content, re.DOTALL | re.IGNORECASE
         )
-        
+
         for match in brush_matches:
             width = int(match)
             self.assertLessEqual(
-                width,
-                80,
-                f"Brush scale width should be 80 or less, not {width}"
+                width, 80, f"Brush scale width should be 80 or less, not {width}"
             )
 
     def test_photo_viewer_font_scale_smaller(self):
@@ -367,17 +345,13 @@ class TestPhotoViewerResponsiveLayout(unittest.TestCase):
 
         # Look for font-related size requests
         font_matches = re.findall(
-            r'font.*?set_size_request\s*\(\s*(\d+)',
-            content,
-            re.DOTALL | re.IGNORECASE
+            r"font.*?set_size_request\s*\(\s*(\d+)", content, re.DOTALL | re.IGNORECASE
         )
-        
+
         for match in font_matches:
             width = int(match)
             self.assertLessEqual(
-                width,
-                80,
-                f"Font scale width should be 80 or less, not {width}"
+                width, 80, f"Font scale width should be 80 or less, not {width}"
             )
 
     def test_photo_viewer_uses_hexpand(self):
@@ -391,7 +365,7 @@ class TestPhotoViewerResponsiveLayout(unittest.TestCase):
         self.assertIn(
             "set_hexpand(True)",
             content,
-            "Photo viewer should use set_hexpand(True) for responsive layout"
+            "Photo viewer should use set_hexpand(True) for responsive layout",
         )
 
     def test_video_player_smaller_minimum_size(self):
@@ -401,7 +375,7 @@ class TestPhotoViewerResponsiveLayout(unittest.TestCase):
         )
         self.assertTrue(
             os.path.exists(video_player_path),
-            f"Video player not found at {video_player_path}"
+            f"Video player not found at {video_player_path}",
         )
 
         with open(video_player_path, "r") as f:
@@ -410,15 +384,15 @@ class TestPhotoViewerResponsiveLayout(unittest.TestCase):
         # Should NOT use old size 640x360
         self.assertNotRegex(
             content,
-            r'set_size_request\s*\(\s*640\s*,\s*360\s*\)',
-            "Video player should not use set_size_request(640, 360)"
+            r"set_size_request\s*\(\s*640\s*,\s*360\s*\)",
+            "Video player should not use set_size_request(640, 360)",
         )
 
         # Should use new size 320x180
         self.assertRegex(
             content,
-            r'set_size_request\s*\(\s*320\s*,\s*180\s*\)',
-            "Video player should use set_size_request(320, 180)"
+            r"set_size_request\s*\(\s*320\s*,\s*180\s*\)",
+            "Video player should use set_size_request(320, 180)",
         )
 
     def test_video_player_volume_smaller(self):
@@ -431,21 +405,20 @@ class TestPhotoViewerResponsiveLayout(unittest.TestCase):
             content = f.read()
 
         # Look for volume scale size request (should be on same line or next line)
-        volume_pattern = r'_volume_scale[^\n]*\n[^\n]*set_size_request\s*\(\s*(\d+)'
+        volume_pattern = r"_volume_scale[^\n]*\n[^\n]*set_size_request\s*\(\s*(\d+)"
         volume_matches = re.findall(volume_pattern, content)
-        
+
         # Should have at least one volume scale size request
-        self.assertTrue(
-            len(volume_matches) > 0,
-            "Video player should have volume scale size request"
+        self.assertGreater(
+            len(volume_matches),
+            0,
+            "Video player should have volume scale size request",
         )
-        
+
         for match in volume_matches:
             width = int(match)
             self.assertLessEqual(
-                width,
-                80,
-                f"Volume control width should be 80 or less, not {width}"
+                width, 80, f"Volume control width should be 80 or less, not {width}"
             )
 
 
@@ -457,7 +430,7 @@ class TestResponsiveLayoutIntegration(unittest.TestCase):
         installer_pages_dir = os.path.join(LIB_DIR, "mados_installer", "pages")
         self.assertTrue(
             os.path.exists(installer_pages_dir),
-            f"Installer pages directory not found at {installer_pages_dir}"
+            f"Installer pages directory not found at {installer_pages_dir}",
         )
 
         for filename in os.listdir(installer_pages_dir):
@@ -467,17 +440,14 @@ class TestResponsiveLayoutIntegration(unittest.TestCase):
                     content = f.read()
 
                 # Check for large fixed widths (300+) in set_size_request
-                matches = re.findall(
-                    r'set_size_request\s*\(\s*(\d+)\s*,',
-                    content
-                )
-                
+                matches = re.findall(r"set_size_request\s*\(\s*(\d+)\s*,", content)
+
                 for width_str in matches:
                     width = int(width_str)
                     self.assertLess(
                         width,
                         300,
-                        f"{filename} should not use large fixed width {width} in set_size_request"
+                        f"{filename} should not use large fixed width {width} in set_size_request",
                     )
 
     def test_apps_use_responsive_patterns(self):
@@ -495,15 +465,15 @@ class TestResponsiveLayoutIntegration(unittest.TestCase):
 
                 # Should use at least one responsive pattern
                 has_responsive_pattern = (
-                    "set_hexpand(True)" in content or
-                    "set_vexpand(True)" in content or
-                    "_on_paned_allocate" in content or
-                    "FlowBox" in content
+                    "set_hexpand(True)" in content
+                    or "set_vexpand(True)" in content
+                    or "_on_paned_allocate" in content
+                    or "FlowBox" in content
                 )
 
                 self.assertTrue(
                     has_responsive_pattern,
-                    f"{app_dir}/app.py should use responsive layout patterns"
+                    f"{app_dir}/app.py should use responsive layout patterns",
                 )
 
 

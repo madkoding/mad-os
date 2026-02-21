@@ -20,6 +20,7 @@ PERSIST_MOUNT="/mnt/persistence"
 LOG_FILE="/var/log/mados-persistence.log"
 OVERLAY_DIRS="etc usr var opt"
 MIN_PERSIST_MB=1024   # minimum 1 GB for persistence partition
+PARTITION_LINE_REGEX='^ [0-9]'  # matches numbered partition lines in parted output
 
 # ── Console UI helpers ───────────────────────────────────────────────────────
 # Nord-inspired colors for professional boot output
@@ -33,11 +34,43 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 STEP_NUM=0
+SPINNER_PID=""
 
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" >&2
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE" 2>/dev/null
     return 0
 }
+
+# ── Spinner helpers ──────────────────────────────────────────────────────────
+# Background spinner shown while a step is in progress.  start_spinner is
+# called by ui_step(); stop_spinner is called by ui_ok/ui_fail/ui_warn/ui_skip.
+
+start_spinner() {
+    stop_spinner  # ensure no stale spinner
+    local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+    (
+        while true; do
+            for f in "${frames[@]}"; do
+                printf "\r  ${CYAN}  %s${NC} " "$f" >&2
+                sleep 0.1
+            done
+        done
+    ) &
+    SPINNER_PID=$!
+    disown "$SPINNER_PID" 2>/dev/null
+}
+
+stop_spinner() {
+    if [[ -n "${SPINNER_PID:-}" ]] && kill -0 "$SPINNER_PID" 2>/dev/null; then
+        kill "$SPINNER_PID" 2>/dev/null
+        wait "$SPINNER_PID" 2>/dev/null || true
+        printf "\r" >&2
+    fi
+    SPINNER_PID=""
+}
+
+# Clean up spinner on exit
+trap 'stop_spinner' EXIT
 
 ui_header() {
     echo -e "${BLUE}${BOLD}" >&2
@@ -49,25 +82,30 @@ ui_header() {
 }
 
 ui_step() {
+    stop_spinner
     STEP_NUM=$((STEP_NUM + 1))
     echo -e "  ${CYAN}${BOLD}[${STEP_NUM}]${NC} ${BOLD}$*${NC}" >&2
     log "STEP $STEP_NUM: $*"
+    start_spinner
     return 0
 }
 
 ui_ok() {
+    stop_spinner
     echo -e "  ${GREEN}  ✓${NC} $*" >&2
     log "  OK: $*"
     return 0
 }
 
 ui_warn() {
+    stop_spinner
     echo -e "  ${YELLOW}  ⚠${NC} $*" >&2
     log "  WARN: $*"
     return 0
 }
 
 ui_fail() {
+    stop_spinner
     echo -e "  ${RED}  ✗${NC} $*" >&2
     log "  FAIL: $*"
     return 0
@@ -80,6 +118,7 @@ ui_info() {
 }
 
 ui_done() {
+    stop_spinner
     echo "" >&2
     echo -e "  ${GREEN}${BOLD}── Persistence ready ──${NC}" >&2
     echo "" >&2
@@ -88,6 +127,7 @@ ui_done() {
 }
 
 ui_skip() {
+    stop_spinner
     echo -e "  ${DIM}  ─ $*${NC}" >&2
     log "  SKIP: $*"
     return 0
@@ -278,7 +318,7 @@ get_free_space() {
         local disk_mb last_end_mb
         disk_mb=$(( $(blockdev --getsize64 "$device" 2>/dev/null || echo 0) / 1048576 ))
         last_end_mb=$(parted -s "$device" unit MB print 2>/dev/null \
-                      | grep "^ [0-9]" | awk '{gsub(/MB/,""); print $3}' \
+                      | grep "$PARTITION_LINE_REGEX" | awk '{gsub(/MB/,""); print $3}' \
                       | sort -n | tail -1)
         last_end_mb="${last_end_mb%%.*}"
         if [[ "${disk_mb:-0}" -gt 0 && "${last_end_mb:-0}" -gt 0 ]]; then
@@ -302,6 +342,101 @@ get_free_space() {
     fi
 
     echo "${free:-0}"
+    return 0
+}
+
+# ── Find unformatted "Linux" type partition (post-reboot recovery) ───────────
+# After creating a partition and rebooting, the partition exists in the table
+# but has no filesystem.  This function finds it so it can be formatted.
+
+find_unformatted_partition() {
+    local device=$1
+    local part_suffix=""
+    [[ "$device" == *"nvme"* || "$device" == *"mmcblk"* || "$device" == *"loop"* ]] && part_suffix="p"
+
+    local highest_dev_num=0
+    local dev_node
+    for dev_node in "${device}${part_suffix}"[0-9]* "${device}"[0-9]*; do
+        if [[ -b "$dev_node" ]]; then
+            local dnum
+            if [[ -n "$part_suffix" ]]; then
+                dnum=$(echo "$dev_node" | sed 's/.*p\([0-9]*\)$/\1/')
+            else
+                dnum=$(echo "$dev_node" | sed 's/.*[^0-9]\([0-9]*\)$/\1/')
+            fi
+            if [[ -n "$dnum" && "$dnum" -gt "$highest_dev_num" ]]; then
+                highest_dev_num=$dnum
+            fi
+        fi
+    done
+
+    local last_dev="${device}${part_suffix}${highest_dev_num}"
+    if [[ "$highest_dev_num" -gt 0 && -b "$last_dev" ]]; then
+        local cand_fstype
+        cand_fstype=$(blkid -s TYPE -o value "$last_dev" 2>/dev/null || echo "")
+        if [[ -z "$cand_fstype" ]]; then
+            local cand_size_mb
+            cand_size_mb=$(( $(lsblk -bnlo SIZE "$last_dev" 2>/dev/null | head -1 || echo 0) / 1048576 ))
+            if [[ "${cand_size_mb:-0}" -ge "$MIN_PERSIST_MB" ]]; then
+                log "Found unformatted partition $last_dev (${cand_size_mb} MB)"
+                echo "$last_dev"
+                return 0
+            fi
+        fi
+    fi
+    echo ""
+    return 0
+}
+
+# ── Format a raw partition as ext4 with persistence label ────────────────────
+
+format_persist_partition() {
+    local dev=$1
+    log "Formatting ${dev} as ext4 with label '$PERSIST_LABEL'"
+    local mkfs_output
+    if ! mkfs_output=$(mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$dev" 2>&1); then
+        log "ERROR: mkfs.ext4 failed on $dev: $mkfs_output"
+        return 1
+    fi
+    [[ -n "$mkfs_output" ]] && log "mkfs.ext4: $mkfs_output"
+    sleep 2
+    udevadm settle --timeout=10 2>/dev/null || true
+    local written_label
+    written_label=$(blkid -s LABEL -o value "$dev" 2>/dev/null)
+    if [[ "$written_label" != "$PERSIST_LABEL" ]]; then
+        log "WARNING: Label verification failed (expected '$PERSIST_LABEL', got '$written_label')"
+    fi
+    log "Formatted $dev as ext4 with label '$PERSIST_LABEL'"
+    return 0
+}
+
+# ── Prompt user for persistence with timeout ─────────────────────────────────
+# Shows a 5-second timeout prompt before creating persistence.
+# Returns 0 if user accepts or timeout expires, 1 if user declines.
+
+prompt_persistence() {
+    local timeout=5
+    stop_spinner
+    echo "" >&2
+    echo -e "  ${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}" >&2
+    echo -e "  ${YELLOW}${BOLD}│  Create persistent storage partition?         │${NC}" >&2
+    echo -e "  ${YELLOW}${BOLD}│  Changes will persist across reboots.         │${NC}" >&2
+    echo -e "  ${YELLOW}${BOLD}│  Press 'n' to skip or wait ${timeout}s to continue.   │${NC}" >&2
+    echo -e "  ${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}" >&2
+    echo "" >&2
+
+    local answer=""
+    if read -r -t "$timeout" -n 1 answer < /dev/tty 2>/dev/null; then
+        echo "" >&2
+        if [[ "$answer" == "n" || "$answer" == "N" ]]; then
+            log "User declined persistence partition creation"
+            return 1
+        fi
+        log "User accepted persistence partition creation (answer: '$answer')"
+        return 0
+    fi
+    echo "" >&2
+    log "Persistence prompt timed out after ${timeout}s – proceeding"
     return 0
 }
 
@@ -333,14 +468,14 @@ create_persist_partition() {
     local highest_dev_num=0
     local dev_node
     for dev_node in "${device}${part_suffix}"[0-9]* "${device}"[0-9]*; do
-        if [ -b "$dev_node" ]; then
+        if [[ -b "$dev_node" ]]; then
             local dnum
-            if [ -n "$part_suffix" ]; then
+            if [[ -n "$part_suffix" ]]; then
                 dnum=$(echo "$dev_node" | sed 's/.*p\([0-9]*\)$/\1/')
             else
                 dnum=$(echo "$dev_node" | sed 's/.*[^0-9]\([0-9]*\)$/\1/')
             fi
-            if [ -n "$dnum" ] && [ "$dnum" -gt "$highest_dev_num" ]; then
+            if [[ -n "$dnum" && "$dnum" -gt "$highest_dev_num" ]]; then
                 highest_dev_num=$dnum
                 log "Debug: Found existing device node: $dev_node (partition $dnum)"
             fi
@@ -351,30 +486,53 @@ create_persist_partition() {
     # Also check partition table
     local last_part_num
     last_part_num=$(parted -s "$device" print 2>/dev/null \
-                    | grep "^ [0-9]" | awk '{print $1}' | sort -n | tail -1)
+                    | grep "$PARTITION_LINE_REGEX" | awk '{print $1}' | sort -n | tail -1)
     last_part_num="${last_part_num:-0}"
     log "Debug: Highest partition in table: $last_part_num"
 
     local safe_last_part=$last_part_num
-    [ "$highest_dev_num" -gt "$safe_last_part" ] && safe_last_part=$highest_dev_num
+    [[ "$highest_dev_num" -gt "$safe_last_part" ]] && safe_last_part=$highest_dev_num
     local sfdisk_new_part_num=$((safe_last_part + 1))
     local new_part_num=$sfdisk_new_part_num
     log "Debug: Will create partition number: $new_part_num"
 
     # MBR 4-partition limit check
-    if [ "$table_type" = "msdos" ] && [ "$new_part_num" -gt 4 ]; then
+    if [[ "$table_type" == "msdos" && "$new_part_num" -gt 4 ]]; then
         log "SAFETY: MBR partition table – new partition would be #$new_part_num (max 4)"
         return 1
     fi
-    if [ "$table_type" = "msdos" ] && [ "$sfdisk_new_part_num" -gt 4 ]; then
+    if [[ "$table_type" == "msdos" && "$sfdisk_new_part_num" -gt 4 ]]; then
         log "SAFETY: MBR table - new partition would be #$sfdisk_new_part_num (max 4)"
         return 1
+    fi
+
+    # ── Check for unformatted partition from a previous interrupted setup ─
+    # After a reboot caused by the kernel failing to re-read the partition
+    # table, the partition exists in the on-disk table but was never
+    # formatted.  Detect it and format it instead of creating a new one.
+    local last_dev="${device}${part_suffix}${safe_last_part}"
+    if [[ "$safe_last_part" -gt 0 && -b "$last_dev" ]]; then
+        local cand_fstype
+        cand_fstype=$(blkid -s TYPE -o value "$last_dev" 2>/dev/null || echo "")
+        if [[ -z "$cand_fstype" ]]; then
+            local cand_size_mb
+            cand_size_mb=$(( $(lsblk -bnlo SIZE "$last_dev" 2>/dev/null | head -1 || echo 0) / 1048576 ))
+            if [[ "${cand_size_mb:-0}" -ge "$MIN_PERSIST_MB" ]]; then
+                log "Found unformatted partition $last_dev (${cand_size_mb} MB) – resuming setup after reboot"
+                if ! format_persist_partition "$last_dev"; then
+                    return 1
+                fi
+                log "Formatted $last_dev (post-reboot recovery)"
+                echo "$last_dev"
+                return 0
+            fi
+        fi
     fi
 
     # Snapshot existing partition boundaries for safety verification
     local pre_parts
     pre_parts=$(parted -s "$device" unit MB print 2>/dev/null \
-                | grep "^ [0-9]" | sort -n | awk '{print $1 ":" $2 ":" $3}')
+                | grep "$PARTITION_LINE_REGEX" | sort -n | awk '{print $1 ":" $2 ":" $3}')
 
     # ── Find where existing data ends on disk ────────────────────────────
     local used_end_sector=0
@@ -385,27 +543,27 @@ create_persist_partition() {
             local s_start s_size s_end
             s_start=$(echo "$sector_line" | sed -n 's/.*start=\s*\([0-9]*\).*/\1/p')
             s_size=$(echo "$sector_line" | sed -n 's/.*size=\s*\([0-9]*\).*/\1/p')
-            if [ -n "$s_start" ] && [ -n "$s_size" ]; then
+            if [[ -n "$s_start" && -n "$s_size" ]]; then
                 s_end=$((s_start + s_size))
-                [ "$s_end" -gt "$used_end_sector" ] && used_end_sector=$s_end
+                [[ "$s_end" -gt "$used_end_sector" ]] && used_end_sector=$s_end
             fi
         done < <(sfdisk -d "$device" 2>/dev/null | grep "^/")
     fi
 
     # Fallback: use parted to find end of last partition
-    if [ "$used_end_sector" -eq 0 ] && [ "$last_part_num" -gt 0 ]; then
+    if [[ "$used_end_sector" -eq 0 && "$last_part_num" -gt 0 ]]; then
         local last_end_mb
         last_end_mb=$(parted -s "$device" unit MB print 2>/dev/null \
                       | grep "^ ${last_part_num}" | awk '{print $3}' | sed 's/MB//')
         last_end_mb="${last_end_mb%%.*}"
-        if [ "${last_end_mb:-0}" -gt 0 ]; then
+        if [[ "${last_end_mb:-0}" -gt 0 ]]; then
             # Convert MB to sectors (512 byte sectors)
             used_end_sector=$((last_end_mb * 2048))
             log "Debug: Fallback – last partition ends at ${last_end_mb} MB (sector $used_end_sector)"
         fi
     fi
 
-    if [ "$used_end_sector" -eq 0 ]; then
+    if [[ "$used_end_sector" -eq 0 ]]; then
         log "ERROR: Cannot determine where existing partitions end on $device"
         return 1
     fi
@@ -418,7 +576,7 @@ create_persist_partition() {
 
     # Need at least MIN_PERSIST_MB (1 GB)
     local avail_mb=$((avail_sectors / 2048))
-    if [ "$disk_sectors" -eq 0 ] || [ "$avail_mb" -lt "$MIN_PERSIST_MB" ]; then
+    if [[ "$disk_sectors" -eq 0 || "$avail_mb" -lt "$MIN_PERSIST_MB" ]]; then
         log "Insufficient free space: ${avail_mb} MB available, need $MIN_PERSIST_MB MB"
         return 1
     fi
@@ -431,7 +589,7 @@ create_persist_partition() {
 
     if command -v sfdisk >/dev/null 2>&1; then
         local sfdisk_input
-        if [ "$table_type" = "gpt" ]; then
+        if [[ "$table_type" == "gpt" ]]; then
             sfdisk_input="$sfdisk_new_part_num : start=$new_start, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4"
         else
             sfdisk_input="$sfdisk_new_part_num : start=$new_start, type=83"
@@ -447,7 +605,7 @@ create_persist_partition() {
         fi
     fi
 
-    if [ "$created" != true ]; then
+    if [[ "$created" != true ]]; then
         local last_part_end_mb=$(( new_start / 2048 ))
         log "Command: parted -s $device mkpart primary ext4 ${last_part_end_mb}MB 100%"
         local parted_output
@@ -455,29 +613,34 @@ create_persist_partition() {
             log "ERROR: parted mkpart failed: $parted_output"
             return 1
         }
-        [ -n "$parted_output" ] && log "parted output: $parted_output"
+        [[ -n "$parted_output" ]] && log "parted output: $parted_output"
     fi
 
-    # Settle devices and wait for new partition node
+    # Settle devices and ask kernel to re-read partition table
     sleep 2
-    partprobe "$device" 2>/dev/null || true
+    local kernel_updated=false
+    if partprobe "$device" 2>/dev/null; then
+        kernel_updated=true
+    elif command -v partx >/dev/null 2>&1 && partx -u "$device" 2>/dev/null; then
+        kernel_updated=true
+    fi
     udevadm settle --timeout=10 2>/dev/null || true
 
     # Wait for device node to appear
     local wait_count=0
-    while [ ! -b "$persist_dev" ] && [ "$wait_count" -lt 10 ]; do
+    while [[ ! -b "$persist_dev" && "$wait_count" -lt 10 ]]; do
         sleep 1
         wait_count=$((wait_count + 1))
         log "Debug: Waiting for $persist_dev... ($wait_count/10)"
     done
 
     # Manual device node creation if udev didn't create it
-    if [ ! -b "$persist_dev" ]; then
+    if [[ ! -b "$persist_dev" ]]; then
         local base_dev_name
         base_dev_name=$(basename "$device")
         local part_name="${base_dev_name}${part_suffix}${new_part_num}"
         local sysfs_path="/sys/block/${base_dev_name}/${part_name}/dev"
-        if [ -f "$sysfs_path" ]; then
+        if [[ -f "$sysfs_path" ]]; then
             local s_major s_minor
             s_major=$(cut -d: -f1 < "$sysfs_path" | tr -d '[:space:]')
             s_minor=$(cut -d: -f2 < "$sysfs_path" | tr -d '[:space:]')
@@ -486,43 +649,35 @@ create_persist_partition() {
         fi
     fi
 
-    if [ ! -b "$persist_dev" ]; then
-        log "ERROR: Device node $persist_dev not found after partition creation"
-        return 1
+    # If kernel could not recognize the new partition, a reboot is required
+    if [[ ! -b "$persist_dev" ]]; then
+        log "Kernel failed to recognize new partition $persist_dev – reboot required"
+        echo "REBOOT_NEEDED"
+        return 0
     fi
 
     # Safety: verify existing partitions were not modified
     local post_part_count
-    post_part_count=$(parted -s "$device" print 2>/dev/null | grep -c "^ [0-9]")
+    post_part_count=$(parted -s "$device" print 2>/dev/null | grep -c "$PARTITION_LINE_REGEX")
     log "Debug: Partition count after: ${post_part_count:-0}"
 
     local post_pre_parts
     post_pre_parts=$(parted -s "$device" unit MB print 2>/dev/null \
-                     | grep "^ [0-9]" | sort -n | head -n "$last_part_num" \
+                     | grep "$PARTITION_LINE_REGEX" | sort -n | head -n "$last_part_num" \
                      | awk '{print $1 ":" $2 ":" $3}')
-    if [ "$pre_parts" != "$post_pre_parts" ]; then
+    if [[ "$pre_parts" != "$post_pre_parts" ]]; then
         log "WARNING: Existing partition boundaries changed after mkpart!"
     fi
 
-    # Format as ext4
-    log "Formatting ${persist_dev} as ext4 with label '$PERSIST_LABEL'"
-    mkfs.ext4 -F -L "$PERSIST_LABEL" -E lazy_itable_init=0,lazy_journal_init=0 -m 1 "$persist_dev" 2>&1 || {
-        log "ERROR: mkfs.ext4 failed on $persist_dev"
+    # Kernel recognised the new partition – format it now.
+    if ! format_persist_partition "$persist_dev"; then
+        log "ERROR: format_persist_partition failed on $persist_dev"
         return 1
-    }
-
-    sleep 2
-    udevadm settle --timeout=10 2>/dev/null || true
-
-    # Verify the label was written correctly
-    local written_label
-    written_label=$(blkid -s LABEL -o value "$persist_dev" 2>/dev/null)
-    if [ "$written_label" != "$PERSIST_LABEL" ]; then
-        log "WARNING: Label verification failed (expected '$PERSIST_LABEL', got '$written_label')"
     fi
 
     log "Created and formatted $persist_dev"
     echo "$persist_dev"
+    return 0
 }
 
 # ── Install init script + systemd unit INTO the persistence partition ────────
@@ -554,18 +709,18 @@ find_persist_dev() {
     local parent_device="${1:-}"
     local dev=""
 
-    if [ -n "$parent_device" ] && [ -b "$parent_device" ]; then
+    if [[ -n "$parent_device" && -b "$parent_device" ]]; then
         # Only search partitions belonging to the parent device
         dev=$(lsblk -nlo NAME,LABEL "$parent_device" 2>/dev/null \
             | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
-        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+        if [[ -z "$dev" ]] && command -v blkid >/dev/null 2>&1; then
             local part
             for part in $(lsblk -nlo NAME "$parent_device" 2>/dev/null \
                           | tail -n +2 | awk '{print "/dev/" $1}'); do
-                if [ -b "$part" ]; then
+                if [[ -b "$part" ]]; then
                     local label
                     label=$(blkid -s LABEL -o value "$part" 2>/dev/null)
-                    if [ "$label" = "$PERSIST_LABEL" ]; then
+                    if [[ "$label" == "$PERSIST_LABEL" ]]; then
                         dev="$part"
                         break
                     fi
@@ -576,11 +731,12 @@ find_persist_dev() {
         # No parent device specified – search all devices (fallback)
         dev=$(lsblk -nlo NAME,LABEL 2>/dev/null \
             | grep "$PERSIST_LABEL" | awk '{print "/dev/" $1}' | head -1)
-        if [ -z "$dev" ] && command -v blkid >/dev/null 2>&1; then
+        if [[ -z "$dev" ]] && command -v blkid >/dev/null 2>&1; then
             dev=$(blkid -L "$PERSIST_LABEL" 2>/dev/null)
         fi
     fi
     echo "$dev"
+    return 0
 }
 
 # Try to read the recorded boot device from a previously mounted persistence
@@ -592,7 +748,7 @@ if mountpoint -q "$PERSIST_MOUNT" 2>/dev/null && \
 fi
 
 persist_dev=$(find_persist_dev "$boot_device")
-if [ -z "$persist_dev" ]; then
+if [[ -z "$persist_dev" ]]; then
     log "No partition with label '$PERSIST_LABEL' found – skipping"
     exit 0
 fi
@@ -600,17 +756,17 @@ fi
 # Mount persistence partition if not already mounted
 if ! mountpoint -q "$PERSIST_MOUNT" 2>/dev/null; then
     mkdir -p "$PERSIST_MOUNT"
-    mount -o noatime,commit=60,data=writeback,barrier=0 "$persist_dev" "$PERSIST_MOUNT" || { log "Failed to mount $persist_dev"; exit 1; }
+    mount -o noatime,commit=60,data=writeback "$persist_dev" "$PERSIST_MOUNT" || { log "Failed to mount $persist_dev"; exit 1; }
     log "Mounted $persist_dev at $PERSIST_MOUNT with USB-optimized options"
 fi
 
 # Re-read boot device after mount (it's stored inside the partition)
-if [ -f "$PERSIST_MOUNT/.mados-boot-device" ]; then
+if [[ -f "$PERSIST_MOUNT/.mados-boot-device" ]]; then
     boot_device=$(cat "$PERSIST_MOUNT/.mados-boot-device" 2>/dev/null)
     # Verify the persistence partition actually belongs to the recorded boot device
     local_parent=$(lsblk -ndo PKNAME "$persist_dev" 2>/dev/null)
-    if [ -n "$boot_device" ] && [ -n "$local_parent" ] && \
-       [ "/dev/$local_parent" != "$boot_device" ]; then
+    if [[ -n "$boot_device" && -n "$local_parent" ]] && \
+       [[ "/dev/$local_parent" != "$boot_device" ]]; then
         log "SAFETY: Persistence partition $persist_dev belongs to /dev/$local_parent but boot device is $boot_device – skipping"
         umount "$PERSIST_MOUNT" 2>/dev/null || true
         exit 0
@@ -647,8 +803,8 @@ home_persist="$PERSIST_MOUNT/home"
 mkdir -p "$home_persist"
 
 # If persistent /home is empty, seed it with current /home contents
-if [ -z "$(ls -A "$home_persist" 2>/dev/null)" ] && \
-   [ -d /home ] && [ "$(ls -A /home 2>/dev/null)" ]; then
+if [[ -z "$(ls -A "$home_persist" 2>/dev/null)" ]] && \
+   [[ -d /home ]] && [[ -n "$(ls -A /home 2>/dev/null)" ]]; then
     cp -a /home/. "$home_persist/" 2>/dev/null && \
         log "Seeded persistent /home with current contents" || \
         log "WARNING: Failed to seed persistent /home"
@@ -713,7 +869,7 @@ setup_persistence() {
     local iso_device
     iso_device=$(find_iso_device)
 
-    if [ -z "$iso_device" ]; then
+    if [[ -z "$iso_device" ]]; then
         ui_fail "Could not determine boot device"
         log "Debug: /run/archiso/bootmnt exists=$([ -d /run/archiso/bootmnt ] && echo yes || echo no)"
         log "Debug: findmnt output=$(findmnt -n -o SOURCE /run/archiso/bootmnt 2>/dev/null || echo 'N/A')"
@@ -721,7 +877,7 @@ setup_persistence() {
         return 1
     fi
 
-    if ! [ -b "$iso_device" ]; then
+    if [[ ! -b "$iso_device" ]]; then
         ui_fail "$iso_device is not a block device"
         return 1
     fi
@@ -740,7 +896,7 @@ setup_persistence() {
     else
         local removable_flag
         removable_flag=$(cat "/sys/block/${iso_device#/dev/}/removable" 2>/dev/null || echo "")
-        if [ "$removable_flag" = "0" ]; then
+        if [[ "$removable_flag" == "0" ]]; then
             ui_skip "Fixed disk detected – persistence not needed"
             return 0
         fi
@@ -752,28 +908,59 @@ setup_persistence() {
     local persist_dev
     persist_dev=$(find_persist_partition "$iso_device")
 
-    if [ -z "$persist_dev" ]; then
-        # ── Step 3: Create ext4 partition in remaining free space ─────────
-        local free_space
-        free_space=$(get_free_space "$iso_device")
+    if [[ -z "$persist_dev" ]]; then
+        # ── Step 2b: Check for unformatted "Linux" type partition ─────────
+        # After a reboot, the partition exists but has no filesystem yet.
+        # If found, format it and continue – no user prompt needed.
+        local unformatted_dev
+        unformatted_dev=$(find_unformatted_partition "$iso_device")
 
-        if [ "${free_space:-0}" -lt "$MIN_PERSIST_MB" ]; then
-            ui_fail "Insufficient free space (${free_space:-0} MB < $MIN_PERSIST_MB MB)"
-            return 1
-        fi
+        if [[ -n "$unformatted_dev" ]]; then
+            ui_info "Found unformatted partition $unformatted_dev – formatting..."
+            if ! format_persist_partition "$unformatted_dev"; then
+                ui_fail "Failed to format $unformatted_dev"
+                return 1
+            fi
+            persist_dev="$unformatted_dev"
+            ui_ok "Formatted partition: $persist_dev"
+        else
+            # ── Step 3: Ask user and create partition ─────────────────────
+            local free_space
+            free_space=$(get_free_space "$iso_device")
 
-        ui_info "No partition found – creating (${free_space} MB free)..."
-        persist_dev=$(create_persist_partition "$iso_device")
-        if [ -z "$persist_dev" ]; then
-            ui_fail "Partition creation failed"
-            return 1
+            if [[ "${free_space:-0}" -lt "$MIN_PERSIST_MB" ]]; then
+                ui_fail "Insufficient free space (${free_space:-0} MB < $MIN_PERSIST_MB MB)"
+                return 1
+            fi
+
+            ui_info "No persistence partition found (${free_space} MB free)"
+            if ! prompt_persistence; then
+                ui_skip "Persistence partition creation skipped by user"
+                return 0
+            fi
+
+            ui_info "Creating persistence partition (${free_space} MB free)..."
+            persist_dev=$(create_persist_partition "$iso_device")
+            if [[ "$persist_dev" == "REBOOT_NEEDED" ]]; then
+                ui_warn "Partition created – a reboot is required"
+                ui_info "Persistence setup will resume automatically after reboot"
+                ui_info "The system will reboot in 5 seconds..."
+                log "Scheduling reboot for partition table refresh"
+                sleep 5
+                systemctl reboot 2>/dev/null || reboot -f
+                exit 0
+            fi
+            if [[ -z "$persist_dev" ]]; then
+                ui_fail "Partition creation failed"
+                return 1
+            fi
+            ui_ok "Created partition: $persist_dev"
         fi
-        ui_ok "Created partition: $persist_dev"
     else
         ui_ok "Found existing partition: $persist_dev"
     fi
 
-    if [ ! -b "$persist_dev" ]; then
+    if [[ ! -b "$persist_dev" ]]; then
         ui_fail "Partition $persist_dev not found as block device"
         return 1
     fi
@@ -788,7 +975,7 @@ setup_persistence() {
         blockdev --flushbufs "$persist_dev" 2>/dev/null || true
 
         local mount_output
-        if ! mount_output=$(mount -o noatime,commit=60,data=writeback,barrier=0 "$persist_dev" "$PERSIST_MOUNT" 2>&1); then
+        if ! mount_output=$(mount -o noatime,commit=60,data=writeback "$persist_dev" "$PERSIST_MOUNT" 2>&1); then
             ui_fail "Failed to mount $persist_dev"
             log "Mount error: $mount_output"
             return 1
@@ -798,22 +985,25 @@ setup_persistence() {
         ui_ok "Already mounted at $PERSIST_MOUNT"
     fi
 
-    if [ ! -d "$PERSIST_MOUNT" ] || [ ! -w "$PERSIST_MOUNT" ]; then
+    if [[ ! -d "$PERSIST_MOUNT" || ! -w "$PERSIST_MOUNT" ]]; then
         ui_fail "Mount point is not accessible"
         return 1
     fi
 
-    # ── Step 5: First boot – set up overlayfs and move data ──────────────
-    if [ -x "$PERSIST_MOUNT/mados-persist-init.sh" ]; then
-        # Subsequent boot: just run the init script
-        ui_step "Restoring persistent overlays"
-        "$PERSIST_MOUNT/mados-persist-init.sh" || {
-            ui_warn "Init script returned exit code $?"
-        }
-        ui_ok "Overlays restored from previous session"
-    else
-        # First boot: create directory structure and install files
-        ui_step "Initialising partition (first boot)"
+    # ── Step 5: Initialise or restore persistence ──────────────────────────
+    # Check if directory structure is complete (handles interrupted first boot)
+    local needs_init=false
+    for dir in $OVERLAY_DIRS; do
+        if [[ ! -d "$PERSIST_MOUNT/overlays/$dir/upper" || ! -d "$PERSIST_MOUNT/overlays/$dir/work" ]]; then
+            needs_init=true
+            break
+        fi
+    done
+    [[ ! -d "$PERSIST_MOUNT/home" ]] && needs_init=true
+
+    if [[ "$needs_init" == true ]]; then
+        # Directory structure incomplete – create/repair it
+        ui_step "Initialising persistence directories"
 
         for dir in $OVERLAY_DIRS; do
             mkdir -p "$PERSIST_MOUNT/overlays/$dir/upper" \
@@ -826,14 +1016,15 @@ setup_persistence() {
         chmod 755 "$PERSIST_MOUNT"
         ui_ok "Directory structure created"
 
-        # Copy current /home contents to persistence partition
+        # Copy current /home contents if persistent home is empty
         ui_step "Copying user configuration"
-        if [ -d /home ] && [ "$(ls -A /home 2>/dev/null)" ]; then
+        if [[ -z "$(ls -A "$PERSIST_MOUNT/home" 2>/dev/null)" ]] && \
+           [[ -d /home && -n "$(ls -A /home 2>/dev/null)" ]]; then
             cp -a /home/. "$PERSIST_MOUNT/home/" 2>/dev/null && \
                 ui_ok "Home contents preserved" || \
                 ui_warn "Some home contents could not be copied"
         else
-            ui_skip "No existing home contents"
+            ui_skip "Home contents already present or source empty"
         fi
 
         # Record the boot device
@@ -848,13 +1039,21 @@ setup_persistence() {
             return 1
         }
         ui_ok "Init script and service installed"
+    else
+        ui_step "Persistence directories verified"
+        ui_ok "Directory structure already complete"
+    fi
 
-        # Run init now to mount overlays immediately
-        ui_step "Activating overlays"
+    # Run init script to activate overlays (both fresh and existing setups)
+    if [[ -x "$PERSIST_MOUNT/mados-persist-init.sh" ]]; then
+        ui_step "Activating persistent overlays"
         "$PERSIST_MOUNT/mados-persist-init.sh" || {
             ui_warn "Init script returned exit code $?"
         }
         ui_ok "Overlays active: /etc /usr /var /opt /home"
+    else
+        ui_fail "Init script not found after initialisation"
+        return 1
     fi
 
     # ── Step 6: Confirm partition is mounted and directories are ready ───
@@ -867,18 +1066,18 @@ setup_persistence() {
     fi
 
     for dir in $OVERLAY_DIRS; do
-        if ! [ -d "$PERSIST_MOUNT/overlays/$dir/upper" ]; then
+        if [[ ! -d "$PERSIST_MOUNT/overlays/$dir/upper" ]]; then
             ui_warn "Missing overlay directory for /$dir"
             all_ok=false
         fi
     done
 
-    if ! [ -d "$PERSIST_MOUNT/home" ]; then
+    if [[ ! -d "$PERSIST_MOUNT/home" ]]; then
         ui_warn "Missing persistent /home directory"
         all_ok=false
     fi
 
-    if [ "$all_ok" = true ]; then
+    if [[ "$all_ok" == true ]]; then
         ui_ok "All persistence directories ready"
     fi
 
@@ -888,7 +1087,7 @@ setup_persistence() {
 }
 
 # Only run in live environment
-if [ -d /run/archiso ]; then
+if [[ -d /run/archiso ]]; then
     setup_persistence
 else
     log "Not running in live environment, skipping"

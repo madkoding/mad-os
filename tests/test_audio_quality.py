@@ -33,7 +33,9 @@ SKEL_DIR = os.path.join(AIROOTFS, "etc", "skel")
 
 AUDIO_QUALITY_SCRIPT = os.path.join(BIN_DIR, "mados-audio-quality.sh")
 AUDIO_QUALITY_SERVICE = os.path.join(SYSTEMD_DIR, "mados-audio-quality.service")
-USER_SERVICE = os.path.join(SKEL_DIR, ".config", "systemd", "user", "mados-audio-quality.service")
+USER_SERVICE = os.path.join(
+    SKEL_DIR, ".config", "systemd", "user", "mados-audio-quality.service"
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -46,7 +48,7 @@ class TestAudioQualityScriptBasics(unittest.TestCase):
         """mados-audio-quality.sh must exist."""
         self.assertTrue(
             os.path.isfile(AUDIO_QUALITY_SCRIPT),
-            "mados-audio-quality.sh script not found"
+            "mados-audio-quality.sh script not found",
         )
 
     def test_script_executable_permission(self):
@@ -55,21 +57,19 @@ class TestAudioQualityScriptBasics(unittest.TestCase):
         with open(profiledef) as f:
             content = f.read()
         self.assertIn(
-            'mados-audio-quality.sh',
+            "mados-audio-quality.sh",
             content,
-            "mados-audio-quality.sh not found in profiledef.sh"
+            "mados-audio-quality.sh not found in profiledef.sh",
         )
 
     def test_script_valid_bash_syntax(self):
         """Script must have valid bash syntax."""
         result = subprocess.run(
             ["bash", "-n", AUDIO_QUALITY_SCRIPT],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
-        self.assertEqual(
-            result.returncode, 0,
-            f"Bash syntax error: {result.stderr}"
-        )
+        self.assertEqual(result.returncode, 0, f"Bash syntax error: {result.stderr}")
 
     def test_script_has_shebang(self):
         """Script must start with bash shebang."""
@@ -174,7 +174,8 @@ class TestConfigGeneration(unittest.TestCase):
         # This tests that the script at least loads without immediate errors
         result = subprocess.run(
             ["bash", "-c", f"source {AUDIO_QUALITY_SCRIPT} && type -t main"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         self.assertEqual(result.returncode, 0)
         self.assertIn("function", result.stdout)
@@ -190,7 +191,7 @@ class TestPipeWireConfigFormat(unittest.TestCase):
         """Generated config must have proper PipeWire syntax."""
         with open(AUDIO_QUALITY_SCRIPT) as f:
             content = f.read()
-        
+
         # Check for key PipeWire configuration properties
         self.assertIn("default.clock.rate", content)
         self.assertIn("default.clock.quantum", content)
@@ -222,7 +223,7 @@ class TestWirePlumberConfig(unittest.TestCase):
         """Generated WirePlumber config must have proper syntax."""
         with open(AUDIO_QUALITY_SCRIPT) as f:
             content = f.read()
-        
+
         # Check for WirePlumber rule syntax
         self.assertIn("monitor.alsa.rules", content)
         self.assertIn("matches", content)
@@ -247,7 +248,7 @@ class TestSystemdServices(unittest.TestCase):
         """System-wide service must exist."""
         self.assertTrue(
             os.path.isfile(AUDIO_QUALITY_SERVICE),
-            "mados-audio-quality.service not found"
+            "mados-audio-quality.service not found",
         )
 
     def test_system_service_valid_syntax(self):
@@ -276,16 +277,12 @@ class TestSystemdServices(unittest.TestCase):
         wants_dir = os.path.join(SYSTEMD_DIR, "multi-user.target.wants")
         service_link = os.path.join(wants_dir, "mados-audio-quality.service")
         self.assertTrue(
-            os.path.islink(service_link),
-            "mados-audio-quality.service not enabled"
+            os.path.islink(service_link), "mados-audio-quality.service not enabled"
         )
 
     def test_user_service_exists(self):
         """User service must exist in skel."""
-        self.assertTrue(
-            os.path.isfile(USER_SERVICE),
-            "User service not found in skel"
-        )
+        self.assertTrue(os.path.isfile(USER_SERVICE), "User service not found in skel")
 
     def test_user_service_valid_syntax(self):
         """User service file must have valid systemd syntax."""
@@ -304,21 +301,21 @@ class TestAudioQualityIntegration(unittest.TestCase):
 
     def test_script_in_path(self):
         """Script must be in /usr/local/bin."""
-        self.assertTrue(AUDIO_QUALITY_SCRIPT.endswith(
-            "usr/local/bin/mados-audio-quality.sh"
-        ))
+        self.assertTrue(
+            AUDIO_QUALITY_SCRIPT.endswith("usr/local/bin/mados-audio-quality.sh")
+        )
 
     def test_works_with_existing_audio_init(self):
         """Should work alongside existing mados-audio-init.sh."""
         audio_init = os.path.join(BIN_DIR, "mados-audio-init.sh")
         self.assertTrue(os.path.isfile(audio_init))
-        
+
         # Both scripts should be independent
         with open(AUDIO_QUALITY_SCRIPT) as f:
             quality_content = f.read()
         with open(audio_init) as f:
-            init_content = f.read()
-        
+            _ = f.read()
+
         # Quality script should not interfere with ALSA mixer settings
         self.assertNotIn("amixer", quality_content)
 
@@ -326,7 +323,7 @@ class TestAudioQualityIntegration(unittest.TestCase):
         """Script should work in both live and installed systems."""
         with open(AUDIO_QUALITY_SCRIPT) as f:
             content = f.read()
-        
+
         # Should handle both system and user configs
         self.assertIn("/etc/pipewire", content)
         self.assertIn(".config/pipewire", content)
@@ -336,7 +333,7 @@ class TestAudioQualityIntegration(unittest.TestCase):
         """Script should not fail if no audio hardware is present."""
         with open(AUDIO_QUALITY_SCRIPT) as f:
             content = f.read()
-        
+
         # Should use defaults if detection fails
         self.assertIn("DEFAULT_SAMPLE_RATE", content)
         self.assertIn("DEFAULT_BIT_DEPTH", content)
@@ -352,7 +349,7 @@ class TestQuantumCalculation(unittest.TestCase):
         """Higher sample rates should use larger buffers."""
         with open(AUDIO_QUALITY_SCRIPT) as f:
             content = f.read()
-        
+
         # Verify that quantum sizes increase with sample rate
         self.assertIn("192000", content)
         self.assertIn("quantum=1024", content)
@@ -363,7 +360,7 @@ class TestQuantumCalculation(unittest.TestCase):
         """Min and max quantum values should be defined."""
         with open(AUDIO_QUALITY_SCRIPT) as f:
             content = f.read()
-        
+
         self.assertIn("DEFAULT_MIN_QUANTUM", content)
         self.assertIn("DEFAULT_MAX_QUANTUM", content)
         self.assertIn("DEFAULT_QUANTUM", content)
@@ -447,7 +444,7 @@ class TestUserServiceEnabled(unittest.TestCase):
         service_link = os.path.join(wants_dir, "mados-audio-quality.service")
         self.assertTrue(
             os.path.islink(service_link),
-            "User mados-audio-quality.service not enabled in default.target.wants"
+            "User mados-audio-quality.service not enabled in default.target.wants",
         )
 
     def test_user_service_symlink_target(self):
@@ -478,9 +475,9 @@ class TestInstallerAudioQualityIntegration(unittest.TestCase):
         """Installer must copy mados-audio-quality.sh to installed system."""
         self.assertIn("mados-audio-quality.sh", self.content)
         self.assertIn(
-            "/mnt/usr/local/bin/mados-audio-quality.sh",
+            "MNT_USR_LOCAL_BIN",
             self.content,
-            "Installer must copy audio quality script to /mnt"
+            "Installer must use MNT_USR_LOCAL_BIN constant for copying scripts",
         )
 
     def test_installer_creates_system_service(self):
@@ -489,7 +486,7 @@ class TestInstallerAudioQualityIntegration(unittest.TestCase):
         self.assertIn(
             "systemctl enable mados-audio-quality.service",
             self.content,
-            "Installer must enable mados-audio-quality.service"
+            "Installer must enable mados-audio-quality.service",
         )
 
     def test_installer_creates_user_service(self):
@@ -501,7 +498,7 @@ class TestInstallerAudioQualityIntegration(unittest.TestCase):
         self.assertIn(
             "default.target.wants/mados-audio-quality.service",
             self.content,
-            "Installer must enable user audio quality service via symlink"
+            "Installer must enable user audio quality service via symlink",
         )
 
     def test_system_service_runs_after_audio_init(self):
@@ -519,5 +516,5 @@ class TestInstallerAudioQualityIntegration(unittest.TestCase):
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

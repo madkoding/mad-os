@@ -31,17 +31,18 @@ TEST_LOCALE="en_US.UTF-8"
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 ERRORS=0; WARNINGS=0
 
-step()    { echo -e "\n${CYAN}══════════════════════════════════════════════════${NC}"; echo -e "${GREEN}==> $1${NC}"; }
-info()    { echo -e "    ${YELLOW}$1${NC}"; }
-ok()      { echo -e "    ${GREEN}✓ $1${NC}"; }
-fail()    { echo -e "    ${RED}✗ $1${NC}"; ERRORS=$((ERRORS + 1)); }
-warn()    { echo -e "    ${YELLOW}⚠ $1${NC}"; WARNINGS=$((WARNINGS + 1)); }
+step()    { local msg="$1"; echo -e "\n${CYAN}══════════════════════════════════════════════════${NC}"; echo -e "${GREEN}==> $msg${NC}"; return 0; }
+info()    { local msg="$1"; echo -e "    ${YELLOW}$msg${NC}"; return 0; }
+ok()      { local msg="$1"; echo -e "    ${GREEN}✓ $msg${NC}"; return 0; }
+fail()    { local msg="$1"; echo -e "    ${RED}✗ $msg${NC}"; ERRORS=$((ERRORS + 1)); return 0; }
+warn()    { local msg="$1"; echo -e "    ${YELLOW}⚠ $msg${NC}"; WARNINGS=$((WARNINGS + 1)); return 0; }
 
 # ── Cleanup on exit ──────────────────────────────────────────────────────────
 cleanup() {
     step "Cleanup"
     rm -rf "$TEST_DIR"
     info "Test directory removed: $TEST_DIR"
+    return 0
 }
 trap cleanup EXIT
 
@@ -70,7 +71,7 @@ fi
 # =============================================================================
 step "Phase 1 – Generating first-boot script"
 
-if [ ! -d "$LIB_DIR/mados_installer" ]; then
+if [[ ! -d "$LIB_DIR/mados_installer" ]]; then
     fail "Installer library not found at $LIB_DIR/mados_installer"
     exit 1
 fi
@@ -147,6 +148,7 @@ check_content() {
     else
         fail "$desc — pattern '$pattern' not found"
     fi
+    return 0
 }
 
 check_content "Has bash shebang" "#!/bin/bash"
@@ -322,9 +324,9 @@ step "Phase 12 – Verifying script completeness"
 SCRIPT_LINES=$(wc -l < "$TEST_DIR/mados-first-boot.sh")
 info "Script size: $SCRIPT_LINES lines"
 
-if [ "$SCRIPT_LINES" -lt 100 ]; then
+if [[ "$SCRIPT_LINES" -lt 100 ]]; then
     fail "Script seems too short ($SCRIPT_LINES lines) — may be incomplete"
-elif [ "$SCRIPT_LINES" -gt 1000 ]; then
+elif [[ "$SCRIPT_LINES" -gt 1000 ]]; then
     warn "Script is very long ($SCRIPT_LINES lines) — consider refactoring"
 else
     ok "Script size is reasonable ($SCRIPT_LINES lines)"
@@ -333,7 +335,7 @@ fi
 # Count major sections
 SECTIONS=$(echo "$SCRIPT_CONTENT" | grep -c "^# ──.*──" || true)
 info "Major sections found: $SECTIONS"
-if [ "$SECTIONS" -lt 5 ]; then
+if [[ "$SECTIONS" -lt 5 ]]; then
     warn "Script has fewer than 5 major sections — may be missing functionality"
 else
     ok "Script has $SECTIONS major sections"
@@ -346,7 +348,7 @@ step "Results"
 echo ""
 info "Generated script location: $TEST_DIR/mados-first-boot.sh"
 echo ""
-if [ "$ERRORS" -eq 0 ]; then
+if [[ "$ERRORS" -eq 0 ]]; then
     echo -e "${GREEN}═══════════════════════════════════════════${NC}"
     echo -e "${GREEN}  ✓ ALL TESTS PASSED  (warnings: ${WARNINGS})${NC}"
     echo -e "${GREEN}═══════════════════════════════════════════${NC}"

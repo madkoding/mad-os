@@ -14,7 +14,8 @@ import math
 import cairo
 
 import gi
-gi.require_version('Gtk', '3.0')
+
+gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
 from .theme import hex_to_rgb_float, NORD_FROST, NORD_POLAR_NIGHT, NORD_SNOW_STORM
@@ -30,9 +31,7 @@ def ensure_signature_dir():
     os.makedirs(SIGNATURE_DIR, exist_ok=True)
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  TextAnnotation
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+JSON_EXTENSION = ".json"
 
 
 class TextAnnotation:
@@ -51,8 +50,9 @@ class TextAnnotation:
         dragging:   Internal flag for drag operations.
     """
 
-    def __init__(self, page_index, x, y, text="", font_size=14,
-                 color="#2E3440", opacity=1.0):
+    def __init__(
+        self, page_index, x, y, text="", font_size=14, color="#2E3440", opacity=1.0
+    ):
         self.page_index = page_index
         self.x = x
         self.y = y
@@ -81,7 +81,7 @@ class TextAnnotation:
         y = self.y * scale
         fs = self.font_size * scale
 
-        lines = self.text.split('\n') if self.text else ['']
+        lines = self.text.split("\n") if self.text else [""]
         max_line_len = max(len(line) for line in lines) if lines else 1
         w = max_line_len * fs * 0.6  # approximate width
         h = len(lines) * fs * 1.3
@@ -107,32 +107,27 @@ class TextAnnotation:
     def to_dict(self):
         """Serialize to a JSON-compatible dict."""
         return {
-            'page_index': self.page_index,
-            'x': self.x,
-            'y': self.y,
-            'text': self.text,
-            'font_size': self.font_size,
-            'color': self.color,
-            'opacity': self.opacity,
+            "page_index": self.page_index,
+            "x": self.x,
+            "y": self.y,
+            "text": self.text,
+            "font_size": self.font_size,
+            "color": self.color,
+            "opacity": self.opacity,
         }
 
     @classmethod
     def from_dict(cls, d):
         """Deserialize from a dict."""
         return cls(
-            page_index=d.get('page_index', 0),
-            x=d.get('x', 0),
-            y=d.get('y', 0),
-            text=d.get('text', ''),
-            font_size=d.get('font_size', 14),
-            color=d.get('color', '#2E3440'),
-            opacity=d.get('opacity', 1.0),
+            page_index=d.get("page_index", 0),
+            x=d.get("x", 0),
+            y=d.get("y", 0),
+            text=d.get("text", ""),
+            font_size=d.get("font_size", 14),
+            color=d.get("color", "#2E3440"),
+            opacity=d.get("opacity", 1.0),
         )
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  SignaturePlacement
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 class SignaturePlacement:
@@ -152,8 +147,9 @@ class SignaturePlacement:
     DEFAULT_WIDTH = 150
     DEFAULT_HEIGHT = 60
 
-    def __init__(self, page_index, x, y, surface, width=None, height=None,
-                 opacity=0.85):
+    def __init__(
+        self, page_index, x, y, surface, width=None, height=None, opacity=0.85
+    ):
         self.page_index = page_index
         self.x = x
         self.y = y
@@ -178,8 +174,10 @@ class SignaturePlacement:
         """Check if (px, py) hits the bottom-right resize handle."""
         x2 = (self.x + self.width) * scale
         y2 = (self.y + self.height) * scale
-        return (x2 - handle_size <= px <= x2 + handle_size and
-                y2 - handle_size <= py <= y2 + handle_size)
+        return (
+            x2 - handle_size <= px <= x2 + handle_size
+            and y2 - handle_size <= py <= y2 + handle_size
+        )
 
     def start_drag(self, px, py, scale=1.0):
         """Begin dragging the signature."""
@@ -197,7 +195,7 @@ class SignaturePlacement:
         """End drag operation."""
         self.dragging = False
 
-    def start_resize(self, px, py, scale=1.0):
+    def start_resize(self):
         """Begin resizing from the bottom-right corner."""
         self.resizing = True
 
@@ -244,17 +242,17 @@ class SignaturePad(Gtk.DrawingArea):
 
         # Events
         self.add_events(
-            Gdk.EventMask.BUTTON_PRESS_MASK |
-            Gdk.EventMask.BUTTON_RELEASE_MASK |
-            Gdk.EventMask.POINTER_MOTION_MASK
+            Gdk.EventMask.BUTTON_PRESS_MASK
+            | Gdk.EventMask.BUTTON_RELEASE_MASK
+            | Gdk.EventMask.POINTER_MOTION_MASK
         )
-        self.connect('draw', self._on_draw)
-        self.connect('button-press-event', self._on_button_press)
-        self.connect('button-release-event', self._on_button_release)
-        self.connect('motion-notify-event', self._on_motion)
+        self.connect("draw", self._on_draw)
+        self.connect("button-press-event", self._on_button_press)
+        self.connect("button-release-event", self._on_button_release)
+        self.connect("motion-notify-event", self._on_motion)
 
         style = self.get_style_context()
-        style.add_class('signature-pad')
+        style.add_class("signature-pad")
 
     def clear(self):
         """Clear all strokes."""
@@ -277,9 +275,7 @@ class SignaturePad(Gtk.DrawingArea):
         if not self.strokes:
             return None
 
-        surface = cairo.ImageSurface(
-            cairo.FORMAT_ARGB32, self._width, self._height
-        )
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self._width, self._height)
         ctx = cairo.Context(surface)
 
         # Transparent background
@@ -303,20 +299,20 @@ class SignaturePad(Gtk.DrawingArea):
         ensure_signature_dir()
 
         # Save strokes as JSON
-        json_path = filepath + '.json'
+        json_path = filepath + JSON_EXTENSION
         data = {
-            'width': self._width,
-            'height': self._height,
-            'pen_width': self.pen_width,
-            'strokes': self.strokes,
+            "width": self._width,
+            "height": self._height,
+            "pen_width": self.pen_width,
+            "strokes": self.strokes,
         }
-        with open(json_path, 'w') as f:
+        with open(json_path, "w") as f:
             json.dump(data, f)
 
         # Save PNG
         surface = self.to_surface()
         if surface:
-            png_path = filepath + '.png'
+            png_path = filepath + ".png"
             surface.write_to_png(png_path)
 
     def load_from_file(self, filepath):
@@ -329,15 +325,17 @@ class SignaturePad(Gtk.DrawingArea):
         Returns:
             True if loaded successfully, False otherwise.
         """
-        json_path = filepath if filepath.endswith('.json') else filepath + '.json'
+        json_path = (
+            filepath if filepath.endswith(JSON_EXTENSION) else filepath + JSON_EXTENSION
+        )
         if not os.path.isfile(json_path):
             return False
 
         try:
-            with open(json_path, 'r') as f:
+            with open(json_path, "r") as f:
                 data = json.load(f)
-            self.strokes = data.get('strokes', [])
-            self.pen_width = data.get('pen_width', 2.5)
+            self.strokes = data.get("strokes", [])
+            self.pen_width = data.get("pen_width", 2.5)
             self.queue_draw()
             return True
         except (json.JSONDecodeError, IOError):
@@ -389,9 +387,12 @@ class SignaturePad(Gtk.DrawingArea):
                 mx = (points[i][0] + points[i + 1][0]) / 2.0
                 my = (points[i][1] + points[i + 1][1]) / 2.0
                 ctx.curve_to(
-                    points[i][0], points[i][1],
-                    points[i][0], points[i][1],
-                    mx, my,
+                    points[i][0],
+                    points[i][1],
+                    points[i][0],
+                    points[i][1],
+                    mx,
+                    my,
                 )
             else:
                 ctx.line_to(points[i][0], points[i][1])
@@ -436,18 +437,18 @@ class SignatureDialog(Gtk.Dialog):
     Access the signature surface via self.get_signature_surface().
     """
 
-    def __init__(self, parent, lang='English'):
+    def __init__(self, parent, lang="English"):
         super().__init__(
-            title=get_text('draw_signature', lang),
+            title=get_text("draw_signature", lang),
             transient_for=parent,
             modal=True,
         )
         self.lang = lang
         self.set_default_size(450, 280)
 
-        self.add_button(get_text('clear_signature', lang), Gtk.ResponseType.REJECT)
-        self.add_button(get_text('load_signature', lang), Gtk.ResponseType.APPLY)
-        self.add_button(get_text('save_signature', lang), Gtk.ResponseType.YES)
+        self.add_button(get_text("clear_signature", lang), Gtk.ResponseType.REJECT)
+        self.add_button(get_text("load_signature", lang), Gtk.ResponseType.APPLY)
+        self.add_button(get_text("save_signature", lang), Gtk.ResponseType.YES)
         self.add_button("Cancel", Gtk.ResponseType.CANCEL)
         self.add_button("OK", Gtk.ResponseType.OK)
 
@@ -458,14 +459,14 @@ class SignatureDialog(Gtk.Dialog):
         content.set_margin_top(8)
         content.set_margin_bottom(8)
 
-        label = Gtk.Label(label=get_text('draw_signature', lang))
+        label = Gtk.Label(label=get_text("draw_signature", lang))
         label.set_halign(Gtk.Align.START)
         content.pack_start(label, False, False, 0)
 
         self.signature_pad = SignaturePad(420, 140)
         content.pack_start(self.signature_pad, True, True, 0)
 
-        self.connect('response', self._on_response)
+        self.connect("response", self._on_response)
         self.show_all()
 
     def get_signature_surface(self):
@@ -478,7 +479,7 @@ class SignatureDialog(Gtk.Dialog):
             # Clear
             self.signature_pad.clear()
             # Don't close the dialog - re-emit to stay open
-            self.stop_emission_by_name('response')
+            self.stop_emission_by_name("response")
             return
 
         if response_id == Gtk.ResponseType.YES:
@@ -487,24 +488,24 @@ class SignatureDialog(Gtk.Dialog):
                 ensure_signature_dir()
                 # Generate a filename from timestamp
                 import time
+
                 name = f"signature_{int(time.time())}"
                 path = os.path.join(SIGNATURE_DIR, name)
                 self.signature_pad.save_to_file(path)
-                self._show_info(get_text('signature_saved', self.lang))
-            self.stop_emission_by_name('response')
+                self._show_info(get_text("signature_saved", self.lang))
+            self.stop_emission_by_name("response")
             return
 
         if response_id == Gtk.ResponseType.APPLY:
             # Load signature
             self._load_signature_chooser()
-            self.stop_emission_by_name('response')
-            return
+            self.stop_emission_by_name("response")
 
     def _load_signature_chooser(self):
         """Show a file chooser to pick a saved signature JSON."""
         ensure_signature_dir()
         chooser = Gtk.FileChooserDialog(
-            title=get_text('load_signature', self.lang),
+            title=get_text("load_signature", self.lang),
             parent=self,
             action=Gtk.FileChooserAction.OPEN,
         )
@@ -512,15 +513,15 @@ class SignatureDialog(Gtk.Dialog):
         chooser.add_button("Open", Gtk.ResponseType.OK)
 
         ff = Gtk.FileFilter()
-        ff.set_name("Signature files (*.json)")
-        ff.add_pattern("*.json")
+        ff.set_name(f"Signature files (*{JSON_EXTENSION})")
+        ff.add_pattern(f"*{JSON_EXTENSION}")
         chooser.add_filter(ff)
         chooser.set_current_folder(SIGNATURE_DIR)
 
         if chooser.run() == Gtk.ResponseType.OK:
             filepath = chooser.get_filename()
             if self.signature_pad.load_from_file(filepath):
-                self._show_info(get_text('signature_loaded', self.lang))
+                self._show_info(get_text("signature_loaded", self.lang))
         chooser.destroy()
 
     def _show_info(self, message):
@@ -536,11 +537,6 @@ class SignatureDialog(Gtk.Dialog):
         dlg.destroy()
 
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  TextAnnotationDialog
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-
 class TextAnnotationDialog(Gtk.Dialog):
     """
     Dialog for creating or editing a text annotation.
@@ -548,14 +544,14 @@ class TextAnnotationDialog(Gtk.Dialog):
     Lets the user enter text, choose font size, and pick a color.
     """
 
-    def __init__(self, parent, lang='English', existing=None):
+    def __init__(self, parent, lang="English", existing=None):
         """
         Args:
             parent: Parent Gtk.Window.
             lang: Language for UI strings.
             existing: Optional TextAnnotation to edit.
         """
-        title = get_text('text_annotation', lang)
+        title = get_text("text_annotation", lang)
         super().__init__(
             title=title,
             transient_for=parent,
@@ -575,7 +571,7 @@ class TextAnnotationDialog(Gtk.Dialog):
         content.set_margin_bottom(8)
 
         # Text entry
-        lbl = Gtk.Label(label=get_text('add_text', lang))
+        lbl = Gtk.Label(label=get_text("add_text", lang))
         lbl.set_halign(Gtk.Align.START)
         content.pack_start(lbl, False, False, 0)
 
@@ -590,7 +586,7 @@ class TextAnnotationDialog(Gtk.Dialog):
         # Font size
         hbox_fs = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         hbox_fs.pack_start(
-            Gtk.Label(label=get_text('font_size', lang)), False, False, 0
+            Gtk.Label(label=get_text("font_size", lang)), False, False, 0
         )
         self.font_size_spin = Gtk.SpinButton.new_with_range(6, 72, 1)
         self.font_size_spin.set_value(14)
@@ -600,11 +596,11 @@ class TextAnnotationDialog(Gtk.Dialog):
         # Color
         hbox_color = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         hbox_color.pack_start(
-            Gtk.Label(label=get_text('text_color', lang)), False, False, 0
+            Gtk.Label(label=get_text("text_color", lang)), False, False, 0
         )
         self.color_button = Gtk.ColorButton()
         rgba = Gdk.RGBA()
-        rgba.parse('#2E3440')
+        rgba.parse("#2E3440")
         self.color_button.set_rgba(rgba)
         hbox_color.pack_start(self.color_button, False, False, 0)
         content.pack_start(hbox_color, False, False, 0)
@@ -633,22 +629,17 @@ class TextAnnotationDialog(Gtk.Dialog):
         font_size = self.font_size_spin.get_value_as_int()
 
         rgba = self.color_button.get_rgba()
-        color = '#{:02x}{:02x}{:02x}'.format(
+        color = "#{:02x}{:02x}{:02x}".format(
             int(rgba.red * 255),
             int(rgba.green * 255),
             int(rgba.blue * 255),
         )
 
         return {
-            'text': text,
-            'font_size': font_size,
-            'color': color,
+            "text": text,
+            "font_size": font_size,
+            "color": color,
         }
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  FormFieldManager
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 class FormFieldManager:
@@ -691,19 +682,21 @@ class FormFieldManager:
 
             # Transform coordinates to top-left origin
             rect = {
-                'x1': area.x1,
-                'y1': page_height - area.y2,
-                'x2': area.x2,
-                'y2': page_height - area.y1,
+                "x1": area.x1,
+                "y1": page_height - area.y2,
+                "x2": area.x2,
+                "y2": page_height - area.y1,
             }
 
             # Get current / existing value
             current_value = None
             try:
                 if field_type == Poppler.FormFieldType.TEXT:
-                    current_value = field.get_text() or ''
+                    current_value = field.get_text() or ""
                 elif field_type == Poppler.FormFieldType.BUTTON:
-                    current_value = field.get_state() if hasattr(field, 'get_state') else False
+                    current_value = (
+                        field.get_state() if hasattr(field, "get_state") else False
+                    )
             except Exception:
                 current_value = None
 
@@ -712,12 +705,14 @@ class FormFieldManager:
             if user_value is not None:
                 current_value = user_value
 
-            fields.append({
-                'id': field_id,
-                'type': field_type,
-                'area': rect,
-                'current_value': current_value,
-            })
+            fields.append(
+                {
+                    "id": field_id,
+                    "type": field_type,
+                    "area": rect,
+                    "current_value": current_value,
+                }
+            )
 
         return fields
 
@@ -764,11 +759,11 @@ class FormFieldManager:
         """
         fields = self.get_fields_for_page(page_index)
         for f in fields:
-            r = f['area']
-            x1 = r['x1'] * scale
-            y1 = r['y1'] * scale
-            x2 = r['x2'] * scale
-            y2 = r['y2'] * scale
+            r = f["area"]
+            x1 = r["x1"] * scale
+            y1 = r["y1"] * scale
+            x2 = r["x2"] * scale
+            y2 = r["y2"] * scale
             if x1 <= px <= x2 and y1 <= py <= y2:
                 return f
         return None
@@ -776,7 +771,8 @@ class FormFieldManager:
 
 # Need Poppler for FormFieldType references above
 import gi
-gi.require_version('Poppler', '0.18')
+
+gi.require_version("Poppler", "0.18")
 from gi.repository import Poppler
 
 
@@ -785,7 +781,7 @@ class FormFieldDialog(Gtk.Dialog):
     Dialog for editing a single form field value (text or checkbox).
     """
 
-    def __init__(self, parent, field_info, lang='English'):
+    def __init__(self, parent, field_info, lang="English"):
         """
         Args:
             parent: Parent Gtk.Window.
@@ -793,7 +789,7 @@ class FormFieldDialog(Gtk.Dialog):
             lang: Language string.
         """
         super().__init__(
-            title=get_text('fill_form', lang),
+            title=get_text("fill_form", lang),
             transient_for=parent,
             modal=True,
         )
@@ -810,37 +806,37 @@ class FormFieldDialog(Gtk.Dialog):
         content.set_margin_top(8)
         content.set_margin_bottom(8)
 
-        field_type = field_info['type']
+        field_type = field_info["type"]
 
         if field_type == Poppler.FormFieldType.TEXT:
-            lbl = Gtk.Label(label=get_text('fill_form', lang))
+            lbl = Gtk.Label(label=get_text("fill_form", lang))
             lbl.set_halign(Gtk.Align.START)
             content.pack_start(lbl, False, False, 0)
 
             self.entry = Gtk.Entry()
-            if field_info.get('current_value'):
-                self.entry.set_text(str(field_info['current_value']))
+            if field_info.get("current_value"):
+                self.entry.set_text(str(field_info["current_value"]))
             content.pack_start(self.entry, False, False, 0)
-            self._widget_type = 'text'
+            self._widget_type = "text"
 
         elif field_type == Poppler.FormFieldType.BUTTON:
-            self.check = Gtk.CheckButton(label=get_text('form_fields', lang))
-            if field_info.get('current_value'):
-                self.check.set_active(bool(field_info['current_value']))
+            self.check = Gtk.CheckButton(label=get_text("form_fields", lang))
+            if field_info.get("current_value"):
+                self.check.set_active(bool(field_info["current_value"]))
             content.pack_start(self.check, False, False, 0)
-            self._widget_type = 'button'
+            self._widget_type = "button"
 
         else:
-            lbl = Gtk.Label(label=f"Field type not editable")
+            lbl = Gtk.Label(label="Field type not editable")
             content.pack_start(lbl, False, False, 0)
-            self._widget_type = 'unknown'
+            self._widget_type = "unknown"
 
         self.show_all()
 
     def get_value(self):
         """Return the user-entered value."""
-        if self._widget_type == 'text':
+        if self._widget_type == "text":
             return self.entry.get_text()
-        elif self._widget_type == 'button':
+        elif self._widget_type == "button":
             return self.check.get_active()
         return None

@@ -399,6 +399,7 @@ main() {
     
     log "Audio quality configuration complete"
     log "Settings: ${sample_rate}Hz, ${bit_depth}-bit, quantum ${quantum}"
+    return 0
 }
 
 # Run main function

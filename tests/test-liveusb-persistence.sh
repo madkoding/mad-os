@@ -28,11 +28,11 @@ LOG_FILE="/var/log/mados-persistence.log"
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 ERRORS=0; WARNINGS=0
 
-step()    { echo -e "\n${CYAN}══════════════════════════════════════════════════${NC}"; echo -e "${GREEN}==> $1${NC}"; }
-info()    { echo -e "    ${YELLOW}$1${NC}"; }
-ok()      { echo -e "    ${GREEN}✓ $1${NC}"; }
-fail()    { echo -e "    ${RED}✗ $1${NC}"; ERRORS=$((ERRORS + 1)); }
-warn()    { echo -e "    ${YELLOW}⚠ $1${NC}"; WARNINGS=$((WARNINGS + 1)); }
+step()    { local msg="$1"; echo -e "\n${CYAN}══════════════════════════════════════════════════${NC}"; echo -e "${GREEN}==> $msg${NC}"; return 0; }
+info()    { local msg="$1"; echo -e "    ${YELLOW}$msg${NC}"; return 0; }
+ok()      { local msg="$1"; echo -e "    ${GREEN}✓ $msg${NC}"; return 0; }
+fail()    { local msg="$1"; echo -e "    ${RED}✗ $msg${NC}"; ERRORS=$((ERRORS + 1)); return 0; }
+warn()    { local msg="$1"; echo -e "    ${YELLOW}⚠ $msg${NC}"; WARNINGS=$((WARNINGS + 1)); return 0; }
 
 # ── Cleanup on exit ──────────────────────────────────────────────────────────
 DISK_IMAGE="/tmp/test-usb.img"
@@ -51,11 +51,12 @@ cleanup() {
     umount "$PERSIST_MOUNT" 2>/dev/null || true
     umount /run/archiso/bootmnt 2>/dev/null || true
 
-    [ -n "${LOOP_DEV:-}" ] && losetup -d "$LOOP_DEV" 2>/dev/null || true
+    [[ -n "${LOOP_DEV:-}" ]] && losetup -d "$LOOP_DEV" 2>/dev/null || true
     rm -f "$DISK_IMAGE"
     rm -rf /run/archiso 2>/dev/null || true
     rm -rf /run/mados 2>/dev/null || true
     ok "Cleanup finished"
+    return 0
 }
 trap cleanup EXIT
 
@@ -102,7 +103,7 @@ LOOP_NAME=$(basename "$LOOP_DEV")
 for i in 1 2; do
     PART_DEV="${LOOP_DEV}p${i}"
     SYSFS_DEV="/sys/block/${LOOP_NAME}/${LOOP_NAME}p${i}/dev"
-    if ! [ -b "$PART_DEV" ] && [ -f "$SYSFS_DEV" ]; then
+    if ! [[ -b "$PART_DEV" ]] && [[ -f "$SYSFS_DEV" ]]; then
         MAJOR=$(cut -d: -f1 < "$SYSFS_DEV" | tr -d '[:space:]')
         MINOR=$(cut -d: -f2 < "$SYSFS_DEV" | tr -d '[:space:]')
         info "Creating device node ${PART_DEV} (${MAJOR}:${MINOR})"
@@ -118,8 +119,8 @@ mkfs.ext4 -F -L "ARCHISO" "${LOOP_DEV}p1" >/dev/null 2>&1
 mkfs.fat -F32 "${LOOP_DEV}p2" >/dev/null 2>&1
 
 # Verify partitions
-[ -b "${LOOP_DEV}p1" ] && ok "Partition 1 (ISO sim) exists" || fail "Partition 1 missing"
-[ -b "${LOOP_DEV}p2" ] && ok "Partition 2 (EFI) exists" || fail "Partition 2 missing"
+[[ -b "${LOOP_DEV}p1" ]] && ok "Partition 1 (ISO sim) exists" || fail "Partition 1 missing"
+[[ -b "${LOOP_DEV}p2" ]] && ok "Partition 2 (EFI) exists" || fail "Partition 2 missing"
 
 # Show layout
 info "Disk layout:"
@@ -166,14 +167,14 @@ udevadm settle --timeout=10 2>/dev/null || true
 # Create device node if needed
 PERSIST_PART="${LOOP_DEV}p3"
 SYSFS_DEV="/sys/block/${LOOP_NAME}/${LOOP_NAME}p3/dev"
-if ! [ -b "$PERSIST_PART" ] && [ -f "$SYSFS_DEV" ]; then
+if ! [[ -b "$PERSIST_PART" ]] && [[ -f "$SYSFS_DEV" ]]; then
     MAJOR=$(cut -d: -f1 < "$SYSFS_DEV" | tr -d '[:space:]')
     MINOR=$(cut -d: -f2 < "$SYSFS_DEV" | tr -d '[:space:]')
     info "Creating device node ${PERSIST_PART} (${MAJOR}:${MINOR})"
     mknod "$PERSIST_PART" b "$MAJOR" "$MINOR"
 fi
 
-[ -b "$PERSIST_PART" ] && ok "Partition 3 (persistence) exists" || { fail "Partition 3 missing"; exit 1; }
+[[ -b "$PERSIST_PART" ]] && ok "Partition 3 (persistence) exists" || { fail "Partition 3 missing"; exit 1; }
 
 # Format with ext4 and label "persistence"
 mkfs.ext4 -F -L "persistence" "$PERSIST_PART" >/dev/null 2>&1
@@ -181,7 +182,7 @@ ok "Formatted $PERSIST_PART as ext4 with label 'persistence'"
 
 # Verify label (use blkid as primary — lsblk may fail in containers with mknod nodes)
 DETECTED_LABEL=$(blkid -s LABEL -o value "$PERSIST_PART" 2>/dev/null | tr -d '[:space:]')
-[ "$DETECTED_LABEL" = "persistence" ] && ok "Label verified: $DETECTED_LABEL" \
+[[ "$DETECTED_LABEL" == "persistence" ]] && ok "Label verified: $DETECTED_LABEL" \
     || fail "Expected label 'persistence', got '$DETECTED_LABEL'"
 
 # =============================================================================
@@ -206,7 +207,7 @@ ok "Overlay directories created"
 # We source all function definitions but skip the auto-execution block at the
 # bottom by truncating before the "# Only run in live environment" guard.
 GUARD_LINE=$(grep -n "^if \[" /usr/local/bin/setup-persistence.sh | tail -1 | cut -d: -f1)
-if [ -z "$GUARD_LINE" ]; then
+if [[ -z "$GUARD_LINE" ]]; then
     # Fallback: find the guard comment
     GUARD_LINE=$(grep -n "^# Only run" /usr/local/bin/setup-persistence.sh | head -1 | cut -d: -f1)
 fi
@@ -215,11 +216,11 @@ echo "install_persist_files" >> /tmp/_persist_funcs.sh
 bash /tmp/_persist_funcs.sh
 
 # Verify files were created
-[ -x "$PERSIST_MOUNT/mados-persist-init.sh" ] \
+[[ -x "$PERSIST_MOUNT/mados-persist-init.sh" ]] \
     && ok "Init script installed in persistence partition" \
     || fail "Init script missing from persistence partition"
 
-[ -f "$PERSIST_MOUNT/mados-persistence.service" ] \
+[[ -f "$PERSIST_MOUNT/mados-persistence.service" ]] \
     && ok "Systemd unit installed in persistence partition" \
     || fail "Systemd unit missing from persistence partition"
 
@@ -269,14 +270,14 @@ else
 fi
 
 # Verify ldconfig ran (check log)
-if [ -f "$LOG_FILE" ] && grep -q "ldconfig completed" "$LOG_FILE"; then
+if [[ -f "$LOG_FILE" ]] && grep -q "ldconfig completed" "$LOG_FILE"; then
     ok "ldconfig was executed after /usr overlay"
 else
     warn "ldconfig execution not confirmed in log"
 fi
 
 # Verify /run/mados/persist_device
-if [ -f /run/mados/persist_device ]; then
+if [[ -f /run/mados/persist_device ]]; then
     STORED_DEV=$(cat /run/mados/persist_device)
     ok "Device info stored: $STORED_DEV"
 else
@@ -290,7 +291,7 @@ step "Phase 7 – Testing data persistence"
 
 # Write test file to /etc (overlay)
 echo "mados-test-config" > /etc/mados-persistence-test
-if [ -f /etc/mados-persistence-test ]; then
+if [[ -f /etc/mados-persistence-test ]]; then
     ok "File written to /etc overlay"
 else
     fail "Could not write to /etc overlay"
@@ -298,20 +299,20 @@ fi
 
 # Write test file to /home (bind mount)
 echo "mados-home-test" > /home/mados-persistence-test
-if [ -f /home/mados-persistence-test ]; then
+if [[ -f /home/mados-persistence-test ]]; then
     ok "File written to /home bind mount"
 else
     fail "Could not write to /home bind mount"
 fi
 
 # Verify the file exists in the persistence partition's upper layer
-if [ -f "$PERSIST_MOUNT/overlays/etc/upper/mados-persistence-test" ]; then
+if [[ -f "$PERSIST_MOUNT/overlays/etc/upper/mados-persistence-test" ]]; then
     ok "File persisted to etc upper layer"
 else
     fail "File NOT in etc upper layer"
 fi
 
-if [ -f "$PERSIST_MOUNT/home/mados-persistence-test" ]; then
+if [[ -f "$PERSIST_MOUNT/home/mados-persistence-test" ]]; then
     ok "File persisted to home directory"
 else
     fail "File NOT in home directory"
@@ -354,14 +355,14 @@ else
 fi
 
 # Verify persisted data survived the "reboot"
-if [ -f /etc/mados-persistence-test ] && \
+if [[ -f /etc/mados-persistence-test ]] && \
    grep -q "mados-test-config" /etc/mados-persistence-test; then
     ok "After reboot: /etc test file survived"
 else
     fail "After reboot: /etc test file LOST"
 fi
 
-if [ -f /home/mados-persistence-test ] && \
+if [[ -f /home/mados-persistence-test ]] && \
    grep -q "mados-home-test" /home/mados-persistence-test; then
     ok "After reboot: /home test file survived"
 else
@@ -392,7 +393,7 @@ SETUP_EXIT_CODE=0
 sync
 sleep 0.5
 
-if [ "$SETUP_EXIT_CODE" -eq 0 ]; then
+if [[ "$SETUP_EXIT_CODE" -eq 0 ]]; then
     ok "setup-persistence.sh ran successfully on second boot"
 else
     fail "setup-persistence.sh failed on second boot (exit code: $SETUP_EXIT_CODE)"
@@ -430,7 +431,7 @@ step "Phase 10 – Validating systemd service syntax"
 
 SERVICE_FILE="${REPO_DIR}/airootfs/etc/systemd/system/mados-persistence.service"
 
-if [ -f "$SERVICE_FILE" ]; then
+if [[ -f "$SERVICE_FILE" ]]; then
     ok "Service file exists in repo"
 else
     fail "Service file missing from repo"
@@ -464,7 +465,7 @@ for script in setup-persistence.sh mados-persistence; do
 done
 
 # Validate the embedded init script (extract and check)
-if [ -x "$PERSIST_MOUNT/mados-persist-init.sh" ]; then
+if [[ -x "$PERSIST_MOUNT/mados-persist-init.sh" ]]; then
     if bash -n "$PERSIST_MOUNT/mados-persist-init.sh" 2>/tmp/bash_err; then
         ok "mados-persist-init.sh: valid bash syntax"
     else
@@ -477,7 +478,7 @@ fi
 # =============================================================================
 step "Results"
 echo ""
-if [ "$ERRORS" -eq 0 ]; then
+if [[ "$ERRORS" -eq 0 ]]; then
     echo -e "${GREEN}═══════════════════════════════════════════${NC}"
     echo -e "${GREEN}  ✓ ALL TESTS PASSED  (warnings: ${WARNINGS})${NC}"
     echo -e "${GREEN}═══════════════════════════════════════════${NC}"

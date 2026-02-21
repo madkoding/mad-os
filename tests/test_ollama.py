@@ -124,7 +124,8 @@ class TestLiveUSBOllamaScript(unittest.TestCase):
     def test_uses_official_install_script(self):
         """Script must use official Ollama install URL."""
         self.assertIn(
-            "ollama.com/install.sh", self.content,
+            "ollama.com/install.sh",
+            self.content,
             "setup-ollama.sh must use official ollama.com/install.sh",
         )
 
@@ -138,9 +139,10 @@ class TestLiveUSBOllamaScript(unittest.TestCase):
 
     def test_verifies_ollama_after_install(self):
         """Script should verify ollama is available after install."""
-        checks = re.findall(r'command -v.*(?:ollama|\$OLLAMA_CMD)', self.content)
+        checks = re.findall(r"command -v.*(?:ollama|\$OLLAMA_CMD)", self.content)
         self.assertGreaterEqual(
-            len(checks), 2,
+            len(checks),
+            2,
             "Script must verify ollama availability after install "
             "and at the start to skip if already installed",
         )
@@ -151,10 +153,9 @@ class TestLiveUSBOllamaScript(unittest.TestCase):
 
     def test_always_exits_zero(self):
         """setup-ollama.sh must always exit 0 to not crash the systemd service."""
-        exits = re.findall(r'exit\s+(\d+)', self.content)
+        exits = re.findall(r"exit\s+(\d+)", self.content)
         for code in exits:
-            self.assertEqual(code, "0",
-                             "All exit codes in setup-ollama.sh must be 0")
+            self.assertEqual(code, "0", "All exit codes in setup-ollama.sh must be 0")
 
     def test_has_shebang(self):
         """setup-ollama.sh must start with a bash shebang."""
@@ -177,31 +178,35 @@ class TestLiveUSBOllamaServiceConfig(unittest.TestCase):
 
     def test_path_includes_usr_local_bin(self):
         """Service PATH must include /usr/local/bin where ollama may be installed."""
-        path_match = re.search(r'Environment=PATH=(.*)', self.content)
+        path_match = re.search(r"Environment=PATH=(.*)", self.content)
         self.assertIsNotNone(path_match, "Service must set PATH environment")
         self.assertIn(
-            "/usr/local/bin", path_match.group(1),
+            "/usr/local/bin",
+            path_match.group(1),
             "Service PATH must include /usr/local/bin",
         )
 
     def test_runs_after_network(self):
         """Service must run after network is available (needs internet to install)."""
         self.assertIn(
-            "network-online.target", self.content,
+            "network-online.target",
+            self.content,
             "Service must start after network-online.target",
         )
 
     def test_runs_after_pacman_init(self):
         """Service must run after pacman-init to ensure keyrings are ready."""
         self.assertIn(
-            "pacman-init.service", self.content,
+            "pacman-init.service",
+            self.content,
             "Service must start after pacman-init.service",
         )
 
     def test_has_timeout(self):
         """Service must have a timeout to prevent hangs."""
         self.assertIn(
-            "TimeoutStartSec=", self.content,
+            "TimeoutStartSec=",
+            self.content,
             "Service must have a TimeoutStartSec",
         )
 
@@ -224,54 +229,62 @@ class TestPostInstallOllama(unittest.TestCase):
     def test_installer_installs_ollama_via_curl(self):
         """Installer must attempt to install Ollama via curl (official)."""
         self.assertIn(
-            "ollama.com/install.sh", self.content,
+            "ollama.com/install.sh",
+            self.content,
             "Installer must try curl install from ollama.com/install.sh",
         )
 
     def test_installer_creates_setup_script(self):
         """Installer must create setup-ollama.sh for manual retry."""
         self.assertIn(
-            "setup-ollama.sh", self.content,
+            "setup-ollama.sh",
+            self.content,
             "Installer must create setup-ollama.sh on the installed system",
         )
 
     def test_installer_creates_fallback_service(self):
         """Installer must create setup-ollama.service for boot-time retry."""
         self.assertIn(
-            "setup-ollama.service", self.content,
+            "setup-ollama.service",
+            self.content,
             "Installer must create setup-ollama.service on the installed system",
         )
 
     def test_installer_enables_fallback_service(self):
         """Installer must enable setup-ollama.service on the installed system."""
         self.assertIn(
-            "systemctl enable setup-ollama.service", self.content,
+            "systemctl enable setup-ollama.service",
+            self.content,
             "Installer must enable setup-ollama.service",
         )
 
     def test_installer_verifies_ollama_after_install(self):
         """Installer should check if ollama is available after install."""
         self.assertIn(
-            "command -v ollama", self.content,
+            "command -v ollama",
+            self.content,
             "Installer must verify ollama is available after install",
         )
 
     def test_installer_copies_ollama_binary_from_live(self):
         """Installer should copy Ollama binary from live environment if available."""
         self.assertIn(
-            "/usr/local/bin/ollama", self.content,
+            "/usr/local/bin/ollama",
+            self.content,
             "Installer must reference /usr/local/bin/ollama for binary copy",
         )
         self.assertIn(
-            "/mnt/usr/local/bin/ollama", self.content,
-            "Installer must copy ollama binary to /mnt/usr/local/bin/ollama",
+            'for binary in ["opencode", "ollama", "kew"]',
+            self.content,
+            "Installer must copy ollama binary via binary copy loop",
         )
 
     def test_installer_adds_ollama_to_sudoers(self):
         """Installer should add ollama to NOPASSWD sudoers."""
-        pattern = re.compile(r'NOPASSWD:.*?/usr/local/bin/ollama')
+        pattern = re.compile(r"NOPASSWD:.*?/usr/local/bin/ollama")
         self.assertRegex(
-            self.content, pattern,
+            self.content,
+            pattern,
             "Installer must include /usr/local/bin/ollama in sudoers NOPASSWD line",
         )
 
@@ -286,7 +299,8 @@ class TestLiveUSBOllamaDependencies(unittest.TestCase):
         pkg_file = os.path.join(REPO_DIR, "packages.x86_64")
         with open(pkg_file) as f:
             return [
-                line.strip() for line in f
+                line.strip()
+                for line in f
                 if line.strip() and not line.strip().startswith("#")
             ]
 
@@ -309,17 +323,17 @@ class TestProfiledefOllamaPermissions(unittest.TestCase):
     def test_setup_ollama_has_permissions(self):
         """profiledef.sh should set permissions for setup-ollama.sh."""
         self.assertIn(
-            "setup-ollama.sh", self.content,
+            "setup-ollama.sh",
+            self.content,
             "profiledef.sh must include permissions for setup-ollama.sh",
         )
 
     def test_setup_ollama_executable(self):
         """setup-ollama.sh should have executable permissions (0:0:755)."""
-        pattern = re.compile(
-            r'\["/usr/local/bin/setup-ollama\.sh"\]="0:0:755"'
-        )
+        pattern = re.compile(r'\["/usr/local/bin/setup-ollama\.sh"\]="0:0:755"')
         self.assertRegex(
-            self.content, pattern,
+            self.content,
+            pattern,
             "setup-ollama.sh must have 0:0:755 permissions in profiledef.sh",
         )
 

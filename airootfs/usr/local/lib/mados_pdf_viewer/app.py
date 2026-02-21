@@ -10,16 +10,21 @@ import math
 import cairo
 
 import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('Gdk', '3.0')
-gi.require_version('Poppler', '0.18')
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+gi.require_version("Poppler", "0.18")
 from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Poppler
 
 from .renderer import PDFDocument, PageRenderer
 from .annotations import (
-    TextAnnotation, SignaturePlacement, SignaturePad,
-    SignatureDialog, TextAnnotationDialog,
-    FormFieldManager, FormFieldDialog,
+    TextAnnotation,
+    SignaturePlacement,
+    SignaturePad,
+    SignatureDialog,
+    TextAnnotationDialog,
+    FormFieldManager,
+    FormFieldDialog,
 )
 from .translations import get_text, detect_system_language, DEFAULT_LANGUAGE
 from .theme import apply_theme, hex_to_rgb_float
@@ -34,15 +39,11 @@ PAGE_GAP = 12  # pixels between pages in continuous view
 
 class InteractionMode:
     """Enumeration of mouse interaction modes."""
-    NORMAL = 'normal'
-    ADD_TEXT = 'add_text'
-    PLACE_SIGNATURE = 'place_signature'
-    FILL_FORM = 'fill_form'
 
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  PDFViewerApp
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    NORMAL = "normal"
+    ADD_TEXT = "add_text"
+    PLACE_SIGNATURE = "place_signature"
+    FILL_FORM = "fill_form"
 
 
 class PDFViewerApp:
@@ -107,7 +108,7 @@ class PDFViewerApp:
 
     def _build_window(self):
         """Create the main application window."""
-        self.window = Gtk.Window(title=get_text('title', self.lang))
+        self.window = Gtk.Window(title=get_text("title", self.lang))
         self.window.set_default_size(900, 700)
         self.window.set_position(Gtk.WindowPosition.CENTER)
 
@@ -116,8 +117,8 @@ class PDFViewerApp:
         # Also set the application name for Wayland
         self.window.set_role("mados-pdf-viewer")
 
-        self.window.connect('delete-event', self._on_delete_event)
-        self.window.connect('key-press-event', self._on_key_press)
+        self.window.connect("delete-event", self._on_delete_event)
+        self.window.connect("key-press-event", self._on_key_press)
 
         self.main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.window.add(self.main_box)
@@ -130,17 +131,19 @@ class PDFViewerApp:
         self.main_box.pack_start(toolbar, False, False, 0)
 
         # ── File operations ───────────────────────────────────────────────
-        self._add_tool_button(toolbar, 'document-open', 'open', self._on_open)
-        self._add_tool_button(toolbar, 'document-save', 'save', self._on_save)
-        self._add_tool_button(toolbar, 'document-save-as', 'save_as', self._on_save_as)
-        self._add_tool_button(toolbar, 'document-print', 'print_doc', self._on_print)
-        self._add_tool_button(toolbar, 'image-x-generic', 'export_images', self._on_export_images)
+        self._add_tool_button(toolbar, "document-open", "open", self._on_open)
+        self._add_tool_button(toolbar, "document-save", "save", self._on_save)
+        self._add_tool_button(toolbar, "document-save-as", "save_as", self._on_save_as)
+        self._add_tool_button(toolbar, "document-print", "print_doc", self._on_print)
+        self._add_tool_button(
+            toolbar, "image-x-generic", "export_images", self._on_export_images
+        )
 
         toolbar.insert(Gtk.SeparatorToolItem(), -1)
 
         # ── Navigation ────────────────────────────────────────────────────
-        self._add_tool_button(toolbar, 'go-first', 'first_page', self._on_first_page)
-        self._add_tool_button(toolbar, 'go-previous', 'prev_page', self._on_prev_page)
+        self._add_tool_button(toolbar, "go-first", "first_page", self._on_first_page)
+        self._add_tool_button(toolbar, "go-previous", "prev_page", self._on_prev_page)
 
         # Page indicator
         ti_page = Gtk.ToolItem()
@@ -152,31 +155,33 @@ class PDFViewerApp:
         self.page_entry.set_width_chars(4)
         self.page_entry.set_alignment(0.5)
         self.page_entry.set_text("0")
-        self.page_entry.connect('activate', self._on_page_entry_activate)
+        self.page_entry.connect("activate", self._on_page_entry_activate)
         page_box.pack_start(self.page_entry, False, False, 0)
 
         self.page_label = Gtk.Label()
-        self.page_label.get_style_context().add_class('page-indicator')
+        self.page_label.get_style_context().add_class("page-indicator")
         page_box.pack_start(self.page_label, False, False, 0)
 
         ti_page.add(page_box)
         toolbar.insert(ti_page, -1)
 
-        self._add_tool_button(toolbar, 'go-next', 'next_page', self._on_next_page)
-        self._add_tool_button(toolbar, 'go-last', 'last_page', self._on_last_page)
+        self._add_tool_button(toolbar, "go-next", "next_page", self._on_next_page)
+        self._add_tool_button(toolbar, "go-last", "last_page", self._on_last_page)
 
         toolbar.insert(Gtk.SeparatorToolItem(), -1)
 
         # ── Zoom ──────────────────────────────────────────────────────────
-        self._add_tool_button(toolbar, 'zoom-out', 'zoom_out', self._on_zoom_out)
-        self._add_tool_button(toolbar, 'zoom-in', 'zoom_in', self._on_zoom_in)
-        self._add_tool_button(toolbar, 'zoom-fit-best', 'fit_page', self._on_fit_page)
-        self._add_tool_button(toolbar, 'zoom-original', 'actual_size', self._on_actual_size)
+        self._add_tool_button(toolbar, "zoom-out", "zoom_out", self._on_zoom_out)
+        self._add_tool_button(toolbar, "zoom-in", "zoom_in", self._on_zoom_in)
+        self._add_tool_button(toolbar, "zoom-fit-best", "fit_page", self._on_fit_page)
+        self._add_tool_button(
+            toolbar, "zoom-original", "actual_size", self._on_actual_size
+        )
 
         # Zoom label
         ti_zoom = Gtk.ToolItem()
         self.zoom_label = Gtk.Label(label="100%")
-        self.zoom_label.get_style_context().add_class('zoom-indicator')
+        self.zoom_label.get_style_context().add_class("zoom-indicator")
         self.zoom_label.set_margin_start(4)
         self.zoom_label.set_margin_end(4)
         ti_zoom.add(self.zoom_label)
@@ -185,53 +190,65 @@ class PDFViewerApp:
         toolbar.insert(Gtk.SeparatorToolItem(), -1)
 
         # ── Annotations ───────────────────────────────────────────────────
-        self._add_tool_button(toolbar, 'format-text-bold', 'add_text', self._on_add_text_mode)
-        self._add_tool_button(toolbar, 'edit-clear', 'clear_annotations', self._on_clear_annotations)
+        self._add_tool_button(
+            toolbar, "format-text-bold", "add_text", self._on_add_text_mode
+        )
+        self._add_tool_button(
+            toolbar, "edit-clear", "clear_annotations", self._on_clear_annotations
+        )
 
         toolbar.insert(Gtk.SeparatorToolItem(), -1)
 
         # ── Signature ─────────────────────────────────────────────────────
-        self._add_tool_button(toolbar, 'document-edit', 'draw_signature', self._on_draw_signature)
-        self._add_tool_button(toolbar, 'insert-image', 'place_signature', self._on_place_signature_mode)
+        self._add_tool_button(
+            toolbar, "document-edit", "draw_signature", self._on_draw_signature
+        )
+        self._add_tool_button(
+            toolbar, "insert-image", "place_signature", self._on_place_signature_mode
+        )
 
         toolbar.insert(Gtk.SeparatorToolItem(), -1)
 
         # ── Form fields ───────────────────────────────────────────────────
         self.highlight_fields_btn = Gtk.ToggleToolButton()
-        self.highlight_fields_btn.set_icon_name('edit-find')
-        self.highlight_fields_btn.set_tooltip_text(get_text('highlight_fields', self.lang))
-        self.highlight_fields_btn.connect('toggled', self._on_toggle_highlight_fields)
+        self.highlight_fields_btn.set_icon_name("edit-find")
+        self.highlight_fields_btn.set_tooltip_text(
+            get_text("highlight_fields", self.lang)
+        )
+        self.highlight_fields_btn.connect("toggled", self._on_toggle_highlight_fields)
         toolbar.insert(self.highlight_fields_btn, -1)
 
-        self._add_tool_button(toolbar, 'accessories-text-editor', 'fill_form', self._on_fill_form_mode)
+        self._add_tool_button(
+            toolbar, "accessories-text-editor", "fill_form", self._on_fill_form_mode
+        )
 
         toolbar.insert(Gtk.SeparatorToolItem(), -1)
 
         # ── Fit Width button ──────────────────────────────────────────────
-        self._add_tool_button(toolbar, 'view-fullscreen', 'fit_width', self._on_fit_width)
+        self._add_tool_button(
+            toolbar, "view-fullscreen", "fit_width", self._on_fit_width
+        )
 
     def _build_canvas(self):
         """Create the scrollable PDF drawing canvas."""
         self.scrolled = Gtk.ScrolledWindow()
-        self.scrolled.set_policy(
-            Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC
-        )
+        self.scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         self.scrolled.set_kinetic_scrolling(True)
         self.main_box.pack_start(self.scrolled, True, True, 0)
 
         self.canvas = Gtk.DrawingArea()
         self.canvas.add_events(
-            Gdk.EventMask.BUTTON_PRESS_MASK |
-            Gdk.EventMask.BUTTON_RELEASE_MASK |
-            Gdk.EventMask.POINTER_MOTION_MASK |
-            Gdk.EventMask.SCROLL_MASK |
-            Gdk.EventMask.SMOOTH_SCROLL_MASK
+            Gdk.EventMask.BUTTON_PRESS_MASK
+            | Gdk.EventMask.BUTTON_RELEASE_MASK
+            | Gdk.EventMask.POINTER_MOTION_MASK
+            | Gdk.EventMask.SCROLL_MASK
+            | Gdk.EventMask.SMOOTH_SCROLL_MASK
         )
-        self.canvas.connect('draw', self._on_canvas_draw)
-        self.canvas.connect('button-press-event', self._on_canvas_button_press)
-        self.canvas.connect('button-release-event', self._on_canvas_button_release)
-        self.canvas.connect('motion-notify-event', self._on_canvas_motion)
-        self.canvas.connect('scroll-event', self._on_canvas_scroll)
+        self.canvas.connect("draw", self._on_canvas_draw)
+        self.canvas.connect("button-press-event", self._on_canvas_button_press)
+        self.canvas.connect("button-release-event", self._on_canvas_button_release)
+        self.canvas.connect("motion-notify-event", self._on_canvas_motion)
+        self.canvas.connect("scroll-event", self._on_canvas_scroll)
 
         self.scrolled.add(self.canvas)
 
@@ -243,16 +260,16 @@ class PDFViewerApp:
         self.statusbar.set_margin_end(8)
         self.statusbar.set_margin_top(2)
         self.statusbar.set_margin_bottom(2)
-        self.statusbar.get_style_context().add_class('statusbar')
+        self.statusbar.get_style_context().add_class("statusbar")
         self.main_box.pack_start(self.statusbar, False, False, 0)
-        self._update_status(get_text('no_file', self.lang))
+        self._update_status(get_text("no_file", self.lang))
 
     def _add_tool_button(self, toolbar, icon_name, tooltip_key, callback):
         """Helper to add a toolbar button with icon and translated tooltip."""
         btn = Gtk.ToolButton()
         btn.set_icon_name(icon_name)
         btn.set_tooltip_text(get_text(tooltip_key, self.lang))
-        btn.connect('clicked', callback)
+        btn.connect("clicked", callback)
         toolbar.insert(btn, -1)
         return btn
 
@@ -297,12 +314,12 @@ class PDFViewerApp:
     def _on_open(self, widget):
         """Handle the Open button click."""
         chooser = Gtk.FileChooserDialog(
-            title=get_text('open_file', self.lang),
+            title=get_text("open_file", self.lang),
             parent=self.window,
             action=Gtk.FileChooserAction.OPEN,
         )
         chooser.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        chooser.add_button(get_text('open', self.lang), Gtk.ResponseType.OK)
+        chooser.add_button(get_text("open", self.lang), Gtk.ResponseType.OK)
 
         ff = Gtk.FileFilter()
         ff.set_name("PDF files (*.pdf)")
@@ -322,13 +339,13 @@ class PDFViewerApp:
     def _on_save(self, widget):
         """Save the annotated PDF (overwrite or Save As if new)."""
         if self.pdf_doc.document is None:
-            self._show_error(get_text('no_file', self.lang))
+            self._show_error(get_text("no_file", self.lang))
             return
 
         # If we have the original filepath, save alongside it
         if self.pdf_doc.filepath:
-            base, ext = os.path.splitext(self.pdf_doc.filepath)
-            output = base + '_annotated' + ext
+            base, _ = os.path.splitext(os.path.basename(self.pdf_doc.filepath))
+            output = base + "_annotated.pdf"
             self._do_save(output)
         else:
             self._on_save_as(widget)
@@ -336,16 +353,16 @@ class PDFViewerApp:
     def _on_save_as(self, widget):
         """Save As with file chooser."""
         if self.pdf_doc.document is None:
-            self._show_error(get_text('no_file', self.lang))
+            self._show_error(get_text("no_file", self.lang))
             return
 
         chooser = Gtk.FileChooserDialog(
-            title=get_text('save_file', self.lang),
+            title=get_text("save_file", self.lang),
             parent=self.window,
             action=Gtk.FileChooserAction.SAVE,
         )
         chooser.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        chooser.add_button(get_text('save', self.lang), Gtk.ResponseType.OK)
+        chooser.add_button(get_text("save", self.lang), Gtk.ResponseType.OK)
         chooser.set_do_overwrite_confirmation(True)
 
         ff = Gtk.FileFilter()
@@ -354,10 +371,8 @@ class PDFViewerApp:
         chooser.add_filter(ff)
 
         if self.pdf_doc.filepath:
-            base, ext = os.path.splitext(
-                os.path.basename(self.pdf_doc.filepath)
-            )
-            chooser.set_current_name(base + '_annotated.pdf')
+            base, _ = os.path.splitext(os.path.basename(self.pdf_doc.filepath))
+            chooser.set_current_name(base + "_annotated.pdf")
 
         if chooser.run() == Gtk.ResponseType.OK:
             self._do_save(chooser.get_filename())
@@ -378,16 +393,14 @@ class PDFViewerApp:
                 form_data_by_page=self.form_manager.get_all_data(),
             )
             self._has_unsaved_changes = False
-            self._update_status(
-                f"{get_text('success', self.lang)}: {output_path}"
-            )
+            self._update_status(f"{get_text('success', self.lang)}: {output_path}")
         except Exception as exc:
             self._show_error(f"{get_text('error', self.lang)}: {exc}")
 
     def _on_print(self, widget):
         """Print the document using Gtk.PrintOperation."""
         if self.pdf_doc.document is None:
-            self._show_error(get_text('no_file', self.lang))
+            self._show_error(get_text("no_file", self.lang))
             return
 
         print_op = Gtk.PrintOperation()
@@ -400,21 +413,22 @@ class PDFViewerApp:
         w, h = self.pdf_doc.get_page_size(0)
         # PDF points to mm: 1 point = 0.352778 mm
         paper = Gtk.PaperSize.new_custom(
-            "pdf-page", "PDF Page",
-            w * 0.352778, h * 0.352778, Gtk.Unit.MM,
+            "pdf-page",
+            "PDF Page",
+            w * 0.352778,
+            h * 0.352778,
+            Gtk.Unit.MM,
         )
         page_setup.set_paper_size(paper)
         print_op.set_default_page_setup(page_setup)
 
-        print_op.connect('draw-page', self._on_print_draw_page)
+        print_op.connect("draw-page", self._on_print_draw_page)
 
-        self._update_status(get_text('printing', self.lang))
+        self._update_status(get_text("printing", self.lang))
         try:
-            result = print_op.run(
-                Gtk.PrintOperationAction.PRINT_DIALOG, self.window
-            )
+            result = print_op.run(Gtk.PrintOperationAction.PRINT_DIALOG, self.window)
             if result == Gtk.PrintOperationResult.APPLY:
-                self._update_status(get_text('print_complete', self.lang))
+                self._update_status(get_text("print_complete", self.lang))
         except GLib.Error as exc:
             self._show_error(f"{get_text('error', self.lang)}: {exc.message}")
 
@@ -460,21 +474,21 @@ class PDFViewerApp:
     def _on_export_images(self, widget):
         """Export all pages as PNG images into a chosen directory."""
         if self.pdf_doc.document is None:
-            self._show_error(get_text('no_file', self.lang))
+            self._show_error(get_text("no_file", self.lang))
             return
 
         chooser = Gtk.FileChooserDialog(
-            title=get_text('export_images', self.lang),
+            title=get_text("export_images", self.lang),
             parent=self.window,
             action=Gtk.FileChooserAction.SELECT_FOLDER,
         )
         chooser.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        chooser.add_button(get_text('export_images', self.lang), Gtk.ResponseType.OK)
+        chooser.add_button(get_text("export_images", self.lang), Gtk.ResponseType.OK)
 
         if chooser.run() == Gtk.ResponseType.OK:
             folder = chooser.get_filename()
             base_name = os.path.splitext(
-                os.path.basename(self.pdf_doc.filepath or 'page')
+                os.path.basename(self.pdf_doc.filepath or "page")
             )[0]
             for i in range(self.pdf_doc.n_pages):
                 path = os.path.join(folder, f"{base_name}_page_{i + 1:04d}.png")
@@ -545,10 +559,6 @@ class PDFViewerApp:
         vadj = self.scrolled.get_vadjustment()
         vadj.set_value(y_offset)
 
-    # ══════════════════════════════════════════════════════════════════════════
-    #  Zoom
-    # ══════════════════════════════════════════════════════════════════════════
-
     def _set_zoom(self, new_zoom):
         """Set zoom level and refresh the canvas."""
         new_zoom = max(MIN_ZOOM, min(MAX_ZOOM, new_zoom))
@@ -580,7 +590,7 @@ class PDFViewerApp:
             view_w = 800
 
         self.zoom = view_w / pw
-        self.fit_mode = 'width'
+        self.fit_mode = "width"
         self._page_cache.clear()
         self._update_canvas_size()
         self._update_zoom_label()
@@ -605,7 +615,7 @@ class PDFViewerApp:
         scale_w = view_w / pw
         scale_h = view_h / ph
         self.zoom = min(scale_w, scale_h)
-        self.fit_mode = 'page'
+        self.fit_mode = "page"
         self._page_cache.clear()
         self._update_canvas_size()
         self._update_zoom_label()
@@ -682,15 +692,17 @@ class PDFViewerApp:
         if self.pdf_doc.document is None:
             # Draw empty state
             alloc = widget.get_allocation()
-            r, g, b = hex_to_rgb_float('#2E3440')
+            r, g, b = hex_to_rgb_float("#2E3440")
             ctx.set_source_rgb(r, g, b)
             ctx.rectangle(0, 0, alloc.width, alloc.height)
             ctx.fill()
 
-            ctx.set_source_rgb(*hex_to_rgb_float('#4C566A'))
-            ctx.select_font_face("Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+            ctx.set_source_rgb(*hex_to_rgb_float("#4C566A"))
+            ctx.select_font_face(
+                "Sans", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL
+            )
             ctx.set_font_size(16)
-            text = get_text('no_file', self.lang)
+            text = get_text("no_file", self.lang)
             extents = ctx.text_extents(text)
             ctx.move_to(
                 (alloc.width - extents.width) / 2,
@@ -701,7 +713,7 @@ class PDFViewerApp:
 
         # Background
         alloc = widget.get_allocation()
-        r, g, b = hex_to_rgb_float('#434C5E')
+        r, g, b = hex_to_rgb_float("#434C5E")
         ctx.set_source_rgb(r, g, b)
         ctx.rectangle(0, 0, alloc.width, alloc.height)
         ctx.fill()
@@ -711,8 +723,8 @@ class PDFViewerApp:
         hadj = self.scrolled.get_hadjustment()
         vis_y = vadj.get_value()
         vis_h = vadj.get_page_size()
-        vis_x = hadj.get_value()
-        vis_w = hadj.get_page_size()
+        _ = hadj.get_value()
+        _ = hadj.get_page_size()
 
         layout = self._get_page_layout()
 
@@ -752,22 +764,18 @@ class PDFViewerApp:
                 # Draw resize handle for signatures
                 hx = (sig.x + sig.width) * self.zoom
                 hy = (sig.y + sig.height) * self.zoom
-                ctx.set_source_rgba(*hex_to_rgb_float('#88C0D0'), 0.8)
+                ctx.set_source_rgba(*hex_to_rgb_float("#88C0D0"), 0.8)
                 ctx.rectangle(hx - 5, hy - 5, 10, 10)
                 ctx.fill()
 
             # Form field highlights
             if self.form_manager.highlight_enabled:
-                self.renderer._draw_form_field_highlights(
-                    ctx, page_idx, self.zoom
-                )
+                self.renderer._draw_form_field_highlights(ctx, page_idx, self.zoom)
 
             # Form data overlays
             form_data = self.form_manager.get_data_for_page(page_idx)
             if form_data:
-                self.renderer._draw_form_data(
-                    ctx, page_idx, self.zoom, form_data
-                )
+                self.renderer._draw_form_data(ctx, page_idx, self.zoom, form_data)
 
             ctx.restore()
 
@@ -799,7 +807,7 @@ class PDFViewerApp:
 
         mid_y = vis_y + vis_h / 2
         best_page = 0
-        best_dist = float('inf')
+        best_dist = float("inf")
 
         for page_idx, x, y, w, h in layout:
             page_mid = y + h / 2
@@ -926,48 +934,35 @@ class PDFViewerApp:
             # Check for signature resize handles
             for sig in self.signatures.get(page_idx, []):
                 if sig.hit_test_resize_handle(lx, ly, self.zoom):
-                    cursor = Gdk.Cursor.new_from_name(
-                        widget.get_display(), 'se-resize'
-                    )
+                    cursor = Gdk.Cursor.new_from_name(widget.get_display(), "se-resize")
                     widget.get_window().set_cursor(cursor)
                     return
             # Check for draggable items
             for sig in self.signatures.get(page_idx, []):
                 if sig.hit_test(lx, ly, self.zoom):
-                    cursor = Gdk.Cursor.new_from_name(
-                        widget.get_display(), 'grab'
-                    )
+                    cursor = Gdk.Cursor.new_from_name(widget.get_display(), "grab")
                     widget.get_window().set_cursor(cursor)
                     return
             for ann in self.annotations.get(page_idx, []):
                 if ann.hit_test(lx, ly, self.zoom):
-                    cursor = Gdk.Cursor.new_from_name(
-                        widget.get_display(), 'grab'
-                    )
+                    cursor = Gdk.Cursor.new_from_name(widget.get_display(), "grab")
                     widget.get_window().set_cursor(cursor)
                     return
 
         # Default cursor
         if widget.get_window():
             if self.mode == InteractionMode.ADD_TEXT:
-                cursor = Gdk.Cursor.new_from_name(
-                    widget.get_display(), 'text'
-                )
+                cursor = Gdk.Cursor.new_from_name(widget.get_display(), "text")
             elif self.mode == InteractionMode.PLACE_SIGNATURE:
-                cursor = Gdk.Cursor.new_from_name(
-                    widget.get_display(), 'crosshair'
-                )
+                cursor = Gdk.Cursor.new_from_name(widget.get_display(), "crosshair")
             elif self.mode == InteractionMode.FILL_FORM:
-                cursor = Gdk.Cursor.new_from_name(
-                    widget.get_display(), 'pointer'
-                )
+                cursor = Gdk.Cursor.new_from_name(widget.get_display(), "pointer")
             else:
                 cursor = None
             widget.get_window().set_cursor(cursor)
 
     def _on_canvas_scroll(self, widget, event):
         """Handle scroll events for zooming (Ctrl+scroll) and page scrolling."""
-        # Ctrl + scroll = zoom
         if event.state & Gdk.ModifierType.CONTROL_MASK:
             if event.direction == Gdk.ScrollDirection.UP:
                 self._set_zoom(self.zoom + ZOOM_STEP)
@@ -988,12 +983,11 @@ class PDFViewerApp:
         """Toggle the Add Text annotation mode."""
         if self.mode == InteractionMode.ADD_TEXT:
             self.mode = InteractionMode.NORMAL
-            self._update_status(get_text('annotations', self.lang))
+            self._update_status(get_text("annotations", self.lang))
         else:
             self.mode = InteractionMode.ADD_TEXT
             self._update_status(
-                f"{get_text('add_text', self.lang)}: "
-                "Click on the page to place text."
+                f"{get_text('add_text', self.lang)}: Click on the page to place text."
             )
 
     def _place_text_annotation(self, page_idx, lx, ly):
@@ -1003,14 +997,14 @@ class PDFViewerApp:
 
         if response == Gtk.ResponseType.OK:
             data = dialog.get_annotation_data()
-            if data['text'].strip():
+            if data["text"].strip():
                 ann = TextAnnotation(
                     page_index=page_idx,
                     x=lx / self.zoom,
                     y=ly / self.zoom,
-                    text=data['text'],
-                    font_size=data['font_size'],
-                    color=data['color'],
+                    text=data["text"],
+                    font_size=data["font_size"],
+                    color=data["color"],
                 )
                 if page_idx not in self.annotations:
                     self.annotations[page_idx] = []
@@ -1031,7 +1025,7 @@ class PDFViewerApp:
             modal=True,
             message_type=Gtk.MessageType.QUESTION,
             buttons=Gtk.ButtonsType.YES_NO,
-            text=get_text('clear_annotations', self.lang) + "?",
+            text=get_text("clear_annotations", self.lang) + "?",
         )
         if dialog.run() == Gtk.ResponseType.YES:
             self.annotations.clear()
@@ -1039,10 +1033,6 @@ class PDFViewerApp:
             self._has_unsaved_changes = True
             self.canvas.queue_draw()
         dialog.destroy()
-
-    # ══════════════════════════════════════════════════════════════════════════
-    #  Signatures
-    # ══════════════════════════════════════════════════════════════════════════
 
     def _on_draw_signature(self, widget):
         """Open the signature drawing dialog."""
@@ -1064,14 +1054,11 @@ class PDFViewerApp:
     def _on_place_signature_mode(self, widget):
         """Enter signature placement mode if a signature is pending."""
         if self._pending_signature_surface is None:
-            self._update_status(
-                f"{get_text('draw_signature', self.lang)} first."
-            )
+            self._update_status(f"{get_text('draw_signature', self.lang)} first.")
             return
         self.mode = InteractionMode.PLACE_SIGNATURE
         self._update_status(
-            f"{get_text('place_signature', self.lang)}: "
-            "Click on the page."
+            f"{get_text('place_signature', self.lang)}: Click on the page."
         )
 
     def _place_signature(self, page_idx, lx, ly):
@@ -1094,7 +1081,7 @@ class PDFViewerApp:
         self.canvas.queue_draw()
 
         self.mode = InteractionMode.NORMAL
-        self._update_status(get_text('success', self.lang))
+        self._update_status(get_text("success", self.lang))
 
     # ══════════════════════════════════════════════════════════════════════════
     #  Form Fields
@@ -1109,19 +1096,16 @@ class PDFViewerApp:
         """Toggle form fill mode."""
         if self.mode == InteractionMode.FILL_FORM:
             self.mode = InteractionMode.NORMAL
-            self._update_status(get_text('form_fields', self.lang))
+            self._update_status(get_text("form_fields", self.lang))
         else:
             self.mode = InteractionMode.FILL_FORM
             self._update_status(
-                f"{get_text('fill_form', self.lang)}: "
-                "Click on a form field to edit it."
+                f"{get_text('fill_form', self.lang)}: Click on a form field to edit it."
             )
 
     def _handle_form_click(self, page_idx, lx, ly):
         """Handle clicking on a form field in fill mode."""
-        field_info = self.form_manager.hit_test_field(
-            page_idx, lx, ly, self.zoom
-        )
+        field_info = self.form_manager.hit_test_field(page_idx, lx, ly, self.zoom)
         if field_info is None:
             return
 
@@ -1131,21 +1115,11 @@ class PDFViewerApp:
         if response == Gtk.ResponseType.OK:
             value = dialog.get_value()
             if value is not None:
-                self.form_manager.set_field_value(
-                    page_idx, field_info['id'], value
-                )
+                self.form_manager.set_field_value(page_idx, field_info["id"], value)
                 self._has_unsaved_changes = True
                 self.canvas.queue_draw()
 
         dialog.destroy()
-
-    # ══════════════════════════════════════════════════════════════════════════
-    #  Language
-    # ══════════════════════════════════════════════════════════════════════════
-
-    # ══════════════════════════════════════════════════════════════════════════
-    #  Keyboard Shortcuts
-    # ══════════════════════════════════════════════════════════════════════════
 
     def _on_key_press(self, widget, event):
         """Handle global keyboard shortcuts."""
@@ -1213,9 +1187,9 @@ class PDFViewerApp:
                 modal=True,
                 message_type=Gtk.MessageType.QUESTION,
                 buttons=Gtk.ButtonsType.NONE,
-                text=get_text('unsaved_changes', self.lang),
+                text=get_text("unsaved_changes", self.lang),
             )
-            dialog.add_button(get_text('save', self.lang), Gtk.ResponseType.YES)
+            dialog.add_button(get_text("save", self.lang), Gtk.ResponseType.YES)
             dialog.add_button("Discard", Gtk.ResponseType.NO)
             dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
 
@@ -1237,8 +1211,6 @@ class PDFViewerApp:
         return False
 
     # ══════════════════════════════════════════════════════════════════════════
-    #  Utility
-    # ══════════════════════════════════════════════════════════════════════════
 
     def _update_status(self, text):
         """Update the status bar text."""
@@ -1251,7 +1223,7 @@ class PDFViewerApp:
             modal=True,
             message_type=Gtk.MessageType.ERROR,
             buttons=Gtk.ButtonsType.OK,
-            text=get_text('error', self.lang),
+            text=get_text("error", self.lang),
         )
         dialog.format_secondary_text(message)
         dialog.run()
