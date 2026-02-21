@@ -240,7 +240,7 @@ jobs:
             HAS_FEATURE=false
             HAS_FIX=false
 
-            if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-z]+!:"; then
+            if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-zA-Z0-9]+!:"; then
               HAS_BREAKING=true
             fi
             if echo "$COMMITS" | grep -qiE "^feat(\(|:)"; then
@@ -303,7 +303,7 @@ jobs:
               HAS_FEATURE=false
               HAS_FIX=false
 
-              if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-z]+!:"; then
+              if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-zA-Z0-9]+!:"; then
                 HAS_BREAKING=true
               fi
               if echo "$COMMITS" | grep -qiE "^feat(\(|:)"; then
@@ -339,7 +339,7 @@ jobs:
 
           # Check if tag already exists
           if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
-            echo "⚠️ Tag $NEW_TAG already exists, skipping"
+            echo "::warning::Tag $NEW_TAG already exists, skipping tag creation"
             echo "new_tag=" >> "$GITHUB_OUTPUT"
             echo "version=" >> "$GITHUB_OUTPUT"
           else
