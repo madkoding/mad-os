@@ -21,22 +21,37 @@ THEME_CSS = f"""
 /* ===== Dock Container ===== */
 #dock-container {{
     background-color: {NORD['nord0']};
-    border-radius: 0 6px 6px 0;
+    border-radius: 0 8px 8px 0;
     border-left: none;
+    border-top: 1px solid {NORD['nord3']};
+    border-right: 1px solid {NORD['nord3']};
+    border-bottom: 1px solid {NORD['nord3']};
     padding: 0;
-    box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.5);
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.6);
 }}
 
 /* ===== Grip Tab ===== */
 #grip-tab {{
     background-color: {NORD['nord1']};
-    border-radius: 0 5px 5px 0;
-    min-width: 10px;
+    border-radius: 0 7px 7px 0;
+    min-width: 14px;
     padding: 0;
     transition: background-color 200ms ease;
 }}
 
 #grip-tab:hover {{
+    background-color: {NORD['nord2']};
+}}
+
+/* ===== Left Grip ===== */
+#left-grip {{
+    background-color: {NORD['nord1']};
+    min-width: 14px;
+    padding: 0;
+    transition: background-color 200ms ease;
+}}
+
+#left-grip:hover {{
     background-color: {NORD['nord2']};
 }}
 
@@ -65,15 +80,15 @@ THEME_CSS = f"""
 /* ===== Icons Container ===== */
 #icons-box {{
     background-color: transparent;
-    padding: 4px;
+    padding: 5px;
 }}
 
 /* ===== Icon Buttons ===== */
 .launcher-icon {{
     background-color: transparent;
-    border-radius: 4px;
-    padding: 3px;
-    margin: 0 1px;
+    border-radius: 5px;
+    padding: 4px;
+    margin: 0 2px;
     transition: background-color 200ms ease, box-shadow 200ms ease;
 }}
 
@@ -121,7 +136,7 @@ tooltip {{
 
 tooltip label {{
     color: {NORD['nord6']};
-    font-size: 10px;
+    font-size: 12px;
     font-family: "JetBrains Mono", "Noto Sans", monospace;
 }}
 
@@ -130,6 +145,48 @@ tooltip label {{
     background-color: {NORD['nord3']};
     min-width: 1px;
     margin: 8px 0;
+}}
+
+/* ===== Group Icon Badge ===== */
+.launcher-group {{
+    border-bottom: 2px solid {NORD['nord9']};
+}}
+
+/* ===== Popup Menu (group submenu) ===== */
+.launcher-popup {{
+    background-color: {NORD['nord0']};
+    border: 1px solid {NORD['nord3']};
+    border-radius: 6px;
+    padding: 4px 0;
+}}
+
+.launcher-popup menuitem {{
+    background-color: transparent;
+    color: {NORD['nord4']};
+    padding: 4px 8px;
+    border-radius: 3px;
+    margin: 1px 4px;
+    transition: background-color 150ms ease;
+}}
+
+.launcher-popup menuitem:hover {{
+    background-color: {NORD['nord2']};
+    color: {NORD['nord6']};
+}}
+
+.launcher-popup menuitem label {{
+    color: {NORD['nord4']};
+    font-size: 13px;
+    font-family: "JetBrains Mono", "Noto Sans", monospace;
+}}
+
+.launcher-popup menuitem:hover label {{
+    color: {NORD['nord6']};
+}}
+
+.running-dot {{
+    color: {NORD['nord8']};
+    font-size: 10px;
 }}
 """
 

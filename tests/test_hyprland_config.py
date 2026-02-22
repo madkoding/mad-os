@@ -1359,6 +1359,7 @@ class TestSwayWallpaperStartup(unittest.TestCase):
     """Verify Sway config has robust wallpaper initialization."""
 
     SWAY_CONF = os.path.join(SKEL_DIR, ".config", "sway", "config")
+    WALLPAPER_SCRIPT = os.path.join(BIN_DIR, "mados-sway-wallpapers")
 
     def test_sway_config_has_wallpaper_directive(self):
         """Sway config must set wallpaper via output directive."""
@@ -1389,6 +1390,60 @@ class TestSwayWallpaperStartup(unittest.TestCase):
             content,
             "Sway config must use a retry loop for wallpaper refresh "
             "(single-attempt retry is unreliable on slow hardware)",
+        )
+
+    def test_sway_wallpaper_script_exists(self):
+        """mados-sway-wallpapers script must exist."""
+        self.assertTrue(
+            os.path.isfile(self.WALLPAPER_SCRIPT),
+            "mados-sway-wallpapers script missing from /usr/local/bin/",
+        )
+
+    def test_sway_wallpaper_script_has_shebang(self):
+        """mados-sway-wallpapers must have a bash shebang."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            first_line = f.readline()
+        self.assertIn("bash", first_line)
+
+    def test_sway_wallpaper_script_uses_share_backgrounds(self):
+        """mados-sway-wallpapers must read from /usr/share/backgrounds/."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "/usr/share/backgrounds",
+            content,
+            "Script must use /usr/share/backgrounds as wallpaper source",
+        )
+
+    def test_sway_wallpaper_script_subscribes_to_workspace_events(self):
+        """mados-sway-wallpapers must subscribe to workspace events."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "subscribe",
+            content,
+            "Script must subscribe to sway workspace events",
+        )
+
+    def test_sway_config_launches_wallpaper_script(self):
+        """Sway config must exec mados-sway-wallpapers."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-sway-wallpapers",
+            content,
+            "Sway config must launch mados-sway-wallpapers via exec",
+        )
+
+    def test_profiledef_has_wallpaper_script_permissions(self):
+        """profiledef.sh must set permissions for mados-sway-wallpapers."""
+        profiledef = os.path.join(REPO_DIR, "profiledef.sh")
+        with open(profiledef) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-sway-wallpapers",
+            content,
+            "profiledef.sh must include permissions for mados-sway-wallpapers",
         )
 
 

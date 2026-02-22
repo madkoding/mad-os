@@ -27,21 +27,21 @@ NORD = {
 }
 
 # --- Dock Dimensions ---
-ICON_SIZE = 18          # Icon pixel size
-TAB_WIDTH = 10          # Width of the grip tab in pixels
-DOCK_WIDTH = 26         # Width of the icon area (icon + padding)
-TAB_HEIGHT = 40         # Height of the grip tab
-ICON_PADDING = 2        # Padding around each icon button
-ICON_SPACING = 1        # Spacing between icon buttons
+ICON_SIZE = 24          # Icon pixel size
+TAB_WIDTH = 14          # Width of the grip tab in pixels
+DOCK_WIDTH = 35         # Width of the icon area (icon + padding)
+TAB_HEIGHT = 54         # Height of the grip tab
+ICON_PADDING = 3        # Padding around each icon button
+ICON_SPACING = 2        # Spacing between icon buttons
 
 # --- Animation ---
 ANIMATION_DURATION = 250  # Revealer transition in milliseconds
 
 # --- Grip Visual ---
-GRIP_DOT_RADIUS = 1       # Cairo dot radius
-GRIP_DOT_SPACING = 5      # Vertical spacing between grip dot pairs
+GRIP_DOT_RADIUS = 1.5     # Cairo dot radius
+GRIP_DOT_SPACING = 7      # Vertical spacing between grip dot pairs
 GRIP_DOT_COLS = 2         # Number of dot columns
-GRIP_DOT_COL_GAP = 3      # Horizontal gap between dot columns
+GRIP_DOT_COL_GAP = 4      # Horizontal gap between dot columns
 
 # --- Drag Behavior ---
 DRAG_THRESHOLD = 5        # Pixels moved before a drag is recognized

@@ -80,6 +80,9 @@ from mados_launcher.desktop_entries import (
     _parse_desktop_file,
     scan_desktop_entries,
     DesktopEntry,
+    EntryGroup,
+    group_entries,
+    _primary_group,
 )
 from mados_launcher import __version__, __app_id__, __app_name__
 
@@ -515,6 +518,104 @@ class TestProjectIntegration(unittest.TestCase):
         with open(hypr_config, "r") as f:
             content = f.read()
         self.assertIn("mados-launcher", content)
+
+
+# ======================================================================
+# Test: Entry Grouping by Category
+# ======================================================================
+
+class TestEntryGrouping(unittest.TestCase):
+    """Test grouping of desktop entries by category."""
+
+    def _make_entry(self, name, categories="", exec_cmd="app", filename="app.desktop"):
+        return DesktopEntry(
+            name=name, icon_name="", exec_cmd=exec_cmd,
+            comment="", categories=categories, filename=filename,
+        )
+
+    def test_primary_group_audio(self):
+        entry = self._make_entry("Player", categories="Audio;Music;")
+        self.assertEqual(_primary_group(entry), "Audio")
+
+    def test_primary_group_graphics(self):
+        entry = self._make_entry("Viewer", categories="Graphics;Viewer;")
+        self.assertEqual(_primary_group(entry), "Graphics")
+
+    def test_primary_group_none_for_empty(self):
+        entry = self._make_entry("App", categories="")
+        self.assertIsNone(_primary_group(entry))
+
+    def test_primary_group_unknown_category(self):
+        entry = self._make_entry("App", categories="SomeWeirdCategory;")
+        self.assertIsNone(_primary_group(entry))
+
+    def test_group_entries_creates_groups(self):
+        """Two entries with the same category should form an EntryGroup."""
+        entries = [
+            self._make_entry("Kew", categories="Audio;Music;Player;", filename="kew.desktop"),
+            self._make_entry("Equalizer", categories="Audio;Mixer;", filename="eq.desktop"),
+        ]
+        grouped = group_entries(entries)
+        self.assertEqual(len(grouped), 1)
+        self.assertIsInstance(grouped[0], EntryGroup)
+        self.assertEqual(grouped[0].group_name, "Audio")
+        self.assertEqual(len(grouped[0].entries), 2)
+
+    def test_group_entries_singles_not_grouped(self):
+        """A single entry in a category should remain as DesktopEntry, not a group."""
+        entries = [
+            self._make_entry("Kew", categories="Audio;Music;", filename="kew.desktop"),
+            self._make_entry("Viewer", categories="Graphics;", filename="viewer.desktop"),
+        ]
+        grouped = group_entries(entries)
+        self.assertEqual(len(grouped), 2)
+        # Both are singletons — should be DesktopEntry, not EntryGroup
+        for item in grouped:
+            self.assertIsInstance(item, DesktopEntry)
+
+    def test_group_entries_mixed(self):
+        """Mix of grouped and ungrouped entries."""
+        entries = [
+            self._make_entry("Player A", categories="Audio;", filename="a.desktop"),
+            self._make_entry("Player B", categories="Audio;Music;", filename="b.desktop"),
+            self._make_entry("Solo App", categories="", filename="solo.desktop"),
+        ]
+        grouped = group_entries(entries)
+        # Should have: 1 EntryGroup(Audio) + 1 DesktopEntry(Solo)
+        groups = [g for g in grouped if isinstance(g, EntryGroup)]
+        singles = [g for g in grouped if isinstance(g, DesktopEntry)]
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0].group_name, "Audio")
+        self.assertEqual(len(groups[0].entries), 2)
+        self.assertEqual(len(singles), 1)
+        self.assertEqual(singles[0].name, "Solo App")
+
+    def test_group_entries_sorted(self):
+        """Results should be sorted alphabetically."""
+        entries = [
+            self._make_entry("Z App", categories="", filename="z.desktop"),
+            self._make_entry("AudioA", categories="Audio;", filename="aa.desktop"),
+            self._make_entry("AudioB", categories="Audio;Music;", filename="ab.desktop"),
+            self._make_entry("A App", categories="", filename="a.desktop"),
+        ]
+        grouped = group_entries(entries)
+        names = []
+        for item in grouped:
+            if isinstance(item, EntryGroup):
+                names.append(item.group_name)
+            else:
+                names.append(item.name)
+        self.assertEqual(names, sorted(names, key=str.lower))
+
+    def test_entry_group_representative(self):
+        """EntryGroup representative should be the first entry."""
+        entries = [
+            self._make_entry("First", categories="Audio;", filename="first.desktop"),
+            self._make_entry("Second", categories="Audio;Music;", filename="second.desktop"),
+        ]
+        grouped = group_entries(entries)
+        group = [g for g in grouped if isinstance(g, EntryGroup)][0]
+        self.assertEqual(group.representative.name, "First")
 
 
 # ======================================================================

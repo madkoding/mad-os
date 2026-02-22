@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# mados-sway-wallpapers - Random per-workspace wallpapers for Sway
+# On startup, assigns a random wallpaper from /usr/share/backgrounds/
+# to each workspace and switches wallpaper on workspace focus events.
+
+WALLPAPER_DIR="/usr/share/backgrounds"
+FALLBACK_WALLPAPER="$HOME/Pictures/Wallpapers/mad-os-wallpaper.jpg"
+
+# Maximum number of workspaces to assign wallpapers to
+MAX_WORKSPACES=5
+
+# Associative array: workspace number -> wallpaper path
+declare -A WS_WALLPAPERS
+
+# Collect available wallpapers
+collect_wallpapers() {
+    local -a wallpapers=()
+    if [[ -d "$WALLPAPER_DIR" ]]; then
+        while IFS= read -r -d '' file; do
+            wallpapers+=("$file")
+        done < <(find "$WALLPAPER_DIR" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) -print0)
+    fi
+
+    # If no wallpapers found, use fallback
+    if [[ ${#wallpapers[@]} -eq 0 ]]; then
+        if [[ -f "$FALLBACK_WALLPAPER" ]]; then
+            wallpapers+=("$FALLBACK_WALLPAPER")
+        else
+            echo "mados-sway-wallpapers: no wallpapers found" >&2
+            exit 1
+        fi
+    fi
+
+    echo "${wallpapers[@]}"
+}
+
+# Shuffle array using Fisher-Yates
+shuffle_array() {
+    local -a arr=("$@")
+    local i j tmp
+    for (( i=${#arr[@]}-1; i>0; i-- )); do
+        j=$(( RANDOM % (i+1) ))
+        tmp="${arr[$i]}"
+        arr[$i]="${arr[$j]}"
+        arr[$j]="$tmp"
+    done
+    echo "${arr[@]}"
+}
+
+# Assign random wallpapers to workspaces
+assign_wallpapers() {
+    local -a wallpapers
+    read -r -a wallpapers <<< "$(collect_wallpapers)"
+    read -r -a shuffled <<< "$(shuffle_array "${wallpapers[@]}")"
+
+    local count=${#shuffled[@]}
+    for (( ws=1; ws<=MAX_WORKSPACES; ws++ )); do
+        local idx=$(( (ws - 1) % count ))
+        WS_WALLPAPERS[$ws]="${shuffled[$idx]}"
+    done
+}
+
+# Set wallpaper for current output
+set_wallpaper() {
+    local wallpaper="$1"
+    if [[ -f "$wallpaper" ]]; then
+        swaymsg output "*" bg "$wallpaper" fill 2>/dev/null
+    fi
+}
+
+# Get current workspace number
+get_current_workspace() {
+    swaymsg -t get_workspaces 2>/dev/null | jq -r '.[] | select(.focused==true) | .num'
+}
+
+# Wait for sway to be fully ready
+wait_for_sway() {
+    for _ in $(seq 1 30); do
+        if swaymsg -t get_tree >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 0.5
+    done
+    echo "mados-sway-wallpapers: sway not ready, giving up" >&2
+    return 1
+}
+
+### Main ###
+
+# Ensure required tools exist
+if ! command -v swaymsg >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+    exit 0
+fi
+
+wait_for_sway || exit 1
+
+# Assign random wallpapers
+assign_wallpapers
+
+# Set initial wallpaper for current workspace
+current_ws="$(get_current_workspace)"
+if [[ -n "$current_ws" && -n "${WS_WALLPAPERS[$current_ws]}" ]]; then
+    set_wallpaper "${WS_WALLPAPERS[$current_ws]}"
+else
+    # Default to workspace 1 wallpaper
+    set_wallpaper "${WS_WALLPAPERS[1]}"
+fi
+
+# Subscribe to workspace focus events and change wallpaper accordingly
+swaymsg -t subscribe '["workspace"]' -m 2>/dev/null | while IFS= read -r event; do
+    # Extract workspace change event
+    change="$(echo "$event" | jq -r '.change // empty' 2>/dev/null)"
+    if [[ "$change" == "focus" ]]; then
+        ws_num="$(echo "$event" | jq -r '.current.num // empty' 2>/dev/null)"
+        if [[ -n "$ws_num" && -n "${WS_WALLPAPERS[$ws_num]}" ]]; then
+            set_wallpaper "${WS_WALLPAPERS[$ws_num]}"
+        fi
+    fi
+done

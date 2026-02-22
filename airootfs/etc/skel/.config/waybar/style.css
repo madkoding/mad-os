@@ -9,7 +9,7 @@
 }
 
 window#waybar {
-    background: linear-gradient(90deg, #2E3440 0%, #3B4252 50%, #2E3440 100%);
+    background: linear-gradient(90deg, rgba(46, 52, 64, 0.75) 0%, rgba(59, 66, 82, 0.75) 50%, rgba(46, 52, 64, 0.75) 100%);
     color: #ECEFF4;
     border-bottom: 2px solid rgba(136, 192, 208, 0.3);
     padding-bottom: 1px;

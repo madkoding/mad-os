@@ -61,6 +61,7 @@ file_permissions=(
   ["/usr/local/bin/setup-gpu-compute"]="0:0:755"
   ["/usr/local/bin/mados-logs"]="0:0:755"
   ["/usr/local/bin/mados-wallpaper-glitch"]="0:0:755"
+  ["/usr/local/bin/mados-sway-wallpapers"]="0:0:755"
   ["/usr/local/lib/mados-media-helper.sh"]="0:0:755"
   ["/usr/local/bin/mados-persistence"]="0:0:755"
   ["/usr/local/bin/mados-persist-sync.sh"]="0:0:755"

@@ -43,10 +43,9 @@ set $indicator-color     #81A1C1
 ### Output Configuration
 set $wallpaper ~/Pictures/Wallpapers/mad-os-wallpaper.jpg
 output * bg $wallpaper fill
-# Force wallpaper refresh after compositor fully initializes
-# Fixes black background on startup with software rendering (pixman)
-# Retries multiple times for slow hardware (Intel Atom, low-RAM systems)
-exec sh -c 'for i in 1 2 3; do sleep 2; swaymsg output "*" bg "$HOME/Pictures/Wallpapers/mad-os-wallpaper.jpg" fill 2>/dev/null && break; done'
+# Random per-workspace wallpapers from /usr/share/backgrounds/
+# Assigns a different wallpaper to each workspace and switches on focus
+exec mados-sway-wallpapers
 
 # Display scaling - adjust scale value to your preference
 # scale 1.0 = 100% (default), 0.8 = 80% (smaller), 0.75 = 75% (even smaller)
