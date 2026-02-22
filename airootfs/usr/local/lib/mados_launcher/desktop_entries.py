@@ -16,7 +16,8 @@ from . import config as _config
 
 
 # Regex to strip field codes from Exec values (%f, %F, %u, %U, %d, %D, %n, %N, %i, %c, %k, %v, %m)
-_FIELD_CODE_RE = re.compile(r'\s*%[fFuUdDnNickvm]\b')
+# Uses a possessive-style pattern (atomic via fixed-width match) to avoid backtracking issues.
+_FIELD_CODE_RE = re.compile(r' ?%[fFuUdDnNickvm](?:\s|$)')
 
 
 class DesktopEntry:

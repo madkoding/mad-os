@@ -1446,15 +1446,31 @@ class TestSwayWallpaperStartup(unittest.TestCase):
             "profiledef.sh must include permissions for mados-sway-wallpapers",
         )
 
-    def test_sway_wallpaper_script_uses_process_substitution(self):
-        """mados-sway-wallpapers must use process substitution for event loop."""
+    def test_sway_wallpaper_script_uses_unbuffered_jq(self):
+        """mados-sway-wallpapers must use jq --unbuffered for immediate event delivery."""
         with open(self.WALLPAPER_SCRIPT) as f:
             content = f.read()
         self.assertIn(
-            "< <(",
+            "--unbuffered",
             content,
-            "Script must use process substitution (< <(...)) instead of pipe "
-            "to avoid subshell issues with associative arrays",
+            "Script must use jq --unbuffered to prevent buffered output in pipe "
+            "(without this, workspace events are never delivered to the while-read loop)",
+        )
+
+    def test_sway_wallpaper_script_uses_state_files(self):
+        """mados-sway-wallpapers must use state files for workspace-wallpaper mapping."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "STATE_DIR",
+            content,
+            "Script must use state files to avoid associative array issues in subshells",
+        )
+        # Should write per-workspace files
+        self.assertIn(
+            "ws-$ws",
+            content,
+            "Script must write per-workspace state files (ws-1, ws-2, etc.)",
         )
 
     def test_sway_wallpaper_script_uses_inplace_shuffle(self):
@@ -1484,6 +1500,16 @@ class TestSwayWallpaperStartup(unittest.TestCase):
             "Script must use logger for diagnostic output",
         )
 
+    def test_sway_wallpaper_script_kills_previous_instances(self):
+        """mados-sway-wallpapers must prevent duplicate instances."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "kill_previous",
+            content,
+            "Script must kill previous instances to avoid duplicates",
+        )
+
     def test_sway_config_uses_placeholder_background(self):
         """Sway config must use a neutral placeholder, not a wallpaper file."""
         with open(self.SWAY_CONF) as f:
@@ -1497,6 +1523,16 @@ class TestSwayWallpaperStartup(unittest.TestCase):
             "mad-os-wallpaper",
             content,
             "Sway config must not hardcode a wallpaper file (managed by script)",
+        )
+
+    def test_sway_wallpaper_script_cleans_up(self):
+        """mados-sway-wallpapers must clean up state files on exit."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "trap cleanup EXIT",
+            content,
+            "Script must trap EXIT to clean up state directory",
         )
 
 
