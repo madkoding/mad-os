@@ -152,35 +152,45 @@ tooltip label {{
     border-bottom: 2px solid {NORD['nord9']};
 }}
 
-/* ===== Popup Menu (group submenu) ===== */
+/* ===== Popup Menu (group submenu via Popover) ===== */
 .launcher-popup {{
     background-color: {NORD['nord0']};
     border: 1px solid {NORD['nord3']};
     border-radius: 6px;
-    padding: 4px 0;
+    padding: 4px;
 }}
 
-.launcher-popup menuitem {{
+/* Override popover's default background/arrow */
+popover.background.launcher-popup {{
+    background-color: {NORD['nord0']};
+    border: 1px solid {NORD['nord3']};
+}}
+
+popover.background.launcher-popup > contents {{
+    background-color: {NORD['nord0']};
+    border-radius: 6px;
+    padding: 2px;
+}}
+
+.popup-row {{
     background-color: transparent;
     color: {NORD['nord4']};
     padding: 4px 8px;
-    border-radius: 3px;
-    margin: 1px 4px;
+    border-radius: 4px;
     transition: background-color 150ms ease;
 }}
 
-.launcher-popup menuitem:hover {{
+.popup-row:hover {{
     background-color: {NORD['nord2']};
-    color: {NORD['nord6']};
 }}
 
-.launcher-popup menuitem label {{
+.popup-row label {{
     color: {NORD['nord4']};
     font-size: 13px;
     font-family: "JetBrains Mono", "Noto Sans", monospace;
 }}
 
-.launcher-popup menuitem:hover label {{
+.popup-row:hover label {{
     color: {NORD['nord6']};
 }}
 

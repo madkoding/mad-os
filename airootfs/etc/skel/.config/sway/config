@@ -10,12 +10,15 @@ set $gnome-schema org.gnome.desktop.interface
 # Ejecutar solo al inicio (no en cada reload)
 exec {
     gsettings set $gnome-schema gtk-theme 'Nordic'
+    gsettings set $gnome-schema icon-theme 'Adwaita'
     gsettings set $gnome-schema color-scheme 'prefer-dark'
     gsettings set $gnome-schema text-scaling-factor 0.75
+    gsettings set $gnome-schema cursor-theme 'Adwaita'
     gsettings set $gnome-schema cursor-size 16
-    systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK
+    gsettings set $gnome-schema font-name 'Sans 10'
+    systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP GTK_THEME
     hash dbus-update-activation-environment 2>/dev/null && \
-         dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY SWAYSOCK
+         dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP GTK_THEME
     # Iniciar servicios de audio PipeWire (socket-activated)
     systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service
 }
@@ -41,8 +44,8 @@ set $border-color        #4C566A
 set $indicator-color     #81A1C1
 
 ### Output Configuration
-set $wallpaper ~/Pictures/Wallpapers/mad-os-wallpaper.jpg
-output * bg $wallpaper fill
+# Brief placeholder background (overridden by mados-sway-wallpapers on startup)
+output * bg #2E3440 solid_color
 # Random per-workspace wallpapers from /usr/share/backgrounds/
 # Assigns a different wallpaper to each workspace and switches on focus
 exec mados-sway-wallpapers
@@ -214,10 +217,10 @@ bindsym $mod+Shift+s exec grim -g "$(slurp)" - | wl-copy
 exec_always --no-startup-id "pkill waybar || true; sleep 0.3; waybar"
 
 # WiFi tray applet (NetworkManager) - with GTK theme
-exec --no-startup-id env GTK_THEME=Nordic nm-applet --indicator
+exec --no-startup-id env GTK_THEME=Nordic GDK_BACKEND=wayland nm-applet --indicator
 
-# Bluetooth tray applet (Blueman)
-exec blueman-applet
+# Bluetooth tray applet (Blueman) - with GTK theme
+exec --no-startup-id env GTK_THEME=Nordic GDK_BACKEND=wayland blueman-applet
 
 # madOS Application Launcher dock
 exec --no-startup-id mados-launcher

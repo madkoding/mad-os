@@ -1446,6 +1446,59 @@ class TestSwayWallpaperStartup(unittest.TestCase):
             "profiledef.sh must include permissions for mados-sway-wallpapers",
         )
 
+    def test_sway_wallpaper_script_uses_process_substitution(self):
+        """mados-sway-wallpapers must use process substitution for event loop."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "< <(",
+            content,
+            "Script must use process substitution (< <(...)) instead of pipe "
+            "to avoid subshell issues with associative arrays",
+        )
+
+    def test_sway_wallpaper_script_uses_inplace_shuffle(self):
+        """mados-sway-wallpapers must shuffle arrays in-place (no subshell passing)."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        # Should NOT pass arrays through echo/read subshells
+        self.assertNotIn(
+            'echo "${wallpapers[@]}"',
+            content,
+            "Script must not pass arrays through echo (fragile with spaces in paths)",
+        )
+        # Should use global array directly
+        self.assertIn(
+            "WALLPAPERS",
+            content,
+            "Script must use a global WALLPAPERS array for in-place operations",
+        )
+
+    def test_sway_wallpaper_script_has_logging(self):
+        """mados-sway-wallpapers must log for debugging."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "logger",
+            content,
+            "Script must use logger for diagnostic output",
+        )
+
+    def test_sway_config_uses_placeholder_background(self):
+        """Sway config must use a neutral placeholder, not a wallpaper file."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "solid_color",
+            content,
+            "Sway config must use solid_color placeholder (wallpaper managed by script)",
+        )
+        self.assertNotIn(
+            "mad-os-wallpaper",
+            content,
+            "Sway config must not hardcode a wallpaper file (managed by script)",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,54 +18,6 @@ from . import config as _config
 # Regex to strip field codes from Exec values (%f, %F, %u, %U, %d, %D, %n, %N, %i, %c, %k, %v, %m)
 _FIELD_CODE_RE = re.compile(r'\s*%[fFuUdDnNickvm]\b')
 
-# Category mapping: primary category -> canonical group name
-# Apps sharing a group will be collapsed to a single icon with a submenu.
-_CATEGORY_GROUP_MAP = {
-    # Audio / Music
-    "audio": "Audio",
-    "music": "Audio",
-    "player": "Audio",
-    "mixer": "Audio",
-    # Graphics / Images
-    "graphics": "Graphics",
-    "viewer": "Graphics",      # Will also catch PDF viewers — we resolve below
-    "photography": "Graphics",
-    "2dgraphics": "Graphics",
-    "3dgraphics": "Graphics",
-    "rastergraphics": "Graphics",
-    "vectorgraphics": "Graphics",
-    # Office / Documents
-    "office": "Office",
-    "wordprocessor": "Office",
-    "spreadsheet": "Office",
-    "presentation": "Office",
-    # Video
-    "video": "Video",
-    "audiovideo": "Video",
-    # Development
-    "development": "Development",
-    "ide": "Development",
-    "texteditor": "Development",
-    # Network / Internet
-    "network": "Internet",
-    "webbrowser": "Internet",
-    "email": "Internet",
-    "chat": "Internet",
-    "instantmessaging": "Internet",
-    # System / Settings
-    "system": "System",
-    "settings": "System",
-    "monitor": "System",
-    "terminalemulator": "System",
-    # Utilities
-    "utility": "Utility",
-    "archiving": "Utility",
-    "compression": "Utility",
-    "filesystem": "Utility",
-    "filemanager": "Utility",
-    "calculator": "Utility",
-}
-
 
 class DesktopEntry:
     """Represents a parsed .desktop application entry."""
@@ -83,7 +35,7 @@ class DesktopEntry:
 
 
 class EntryGroup:
-    """A group of DesktopEntry items sharing a category."""
+    """A group of DesktopEntry items sharing the same icon."""
 
     __slots__ = ("group_name", "entries", "representative")
 
@@ -238,42 +190,49 @@ def launch_application(exec_cmd):
         print(f"[mados-launcher] Failed to launch '{exec_cmd}': {e}")
 
 
-def _primary_group(entry):
-    """Determine the canonical group name for a DesktopEntry, or None if ungrouped."""
-    if not entry.categories:
+def _icon_group_key(entry):
+    """Return the grouping key for an entry based on its icon name.
+
+    Entries with the same icon_name (normalized) will be grouped together.
+    Entries with no icon or the generic fallback icon are not grouped.
+    """
+    icon = (entry.icon_name or "").strip()
+    if not icon:
         return None
-    cats = [c.strip().lower() for c in entry.categories.split(";") if c.strip()]
-    for cat in cats:
-        group = _CATEGORY_GROUP_MAP.get(cat)
-        if group:
-            return group
-    return None
+    # Normalize: lowercase, strip path and extension for comparison
+    key = os.path.basename(icon).lower()
+    key = os.path.splitext(key)[0] if "." in key else key
+    # Don't group under generic fallback icons
+    if key in ("application-x-executable", "application-default-icon", "exec", ""):
+        return None
+    return key
 
 
 def group_entries(entries):
-    """Group entries by their primary category.
+    """Group entries that share the same icon into a single dock slot.
 
     Returns a list of items where each item is either:
-    - A single DesktopEntry (unique / ungrouped app), or
-    - An EntryGroup (2+ entries sharing a category group).
+    - A single DesktopEntry (unique icon), or
+    - An EntryGroup (2+ entries sharing the same icon).
 
-    Items are sorted alphabetically: groups by group_name, singles by name.
+    Items are sorted alphabetically: groups by first entry name, singles by name.
     """
-    groups = OrderedDict()   # group_name -> [DesktopEntry]
+    icon_groups = OrderedDict()   # icon_key -> [DesktopEntry]
     ungrouped = []
 
     for entry in entries:
-        group_name = _primary_group(entry)
-        if group_name:
-            groups.setdefault(group_name, []).append(entry)
+        key = _icon_group_key(entry)
+        if key:
+            icon_groups.setdefault(key, []).append(entry)
         else:
             ungrouped.append(entry)
 
     result = []
 
     # Groups with 2+ entries become EntryGroup; singletons stay as DesktopEntry
-    for group_name, members in groups.items():
+    for icon_key, members in icon_groups.items():
         if len(members) >= 2:
+            group_name = members[0].name  # Use first entry's name as label
             result.append(EntryGroup(group_name, members))
         else:
             result.append(members[0])
@@ -281,10 +240,10 @@ def group_entries(entries):
     # Add ungrouped entries
     result.extend(ungrouped)
 
-    # Sort: groups by group_name, entries by name
+    # Sort alphabetically
     def sort_key(item):
         if isinstance(item, EntryGroup):
-            return item.group_name.lower()
+            return item.representative.name.lower()
         return item.name.lower()
 
     result.sort(key=sort_key)

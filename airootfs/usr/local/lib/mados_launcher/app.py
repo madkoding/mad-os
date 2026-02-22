@@ -559,12 +559,22 @@ class LauncherApp:
             return image
 
     def _on_group_clicked(self, button, group):
-        """Show a popup menu listing all entries in the group."""
-        menu = Gtk.Menu()
-        menu.get_style_context().add_class("launcher-popup")
+        """Show a popover listing all entries in the group."""
+        popover = Gtk.Popover()
+        popover.set_relative_to(button)
+        popover.set_position(Gtk.PositionType.RIGHT)
+        popover.get_style_context().add_class("launcher-popup")
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        vbox.set_margin_start(4)
+        vbox.set_margin_end(4)
+        vbox.set_margin_top(4)
+        vbox.set_margin_bottom(4)
 
         for entry in group.entries:
-            item = Gtk.MenuItem()
+            row = Gtk.Button()
+            row.set_relief(Gtk.ReliefStyle.NONE)
+            row.get_style_context().add_class("popup-row")
 
             hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
             hbox.set_margin_start(4)
@@ -596,24 +606,20 @@ class LauncherApp:
 
             # Running indicator dot
             if self._tracker.is_running(entry.exec_cmd, entry.filename):
-                dot = Gtk.Label(label="●")
+                dot = Gtk.Label(label="\u25cf")
                 dot.get_style_context().add_class("running-dot")
                 hbox.pack_end(dot, False, False, 0)
 
-            item.add(hbox)
-            item.connect("activate", self._on_menu_item_activated, entry.exec_cmd)
-            menu.append(item)
+            row.add(hbox)
+            row.connect("clicked", self._on_popover_item_clicked, popover, entry.exec_cmd)
+            vbox.pack_start(row, False, False, 0)
 
-        menu.show_all()
-        menu.popup_at_widget(
-            button,
-            Gdk.Gravity.SOUTH,
-            Gdk.Gravity.NORTH,
-            None,
-        )
+        popover.add(vbox)
+        popover.show_all()
 
-    def _on_menu_item_activated(self, menu_item, exec_cmd):
-        """Launch app from popup menu."""
+    def _on_popover_item_clicked(self, button, popover, exec_cmd):
+        """Launch app from popover and close it."""
+        popover.popdown()
         launch_application(exec_cmd)
 
     def _on_icon_clicked(self, button, exec_cmd):
