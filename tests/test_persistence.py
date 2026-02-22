@@ -94,7 +94,6 @@ class TestPersistenceServiceReferences(unittest.TestCase):
         with open(service_path, "r") as f:
             content = f.read()
 
-        script_path = os.path.join(BIN_DIR, "mados-persist-sync.sh")
         self.assertIn(
             "mados-persist-sync.sh",
             content,
@@ -109,7 +108,6 @@ class TestPersistenceServiceReferences(unittest.TestCase):
         with open(service_path, "r") as f:
             content = f.read()
 
-        script_path = os.path.join(BIN_DIR, "mados-persist-detect.sh")
         self.assertIn(
             "mados-persist-detect.sh",
             content,

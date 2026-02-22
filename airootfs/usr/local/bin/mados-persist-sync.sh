@@ -10,21 +10,26 @@ log() {
 }
 
 find_persistence_file() {
-    if [ -d /run/archiso/bootmnt ]; then
-        local boot_dev="/run/archiso/bootmnt"
+    local boot_dev=""
+    local persist_file=""
+    
+    if [[ -d /run/archiso/bootmnt ]]; then
+        boot_dev="/run/archiso/bootmnt"
         
         for file in "${boot_dev}${PERSISTENCE_FILE}" \
                     "${boot_dev}/ventoy${PERSISTENCE_FILE}"; do
-            if [ -f "$file" ]; then
-                echo "$file"
+            if [[ -f "$file" ]]; then
+                persist_file="$file"
+                echo "$persist_file"
                 return 0
             fi
         done
     fi
     
     for label in "mados-persist" "vtoycow"; do
-        local device=$(blkid -L "$label" 2>/dev/null)
-        if [ -n "$device" ]; then
+        local device
+        device=$(blkid -L "$label" 2>/dev/null)
+        if [[ -n "$device" ]]; then
             echo "$device"
             return 0
         fi
@@ -41,8 +46,9 @@ mount_persistence() {
     if [[ "$source" == /dev/* ]]; then
         mount -o rw "$source" "$PERSISTENCE_MOUNT"
     else
-        local loop_dev=$(losetup -f --show "$source" 2>/dev/null)
-        if [ -z "$loop_dev" ]; then
+        local loop_dev
+        loop_dev=$(losetup -f --show "$source" 2>/dev/null)
+        if [[ -z "$loop_dev" ]]; then
             log "ERROR: Failed to create loop device"
             return 1
         fi
@@ -55,7 +61,7 @@ mount_persistence() {
 sync_home_to_persistence() {
     local persist_dir="$PERSISTENCE_MOUNT"
     
-    if [ ! -d "$persist_dir" ]; then
+    if [[ ! -d "$persist_dir" ]]; then
         return 1
     fi
     
@@ -87,48 +93,49 @@ sync_home_to_persistence() {
     rsync -a --delete \
         /var/cache/pacman/ "$persist_dir/pacman/pkg/" 2>/dev/null
     
-    return $?
+    return 0
 }
 
 load_persistence_to_home() {
     local persist_dir="$PERSISTENCE_MOUNT"
     
-    if [ ! -d "$persist_dir" ] || [ -z "$(ls -A "$persist_dir" 2>/dev/null)" ]; then
+    if [[ ! -d "$persist_dir" ]] || [[ -z "$(ls -A "$persist_dir" 2>/dev/null)" ]]; then
         return 1
     fi
     
     log "Loading persistence..."
     
     # /home
-    if [ -d "$persist_dir/home" ]; then
+    if [[ -d "$persist_dir/home" ]]; then
         rsync -a "$persist_dir/home/" /home/ 2>/dev/null
     fi
     
     # /root
-    if [ -d "$persist_dir/root" ]; then
+    if [[ -d "$persist_dir/root" ]]; then
         rsync -a "$persist_dir/root/" /root/ 2>/dev/null
     fi
     
     # /usr/local
-    if [ -d "$persist_dir/usr.local" ]; then
+    if [[ -d "$persist_dir/usr.local" ]]; then
         rsync -a "$persist_dir/usr.local/" /usr/local/ 2>/dev/null
     fi
     
     # /var/cache/pacman
-    if [ -d "$persist_dir/pacman/pkg" ]; then
+    if [[ -d "$persist_dir/pacman/pkg" ]]; then
         mkdir -p /var/cache/pacman/pkg
         rsync -a "$persist_dir/pacman/pkg/" /var/cache/pacman/pkg/ 2>/dev/null
     fi
     
-    return $?
+    return 0
 }
 
 start_service() {
     log "=== Starting persistence service ==="
     
-    local persist_file=$(find_persistence_file)
+    local persist_file
+    persist_file=$(find_persistence_file)
     
-    if [ -z "$persist_file" ]; then
+    if [[ -z "$persist_file" ]]; then
         log "No persistence file found. Persistence disabled."
         return 0
     fi
@@ -161,6 +168,7 @@ stop_service() {
     done
     
     umount "$PERSISTENCE_MOUNT" 2>/dev/null || true
+    return 0
 }
 
 case "${1:-start}" in
