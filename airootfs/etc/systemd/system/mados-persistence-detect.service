@@ -1,0 +1,16 @@
+[Unit]
+Description=mados Persistence Detection
+DefaultDependencies=no
+After=systemd-remount-fs.service
+Before=local-fs-pre.target
+Wants=local-fs-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/mados-persist-detect.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
