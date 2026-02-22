@@ -39,7 +39,11 @@ def _get_custom_service_files():
         return services
     for fname in sorted(os.listdir(SYSTEMD_DIR)):
         fpath = os.path.join(SYSTEMD_DIR, fname)
-        if fname.endswith(".service") and os.path.isfile(fpath) and not os.path.islink(fpath):
+        if (
+            fname.endswith(".service")
+            and os.path.isfile(fpath)
+            and not os.path.islink(fpath)
+        ):
             services.append((fname, fpath))
     return services
 
@@ -69,7 +73,7 @@ def _parse_exec_paths(service_path):
             line = line.strip()
             for directive in ("ExecStart=", "ExecStartPre=", "ExecStartPost="):
                 if line.startswith(directive):
-                    cmd = line[len(directive):]
+                    cmd = line[len(directive) :]
                     # Remove optional prefix flags like - (ignore errors)
                     cmd = cmd.lstrip("-")
                     # First token is the executable path
@@ -146,9 +150,10 @@ class TestAllScriptsHavePermissions(unittest.TestCase):
         """All scripts in /usr/local/bin/ must appear in profiledef.sh."""
         for name, _ in _get_bin_scripts():
             with self.subTest(script=name):
-                expected = f'/usr/local/bin/{name}'
+                expected = f"/usr/local/bin/{name}"
                 self.assertIn(
-                    expected, self.profiledef,
+                    expected,
+                    self.profiledef,
                     f"{name} is in /usr/local/bin/ but has no permissions "
                     f"entry in profiledef.sh",
                 )
@@ -161,7 +166,8 @@ class TestAllScriptsHavePermissions(unittest.TestCase):
                     rf'\["/usr/local/bin/{re.escape(name)}"\]="0:0:755"'
                 )
                 self.assertRegex(
-                    self.profiledef, pattern,
+                    self.profiledef,
+                    pattern,
                     f"{name} must have 0:0:755 permissions in profiledef.sh",
                 )
 
@@ -180,10 +186,12 @@ class TestAllShellScriptsValid(unittest.TestCase):
             with self.subTest(script=name):
                 result = subprocess.run(
                     ["bash", "-n", fpath],
-                    capture_output=True, text=True,
+                    capture_output=True,
+                    text=True,
                 )
                 self.assertEqual(
-                    result.returncode, 0,
+                    result.returncode,
+                    0,
                     f"Bash syntax error in {name}:\n{result.stderr}",
                 )
 
@@ -229,6 +237,8 @@ class TestEnabledServicesValid(unittest.TestCase):
     # Services intentionally not pre-enabled (enabled at runtime or conditionally)
     OPTIONAL_SERVICES = {
         "mados-gpu-compute.service",  # enabled at runtime if GPU detected
+        "mados-persist-sync.service",  # enabled at runtime if persistence detected
+        "mados-persistence-detect.service",  # enabled at runtime if persistence detected
     }
 
     def test_custom_services_are_enabled(self):
@@ -246,7 +256,8 @@ class TestEnabledServicesValid(unittest.TestCase):
             wanted_by = match.group(1)
             with self.subTest(service=svc_name, wanted_by=wanted_by):
                 self.assertIn(
-                    svc_name, enabled_names,
+                    svc_name,
+                    enabled_names,
                     f"{svc_name} declares WantedBy={wanted_by} but has no "
                     f"enable symlink in any .wants directory",
                 )
@@ -282,8 +293,7 @@ class TestCriticalLiveUSBScriptsExist(unittest.TestCase):
                 path = os.path.join(BIN_DIR, script)
                 self.assertTrue(
                     os.path.isfile(path),
-                    f"Critical script {script} is missing from "
-                    f"airootfs/usr/local/bin/",
+                    f"Critical script {script} is missing from airootfs/usr/local/bin/",
                 )
 
 
@@ -308,7 +318,8 @@ class TestServiceScriptsHavePermissions(unittest.TestCase):
                     escaped = re.escape(exe)
                     pattern = re.compile(rf'\["{escaped}"\]="0:0:755"')
                     self.assertRegex(
-                        self.profiledef, pattern,
+                        self.profiledef,
+                        pattern,
                         f"{svc_name}: ExecStart script {exe} must have "
                         f"0:0:755 permissions in profiledef.sh",
                     )
