@@ -299,7 +299,7 @@ class Playlist:
             self._shuffle_pos = -1
             return
         self._shuffle_order = list(range(len(self.items)))
-        random.shuffle(self._shuffle_order)
+        random.shuffle(self._shuffle_order)  # NOSONAR - not security-sensitive, just playlist order
         # Put current index at position 0 so current track is first
         if self.current_index >= 0 and self.current_index in self._shuffle_order:
             self._shuffle_order.remove(self.current_index)
