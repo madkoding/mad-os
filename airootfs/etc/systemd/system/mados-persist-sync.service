@@ -1,0 +1,14 @@
+[Unit]
+Description=mados Persistence Sync (Ventoy-style)
+After=multi-user.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+ExecStart=/usr/local/bin/mados-persist-sync.sh start
+ExecStop=/usr/local/bin/mados-persist-sync.sh stop
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
