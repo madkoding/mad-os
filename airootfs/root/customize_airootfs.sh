@@ -117,4 +117,20 @@ else
     fi
 fi
 
+# ── Hide unwanted .desktop entries from application menu ──────────────────
+echo "Hiding unwanted application menu entries..."
+for desktop_file in \
+    /usr/share/applications/xgps.desktop \
+    /usr/share/applications/xgpsspeed.desktop \
+    /usr/share/applications/pcmanfm-desktop-pref.desktop \
+    /usr/share/applications/qv4l2.desktop \
+    /usr/share/applications/qvidcap.desktop \
+    /usr/share/applications/mpv.desktop; do
+    if [[ -f "$desktop_file" ]]; then
+        echo -e "[Desktop Entry]\nNoDisplay=true\nHidden=true\nType=Application" > "$desktop_file"
+        echo "  → Hidden: $(basename "$desktop_file")"
+    fi
+done
+echo "✓ Unwanted desktop entries hidden"
+
 echo "=== madOS: Pre-installation complete ==="
