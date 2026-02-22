@@ -313,8 +313,8 @@ class TestEqualizerResponsiveLayout(unittest.TestCase):
 class TestPhotoViewerResponsiveLayout(unittest.TestCase):
     """Test that photo viewer app uses smaller minimum sizes."""
 
-    def test_photo_viewer_brush_scale_smaller(self):
-        """Photo viewer brush scale should use width 80 instead of 120."""
+    def test_photo_viewer_size_scale_smaller(self):
+        """Photo viewer size scale should use width 80 instead of 120."""
         photo_viewer_path = os.path.join(LIB_DIR, "mados_photo_viewer", "app.py")
         self.assertTrue(
             os.path.exists(photo_viewer_path),
@@ -324,35 +324,35 @@ class TestPhotoViewerResponsiveLayout(unittest.TestCase):
         with open(photo_viewer_path, "r") as f:
             content = f.read()
 
-        # Should NOT use old size 120 for brush scale
-        # Look for brush-related size requests
-        brush_matches = re.findall(
-            r"brush.*?set_size_request\s*\(\s*(\d+)", content, re.DOTALL | re.IGNORECASE
+        # Look for size-related size requests (unified size slider)
+        size_matches = re.findall(
+            r"size_scale.*?set_size_request\s*\(\s*(\d+)", content, re.DOTALL | re.IGNORECASE
         )
 
-        for match in brush_matches:
+        for match in size_matches:
             width = int(match)
             self.assertLessEqual(
-                width, 80, f"Brush scale width should be 80 or less, not {width}"
+                width, 80, f"Size scale width should be 80 or less, not {width}"
             )
 
-    def test_photo_viewer_font_scale_smaller(self):
-        """Photo viewer font scale should use width 80 instead of 100."""
+    def test_photo_viewer_uses_icon_toolbar(self):
+        """Photo viewer should use a single Gtk.Toolbar with icon style."""
         photo_viewer_path = os.path.join(LIB_DIR, "mados_photo_viewer", "app.py")
 
         with open(photo_viewer_path, "r") as f:
             content = f.read()
 
-        # Look for font-related size requests
-        font_matches = re.findall(
-            r"font.*?set_size_request\s*\(\s*(\d+)", content, re.DOTALL | re.IGNORECASE
+        # Should use Gtk.Toolbar (icon-based like PDF viewer)
+        self.assertIn(
+            "Gtk.Toolbar()",
+            content,
+            "Photo viewer should use Gtk.Toolbar() for icon-based toolbar",
         )
-
-        for match in font_matches:
-            width = int(match)
-            self.assertLessEqual(
-                width, 80, f"Font scale width should be 80 or less, not {width}"
-            )
+        self.assertIn(
+            "ToolbarStyle.ICONS",
+            content,
+            "Photo viewer toolbar should use ICONS style",
+        )
 
     def test_photo_viewer_uses_hexpand(self):
         """Photo viewer should use set_hexpand for responsive elements."""

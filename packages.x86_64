@@ -109,6 +109,7 @@ pavucontrol
 
 # Reproductores multimedia
 mpv
+cava
 fftw
 chafa
 taglib
@@ -162,6 +163,11 @@ gst-plugins-base
 gst-plugins-good
 gst-python
 python-pillow
+
+# madOS Video Player - full-format video playback
+gst-plugins-ugly
+gst-plugins-bad
+gst-libav
 
 # madOS PDF Viewer - PDF rendering and annotations
 poppler-glib

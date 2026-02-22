@@ -3,9 +3,8 @@ madOS Photo Viewer - Main Application Window
 ==============================================
 
 The primary application window that integrates all components:
-    - Menu bar with File operations (Open, Save, Save As, Set Wallpaper)
-    - Main toolbar with navigation and zoom controls
-    - Editing toolbar with tool selection, color picker, brush/font size
+    - Single icon toolbar with file, navigation, zoom, edit, and wallpaper
+    - Contextual edit options bar (color + size, shown when editing)
     - Central canvas for image display and editing
     - Video player that replaces the canvas for video files
     - Status bar with file info, position, and zoom level
@@ -68,17 +67,16 @@ class PhotoViewerApp(Gtk.Window):
         self.add(self._main_box)
 
         # Build UI sections
-        self._build_menu_bar()
-        self._build_main_toolbar()
-        self._build_edit_toolbar()
+        self._build_toolbar()
+        self._build_edit_options_bar()
         self._build_content_area()
         self._build_status_bar()
 
         # Show everything
         self.show_all()
 
-        # Hide edit toolbar by default (shown when a tool is active)
-        self._edit_toolbar.set_visible(True)
+        # Hide edit options bar by default
+        self._edit_options_bar.set_visible(False)
 
         # Open initial file if provided
         if initial_file and os.path.isfile(initial_file):
@@ -90,226 +88,132 @@ class PhotoViewerApp(Gtk.Window):
     # UI CONSTRUCTION
     # ==================================================================
 
-    def _build_menu_bar(self):
-        """Build the menu bar with File and View menus."""
-        menubar = Gtk.MenuBar()
-        menubar.get_style_context().add_class('tool-bar')
+    def _add_tool_button(self, toolbar, icon_name, tooltip_key, callback):
+        """Add an icon button to the toolbar with a translated tooltip.
 
-        # --- File menu ---
-        file_menu = Gtk.Menu()
-        file_item = Gtk.MenuItem(label=self._t('open'))
-        file_item.set_submenu(file_menu)
+        Args:
+            toolbar: The Gtk.Toolbar to add the button to.
+            icon_name: GTK icon name string.
+            tooltip_key: Translation key for the tooltip.
+            callback: Click callback function.
 
-        open_item = Gtk.MenuItem(label=self._t('open') + "  (Ctrl+O)")
-        open_item.connect('activate', lambda w: self._on_open())
-        file_menu.append(open_item)
+        Returns:
+            The created Gtk.ToolButton.
+        """
+        btn = Gtk.ToolButton()
+        btn.set_icon_name(icon_name)
+        btn.set_tooltip_text(self._t(tooltip_key))
+        btn.connect('clicked', callback)
+        toolbar.insert(btn, -1)
+        return btn
 
-        file_menu.append(Gtk.SeparatorMenuItem())
-
-        save_item = Gtk.MenuItem(label=self._t('save') + "  (Ctrl+S)")
-        save_item.connect('activate', lambda w: self._on_save())
-        file_menu.append(save_item)
-
-        save_as_item = Gtk.MenuItem(label=self._t('save_as') + "  (Ctrl+Shift+S)")
-        save_as_item.connect('activate', lambda w: self._on_save_as())
-        file_menu.append(save_as_item)
-
-        file_menu.append(Gtk.SeparatorMenuItem())
-
-        wallpaper_item = Gtk.MenuItem(label=self._t('set_wallpaper'))
-        wallpaper_item.connect('activate', lambda w: self._on_set_wallpaper())
-        file_menu.append(wallpaper_item)
-
-        file_menu.append(Gtk.SeparatorMenuItem())
-
-        quit_item = Gtk.MenuItem(label="Quit  (Ctrl+Q)")
-        quit_item.connect('activate', lambda w: self._on_quit())
-        file_menu.append(quit_item)
-
-        menubar.append(file_item)
-
-        self._main_box.pack_start(menubar, False, False, 0)
-        self._menu_bar = menubar
-
-    def _build_main_toolbar(self):
-        """Build the main toolbar with navigation and zoom controls."""
-        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        toolbar.get_style_context().add_class('tool-bar')
-        toolbar.set_margin_top(2)
-        toolbar.set_margin_bottom(2)
-
-        # Open button
-        btn_open = Gtk.Button(label=self._t('open'))
-        btn_open.set_tooltip_text("Ctrl+O")
-        btn_open.connect('clicked', lambda w: self._on_open())
-        toolbar.pack_start(btn_open, False, False, 2)
-
-        # Separator
-        toolbar.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
-
-        # Navigation
-        self._btn_prev = Gtk.Button(label="\u25C0")
-        self._btn_prev.get_style_context().add_class('nav-button')
-        self._btn_prev.set_tooltip_text(self._t('prev_image') + " (Left)")
-        self._btn_prev.connect('clicked', lambda w: self._on_prev())
-        toolbar.pack_start(self._btn_prev, False, False, 2)
-
-        self._btn_next = Gtk.Button(label="\u25B6")
-        self._btn_next.get_style_context().add_class('nav-button')
-        self._btn_next.set_tooltip_text(self._t('next_image') + " (Right)")
-        self._btn_next.connect('clicked', lambda w: self._on_next())
-        toolbar.pack_start(self._btn_next, False, False, 2)
-
-        # Separator
-        toolbar.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
-
-        # Zoom controls
-        btn_zoom_out = Gtk.Button(label="\u2212")
-        btn_zoom_out.get_style_context().add_class('zoom-button')
-        btn_zoom_out.set_tooltip_text(self._t('zoom_out') + " (-)")
-        btn_zoom_out.connect('clicked', lambda w: self._canvas.zoom_out())
-        toolbar.pack_start(btn_zoom_out, False, False, 1)
-
-        self._zoom_label = Gtk.Label(label="100%")
-        self._zoom_label.set_width_chars(6)
-        toolbar.pack_start(self._zoom_label, False, False, 2)
-
-        btn_zoom_in = Gtk.Button(label="+")
-        btn_zoom_in.get_style_context().add_class('zoom-button')
-        btn_zoom_in.set_tooltip_text(self._t('zoom_in') + " (+)")
-        btn_zoom_in.connect('clicked', lambda w: self._canvas.zoom_in())
-        toolbar.pack_start(btn_zoom_in, False, False, 1)
-
-        btn_fit = Gtk.Button(label=self._t('fit_window'))
-        btn_fit.set_tooltip_text("Ctrl+0")
-        btn_fit.connect('clicked', lambda w: self._canvas.zoom_fit())
-        toolbar.pack_start(btn_fit, False, False, 2)
-
-        btn_actual = Gtk.Button(label="1:1")
-        btn_actual.set_tooltip_text(self._t('actual_size') + " (Ctrl+1)")
-        btn_actual.connect('clicked', lambda w: self._canvas.zoom_actual())
-        toolbar.pack_start(btn_actual, False, False, 2)
-
-        # Separator
-        toolbar.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
-
-        # Wallpaper button
-        btn_wallpaper = Gtk.Button(label=self._t('set_wallpaper'))
-        btn_wallpaper.connect('clicked', lambda w: self._on_set_wallpaper())
-        toolbar.pack_start(btn_wallpaper, False, False, 2)
-
-        # Save button on the right
-        btn_save = Gtk.Button(label=self._t('save'))
-        btn_save.set_tooltip_text("Ctrl+S")
-        btn_save.connect('clicked', lambda w: self._on_save())
-        toolbar.pack_end(btn_save, False, False, 2)
-
+    def _build_toolbar(self):
+        """Build the single icon toolbar with all controls."""
+        toolbar = Gtk.Toolbar()
+        toolbar.set_style(Gtk.ToolbarStyle.ICONS)
+        toolbar.set_icon_size(Gtk.IconSize.SMALL_TOOLBAR)
         self._main_box.pack_start(toolbar, False, False, 0)
-        self._main_toolbar = toolbar
 
-    def _build_edit_toolbar(self):
-        """Build the editing toolbar with tool buttons and options."""
-        toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        toolbar.get_style_context().add_class('tool-bar')
-        toolbar.set_margin_top(1)
-        toolbar.set_margin_bottom(1)
+        # ── File operations ───────────────────────────────────────────
+        self._add_tool_button(toolbar, "document-open", "open", lambda w: self._on_open())
+        self._add_tool_button(toolbar, "document-save", "save", lambda w: self._on_save())
+        self._add_tool_button(toolbar, "document-save-as", "save_as", lambda w: self._on_save_as())
 
-        # Tool toggle buttons (radio group behavior)
+        toolbar.insert(Gtk.SeparatorToolItem(), -1)
+
+        # ── Navigation ────────────────────────────────────────────────
+        self._btn_prev = self._add_tool_button(toolbar, "go-previous", "prev_image", lambda w: self._on_prev())
+        self._btn_next = self._add_tool_button(toolbar, "go-next", "next_image", lambda w: self._on_next())
+
+        toolbar.insert(Gtk.SeparatorToolItem(), -1)
+
+        # ── Zoom ──────────────────────────────────────────────────────
+        self._add_tool_button(toolbar, "zoom-out", "zoom_out", lambda w: self._canvas.zoom_out())
+        self._add_tool_button(toolbar, "zoom-in", "zoom_in", lambda w: self._canvas.zoom_in())
+        self._add_tool_button(toolbar, "zoom-fit-best", "fit_window", lambda w: self._canvas.zoom_fit())
+        self._add_tool_button(toolbar, "zoom-original", "actual_size", lambda w: self._canvas.zoom_actual())
+
+        # Zoom label
+        ti_zoom = Gtk.ToolItem()
+        self._zoom_label = Gtk.Label(label="100%")
+        self._zoom_label.get_style_context().add_class("zoom-indicator")
+        self._zoom_label.set_margin_start(4)
+        self._zoom_label.set_margin_end(4)
+        self._zoom_label.set_width_chars(6)
+        ti_zoom.add(self._zoom_label)
+        toolbar.insert(ti_zoom, -1)
+
+        toolbar.insert(Gtk.SeparatorToolItem(), -1)
+
+        # ── Edit tools (toggle buttons) ──────────────────────────────
         self._tool_buttons = {}
-
         tools = [
-            (TOOL_PAINT, 'paint'),
-            (TOOL_TEXT, 'text_tool'),
-            (TOOL_BLUR, 'blur_tool'),
-            (TOOL_PIXELATE, 'pixelate_tool'),
-            (TOOL_ERASER, 'eraser'),
+            (TOOL_PAINT, "applications-graphics", "paint"),
+            (TOOL_TEXT, "format-text-bold", "text_tool"),
+            (TOOL_BLUR, "image-blur", "blur_tool"),
+            (TOOL_ERASER, "edit-clear", "eraser"),
         ]
-
-        for tool_id, label_key in tools:
-            btn = Gtk.ToggleButton(label=self._t(label_key))
-            btn.get_style_context().add_class('tool-button')
+        for tool_id, icon_name, tooltip_key in tools:
+            btn = Gtk.ToggleToolButton()
+            btn.set_icon_name(icon_name)
+            btn.set_tooltip_text(self._t(tooltip_key))
             btn.connect('toggled', self._on_tool_toggled, tool_id)
-            toolbar.pack_start(btn, False, False, 2)
+            toolbar.insert(btn, -1)
             self._tool_buttons[tool_id] = btn
 
-        # Separator
-        toolbar.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 6)
+        self._add_tool_button(toolbar, "edit-undo", "undo", lambda w: self._canvas.undo())
+
+        toolbar.insert(Gtk.SeparatorToolItem(), -1)
+
+        # ── Wallpaper ─────────────────────────────────────────────────
+        self._add_tool_button(toolbar, "preferences-desktop-wallpaper", "set_wallpaper", lambda w: self._on_set_wallpaper())
+
+        self._toolbar = toolbar
+
+    def _build_edit_options_bar(self):
+        """Build a minimal edit options bar shown when an edit tool is active."""
+        bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        bar.get_style_context().add_class('tool-bar')
+        bar.set_margin_top(1)
+        bar.set_margin_bottom(1)
+        bar.set_margin_start(4)
+        bar.set_margin_end(4)
 
         # Color picker
-        color_label = Gtk.Label(label=self._t('color') + ":")
-        toolbar.pack_start(color_label, False, False, 2)
-
         self._color_button = Gtk.ColorButton()
         initial_color = Gdk.RGBA()
         initial_color.parse('#ECEFF4')
         self._color_button.set_rgba(initial_color)
         self._color_button.set_use_alpha(True)
+        self._color_button.set_tooltip_text(self._t('color'))
         self._color_button.connect('color-set', self._on_color_set)
-        toolbar.pack_start(self._color_button, False, False, 2)
+        bar.pack_start(self._color_button, False, False, 0)
 
-        # Separator
-        toolbar.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 6)
+        # Size slider (brush or font size depending on active tool)
+        self._size_label = Gtk.Label(label=self._t('brush_size'))
+        bar.pack_start(self._size_label, False, False, 0)
 
-        # Brush size
-        brush_label = Gtk.Label(label=self._t('brush_size') + ":")
-        toolbar.pack_start(brush_label, False, False, 2)
-
-        self._brush_scale = Gtk.Scale.new_with_range(
+        self._size_scale = Gtk.Scale.new_with_range(
             Gtk.Orientation.HORIZONTAL, 1, 100, 1
         )
-        self._brush_scale.set_value(5)
-        self._brush_scale.set_size_request(80, -1)
-        self._brush_scale.set_hexpand(True)
-        self._brush_scale.set_draw_value(True)
-        self._brush_scale.set_value_pos(Gtk.PositionType.RIGHT)
-        self._brush_scale.connect('value-changed', self._on_brush_size_changed)
-        toolbar.pack_start(self._brush_scale, False, False, 2)
+        self._size_scale.set_value(5)
+        self._size_scale.set_size_request(80, -1)
+        self._size_scale.set_hexpand(True)
+        self._size_scale.set_draw_value(True)
+        self._size_scale.set_value_pos(Gtk.PositionType.RIGHT)
+        self._size_scale.connect('value-changed', self._on_size_changed)
+        bar.pack_start(self._size_scale, False, False, 0)
 
-        # Separator
-        toolbar.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 6)
-
-        # Font size (for text tool)
-        font_label = Gtk.Label(label=self._t('font_size') + ":")
-        toolbar.pack_start(font_label, False, False, 2)
-
-        self._font_scale = Gtk.Scale.new_with_range(
-            Gtk.Orientation.HORIZONTAL, 8, 120, 1
-        )
-        self._font_scale.set_value(24)
-        self._font_scale.set_size_request(80, -1)
-        self._font_scale.set_hexpand(True)
-        self._font_scale.set_draw_value(True)
-        self._font_scale.set_value_pos(Gtk.PositionType.RIGHT)
-        self._font_scale.connect('value-changed', self._on_font_size_changed)
-        toolbar.pack_start(self._font_scale, False, False, 2)
-
-        # Text entry
+        # Text entry (visible only for text tool)
         self._text_entry = Gtk.Entry()
         self._text_entry.set_placeholder_text(self._t('text_placeholder'))
         self._text_entry.set_width_chars(20)
+        self._text_entry.set_hexpand(True)
         self._text_entry.connect('changed', self._on_text_changed)
-        toolbar.pack_start(self._text_entry, False, False, 2)
+        bar.pack_start(self._text_entry, True, True, 0)
 
-        # Right side: Undo/Redo/Clear
-        toolbar.pack_start(Gtk.Box(), True, True, 0)  # Spacer
-
-        btn_undo = Gtk.Button(label=self._t('undo'))
-        btn_undo.set_tooltip_text("Ctrl+Z")
-        btn_undo.connect('clicked', lambda w: self._canvas.undo())
-        toolbar.pack_end(btn_undo, False, False, 2)
-
-        btn_redo = Gtk.Button(label=self._t('redo'))
-        btn_redo.set_tooltip_text("Ctrl+Y")
-        btn_redo.connect('clicked', lambda w: self._canvas.redo())
-        toolbar.pack_end(btn_redo, False, False, 2)
-
-        btn_clear = Gtk.Button(label=self._t('clear_edits'))
-        btn_clear.get_style_context().add_class('destructive-action')
-        btn_clear.connect('clicked', lambda w: self._canvas.clear_edits())
-        toolbar.pack_end(btn_clear, False, False, 2)
-
-        self._main_box.pack_start(toolbar, False, False, 0)
-        self._edit_toolbar = toolbar
+        self._main_box.pack_start(bar, False, False, 0)
+        self._edit_options_bar = bar
 
     def _build_content_area(self):
         """Build the central content area with canvas and video player."""
@@ -451,7 +355,6 @@ class PhotoViewerApp(Gtk.Window):
         self._video_player.stop()
         self._current_mode = 'image'
         self._content_stack.set_visible_child_name('image')
-        self._edit_toolbar.set_visible(True)
 
         success = self._canvas.load_image(filepath)
         if not success:
@@ -469,8 +372,9 @@ class PhotoViewerApp(Gtk.Window):
 
         self._current_mode = 'video'
         self._content_stack.set_visible_child_name('video')
-        # Hide editing toolbar for video mode
-        self._edit_toolbar.set_visible(False)
+        # Hide editing options for video mode
+        self._edit_options_bar.set_visible(False)
+        self._deactivate_all_tools()
 
         self._video_player.load_video(filepath)
         self._video_player.play()
@@ -813,7 +717,7 @@ class PhotoViewerApp(Gtk.Window):
         """Handle tool button toggle, enforcing radio-group behavior.
 
         Args:
-            button: The ToggleButton that was toggled.
+            button: The ToggleToolButton that was toggled.
             tool_id: The tool constant (TOOL_PAINT, etc.)
         """
         if button.get_active():
@@ -824,24 +728,46 @@ class PhotoViewerApp(Gtk.Window):
                     btn.set_active(False)
                     btn.handler_unblock_by_func(self._on_tool_toggled)
             self._canvas.set_tool(tool_id)
+            # Show edit options bar and configure for the active tool
+            self._edit_options_bar.set_visible(True)
+            is_text = (tool_id == TOOL_TEXT)
+            self._text_entry.set_visible(is_text)
+            if is_text:
+                self._size_label.set_text(self._t('font_size'))
+                self._size_scale.set_range(8, 120)
+                self._size_scale.set_value(self._canvas._font_size)
+            else:
+                self._size_label.set_text(self._t('brush_size'))
+                self._size_scale.set_range(1, 100)
+                self._size_scale.set_value(self._canvas._brush_size)
         else:
             # If this button was deactivated, check if any other is active
             any_active = any(btn.get_active() for btn in self._tool_buttons.values())
             if not any_active:
                 self._canvas.set_tool(TOOL_NONE)
+                self._edit_options_bar.set_visible(False)
+
+    def _deactivate_all_tools(self):
+        """Deactivate all tool toggle buttons."""
+        for tid, btn in self._tool_buttons.items():
+            btn.handler_block_by_func(self._on_tool_toggled)
+            btn.set_active(False)
+            btn.handler_unblock_by_func(self._on_tool_toggled)
+        self._canvas.set_tool(TOOL_NONE)
 
     def _on_color_set(self, color_button):
         """Handle color picker change."""
         rgba = color_button.get_rgba()
         self._canvas.set_tool_color(rgba.red, rgba.green, rgba.blue, rgba.alpha)
 
-    def _on_brush_size_changed(self, scale):
-        """Handle brush size slider change."""
-        self._canvas.set_brush_size(scale.get_value())
-
-    def _on_font_size_changed(self, scale):
-        """Handle font size slider change."""
-        self._canvas.set_font_size(scale.get_value())
+    def _on_size_changed(self, scale):
+        """Handle size slider change (brush or font size)."""
+        # Determine which tool is active
+        active_tool = self._canvas._active_tool
+        if active_tool == TOOL_TEXT:
+            self._canvas.set_font_size(scale.get_value())
+        else:
+            self._canvas.set_brush_size(scale.get_value())
 
     def _on_text_changed(self, entry):
         """Handle text entry change."""
@@ -875,21 +801,16 @@ class PhotoViewerApp(Gtk.Window):
         self.set_title(self._t('title'))
         self._update_title()
 
-        # Update tool button labels
-        tool_labels = {
+        # Update tool button tooltips
+        tool_tooltips = {
             TOOL_PAINT: 'paint',
             TOOL_TEXT: 'text_tool',
             TOOL_BLUR: 'blur_tool',
-            TOOL_PIXELATE: 'pixelate_tool',
             TOOL_ERASER: 'eraser',
         }
-        for tool_id, label_key in tool_labels.items():
+        for tool_id, tooltip_key in tool_tooltips.items():
             if tool_id in self._tool_buttons:
-                self._tool_buttons[tool_id].set_label(self._t(label_key))
-
-        # Update tooltips
-        self._btn_prev.set_tooltip_text(self._t('prev_image') + " (Left)")
-        self._btn_next.set_tooltip_text(self._t('next_image') + " (Right)")
+                self._tool_buttons[tool_id].set_tooltip_text(self._t(tooltip_key))
 
         # Update text entry placeholder
         self._text_entry.set_placeholder_text(self._t('text_placeholder'))

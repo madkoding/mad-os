@@ -1,0 +1,381 @@
+"""
+madOS Audio Player - Internationalization / Translations
+========================================================
+
+Provides translation strings for 6 languages:
+    - English
+    - Español (Spanish)
+    - Français (French)
+    - Deutsch (German)
+    - 中文 (Chinese Simplified)
+    - 日本語 (Japanese)
+
+All UI strings are accessed through the TRANSLATIONS dictionary
+using language name as key and string identifier as sub-key.
+"""
+
+TRANSLATIONS = {
+    "English": {
+        # Application
+        "title": "madOS Audio Player",
+        "audio_player": "Audio Player",
+        # Transport controls
+        "play": "Play",
+        "pause": "Pause",
+        "stop": "Stop",
+        "previous": "Previous",
+        "next": "Next",
+        # Seek / Time
+        "elapsed": "Elapsed",
+        "remaining": "Remaining",
+        "duration": "Duration",
+        # Volume
+        "volume": "Volume",
+        "mute": "Mute",
+        "unmute": "Unmute",
+        # Modes
+        "shuffle": "Shuffle",
+        "repeat": "Repeat",
+        "repeat_one": "Repeat One",
+        "repeat_all": "Repeat All",
+        "repeat_off": "Repeat Off",
+        # Playlist
+        "playlist": "Playlist",
+        "add_files": "Add Files",
+        "add_folder": "Add Folder",
+        "remove_selected": "Remove",
+        "clear_playlist": "Clear",
+        "no_tracks": "No tracks loaded",
+        "tracks": "tracks",
+        "track": "track",
+        # Track info
+        "title_label": "Title",
+        "artist_label": "Artist",
+        "album_label": "Album",
+        "format_label": "Format",
+        "bitrate_label": "Bitrate",
+        "samplerate_label": "Sample Rate",
+        "unknown_artist": "Unknown Artist",
+        "unknown_title": "Unknown Title",
+        "unknown_album": "Unknown Album",
+        # File chooser
+        "select_audio_files": "Select Audio Files",
+        "select_folder": "Select Folder",
+        "audio_files": "Audio Files",
+        "all_files": "All Files",
+        # Actions
+        "open": "Open",
+        "cancel": "Cancel",
+        "close": "Close",
+        # Language
+        "language": "Language",
+        # Status
+        "ready": "Ready",
+        "playing": "Playing",
+        "paused": "Paused",
+        "stopped": "Stopped",
+        "loading": "Loading...",
+        "error_playback": "Playback error",
+    },
+    "Español": {
+        "title": "Reproductor madOS",
+        "audio_player": "Reproductor de Audio",
+        "play": "Reproducir",
+        "pause": "Pausar",
+        "stop": "Detener",
+        "previous": "Anterior",
+        "next": "Siguiente",
+        "elapsed": "Transcurrido",
+        "remaining": "Restante",
+        "duration": "Duración",
+        "volume": "Volumen",
+        "mute": "Silenciar",
+        "unmute": "Activar Sonido",
+        "shuffle": "Aleatorio",
+        "repeat": "Repetir",
+        "repeat_one": "Repetir Una",
+        "repeat_all": "Repetir Todas",
+        "repeat_off": "Sin Repetir",
+        "playlist": "Lista de Reproducción",
+        "add_files": "Agregar Archivos",
+        "add_folder": "Agregar Carpeta",
+        "remove_selected": "Eliminar",
+        "clear_playlist": "Limpiar",
+        "no_tracks": "Sin pistas cargadas",
+        "tracks": "pistas",
+        "track": "pista",
+        "title_label": "Título",
+        "artist_label": "Artista",
+        "album_label": "Álbum",
+        "format_label": "Formato",
+        "bitrate_label": "Tasa de Bits",
+        "samplerate_label": "Frecuencia de Muestreo",
+        "unknown_artist": "Artista Desconocido",
+        "unknown_title": "Título Desconocido",
+        "unknown_album": "Álbum Desconocido",
+        "select_audio_files": "Seleccionar Archivos de Audio",
+        "select_folder": "Seleccionar Carpeta",
+        "audio_files": "Archivos de Audio",
+        "all_files": "Todos los Archivos",
+        "open": "Abrir",
+        "cancel": "Cancelar",
+        "close": "Cerrar",
+        "language": "Idioma",
+        "ready": "Listo",
+        "playing": "Reproduciendo",
+        "paused": "Pausado",
+        "stopped": "Detenido",
+        "loading": "Cargando...",
+        "error_playback": "Error de reproducción",
+    },
+    "Français": {
+        "title": "Lecteur madOS",
+        "audio_player": "Lecteur Audio",
+        "play": "Lecture",
+        "pause": "Pause",
+        "stop": "Arrêt",
+        "previous": "Précédent",
+        "next": "Suivant",
+        "elapsed": "Écoulé",
+        "remaining": "Restant",
+        "duration": "Durée",
+        "volume": "Volume",
+        "mute": "Muet",
+        "unmute": "Réactiver le Son",
+        "shuffle": "Aléatoire",
+        "repeat": "Répéter",
+        "repeat_one": "Répéter Une",
+        "repeat_all": "Répéter Tout",
+        "repeat_off": "Sans Répétition",
+        "playlist": "Liste de Lecture",
+        "add_files": "Ajouter des Fichiers",
+        "add_folder": "Ajouter un Dossier",
+        "remove_selected": "Supprimer",
+        "clear_playlist": "Vider",
+        "no_tracks": "Aucune piste chargée",
+        "tracks": "pistes",
+        "track": "piste",
+        "title_label": "Titre",
+        "artist_label": "Artiste",
+        "album_label": "Album",
+        "format_label": "Format",
+        "bitrate_label": "Débit",
+        "samplerate_label": "Taux d'Échantillonnage",
+        "unknown_artist": "Artiste Inconnu",
+        "unknown_title": "Titre Inconnu",
+        "unknown_album": "Album Inconnu",
+        "select_audio_files": "Sélectionner des Fichiers Audio",
+        "select_folder": "Sélectionner un Dossier",
+        "audio_files": "Fichiers Audio",
+        "all_files": "Tous les Fichiers",
+        "open": "Ouvrir",
+        "cancel": "Annuler",
+        "close": "Fermer",
+        "language": "Langue",
+        "ready": "Prêt",
+        "playing": "Lecture en Cours",
+        "paused": "En Pause",
+        "stopped": "Arrêté",
+        "loading": "Chargement...",
+        "error_playback": "Erreur de lecture",
+    },
+    "Deutsch": {
+        "title": "madOS Audioplayer",
+        "audio_player": "Audioplayer",
+        "play": "Abspielen",
+        "pause": "Pause",
+        "stop": "Stopp",
+        "previous": "Zurück",
+        "next": "Weiter",
+        "elapsed": "Vergangen",
+        "remaining": "Verbleibend",
+        "duration": "Dauer",
+        "volume": "Lautstärke",
+        "mute": "Stumm",
+        "unmute": "Ton Aktivieren",
+        "shuffle": "Zufällig",
+        "repeat": "Wiederholen",
+        "repeat_one": "Eins Wiederholen",
+        "repeat_all": "Alle Wiederholen",
+        "repeat_off": "Nicht Wiederholen",
+        "playlist": "Wiedergabeliste",
+        "add_files": "Dateien Hinzufügen",
+        "add_folder": "Ordner Hinzufügen",
+        "remove_selected": "Entfernen",
+        "clear_playlist": "Leeren",
+        "no_tracks": "Keine Titel geladen",
+        "tracks": "Titel",
+        "track": "Titel",
+        "title_label": "Titel",
+        "artist_label": "Künstler",
+        "album_label": "Album",
+        "format_label": "Format",
+        "bitrate_label": "Bitrate",
+        "samplerate_label": "Abtastrate",
+        "unknown_artist": "Unbekannter Künstler",
+        "unknown_title": "Unbekannter Titel",
+        "unknown_album": "Unbekanntes Album",
+        "select_audio_files": "Audiodateien Auswählen",
+        "select_folder": "Ordner Auswählen",
+        "audio_files": "Audiodateien",
+        "all_files": "Alle Dateien",
+        "open": "Öffnen",
+        "cancel": "Abbrechen",
+        "close": "Schließen",
+        "language": "Sprache",
+        "ready": "Bereit",
+        "playing": "Wiedergabe",
+        "paused": "Pausiert",
+        "stopped": "Gestoppt",
+        "loading": "Laden...",
+        "error_playback": "Wiedergabefehler",
+    },
+    "中文": {
+        "title": "madOS 音频播放器",
+        "audio_player": "音频播放器",
+        "play": "播放",
+        "pause": "暂停",
+        "stop": "停止",
+        "previous": "上一曲",
+        "next": "下一曲",
+        "elapsed": "已播放",
+        "remaining": "剩余",
+        "duration": "时长",
+        "volume": "音量",
+        "mute": "静音",
+        "unmute": "取消静音",
+        "shuffle": "随机播放",
+        "repeat": "重复",
+        "repeat_one": "单曲循环",
+        "repeat_all": "列表循环",
+        "repeat_off": "不循环",
+        "playlist": "播放列表",
+        "add_files": "添加文件",
+        "add_folder": "添加文件夹",
+        "remove_selected": "移除",
+        "clear_playlist": "清空",
+        "no_tracks": "未加载曲目",
+        "tracks": "曲目",
+        "track": "曲目",
+        "title_label": "标题",
+        "artist_label": "艺术家",
+        "album_label": "专辑",
+        "format_label": "格式",
+        "bitrate_label": "比特率",
+        "samplerate_label": "采样率",
+        "unknown_artist": "未知艺术家",
+        "unknown_title": "未知标题",
+        "unknown_album": "未知专辑",
+        "select_audio_files": "选择音频文件",
+        "select_folder": "选择文件夹",
+        "audio_files": "音频文件",
+        "all_files": "所有文件",
+        "open": "打开",
+        "cancel": "取消",
+        "close": "关闭",
+        "language": "语言",
+        "ready": "就绪",
+        "playing": "播放中",
+        "paused": "已暂停",
+        "stopped": "已停止",
+        "loading": "加载中...",
+        "error_playback": "播放错误",
+    },
+    "日本語": {
+        "title": "madOS オーディオプレーヤー",
+        "audio_player": "オーディオプレーヤー",
+        "play": "再生",
+        "pause": "一時停止",
+        "stop": "停止",
+        "previous": "前へ",
+        "next": "次へ",
+        "elapsed": "経過",
+        "remaining": "残り",
+        "duration": "長さ",
+        "volume": "音量",
+        "mute": "ミュート",
+        "unmute": "ミュート解除",
+        "shuffle": "シャッフル",
+        "repeat": "リピート",
+        "repeat_one": "一曲リピート",
+        "repeat_all": "全曲リピート",
+        "repeat_off": "リピートオフ",
+        "playlist": "プレイリスト",
+        "add_files": "ファイルを追加",
+        "add_folder": "フォルダを追加",
+        "remove_selected": "削除",
+        "clear_playlist": "クリア",
+        "no_tracks": "トラックがありません",
+        "tracks": "トラック",
+        "track": "トラック",
+        "title_label": "タイトル",
+        "artist_label": "アーティスト",
+        "album_label": "アルバム",
+        "format_label": "フォーマット",
+        "bitrate_label": "ビットレート",
+        "samplerate_label": "サンプルレート",
+        "unknown_artist": "不明なアーティスト",
+        "unknown_title": "不明なタイトル",
+        "unknown_album": "不明なアルバム",
+        "select_audio_files": "オーディオファイルを選択",
+        "select_folder": "フォルダを選択",
+        "audio_files": "オーディオファイル",
+        "all_files": "すべてのファイル",
+        "open": "開く",
+        "cancel": "キャンセル",
+        "close": "閉じる",
+        "language": "言語",
+        "ready": "準備完了",
+        "playing": "再生中",
+        "paused": "一時停止中",
+        "stopped": "停止中",
+        "loading": "読み込み中...",
+        "error_playback": "再生エラー",
+    },
+}
+
+AVAILABLE_LANGUAGES = list(TRANSLATIONS.keys())
+DEFAULT_LANGUAGE = "English"
+
+
+def detect_system_language():
+    """Detect the system language and return the matching translation key.
+
+    Checks the LANG environment variable and maps it to one of the
+    available translation languages. Falls back to English.
+
+    Returns:
+        A string matching one of the keys in TRANSLATIONS.
+    """
+    import os
+    lang = os.environ.get("LANG", "en_US.UTF-8")
+    lang_prefix = lang.split("_")[0].split(".")[0].lower()
+
+    lang_map = {
+        "en": "English",
+        "es": "Español",
+        "fr": "Français",
+        "de": "Deutsch",
+        "zh": "中文",
+        "ja": "日本語",
+    }
+
+    return lang_map.get(lang_prefix, DEFAULT_LANGUAGE)
+
+
+def get_text(key, language=None):
+    """Get translated text for a given key and language.
+
+    Args:
+        key: The translation key to look up.
+        language: The language to use. Defaults to English if not specified
+                  or if the key is not found in the specified language.
+
+    Returns:
+        The translated string, or the key itself if no translation is found.
+    """
+    if language is None:
+        language = DEFAULT_LANGUAGE
+
+    lang_dict = TRANSLATIONS.get(language, TRANSLATIONS[DEFAULT_LANGUAGE])
+    return lang_dict.get(key, TRANSLATIONS[DEFAULT_LANGUAGE].get(key, key))
