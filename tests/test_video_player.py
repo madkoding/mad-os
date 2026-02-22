@@ -423,6 +423,17 @@ class TestRepeatMode(unittest.TestCase):
 class TestPlaylistDB(unittest.TestCase):
     """Test SQLite playlist database operations."""
 
+    # Fake file paths used as test data for DB storage — these are never
+    # accessed on disk, only stored/retrieved as strings.  NOSONAR
+    _F = "/test/media"  # NOSONAR - not a real publicly writable directory
+    _A = f"{_F}/a.mp4"
+    _B = f"{_F}/b.mp4"
+    _C = f"{_F}/c.mp4"
+    _X = f"{_F}/x.mp4"
+    _Y = f"{_F}/y.mp4"
+    _B_MKV = f"{_F}/b.mkv"
+    _C_AVI = f"{_F}/c.avi"
+
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp(prefix="mados_vp_db_test_")
         self.db_path = os.path.join(self.tmpdir, "test_playlists.db")
@@ -440,30 +451,30 @@ class TestPlaylistDB(unittest.TestCase):
         self.assertEqual(result, [])
 
     def test_save_and_load_playlist(self):
-        files = ["/tmp/a.mp4", "/tmp/b.mkv", "/tmp/c.avi"]  # NOSONAR - test data strings, not actual filesystem access
+        files = [self._A, self._B_MKV, self._C_AVI]
         self.db.save_playlist("My Videos", files)
         loaded = self.db.load_playlist("My Videos")
         self.assertEqual(loaded, files)
 
     def test_save_overwrites_existing(self):
-        self.db.save_playlist("Test", ["/tmp/a.mp4"])
-        self.db.save_playlist("Test", ["/tmp/x.mp4", "/tmp/y.mp4"])
+        self.db.save_playlist("Test", [self._A])
+        self.db.save_playlist("Test", [self._X, self._Y])
         loaded = self.db.load_playlist("Test")
-        self.assertEqual(loaded, ["/tmp/x.mp4", "/tmp/y.mp4"])
+        self.assertEqual(loaded, [self._X, self._Y])
 
     def test_load_nonexistent(self):
         result = self.db.load_playlist("Nonexistent")
         self.assertIsNone(result)
 
     def test_list_playlists_sorted(self):
-        self.db.save_playlist("Zebra", ["/tmp/a.mp4"])
-        self.db.save_playlist("Alpha", ["/tmp/b.mp4"])
-        self.db.save_playlist("Middle", ["/tmp/c.mp4"])
+        self.db.save_playlist("Zebra", [self._A])
+        self.db.save_playlist("Alpha", [self._B])
+        self.db.save_playlist("Middle", [self._C])
         names = [name for _, name in self.db.list_playlists()]
         self.assertEqual(names, ["Alpha", "Middle", "Zebra"])
 
     def test_delete_playlist(self):
-        self.db.save_playlist("ToDelete", ["/tmp/a.mp4"])
+        self.db.save_playlist("ToDelete", [self._A])
         result = self.db.delete_playlist("ToDelete")
         self.assertTrue(result)
         self.assertIsNone(self.db.load_playlist("ToDelete"))
@@ -473,26 +484,26 @@ class TestPlaylistDB(unittest.TestCase):
         self.assertFalse(result)
 
     def test_delete_cascades_items(self):
-        self.db.save_playlist("Cascade", ["/tmp/a.mp4", "/tmp/b.mp4"])
+        self.db.save_playlist("Cascade", [self._A, self._B])
         self.db.delete_playlist("Cascade")
         # Items should be gone (no orphans)
         cur = self.db._conn.execute("SELECT COUNT(*) FROM playlist_items")
         self.assertEqual(cur.fetchone()[0], 0)
 
     def test_rename_playlist(self):
-        self.db.save_playlist("OldName", ["/tmp/a.mp4"])
+        self.db.save_playlist("OldName", [self._A])
         result = self.db.rename_playlist("OldName", "NewName")
         self.assertTrue(result)
         self.assertIsNone(self.db.load_playlist("OldName"))
-        self.assertEqual(self.db.load_playlist("NewName"), ["/tmp/a.mp4"])
+        self.assertEqual(self.db.load_playlist("NewName"), [self._A])
 
     def test_rename_nonexistent(self):
         result = self.db.rename_playlist("Ghost", "Whatever")
         self.assertFalse(result)
 
     def test_rename_to_existing_name(self):
-        self.db.save_playlist("First", ["/tmp/a.mp4"])
-        self.db.save_playlist("Second", ["/tmp/b.mp4"])
+        self.db.save_playlist("First", [self._A])
+        self.db.save_playlist("Second", [self._B])
         result = self.db.rename_playlist("First", "Second")
         self.assertFalse(result)
 
@@ -510,7 +521,7 @@ class TestPlaylistDB(unittest.TestCase):
         self.assertEqual(self.db.get_session("key"), "value2")
 
     def test_save_session_playlist(self):
-        files = ["/tmp/a.mp4", "/tmp/b.mp4"]
+        files = [self._A, self._B]
         self.db.save_session_playlist(files, current_index=1,
                                        repeat_mode="all", shuffle=True)
         session = self.db.load_session_playlist()
@@ -530,24 +541,24 @@ class TestPlaylistDB(unittest.TestCase):
         self.assertEqual(loaded, [])
 
     def test_playlist_preserves_order(self):
-        files = [f"/tmp/{chr(ord('z') - i)}.mp4" for i in range(10)]
+        files = [f"{self._F}/{chr(ord('z') - i)}.mp4" for i in range(10)]
         self.db.save_playlist("Ordered", files)
         loaded = self.db.load_playlist("Ordered")
         self.assertEqual(loaded, files)
 
     def test_multiple_playlists_independent(self):
-        self.db.save_playlist("PL1", ["/tmp/a.mp4"])
-        self.db.save_playlist("PL2", ["/tmp/x.mp4", "/tmp/y.mp4"])
-        self.assertEqual(self.db.load_playlist("PL1"), ["/tmp/a.mp4"])
-        self.assertEqual(self.db.load_playlist("PL2"), ["/tmp/x.mp4", "/tmp/y.mp4"])
+        self.db.save_playlist("PL1", [self._A])
+        self.db.save_playlist("PL2", [self._X, self._Y])
+        self.assertEqual(self.db.load_playlist("PL1"), [self._A])
+        self.assertEqual(self.db.load_playlist("PL2"), [self._X, self._Y])
 
     def test_close_and_reopen(self):
-        self.db.save_playlist("Persist", ["/tmp/a.mp4"])
+        self.db.save_playlist("Persist", [self._A])
         self.db.close()
         db2 = PlaylistDB(db_path=self.db_path)
         loaded = db2.load_playlist("Persist")
         db2.close()
-        self.assertEqual(loaded, ["/tmp/a.mp4"])
+        self.assertEqual(loaded, [self._A])
 
 
 # ═══════════════════════════════════════════════════════════════════════════
