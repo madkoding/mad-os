@@ -119,7 +119,7 @@ opusfile
 libvorbis
 libogg
 
-# Build tools (needed to compile kew from source during ISO build)
+# Build tools
 gcc
 make
 pkgconf

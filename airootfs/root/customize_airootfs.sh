@@ -7,7 +7,7 @@
 
 set -e
 
-echo "=== madOS: Pre-installing Oh My Zsh, OpenCode, and kew ==="
+echo "=== madOS: Pre-installing Oh My Zsh and OpenCode ==="
 
 # ── Nordic GTK Theme (from EliverLara/Nordic) ─────────────────────────────
 NORDIC_DIR="/usr/share/themes/Nordic"
@@ -27,28 +27,6 @@ else
         echo "⚠ Failed to clone Nordic GTK theme"
     fi
     [[ -n "$NORDIC_BUILD_DIR" ]] && rm -rf "$NORDIC_BUILD_DIR"
-fi
-
-# ── kew (terminal music player from source) ──────────────────────────────
-KEW_CMD="kew"
-
-if command -v "$KEW_CMD" &>/dev/null; then
-    echo "✓ kew already installed"
-else
-    echo "Building kew from source..."
-    KEW_BUILD_DIR=$(mktemp -d)
-    if git clone --depth=1 https://github.com/ravachol/kew.git "$KEW_BUILD_DIR/kew" 2>&1; then
-        cd "$KEW_BUILD_DIR/kew"
-        if make -j"$(nproc)" 2>&1 && make install 2>&1; then
-            echo "✓ kew installed from source"
-        else
-            echo "⚠ Failed to build kew"
-        fi
-        cd /
-    else
-        echo "⚠ Failed to clone kew (will not be available)"
-    fi
-    [[ -n "$KEW_BUILD_DIR" ]] && rm -rf "$KEW_BUILD_DIR"
 fi
 
 # ── Oh My Zsh ────────────────────────────────────────────────────────────

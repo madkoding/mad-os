@@ -341,7 +341,7 @@ def _step_copy_live_files(app):
     _copy_item("/usr/share/themes/Nordic", "/mnt/usr/share/themes/")
     _copy_item("/etc/skel/.oh-my-zsh", SKEL_DIR)
 
-    for binary in ["opencode", "ollama", "kew"]:
+    for binary in ["opencode", "ollama"]:
         _copy_item(f"/usr/local/bin/{binary}", MNT_USR_LOCAL_BIN)
 
     _step_copy_scripts(app)
@@ -401,9 +401,9 @@ def _step_copy_desktop_files(app):
     )
 
     subprocess.run(["mkdir", "-p", "/mnt/usr/share/backgrounds"], check=False)
-    _copy_item(
-        "/usr/share/backgrounds/mad-os-wallpaper.jpg", "/mnt/usr/share/backgrounds/"
-    )
+    # Copy ALL wallpapers for per-workspace random wallpaper support
+    for wp_file in globmod.glob("/usr/share/backgrounds/*"):
+        _copy_item(wp_file, "/mnt/usr/share/backgrounds/")
 
     subprocess.run(["mkdir", "-p", "/mnt/usr/share/applications"], check=False)
     for desktop in [
@@ -1260,7 +1260,7 @@ EOFGREETD
 # ReGreet configuration
 cat > /etc/greetd/regreet.toml <<'EOFREGREET'
 [background]
-path = "/usr/share/backgrounds/mad-os-wallpaper.jpg"
+path = "/usr/share/backgrounds/mad-os-wallpaper.png"
 fit = "Cover"
 
 [env]
@@ -1722,26 +1722,6 @@ TimeoutStartSec=300
 WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-opencode.service 2>/dev/null || true
-
-# ── Step 5b: Install kew (terminal music player) ────────────────────
-if command -v kew &>/dev/null; then
-    log "kew already installed"
-else
-    log "Building kew from source..."
-    KEW_BUILD_DIR=$(mktemp -d)
-    if git clone --depth=1 https://github.com/ravachol/kew.git "$KEW_BUILD_DIR/kew" 2>&1; then
-        cd "$KEW_BUILD_DIR/kew"
-        if make -j"$(nproc)" 2>&1 && make install 2>&1; then
-            log "kew installed from source"
-        else
-            log "Warning: Failed to build kew"
-        fi
-        cd /
-    else
-        log "Warning: Failed to clone kew"
-    fi
-    [ -n "$KEW_BUILD_DIR" ] && rm -rf "$KEW_BUILD_DIR"
-fi
 
 # ── Step 6: Install Ollama ───────────────────────────────────────────
 log "Installing Ollama..."

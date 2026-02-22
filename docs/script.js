@@ -83,27 +83,13 @@
         block.addEventListener('click', () => {
             navigator.clipboard.writeText(block.textContent.trim()).then(() => {
                 const originalText = block.textContent;
-                const copyText = (typeof i18n !== 'undefined' && i18n.currentLang === 'en') ? 'Copied!' : '¡Copiado!';
+                const copyText = 'Copied!';
                 block.textContent = copyText;
                 block.style.color = 'var(--nord14)';
                 setTimeout(() => {
                     block.textContent = originalText;
                     block.style.color = '';
                 }, 1500);
-            });
-        });
-    });
-
-    // Language Selector
-    document.addEventListener('DOMContentLoaded', () => {
-        const langButtons = document.querySelectorAll('.lang-option');
-
-        langButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const selectedLang = button.dataset.lang;
-                if (typeof i18n !== 'undefined') {
-                    i18n.setLanguage(selectedLang);
-                }
             });
         });
     });

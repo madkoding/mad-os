@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=madOS Audio Player
+Comment=Play music and audio files
+Exec=mados-audio-player %f
+Icon=audio-x-generic
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Music;Player;
+MimeType=audio/mpeg;audio/mp3;audio/flac;audio/ogg;audio/wav;audio/x-wav;audio/aac;audio/mp4;audio/x-vorbis+ogg;audio/x-flac;audio/x-opus+ogg;audio/webm;audio/x-aiff;audio/x-ms-wma;

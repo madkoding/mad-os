@@ -6,7 +6,7 @@
 # Uses state files in $XDG_RUNTIME_DIR instead of associative arrays to
 # avoid subshell/pipe issues. Uses jq --unbuffered for immediate event delivery.
 
-WALLPAPER_DIR="/usr/share/backgrounds"
+WALLPAPER_DIR="${WALLPAPER_DIR:-/usr/share/backgrounds}"
 MAX_WORKSPACES=5
 LOG_TAG="mados-sway-wallpapers"
 STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/mados-wallpapers-$$"
@@ -153,9 +153,10 @@ log "initial wallpaper set for workspace $current_ws"
 # Subscribe to workspace focus events.
 # jq --unbuffered is CRITICAL: without it, jq buffers output in a pipe
 # and the while-read loop never receives events promptly.
+# stderr is sent to /dev/null to prevent non-JSON output from breaking jq.
 log "starting workspace event subscription"
-swaymsg -t subscribe '["workspace"]' -m 2>&1 \
-    | jq --unbuffered -r 'select(.change == "focus") | .current.num // empty' \
+swaymsg -t subscribe '["workspace"]' -m 2>/dev/null \
+    | jq --unbuffered -r 'select(.change == "focus") | .current.num // empty' 2>/dev/null \
     | while IFS= read -r ws_num; do
         if [[ -n "$ws_num" && "$ws_num" =~ ^[0-9]+$ ]]; then
             wp="$(get_wallpaper_for_ws "$ws_num")"

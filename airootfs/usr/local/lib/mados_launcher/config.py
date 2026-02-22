@@ -48,6 +48,13 @@ DRAG_THRESHOLD = 5        # Pixels moved before a drag is recognized
 MIN_MARGIN_TOP = 0        # Minimum top margin
 DEFAULT_MARGIN_TOP = 200  # Default vertical position
 
+# --- Shadow ---
+SHADOW_SIZE = 8            # Shadow spread in pixels
+SHADOW_OFFSET_X = 2        # Horizontal shadow offset
+SHADOW_OFFSET_Y = 3        # Vertical shadow offset
+SHADOW_LAYERS = 5          # Number of blur layers for shadow
+SHADOW_BASE_ALPHA = 0.4    # Maximum combined shadow opacity
+
 # --- Desktop Entry Scanning ---
 DESKTOP_DIRS = [
     "/usr/share/applications",

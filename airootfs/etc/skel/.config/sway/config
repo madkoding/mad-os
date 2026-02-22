@@ -9,16 +9,16 @@ set $gnome-schema org.gnome.desktop.interface
 
 # Ejecutar solo al inicio (no en cada reload)
 exec {
-    gsettings set $gnome-schema gtk-theme 'Nordic'
-    gsettings set $gnome-schema icon-theme 'Adwaita'
+    gsettings set $gnome-schema gtk-theme "$(grep -m1 '^gtk-theme-name=' ~/.config/gtk-3.0/settings.ini 2>/dev/null | cut -d= -f2 || echo Nordic)"
+    gsettings set $gnome-schema icon-theme "$(grep -m1 '^gtk-icon-theme-name=' ~/.config/gtk-3.0/settings.ini 2>/dev/null | cut -d= -f2 || echo Adwaita)"
     gsettings set $gnome-schema color-scheme 'prefer-dark'
     gsettings set $gnome-schema text-scaling-factor 0.75
-    gsettings set $gnome-schema cursor-theme 'Adwaita'
-    gsettings set $gnome-schema cursor-size 16
-    gsettings set $gnome-schema font-name 'Sans 10'
-    systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP GTK_THEME
+    gsettings set $gnome-schema cursor-theme "$(grep -m1 '^gtk-cursor-theme-name=' ~/.config/gtk-3.0/settings.ini 2>/dev/null | cut -d= -f2 || echo Adwaita)"
+    gsettings set $gnome-schema cursor-size "$(grep -m1 '^gtk-cursor-theme-size=' ~/.config/gtk-3.0/settings.ini 2>/dev/null | cut -d= -f2 || echo 16)"
+    gsettings set $gnome-schema font-name "$(grep -m1 '^gtk-font-name=' ~/.config/gtk-3.0/settings.ini 2>/dev/null | cut -d= -f2 || echo 'Sans 10')"
+    systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP
     hash dbus-update-activation-environment 2>/dev/null && \
-         dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP GTK_THEME
+         dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP
     # Iniciar servicios de audio PipeWire (socket-activated)
     systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service
 }
@@ -216,11 +216,11 @@ bindsym $mod+Shift+s exec grim -g "$(slurp)" - | wl-copy
 # Waybar
 exec_always --no-startup-id "pkill waybar || true; sleep 0.3; waybar"
 
-# WiFi tray applet (NetworkManager) - with GTK theme
-exec --no-startup-id env GTK_THEME=Nordic GDK_BACKEND=wayland nm-applet --indicator
+# WiFi tray applet (NetworkManager)
+exec --no-startup-id env GDK_BACKEND=wayland nm-applet --indicator
 
-# Bluetooth tray applet (Blueman) - with GTK theme
-exec --no-startup-id env GTK_THEME=Nordic GDK_BACKEND=wayland blueman-applet
+# Bluetooth tray applet (Blueman)
+exec --no-startup-id env GDK_BACKEND=wayland blueman-applet
 
 # madOS Application Launcher dock
 exec --no-startup-id mados-launcher

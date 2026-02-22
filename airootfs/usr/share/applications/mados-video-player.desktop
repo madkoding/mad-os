@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=madOS Video Player
+Comment=Play video files
+Exec=mados-video-player %f
+Icon=video-x-generic
+Terminal=false
+Type=Application
+Categories=AudioVideo;Video;Player;
+MimeType=video/mp4;video/x-matroska;video/webm;video/ogg;video/x-msvideo;video/mpeg;video/quicktime;video/x-flv;video/3gpp;video/x-ogm+ogg;
