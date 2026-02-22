@@ -274,7 +274,7 @@ class TestPostInstallOllama(unittest.TestCase):
             "Installer must reference /usr/local/bin/ollama for binary copy",
         )
         self.assertIn(
-            'for binary in ["opencode", "ollama", "kew"]',
+            'for binary in ["opencode", "ollama"]',
             self.content,
             "Installer must copy ollama binary via binary copy loop",
         )

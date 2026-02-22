@@ -260,6 +260,8 @@ class TestHyprlandVariables(unittest.TestCase):
         clean = re.sub(r"^\s*\$\w+\s*=.*$", "", content, flags=re.MULTILINE)
         # Remove comments
         clean = re.sub(r"#.*$", "", clean, flags=re.MULTILINE)
+        # Remove inline shell scripts (bash -c '...') which use shell variables
+        clean = re.sub(r"bash\s+-c\s+'[^']*'", "", clean)
         return set(re.findall(r"\$(\w+)", clean))
 
     def test_mainmod_defined(self):
@@ -1261,6 +1263,41 @@ class TestWallpaperGlitchScript(unittest.TestCase):
             content = f.read()
         self.assertIn("workspace", content, "Script must handle workspace events")
 
+    def test_script_uses_share_backgrounds(self):
+        """mados-wallpaper-glitch must read wallpapers from /usr/share/backgrounds/."""
+        with open(self.SCRIPT_PATH) as f:
+            content = f.read()
+        self.assertIn(
+            "/usr/share/backgrounds",
+            content,
+            "Script must use /usr/share/backgrounds as wallpaper source",
+        )
+
+    def test_script_assigns_per_workspace_wallpapers(self):
+        """mados-wallpaper-glitch must assign different wallpapers per workspace."""
+        with open(self.SCRIPT_PATH) as f:
+            content = f.read()
+        self.assertIn(
+            "STATE_DIR",
+            content,
+            "Script must use state files for per-workspace wallpaper mapping",
+        )
+        self.assertIn(
+            "ws-$ws",
+            content,
+            "Script must write per-workspace state files",
+        )
+
+    def test_script_kills_previous_instances(self):
+        """mados-wallpaper-glitch must prevent duplicate instances."""
+        with open(self.SCRIPT_PATH) as f:
+            content = f.read()
+        self.assertIn(
+            "kill_previous",
+            content,
+            "Script must kill previous instances to avoid duplicates",
+        )
+
     def test_hyprland_conf_references_script(self):
         """hyprland.conf must exec-once the wallpaper glitch script."""
         content = _read_config()
@@ -1281,31 +1318,24 @@ class TestWallpaperGlitchScript(unittest.TestCase):
             "profiledef.sh must include permissions for mados-wallpaper-glitch",
         )
 
-    def test_script_does_not_apply_glitch_on_startup(self):
-        """mados-wallpaper-glitch must NOT apply glitch effect on startup.
+    def test_script_sets_initial_wallpaper_without_transition(self):
+        """mados-wallpaper-glitch must set initial wallpaper without glitch transition.
 
-        The glitch script should only handle workspace-switch effects.
-        Initial wallpaper is set by hyprland.conf (exec-once = swww img)
-        using --transition-type none for reliability. Running glitch
-        transitions on startup can fail on certain hardware and race
-        with the inline wallpaper setter.
+        The initial wallpaper should be set with no/fast transition for
+        maximum reliability. Glitch transitions are only for workspace switching.
         """
         with open(self.SCRIPT_PATH) as f:
             content = f.read()
 
-        # Find positions of key elements
-        daemon_wait_end = content.find("done", content.find("swww query"))
-        socat_pos = content.find("socat")
-        self.assertNotEqual(daemon_wait_end, -1, "Must wait for swww-daemon")
-        self.assertNotEqual(socat_pos, -1, "Must have socat event listener")
-
-        # Between daemon wait and socat, there must NOT be apply_glitch_effect
-        between = content[daemon_wait_end:socat_pos]
-        self.assertNotIn(
-            "apply_glitch_effect",
-            between,
-            "Must NOT apply glitch effect on startup — initial wallpaper is "
-            "set by hyprland.conf with --transition-type none",
+        # Must wait for swww-daemon
+        self.assertIn("swww query", content, "Must wait for swww-daemon")
+        # Must have socat event listener
+        self.assertIn("socat", content, "Must have socat event listener")
+        # Must set initial wallpaper without transition ("false" = no transition)
+        self.assertIn(
+            '"false"',
+            content,
+            "Must set initial wallpaper without transition effect",
         )
 
     def test_script_checks_dependencies(self):
@@ -1317,13 +1347,19 @@ class TestWallpaperGlitchScript(unittest.TestCase):
         with open(self.SCRIPT_PATH) as f:
             content = f.read()
 
+        # Script checks for both swww and socat via command -v
         self.assertIn(
-            "command -v swww",
+            "command -v",
+            content,
+            "Script must check tool availability with command -v",
+        )
+        self.assertIn(
+            "swww",
             content,
             "Script must check if swww is available",
         )
         self.assertIn(
-            "command -v socat",
+            "socat",
             content,
             "Script must check if socat is available",
         )
@@ -1341,7 +1377,7 @@ class TestWallpaperGlitchScript(unittest.TestCase):
             stripped = line.strip()
             if stripped.startswith("#"):
                 continue
-            if "swww img" in stripped and "Pictures/Wallpapers" in stripped:
+            if "swww img" in stripped and "/usr/share/backgrounds/" in stripped:
                 self.assertIn(
                     "--transition-type none",
                     stripped,

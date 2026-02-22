@@ -333,6 +333,12 @@ context.modules = [
         }}
         flags = [ ifexists nofail ]
     }}
+    # Required for IPC with the running PipeWire daemon
+    {{  name = libpipewire-module-protocol-native }}
+    # Required for creating client-side nodes in the PipeWire graph
+    {{  name = libpipewire-module-client-node }}
+    # Required for wrapping nodes in an adapter with converter/resampler
+    {{  name = libpipewire-module-adapter }}
     {{  name = libpipewire-module-filter-chain
         args = {{
             node.name = "{EQ_NODE_NAME}"
@@ -441,17 +447,20 @@ context.modules = [
             if self._eq_process.poll() is not None:
                 stderr_output = ""
                 try:
-                    stderr_output = (
-                        self._eq_process.stderr.read()
-                        .decode("utf-8", errors="replace")
-                        .strip()
-                    )
+                    raw = self._eq_process.stderr.read()
+                    if isinstance(raw, bytes):
+                        raw = raw.decode("utf-8", errors="replace")
+                    stderr_output = raw.strip()
                 except Exception:
                     pass
+                rc = self._eq_process.returncode
                 self._eq_process = None
                 if stderr_output:
                     self._last_error = stderr_output
-                    print(f"EQ process failed: {stderr_output}")
+                    print(f"EQ process failed (rc={rc}): {stderr_output}")
+                else:
+                    self._last_error = f"Process exited with code {rc}"
+                    print(f"EQ process exited unexpectedly (rc={rc})")
                 return False
 
             return True

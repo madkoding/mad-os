@@ -183,38 +183,6 @@ img {
     opacity: 0.8;
 }
 
-.lang-selector {
-    display: flex;
-    gap: 2px;
-    background: var(--bg-elevated);
-    border-radius: var(--radius-sm);
-    padding: 2px;
-    border: 1px solid var(--border);
-}
-
-.lang-option {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: var(--s1) var(--s3);
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    font-family: var(--font-sans);
-    letter-spacing: 0.05em;
-    transition: all 0.2s;
-}
-
-.lang-option:hover {
-    color: var(--text-primary);
-}
-
-.lang-option.active {
-    background: var(--accent);
-    color: var(--bg-base);
-}
-
 .mobile-menu-toggle {
     display: none;
     flex-direction: column;
@@ -825,6 +793,7 @@ img {
 
 .download-hero {
     margin-bottom: var(--s8);
+    scroll-margin-top: 80px;
 }
 
 .download-card {
@@ -1226,11 +1195,6 @@ img {
 
     .mobile-menu-toggle.active span:nth-child(3) {
         transform: rotate(-45deg) translate(5px, -5px);
-    }
-
-    .lang-selector {
-        align-self: center;
-        margin-top: var(--s2);
     }
 
     .hero {

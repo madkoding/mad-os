@@ -239,6 +239,32 @@ class TestGenerateFilterChainConfig(unittest.TestCase):
         # only the key 'support/*' pattern was wrong.
         self.assertNotIn("support/*", config)
 
+    def test_config_has_protocol_native_module(self):
+        """Generated config must include libpipewire-module-protocol-native."""
+        config = self.backend._generate_filter_chain_config()
+        self.assertIn("libpipewire-module-protocol-native", config)
+
+    def test_config_has_client_node_module(self):
+        """Generated config must include libpipewire-module-client-node."""
+        config = self.backend._generate_filter_chain_config()
+        self.assertIn("libpipewire-module-client-node", config)
+
+    def test_config_has_adapter_module(self):
+        """Generated config must include libpipewire-module-adapter."""
+        config = self.backend._generate_filter_chain_config()
+        self.assertIn("libpipewire-module-adapter", config)
+
+    def test_config_module_order(self):
+        """protocol-native and client-node must load before filter-chain."""
+        config = self.backend._generate_filter_chain_config()
+        pos_protocol = config.index("libpipewire-module-protocol-native")
+        pos_client = config.index("libpipewire-module-client-node")
+        pos_adapter = config.index("libpipewire-module-adapter")
+        pos_filter = config.index("libpipewire-module-filter-chain")
+        self.assertLess(pos_protocol, pos_filter)
+        self.assertLess(pos_client, pos_filter)
+        self.assertLess(pos_adapter, pos_filter)
+
     def test_config_targets_active_sink(self):
         """Generated config should target the active audio sink."""
         config = self.backend._generate_filter_chain_config()

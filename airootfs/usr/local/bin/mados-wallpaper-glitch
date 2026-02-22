@@ -1,28 +1,106 @@
 #!/usr/bin/env bash
-# mados-wallpaper-glitch - Cyberpunk wallpaper glitch effect on workspace switch
-# Listens for Hyprland workspace change events and triggers a pixelated
-# "system error" transition effect on the current wallpaper using swww.
-#
-# NOTE: This script handles only workspace-switch effects.
-# Initial wallpaper is set by hyprland.conf (exec-once = swww img ...).
+# mados-wallpaper-glitch - Random per-workspace wallpapers with glitch transitions for Hyprland
+# On startup, assigns a random wallpaper from /usr/share/backgrounds/
+# to each workspace and switches wallpaper with cyberpunk glitch effects
+# on workspace focus events via Hyprland IPC socket.
 
-WALLPAPER_DIR="$HOME/Pictures/Wallpapers"
-DEFAULT_WALLPAPER="$WALLPAPER_DIR/mad-os-wallpaper.jpg"
+WALLPAPER_DIR="/usr/share/backgrounds"
+MAX_WORKSPACES=10
+LOG_TAG="mados-wallpaper-glitch"
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/mados-wallpapers-$$"
 
 # Transition effects that simulate digital interference / glitch
 TRANSITIONS=("pixelate" "wave" "wipe" "grow")
+
+log() {
+    logger -p user.info -t "$LOG_TAG" "$*" 2>/dev/null || true
+    echo "$LOG_TAG: $*" >&2
+}
+
+cleanup() {
+    rm -rf "$STATE_DIR" 2>/dev/null
+}
+trap cleanup EXIT
+
+# Kill previous instances of this script (avoid duplicates)
+kill_previous() {
+    local my_pid=$$
+    local pids
+    pids="$(pgrep -f "mados-wallpaper-glitch" 2>/dev/null)" || true
+    for pid in $pids; do
+        if [[ "$pid" != "$my_pid" ]]; then
+            kill "$pid" 2>/dev/null || true
+            log "killed previous instance PID $pid"
+        fi
+    done
+}
+
+# Collect available wallpaper files into WALLPAPERS array
+collect_wallpapers() {
+    WALLPAPERS=()
+    if [[ -d "$WALLPAPER_DIR" ]]; then
+        while IFS= read -r -d '' file; do
+            WALLPAPERS+=("$file")
+        done < <(find "$WALLPAPER_DIR" -maxdepth 1 -type f \
+            \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+            -print0 | sort -z)
+    fi
+
+    if [[ ${#WALLPAPERS[@]} -eq 0 ]]; then
+        log "ERROR: no wallpapers found in $WALLPAPER_DIR"
+        return 1
+    fi
+
+    log "found ${#WALLPAPERS[@]} wallpapers in $WALLPAPER_DIR"
+    return 0
+}
+
+# Fisher-Yates shuffle of WALLPAPERS array (in-place)
+shuffle_wallpapers() {
+    local i j tmp
+    for (( i=${#WALLPAPERS[@]}-1; i>0; i-- )); do
+        j=$(( RANDOM % (i+1) ))
+        tmp="${WALLPAPERS[$i]}"
+        WALLPAPERS[$i]="${WALLPAPERS[$j]}"
+        WALLPAPERS[$j]="$tmp"
+    done
+}
+
+# Write wallpaper assignments to state files (one file per workspace)
+assign_wallpapers() {
+    mkdir -p "$STATE_DIR"
+    local count=${#WALLPAPERS[@]}
+    for (( ws=1; ws<=MAX_WORKSPACES; ws++ )); do
+        local idx=$(( (ws - 1) % count ))
+        echo "${WALLPAPERS[$idx]}" > "$STATE_DIR/ws-$ws"
+        log "workspace $ws -> $(basename "${WALLPAPERS[$idx]}")"
+    done
+}
+
+# Read wallpaper path for a given workspace number from state file
+get_wallpaper_for_ws() {
+    local ws="$1"
+    local file="$STATE_DIR/ws-$ws"
+    if [[ -f "$file" ]]; then
+        cat "$file"
+    fi
+}
 
 get_random_transition() {
     local idx=$(( RANDOM % ${#TRANSITIONS[@]} ))
     echo "${TRANSITIONS[$idx]}"
 }
 
-apply_glitch_effect() {
-    local wallpaper
-    wallpaper="$DEFAULT_WALLPAPER"
+# Set wallpaper via swww with optional glitch transition effect
+set_wallpaper() {
+    local wallpaper="$1"
+    local use_transition="${2:-true}"
+    if [[ -z "$wallpaper" || ! -f "$wallpaper" ]]; then
+        log "WARNING: wallpaper not found: ${wallpaper:-empty}"
+        return 1
+    fi
 
-    # Use current wallpaper if available, otherwise fallback to default
-    if [ -f "$wallpaper" ]; then
+    if [[ "$use_transition" == "true" ]]; then
         local transition
         transition="$(get_random_transition)"
         swww img "$wallpaper" \
@@ -31,25 +109,79 @@ apply_glitch_effect() {
             --transition-fps 60 \
             --transition-step 90 \
             --transition-angle 45 2>/dev/null
+    else
+        swww img "$wallpaper" --transition-type none 2>/dev/null
     fi
 }
 
-# Bail out early if required tools are missing (don't interfere with wallpaper)
-if ! command -v swww >/dev/null 2>&1 || ! command -v socat >/dev/null 2>&1; then
+### Main ###
+
+# Bail out early if required tools are missing
+for cmd in swww socat; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        log "required command not found: $cmd — exiting silently"
+        exit 0
+    fi
+done
+
+# Verify Hyprland is running
+if [[ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
+    log "HYPRLAND_INSTANCE_SIGNATURE not set — not running under Hyprland"
     exit 0
 fi
 
-# Wait for swww-daemon to be ready
-for _ in $(seq 1 30); do
+kill_previous
+
+# Wait for swww-daemon to be ready (up to 15s)
+for attempt in $(seq 1 30); do
     if swww query >/dev/null 2>&1; then
+        log "swww-daemon ready (attempt $attempt)"
         break
     fi
     sleep 0.5
 done
 
-# Listen for workspace change events from Hyprland
-socat -u "UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock" - 2>/dev/null | while IFS= read -r event; do
-    case "$event" in
-        workspace\>*) apply_glitch_effect ;;
-    esac
-done
+if ! swww query >/dev/null 2>&1; then
+    log "ERROR: swww-daemon not ready after 15s"
+    exit 1
+fi
+
+# Collect wallpapers, shuffle, write assignments to state files
+declare -a WALLPAPERS=()
+collect_wallpapers || exit 1
+shuffle_wallpapers
+assign_wallpapers
+
+# Determine current workspace
+current_ws="$(hyprctl activeworkspace -j 2>/dev/null | jq -r '.id // empty' 2>/dev/null)" || true
+[[ -z "$current_ws" || "$current_ws" == "null" ]] && current_ws=1
+
+# Set initial wallpaper without transition (fast startup)
+wp="$(get_wallpaper_for_ws "$current_ws")"
+set_wallpaper "$wp" "false"
+log "initial wallpaper set for workspace $current_ws"
+
+# Track last workspace to avoid redundant wallpaper changes
+last_ws="$current_ws"
+
+# Listen for workspace change events from Hyprland IPC socket
+log "starting workspace event subscription"
+socat -u "UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock" - 2>/dev/null \
+    | while IFS= read -r event; do
+        case "$event" in
+            workspace\>*)
+                ws_num="${event#workspace>}"
+                # Only change if workspace actually changed
+                if [[ -n "$ws_num" && "$ws_num" =~ ^[0-9]+$ && "$ws_num" != "$last_ws" ]]; then
+                    wp="$(get_wallpaper_for_ws "$ws_num")"
+                    if [[ -n "$wp" ]]; then
+                        set_wallpaper "$wp" "true"
+                        last_ws="$ws_num"
+                        log "workspace $ws_num -> $(basename "$wp")"
+                    fi
+                fi
+                ;;
+        esac
+    done
+
+log "workspace subscription ended, exiting"

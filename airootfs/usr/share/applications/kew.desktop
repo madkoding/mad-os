@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=kew
-Comment=Terminal music player
-Exec=foot -e kew %f
-Icon=audio-x-generic
-Terminal=false
-Type=Application
-Categories=Audio;Music;Player;
-MimeType=audio/mpeg;audio/flac;audio/ogg;audio/x-vorbis+ogg;audio/opus;audio/aac;audio/mp4;audio/x-wav;audio/x-aiff;audio/x-m4a;

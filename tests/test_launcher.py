@@ -553,7 +553,7 @@ class TestEntryGrouping(unittest.TestCase):
     def test_group_entries_same_icon(self):
         """Two entries with the same icon should form an EntryGroup."""
         entries = [
-            self._make_entry("Kew", icon_name="audio-x-generic", filename="kew.desktop"),
+            self._make_entry("Audio", icon_name="audio-x-generic", filename="audio.desktop"),
             self._make_entry("Player", icon_name="audio-x-generic", filename="player.desktop"),
         ]
         grouped = group_entries(entries)
@@ -564,7 +564,7 @@ class TestEntryGrouping(unittest.TestCase):
     def test_group_entries_different_icons_not_grouped(self):
         """Entries with different icons should remain separate."""
         entries = [
-            self._make_entry("Kew", icon_name="audio-x-generic", filename="kew.desktop"),
+            self._make_entry("Audio", icon_name="audio-x-generic", filename="audio.desktop"),
             self._make_entry("Viewer", icon_name="image-x-generic", filename="viewer.desktop"),
         ]
         grouped = group_entries(entries)

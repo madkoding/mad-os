@@ -27,7 +27,7 @@ THEME_CSS = f"""
     border-right: 1px solid {NORD['nord3']};
     border-bottom: 1px solid {NORD['nord3']};
     padding: 0;
-    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.6);
+    box-shadow: none;  /* Shadow is rendered via Cairo */
 }}
 
 /* ===== Grip Tab ===== */

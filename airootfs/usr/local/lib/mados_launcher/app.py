@@ -39,6 +39,11 @@ from .config import (
     CONFIG_DIR,
     STATE_FILE,
     REFRESH_INTERVAL_SECONDS,
+    SHADOW_SIZE,
+    SHADOW_OFFSET_X,
+    SHADOW_OFFSET_Y,
+    SHADOW_LAYERS,
+    SHADOW_BASE_ALPHA,
 )
 from .desktop_entries import scan_desktop_entries, launch_application, group_entries, EntryGroup
 from .window_tracker import WindowTracker
@@ -67,6 +72,8 @@ class LauncherApp:
         self._drag_start_y = 0
         self._drag_start_margin = 0
         self._margin_top = DEFAULT_MARGIN_TOP
+        self._drag_update_pending = False
+        self._pending_margin = 0
         self._screen_height = 768  # Will be updated
         self._entries = []
         self._grouped = []         # list of DesktopEntry | EntryGroup
@@ -118,6 +125,7 @@ class LauncherApp:
         if visual:
             self.window.set_visual(visual)
         self.window.set_app_paintable(True)
+        self.window.connect("draw", self._on_window_draw)
 
         # gtk-layer-shell configuration (or fallback to regular window)
         if HAS_LAYER_SHELL:
@@ -170,6 +178,10 @@ class LauncherApp:
         # Outer container — horizontal box
         self._main_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         self._main_box.set_name("dock-container")
+        # Shadow padding — extra space for drop shadow rendering
+        self._main_box.set_margin_top(SHADOW_SIZE)
+        self._main_box.set_margin_end(SHADOW_SIZE + SHADOW_OFFSET_X)
+        self._main_box.set_margin_bottom(SHADOW_SIZE + SHADOW_OFFSET_Y)
         self.window.add(self._main_box)
 
         # --- Icon area inside a revealer (slides right) ---
@@ -241,6 +253,55 @@ class LauncherApp:
         # Cursor change on hover
         self._tab_event_box.connect("enter-notify-event", self._on_tab_enter)
         self._tab_event_box.connect("leave-notify-event", self._on_tab_leave)
+
+    # ------------------------------------------------------------------ #
+    # Drop shadow rendering
+    # ------------------------------------------------------------------ #
+
+    def _on_window_draw(self, widget, cr):
+        """Clear background to transparent and draw drop shadow behind the dock."""
+        # Clear entire window to transparent
+        cr.set_operator(1)  # cairo.OPERATOR_SOURCE
+        cr.set_source_rgba(0, 0, 0, 0)
+        cr.paint()
+        cr.set_operator(2)  # cairo.OPERATOR_OVER
+
+        alloc = self._main_box.get_allocation()
+        if alloc.width <= 1 or alloc.height <= 1:
+            return False
+
+        x, y, w, h = alloc.x, alloc.y, alloc.width, alloc.height
+        radius = 8  # Matches CSS border-radius
+
+        # Draw shadow: multiple semi-transparent layers with decreasing spread
+        for i in range(SHADOW_LAYERS):
+            spread = SHADOW_SIZE * (SHADOW_LAYERS - i) / SHADOW_LAYERS
+            alpha = SHADOW_BASE_ALPHA / SHADOW_LAYERS
+
+            frac = (i + 1) / SHADOW_LAYERS
+            ox = SHADOW_OFFSET_X * frac
+            oy = SHADOW_OFFSET_Y * frac
+
+            sx = x - spread + ox
+            sy = y - spread + oy
+            sw = w + spread * 2
+            sh = h + spread * 2
+            sr = radius + spread
+
+            # Dock-shaped path: flat left edge, rounded right corners
+            cr.new_path()
+            cr.move_to(sx, sy)
+            cr.line_to(sx + sw - sr, sy)
+            cr.arc(sx + sw - sr, sy + sr, sr, -math.pi / 2, 0)
+            cr.line_to(sx + sw, sy + sh - sr)
+            cr.arc(sx + sw - sr, sy + sh - sr, sr, 0, math.pi / 2)
+            cr.line_to(sx, sy + sh)
+            cr.close_path()
+
+            cr.set_source_rgba(0, 0, 0, alpha)
+            cr.fill()
+
+        return False  # Continue to draw child widgets
 
     # ------------------------------------------------------------------ #
     # Cairo drawing for the grip tab
@@ -368,13 +429,25 @@ class LauncherApp:
         new_margin = int(self._drag_start_margin + delta)
         new_margin = max(MIN_MARGIN_TOP, min(new_margin, max_margin))
 
-        self._margin_top = new_margin
-        if HAS_LAYER_SHELL:
-            GtkLayerShell.set_margin(self.window, GtkLayerShell.Edge.TOP, self._margin_top)
-        else:
-            self.window.move(0, self._margin_top)
+        # Throttle position updates to reduce flicker
+        self._pending_margin = new_margin
+        if not self._drag_update_pending:
+            self._drag_update_pending = True
+            GLib.idle_add(self._flush_drag_position)
 
         return True
+
+    def _flush_drag_position(self):
+        """Apply pending drag position — runs at most once per idle cycle."""
+        self._drag_update_pending = False
+        self._margin_top = self._pending_margin
+        if HAS_LAYER_SHELL:
+            GtkLayerShell.set_margin(
+                self.window, GtkLayerShell.Edge.TOP, self._margin_top
+            )
+        else:
+            self.window.move(0, self._margin_top)
+        return False  # GLib.SOURCE_REMOVE
 
     def _on_tab_enter(self, widget, event):
         """Change cursor to grab hand on hover."""

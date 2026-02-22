@@ -9,7 +9,6 @@
 if [ -z "$WAYLAND_DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
   export XDG_SESSION_TYPE=wayland
   export MOZ_ENABLE_WAYLAND=1
-  export GTK_THEME=Nordic
   export XCURSOR_THEME=Adwaita
   export XCURSOR_SIZE=16
 

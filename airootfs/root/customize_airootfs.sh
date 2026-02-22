@@ -7,7 +7,7 @@
 
 set -e
 
-echo "=== madOS: Pre-installing Oh My Zsh, OpenCode, and kew ==="
+echo "=== madOS: Pre-installing Oh My Zsh and OpenCode ==="
 
 # ── Nordic GTK Theme (from EliverLara/Nordic) ─────────────────────────────
 NORDIC_DIR="/usr/share/themes/Nordic"
@@ -29,26 +29,24 @@ else
     [[ -n "$NORDIC_BUILD_DIR" ]] && rm -rf "$NORDIC_BUILD_DIR"
 fi
 
-# ── kew (terminal music player from source) ──────────────────────────────
-KEW_CMD="kew"
+# ── Nordzy Icon Theme (from MolassesLover/Nordzy-icon) ─────────────────────
+NORDZY_DIR="/usr/share/icons/Nordzy-dark"
 
-if command -v "$KEW_CMD" &>/dev/null; then
-    echo "✓ kew already installed"
+if [[ -d "$NORDZY_DIR" ]]; then
+    echo "✓ Nordzy-dark icon theme already installed"
 else
-    echo "Building kew from source..."
-    KEW_BUILD_DIR=$(mktemp -d)
-    if git clone --depth=1 https://github.com/ravachol/kew.git "$KEW_BUILD_DIR/kew" 2>&1; then
-        cd "$KEW_BUILD_DIR/kew"
-        if make -j"$(nproc)" 2>&1 && make install 2>&1; then
-            echo "✓ kew installed from source"
-        else
-            echo "⚠ Failed to build kew"
-        fi
+    echo "Installing Nordzy-dark icon theme..."
+    NORDZY_BUILD_DIR=$(mktemp -d)
+    if git clone --depth=1 https://github.com/MolassesLover/Nordzy-icon.git "$NORDZY_BUILD_DIR/Nordzy-icon" 2>&1; then
+        cd "$NORDZY_BUILD_DIR/Nordzy-icon"
+        bash install.sh -d /usr/share/icons -c dark -t default
+        # Clean up build directory
         cd /
+        echo "✓ Nordzy-dark icon theme installed"
     else
-        echo "⚠ Failed to clone kew (will not be available)"
+        echo "⚠ Failed to clone Nordzy icon theme"
     fi
-    [[ -n "$KEW_BUILD_DIR" ]] && rm -rf "$KEW_BUILD_DIR"
+    [[ -n "$NORDZY_BUILD_DIR" ]] && rm -rf "$NORDZY_BUILD_DIR"
 fi
 
 # ── Oh My Zsh ────────────────────────────────────────────────────────────
@@ -118,5 +116,21 @@ else
         fi
     fi
 fi
+
+# ── Hide unwanted .desktop entries from application menu ──────────────────
+echo "Hiding unwanted application menu entries..."
+for desktop_file in \
+    /usr/share/applications/xgps.desktop \
+    /usr/share/applications/xgpsspeed.desktop \
+    /usr/share/applications/pcmanfm-desktop-pref.desktop \
+    /usr/share/applications/qv4l2.desktop \
+    /usr/share/applications/qvidcap.desktop \
+    /usr/share/applications/mpv.desktop; do
+    if [[ -f "$desktop_file" ]]; then
+        echo -e "[Desktop Entry]\nNoDisplay=true\nHidden=true\nType=Application" > "$desktop_file"
+        echo "  → Hidden: $(basename "$desktop_file")"
+    fi
+done
+echo "✓ Unwanted desktop entries hidden"
 
 echo "=== madOS: Pre-installation complete ==="
