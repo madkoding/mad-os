@@ -29,6 +29,26 @@ else
     [[ -n "$NORDIC_BUILD_DIR" ]] && rm -rf "$NORDIC_BUILD_DIR"
 fi
 
+# ── Nordzy Icon Theme (from MolassesLover/Nordzy-icon) ─────────────────────
+NORDZY_DIR="/usr/share/icons/Nordzy-dark"
+
+if [[ -d "$NORDZY_DIR" ]]; then
+    echo "✓ Nordzy-dark icon theme already installed"
+else
+    echo "Installing Nordzy-dark icon theme..."
+    NORDZY_BUILD_DIR=$(mktemp -d)
+    if git clone --depth=1 https://github.com/MolassesLover/Nordzy-icon.git "$NORDZY_BUILD_DIR/Nordzy-icon" 2>&1; then
+        cd "$NORDZY_BUILD_DIR/Nordzy-icon"
+        bash install.sh -d /usr/share/icons -c dark -t default
+        # Clean up build directory
+        cd /
+        echo "✓ Nordzy-dark icon theme installed"
+    else
+        echo "⚠ Failed to clone Nordzy icon theme"
+    fi
+    [[ -n "$NORDZY_BUILD_DIR" ]] && rm -rf "$NORDZY_BUILD_DIR"
+fi
+
 # ── Oh My Zsh ────────────────────────────────────────────────────────────
 OMZ_DIR="/etc/skel/.oh-my-zsh"
 
