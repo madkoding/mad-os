@@ -47,6 +47,7 @@ python
 python-gobject
 python-cairo
 gtk3
+gtk-layer-shell
 gdk-pixbuf2
 xdg-desktop-portal-gtk
 

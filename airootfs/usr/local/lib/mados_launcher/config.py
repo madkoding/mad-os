@@ -1,0 +1,66 @@
+"""Configuration constants for madOS Launcher."""
+
+import os
+
+# --- Nord Color Palette ---
+NORD = {
+    # Polar Night (dark backgrounds)
+    "nord0": "#2E3440",
+    "nord1": "#3B4252",
+    "nord2": "#434C5E",
+    "nord3": "#4C566A",
+    # Snow Storm (light text)
+    "nord4": "#D8DEE9",
+    "nord5": "#E5E9F0",
+    "nord6": "#ECEFF4",
+    # Frost (accent blues)
+    "nord7": "#8FBCBB",
+    "nord8": "#88C0D0",
+    "nord9": "#81A1C1",
+    "nord10": "#5E81AC",
+    # Aurora (states)
+    "nord11": "#BF616A",
+    "nord12": "#D08770",
+    "nord13": "#EBCB8B",
+    "nord14": "#A3BE8C",
+    "nord15": "#B48EAD",
+}
+
+# --- Dock Dimensions ---
+ICON_SIZE = 18          # Icon pixel size
+TAB_WIDTH = 10          # Width of the grip tab in pixels
+DOCK_WIDTH = 26         # Width of the icon area (icon + padding)
+TAB_HEIGHT = 40         # Height of the grip tab
+ICON_PADDING = 2        # Padding around each icon button
+ICON_SPACING = 1        # Spacing between icon buttons
+
+# --- Animation ---
+ANIMATION_DURATION = 250  # Revealer transition in milliseconds
+
+# --- Grip Visual ---
+GRIP_DOT_RADIUS = 1       # Cairo dot radius
+GRIP_DOT_SPACING = 5      # Vertical spacing between grip dot pairs
+GRIP_DOT_COLS = 2         # Number of dot columns
+GRIP_DOT_COL_GAP = 3      # Horizontal gap between dot columns
+
+# --- Drag Behavior ---
+DRAG_THRESHOLD = 5        # Pixels moved before a drag is recognized
+MIN_MARGIN_TOP = 0        # Minimum top margin
+DEFAULT_MARGIN_TOP = 200  # Default vertical position
+
+# --- Desktop Entry Scanning ---
+DESKTOP_DIRS = [
+    "/usr/share/applications",
+    "/usr/local/share/applications",
+    os.path.expanduser("~/.local/share/applications"),
+]
+EXCLUDED_DESKTOP = {
+    "mados-launcher.desktop",
+}
+
+# --- State Persistence ---
+CONFIG_DIR = os.path.expanduser("~/.config/mados-launcher")
+STATE_FILE = os.path.join(CONFIG_DIR, "state.json")
+
+# --- Refresh ---
+REFRESH_INTERVAL_SECONDS = 30  # Rescan .desktop files every N seconds

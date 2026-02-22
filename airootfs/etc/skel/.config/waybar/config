@@ -9,7 +9,6 @@
     "spacing": 0,
 
     "modules-left": [
-        "custom/launcher",
         "sway/workspaces",
         "sway/mode",
         "hyprland/workspaces",
@@ -22,17 +21,10 @@
         "tray",
         "cpu",
         "memory",
-        "network",
         "pulseaudio",
         "backlight",
         "battery"
     ],
-
-    "custom/launcher": {
-        "format": "󰀻",
-        "on-click": "wofi --show drun",
-        "tooltip": false
-    },
 
     "sway/workspaces": {
         "format": "{name}",
@@ -105,17 +97,6 @@
     "tray": {
         "icon-size": 18,
         "spacing": 10
-    },
-
-    "network": {
-        "format-wifi": "󰖩",
-        "format-ethernet": "󰈀",
-        "format-disconnected": "󰖪",
-        "tooltip-format-wifi": "WiFi: {essid}\nSeñal: {signalStrength}%\nIP: {ipaddr}/{cidr}",
-        "tooltip-format-ethernet": "Ethernet: {ifname}\nIP: {ipaddr}/{cidr}",
-        "tooltip-format-disconnected": "Sin conexión",
-        "on-click": "nm-connection-editor",
-        "interval": 30
     },
 
     "pulseaudio": {

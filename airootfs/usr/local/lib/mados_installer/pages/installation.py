@@ -1330,8 +1330,23 @@ chown {username}:{username} /home/{username}/.bash_profile
 # Copy .zshrc for zsh users
 if [ -f /etc/skel/.zshrc ]; then
     cp /etc/skel/.zshrc /home/{username}/.zshrc 2>/dev/null || true
-    chown {username}:{username} /home/{username}/.zshrc
-fi
+chown {username}:{username} /home/{username}/.zshrc
+
+# Ventoy persistence configuration
+VENTOY_PERSIST_SIZE={data.get("ventoy_persist_size", 4096)}
+mkdir -p /etc/mados
+cat > /etc/mados/ventoy-persist.conf <<'EOFVENTOY'
+# madOS Ventoy Persistence Configuration
+# This file is read by mados-ventoy-setup.sh at boot
+
+# Maximum size of persistence file in MB (default: 4096)
+# Valid values: 512 - 8192
+VENTOY_PERSIST_SIZE_MB={data.get("ventoy_persist_size", 4096)}
+
+# Minimum free space required on USB in MB (default: 512)
+MIN_FREE_SPACE_MB=512
+EOFVENTOY
+chmod 644 /etc/mados/ventoy-persist.conf
 
 echo '[PROGRESS 9/9] Setting up first-boot service for Phase 2...'
 # Write the Phase 2 first-boot script

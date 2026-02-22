@@ -47,9 +47,11 @@ file_permissions=(
   ["/usr/local/bin/mados-pdf-viewer"]="0:0:755"
 
   ["/usr/local/bin/mados-equalizer"]="0:0:755"
+  ["/usr/local/bin/mados-launcher"]="0:0:755"
   ["/usr/local/lib/mados_photo_viewer/"]="0:0:755"
   ["/usr/local/lib/mados_pdf_viewer/"]="0:0:755"
   ["/usr/local/lib/mados_equalizer/"]="0:0:755"
+  ["/usr/local/lib/mados_launcher/"]="0:0:755"
   ["/usr/local/bin/mados-debug"]="0:0:755"
   ["/usr/local/bin/detect-legacy-hardware"]="0:0:755"
   ["/usr/local/bin/cage-greeter"]="0:0:755"
@@ -63,4 +65,7 @@ file_permissions=(
   ["/usr/local/bin/mados-persistence"]="0:0:755"
   ["/usr/local/bin/mados-persist-sync.sh"]="0:0:755"
   ["/usr/local/bin/mados-persist-detect.sh"]="0:0:755"
+  ["/usr/local/bin/mados-ventoy-setup.sh"]="0:0:755"
+  ["/etc/mados/"]="0:0:755"
+  ["/etc/mados/ventoy-persist.conf"]="0:0:644"
 )

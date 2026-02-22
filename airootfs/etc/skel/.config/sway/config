@@ -214,11 +214,14 @@ bindsym $mod+Shift+s exec grim -g "$(slurp)" - | wl-copy
 # Waybar
 exec_always --no-startup-id "pkill waybar || true; sleep 0.3; waybar"
 
-# WiFi tray applet (NetworkManager)
-exec nm-applet --indicator
+# WiFi tray applet (NetworkManager) - with GTK theme
+exec --no-startup-id env GTK_THEME=Nordic nm-applet --indicator
 
 # Bluetooth tray applet (Blueman)
 exec blueman-applet
+
+# madOS Application Launcher dock
+exec --no-startup-id mados-launcher
 
 # Xwayland (for maim screenshots)
 exec_always --no-startup-id "pgrep Xwayland || echo 'Xwayland should auto-start'"
