@@ -6,9 +6,7 @@ SYNC_INTERVAL=300
 LOG_FILE="/var/log/mados-persist.log"
 
 log() {
-    local message="$1"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $message" | tee -a "$LOG_FILE" 2>/dev/null
-    return 0
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE" 2>/dev/null
 }
 
 find_persistence_file() {
