@@ -185,7 +185,7 @@ jobs:
             ${{ env.ARCHLINUX_IMAGE }} bash /build/${{ matrix.component.script }}
 
   # ================================================================
-  # Stage 5a: Auto Version Tag (on branch pushes)
+  # Stage 5a: Auto Version Tag (on branch pushes, not tag pushes)
   # ================================================================
   auto-tag:
     name: "🏷️ Auto Version Tag"
@@ -349,7 +349,7 @@ jobs:
           fi
 
   # ================================================================
-  # Stage 5b: Build ISO
+  # Stage 5b: Build ISO (siempre ejecuta en push a develop o main)
   # ================================================================
   build:
     name: "🏗️ Build ISO"
@@ -357,9 +357,9 @@ jobs:
     if: |
       always() && !cancelled() &&
       (
-        (startsWith(github.ref, 'refs/tags/v') && needs.validate-installer.result == 'success') ||
-        github.event_name == 'workflow_dispatch' ||
-        (needs.auto-tag.result == 'success' && needs.auto-tag.outputs.new_tag != '' && needs.auto-tag.outputs.is_release == 'true')
+        (needs.auto-tag.result == 'success' && needs.auto-tag.outputs.new_tag != '') ||
+        (needs.auto-tag.result == 'skipped' && startsWith(github.ref, 'refs/tags/v')) ||
+        github.event_name == 'workflow_dispatch'
       )
     runs-on: ubuntu-latest
 
@@ -487,18 +487,14 @@ jobs:
 
 
   # ================================================================
-  # Stage 6: Release (después del build exitoso)
+  # Stage 6: Release (solo en main/stable, no en develop/beta)
   # ================================================================
   release:
     name: "🚀 Release & Deploy"
     needs: build
     if: |
       needs.build.result == 'success' &&
-      (
-        (startsWith(github.ref, 'refs/tags/v') && needs.build.outputs.is_release == 'true') ||
-        github.event_name == 'workflow_dispatch' ||
-        (needs.build.outputs.auto_tag != '' && needs.build.outputs.is_release == 'true')
-      )
+      needs.build.outputs.is_release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
