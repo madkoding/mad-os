@@ -1330,7 +1330,8 @@ chown {username}:{username} /home/{username}/.bash_profile
 # Copy .zshrc for zsh users
 if [ -f /etc/skel/.zshrc ]; then
     cp /etc/skel/.zshrc /home/{username}/.zshrc 2>/dev/null || true
-chown {username}:{username} /home/{username}/.zshrc
+    chown {username}:{username} /home/{username}/.zshrc
+fi
 
 # Ventoy persistence configuration
 VENTOY_PERSIST_SIZE={data.get("ventoy_persist_size", 4096)}

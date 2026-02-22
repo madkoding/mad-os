@@ -7,7 +7,6 @@
     "gtk-layer-shell": true,
     "height": 28,
     "spacing": 0,
-
     "modules-left": [
         "sway/workspaces",
         "sway/mode",
@@ -25,7 +24,6 @@
         "backlight",
         "battery"
     ],
-
     "sway/workspaces": {
         "format": "{name}",
         "disable-scroll": false,
@@ -38,12 +36,10 @@
             "5": []
         }
     },
-
     "sway/mode": {
         "format": "<span style=\"italic\">󰕷  {}</span>",
         "tooltip": false
     },
-
     "hyprland/workspaces": {
         "format": "{name}",
         "all-outputs": true,
@@ -56,12 +52,10 @@
             "5": []
         }
     },
-
     "hyprland/submap": {
         "format": "<span style=\"italic\">󰕷  {}</span>",
         "tooltip": false
     },
-
     "clock": {
         "format": "<span size='x-large'>󰥔</span>  {:%a %d %b  %H:%M}",
         "format-alt": "<span size='x-large'>󰃭</span>  {:%Y-%m-%d  %H:%M:%S}",
@@ -81,24 +75,20 @@
         },
         "interval": 60
     },
-
     "cpu": {
         "format": "<span size='x-large'>󰻠</span>  {usage}%",
         "tooltip": false,
         "interval": 30
     },
-
     "memory": {
         "format": "<span size='x-large'>󰍛</span>  {percentage}%",
         "tooltip-format": "{used:0.1f}G / {total:0.1f}G used",
         "interval": 30
     },
-
     "tray": {
         "icon-size": 18,
         "spacing": 10
     },
-
     "pulseaudio": {
         "format": "<span size='x-large'>{icon}</span>  {volume}%",
         "format-muted": "<span size='x-large'>󰝟</span>  Muted",
@@ -109,7 +99,11 @@
             "phone": "󰄜",
             "portable": "󰄜",
             "car": "󰄜",
-            "default": ["󰕿", "󰖀", "󰕾"]
+            "default": [
+                "󰕿",
+                "󰖀",
+                "󰕾"
+            ]
         },
         "on-click": "mados-equalizer",
         "on-click-right": "pavucontrol",
@@ -118,15 +112,17 @@
         "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-",
         "smooth-scrolling-threshold": 1
     },
-
     "backlight": {
         "format": "<span size='x-large'>{icon}</span>  {percent}%",
-        "format-icons": ["󰃞", "󰃟", "󰃠"],
+        "format-icons": [
+            "󰃞",
+            "󰃟",
+            "󰃠"
+        ],
         "on-scroll-up": "brightnessctl set +5%",
         "on-scroll-down": "brightnessctl set 5%-",
         "tooltip": false
     },
-
     "battery": {
         "states": {
             "good": 80,
@@ -137,7 +133,19 @@
         "format-charging": "<span size='x-large'>󰂄</span>  {capacity}%",
         "format-plugged": "<span size='x-large'>󰚥</span>  {capacity}%",
         "format-alt": "<span size='x-large'>{icon}</span>  {time}",
-        "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
+        "format-icons": [
+            "󰂎",
+            "󰁺",
+            "󰁻",
+            "󰁼",
+            "󰁽",
+            "󰁾",
+            "󰁿",
+            "󰂀",
+            "󰂁",
+            "󰂂",
+            "󰁹"
+        ],
         "tooltip-format": "{capacity}% • {timeTo}"
     }
 }
