@@ -13,6 +13,7 @@ Public API is identical to the original in-memory implementation:
     - REPEAT_OFF, REPEAT_ALL, REPEAT_ONE constants
 """
 
+import math
 import os
 import random
 
@@ -469,8 +470,7 @@ class Playlist:
         self._shuffle_pos -= 1
         if self._shuffle_pos < 0:
             self._shuffle_pos = 0
-            return (self.tracks[self._shuffle_order[0]]
-                    if self._shuffle_order else None)
+            return self.tracks[self._shuffle_order[0]]
 
         self.current_index = self._shuffle_order[self._shuffle_pos]
         self._save_state()
@@ -543,7 +543,7 @@ def format_time(seconds):
     Returns:
         Formatted string like '3:45' or '1:02:30'.
     """
-    if seconds <= 0 or seconds != seconds:  # handles NaN
+    if seconds <= 0 or math.isnan(seconds):
         return "0:00"
     seconds = int(seconds)
     hours = seconds // 3600
