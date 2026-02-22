@@ -440,7 +440,7 @@ class TestPlaylistDB(unittest.TestCase):
         self.assertEqual(result, [])
 
     def test_save_and_load_playlist(self):
-        files = ["/tmp/a.mp4", "/tmp/b.mkv", "/tmp/c.avi"]
+        files = ["/tmp/a.mp4", "/tmp/b.mkv", "/tmp/c.avi"]  # NOSONAR - test data strings, not actual filesystem access
         self.db.save_playlist("My Videos", files)
         loaded = self.db.load_playlist("My Videos")
         self.assertEqual(loaded, files)
