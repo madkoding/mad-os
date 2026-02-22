@@ -1,0 +1,169 @@
+#!/usr/bin/env bash
+# mados-sway-wallpapers - Random per-workspace wallpapers for Sway
+# On startup, assigns a random wallpaper from /usr/share/backgrounds/
+# to each workspace and switches wallpaper on workspace focus events.
+#
+# Uses state files in $XDG_RUNTIME_DIR instead of associative arrays to
+# avoid subshell/pipe issues. Uses jq --unbuffered for immediate event delivery.
+
+WALLPAPER_DIR="/usr/share/backgrounds"
+MAX_WORKSPACES=5
+LOG_TAG="mados-sway-wallpapers"
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/mados-wallpapers-$$"
+
+log() {
+    logger -p user.info -t "$LOG_TAG" "$*" 2>/dev/null || true
+    echo "$LOG_TAG: $*" >&2
+}
+
+cleanup() {
+    rm -rf "$STATE_DIR" 2>/dev/null
+}
+trap cleanup EXIT
+
+# Kill previous instances of this script (avoid duplicates)
+kill_previous() {
+    local my_pid=$$
+    local pids
+    pids="$(pgrep -f "mados-sway-wallpapers" 2>/dev/null)" || true
+    for pid in $pids; do
+        if [[ "$pid" != "$my_pid" ]]; then
+            kill "$pid" 2>/dev/null || true
+            log "killed previous instance PID $pid"
+        fi
+    done
+}
+
+# Collect available wallpaper files into WALLPAPERS array
+collect_wallpapers() {
+    WALLPAPERS=()
+    if [[ -d "$WALLPAPER_DIR" ]]; then
+        while IFS= read -r -d '' file; do
+            WALLPAPERS+=("$file")
+        done < <(find "$WALLPAPER_DIR" -maxdepth 1 -type f \
+            \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+            -print0 | sort -z)
+    fi
+
+    if [[ ${#WALLPAPERS[@]} -eq 0 ]]; then
+        log "ERROR: no wallpapers found in $WALLPAPER_DIR"
+        return 1
+    fi
+
+    log "found ${#WALLPAPERS[@]} wallpapers in $WALLPAPER_DIR"
+    return 0
+}
+
+# Fisher-Yates shuffle of WALLPAPERS array (in-place)
+shuffle_wallpapers() {
+    local i j tmp
+    for (( i=${#WALLPAPERS[@]}-1; i>0; i-- )); do
+        j=$(( RANDOM % (i+1) ))
+        tmp="${WALLPAPERS[$i]}"
+        WALLPAPERS[$i]="${WALLPAPERS[$j]}"
+        WALLPAPERS[$j]="$tmp"
+    done
+}
+
+# Write wallpaper assignments to state files (one file per workspace)
+# This avoids bash associative array issues in subshells/pipes entirely.
+assign_wallpapers() {
+    mkdir -p "$STATE_DIR"
+    local count=${#WALLPAPERS[@]}
+    for (( ws=1; ws<=MAX_WORKSPACES; ws++ )); do
+        local idx=$(( (ws - 1) % count ))
+        echo "${WALLPAPERS[$idx]}" > "$STATE_DIR/ws-$ws"
+        log "workspace $ws -> $(basename "${WALLPAPERS[$idx]}")"
+    done
+}
+
+# Read wallpaper path for a given workspace number from state file
+get_wallpaper_for_ws() {
+    local ws="$1"
+    local file="$STATE_DIR/ws-$ws"
+    if [[ -f "$file" ]]; then
+        cat "$file"
+    fi
+}
+
+# Set wallpaper for all outputs via swaymsg
+set_wallpaper() {
+    local wallpaper="$1"
+    if [[ -z "$wallpaper" || ! -f "$wallpaper" ]]; then
+        log "WARNING: wallpaper not found: ${wallpaper:-empty}"
+        return 1
+    fi
+    if swaymsg output "*" bg "$wallpaper" fill; then
+        return 0
+    else
+        log "WARNING: swaymsg failed to set wallpaper: $wallpaper"
+        return 1
+    fi
+}
+
+# Wait for sway IPC to be fully ready
+wait_for_sway() {
+    local attempt
+    for attempt in $(seq 1 30); do
+        if swaymsg -t get_tree >/dev/null 2>&1; then
+            log "sway IPC ready (attempt $attempt)"
+            return 0
+        fi
+        sleep 0.5
+    done
+    log "ERROR: sway IPC not ready after 15s"
+    return 1
+}
+
+### Main ###
+
+# Ensure required tools exist
+for cmd in swaymsg jq; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        log "ERROR: required command not found: $cmd"
+        exit 1
+    fi
+done
+
+kill_previous
+wait_for_sway || exit 1
+
+# Brief pause to let sway finish initializing outputs
+sleep 0.5
+
+# Collect wallpapers, shuffle, write assignments to state files
+declare -a WALLPAPERS=()
+collect_wallpapers || exit 1
+shuffle_wallpapers
+assign_wallpapers
+
+# Determine current workspace
+current_ws="$(swaymsg -t get_workspaces 2>/dev/null \
+    | jq -r '.[] | select(.focused==true) | .num' 2>/dev/null)" || true
+[[ -z "$current_ws" || "$current_ws" == "null" ]] && current_ws=1
+
+# Set initial wallpaper (with one retry)
+wp="$(get_wallpaper_for_ws "$current_ws")"
+if ! set_wallpaper "$wp"; then
+    sleep 0.5
+    set_wallpaper "$wp" || true
+fi
+log "initial wallpaper set for workspace $current_ws"
+
+# Subscribe to workspace focus events.
+# jq --unbuffered is CRITICAL: without it, jq buffers output in a pipe
+# and the while-read loop never receives events promptly.
+log "starting workspace event subscription"
+swaymsg -t subscribe '["workspace"]' -m 2>&1 \
+    | jq --unbuffered -r 'select(.change == "focus") | .current.num // empty' \
+    | while IFS= read -r ws_num; do
+        if [[ -n "$ws_num" && "$ws_num" =~ ^[0-9]+$ ]]; then
+            wp="$(get_wallpaper_for_ws "$ws_num")"
+            if [[ -n "$wp" ]]; then
+                set_wallpaper "$wp"
+                log "workspace $ws_num -> $(basename "$wp")"
+            fi
+        fi
+    done
+
+log "workspace subscription ended, exiting"

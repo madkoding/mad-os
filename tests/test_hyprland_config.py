@@ -1359,6 +1359,7 @@ class TestSwayWallpaperStartup(unittest.TestCase):
     """Verify Sway config has robust wallpaper initialization."""
 
     SWAY_CONF = os.path.join(SKEL_DIR, ".config", "sway", "config")
+    WALLPAPER_SCRIPT = os.path.join(BIN_DIR, "mados-sway-wallpapers")
 
     def test_sway_config_has_wallpaper_directive(self):
         """Sway config must set wallpaper via output directive."""
@@ -1389,6 +1390,149 @@ class TestSwayWallpaperStartup(unittest.TestCase):
             content,
             "Sway config must use a retry loop for wallpaper refresh "
             "(single-attempt retry is unreliable on slow hardware)",
+        )
+
+    def test_sway_wallpaper_script_exists(self):
+        """mados-sway-wallpapers script must exist."""
+        self.assertTrue(
+            os.path.isfile(self.WALLPAPER_SCRIPT),
+            "mados-sway-wallpapers script missing from /usr/local/bin/",
+        )
+
+    def test_sway_wallpaper_script_has_shebang(self):
+        """mados-sway-wallpapers must have a bash shebang."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            first_line = f.readline()
+        self.assertIn("bash", first_line)
+
+    def test_sway_wallpaper_script_uses_share_backgrounds(self):
+        """mados-sway-wallpapers must read from /usr/share/backgrounds/."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "/usr/share/backgrounds",
+            content,
+            "Script must use /usr/share/backgrounds as wallpaper source",
+        )
+
+    def test_sway_wallpaper_script_subscribes_to_workspace_events(self):
+        """mados-sway-wallpapers must subscribe to workspace events."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "subscribe",
+            content,
+            "Script must subscribe to sway workspace events",
+        )
+
+    def test_sway_config_launches_wallpaper_script(self):
+        """Sway config must exec mados-sway-wallpapers."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-sway-wallpapers",
+            content,
+            "Sway config must launch mados-sway-wallpapers via exec",
+        )
+
+    def test_profiledef_has_wallpaper_script_permissions(self):
+        """profiledef.sh must set permissions for mados-sway-wallpapers."""
+        profiledef = os.path.join(REPO_DIR, "profiledef.sh")
+        with open(profiledef) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-sway-wallpapers",
+            content,
+            "profiledef.sh must include permissions for mados-sway-wallpapers",
+        )
+
+    def test_sway_wallpaper_script_uses_unbuffered_jq(self):
+        """mados-sway-wallpapers must use jq --unbuffered for immediate event delivery."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "--unbuffered",
+            content,
+            "Script must use jq --unbuffered to prevent buffered output in pipe "
+            "(without this, workspace events are never delivered to the while-read loop)",
+        )
+
+    def test_sway_wallpaper_script_uses_state_files(self):
+        """mados-sway-wallpapers must use state files for workspace-wallpaper mapping."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "STATE_DIR",
+            content,
+            "Script must use state files to avoid associative array issues in subshells",
+        )
+        # Should write per-workspace files
+        self.assertIn(
+            "ws-$ws",
+            content,
+            "Script must write per-workspace state files (ws-1, ws-2, etc.)",
+        )
+
+    def test_sway_wallpaper_script_uses_inplace_shuffle(self):
+        """mados-sway-wallpapers must shuffle arrays in-place (no subshell passing)."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        # Should NOT pass arrays through echo/read subshells
+        self.assertNotIn(
+            'echo "${wallpapers[@]}"',
+            content,
+            "Script must not pass arrays through echo (fragile with spaces in paths)",
+        )
+        # Should use global array directly
+        self.assertIn(
+            "WALLPAPERS",
+            content,
+            "Script must use a global WALLPAPERS array for in-place operations",
+        )
+
+    def test_sway_wallpaper_script_has_logging(self):
+        """mados-sway-wallpapers must log for debugging."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "logger",
+            content,
+            "Script must use logger for diagnostic output",
+        )
+
+    def test_sway_wallpaper_script_kills_previous_instances(self):
+        """mados-sway-wallpapers must prevent duplicate instances."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "kill_previous",
+            content,
+            "Script must kill previous instances to avoid duplicates",
+        )
+
+    def test_sway_config_uses_placeholder_background(self):
+        """Sway config must use a neutral placeholder, not a wallpaper file."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "solid_color",
+            content,
+            "Sway config must use solid_color placeholder (wallpaper managed by script)",
+        )
+        self.assertNotIn(
+            "mad-os-wallpaper",
+            content,
+            "Sway config must not hardcode a wallpaper file (managed by script)",
+        )
+
+    def test_sway_wallpaper_script_cleans_up(self):
+        """mados-sway-wallpapers must clean up state files on exit."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "trap cleanup EXIT",
+            content,
+            "Script must trap EXIT to clean up state directory",
         )
 
 

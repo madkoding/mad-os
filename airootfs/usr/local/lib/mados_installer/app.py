@@ -6,7 +6,8 @@ import os
 import sys
 
 import gi
-gi.require_version('Gtk', '3.0')
+
+gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 from .config import DEMO_MODE, LOCALE_MAP
@@ -30,12 +31,17 @@ class MadOSInstaller(Gtk.Window):
     """Main installer window — orchestrates pages and holds shared state."""
 
     def __init__(self):
-        super().__init__(title="madOS Installer" + (" (DEMO MODE)" if DEMO_MODE else ""))
+        super().__init__(
+            title="madOS Installer" + (" (DEMO MODE)" if DEMO_MODE else "")
+        )
 
         # Check root (skip in demo mode)
         if not DEMO_MODE and os.geteuid() != 0:
-            show_error(self, "Root Required",
-                       "This installer must be run as root.\n\nPlease use: sudo install-mados")
+            show_error(
+                self,
+                "Root Required",
+                "This installer must be run as root.\n\nPlease use: sudo install-mados",
+            )
             sys.exit(1)
 
         self.set_default_size(1024, 600)
@@ -46,18 +52,19 @@ class MadOSInstaller(Gtk.Window):
         apply_theme()
 
         # Current language
-        self.current_lang = 'English'
+        self.current_lang = "English"
 
         # Installation data (shared across all pages)
         self.install_data = {
-            'disk': None,
-            'disk_size_gb': 0,
-            'separate_home': True,
-            'username': '',
-            'password': '',
-            'hostname': 'mados-' + random_suffix(),
-            'timezone': 'UTC',
-            'locale': 'en_US.UTF-8'
+            "disk": None,
+            "disk_size_gb": 0,
+            "separate_home": True,
+            "username": "",
+            "password": "",
+            "hostname": "mados-" + random_suffix(),
+            "timezone": "UTC",
+            "locale": "en_US.UTF-8",
+            "ventoy_persist_size": 4096,
         }
 
         # Create notebook (page container)
@@ -74,7 +81,7 @@ class MadOSInstaller(Gtk.Window):
             demo_banner.set_markup(
                 '<span size="small" weight="bold">  DEMO MODE — No Installation Will Occur  </span>'
             )
-            demo_banner.get_style_context().add_class('demo-banner')
+            demo_banner.get_style_context().add_class("demo-banner")
             demo_banner.set_halign(Gtk.Align.CENTER)
             demo_banner.set_valign(Gtk.Align.START)
             demo_banner.set_margin_top(5)
@@ -98,7 +105,7 @@ class MadOSInstaller(Gtk.Window):
     def on_language_changed(self, combo):
         """Rebuild all pages with the newly selected language"""
         self.current_lang = combo.get_active_text()
-        self.install_data['locale'] = LOCALE_MAP[self.current_lang]
+        self.install_data["locale"] = LOCALE_MAP[self.current_lang]
 
         current_page = self.notebook.get_current_page()
 
@@ -109,7 +116,9 @@ class MadOSInstaller(Gtk.Window):
         # Recreate
         self._build_pages()
 
-        self.notebook.set_current_page(min(current_page, self.notebook.get_n_pages() - 1))
+        self.notebook.set_current_page(
+            min(current_page, self.notebook.get_n_pages() - 1)
+        )
         self.show_all()
 
     # ── Page construction ───────────────────────────────────────────────

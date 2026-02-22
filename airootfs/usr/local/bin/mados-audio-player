@@ -1,0 +1,4 @@
+#!/bin/bash
+# madOS Audio Player - Launcher script
+export PYTHONPATH="/usr/local/lib${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m mados_audio_player "$@"

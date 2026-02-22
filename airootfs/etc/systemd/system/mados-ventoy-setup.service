@@ -1,0 +1,16 @@
+[Unit]
+Description=mados Ventoy Auto-Persistence Setup
+DefaultDependencies=no
+After=systemd-remount-fs.service
+After=local-fs-pre.target
+Before=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/mados-ventoy-setup.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

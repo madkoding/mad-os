@@ -1,0 +1,12 @@
+[Desktop Entry]
+Comment=Install madOS to disk
+Comment[es]=Instalar madOS en el disco
+Exec=sudo /usr/local/bin/install-mados
+Icon=system-install
+Name=madOS Installer
+Name[es]=Instalador madOS
+StartupNotify=true
+Terminal=false
+Type=Application
+Categories=System;Settings;
+Keywords=install;setup;deploy;madOS;

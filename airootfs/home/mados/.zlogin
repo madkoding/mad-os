@@ -50,7 +50,7 @@ if [ -z "${WAYLAND_DISPLAY}" ] && [ "$(tty)" = "/dev/tty1" ]; then
                 sudo mkdir -p /etc/sway/config.d
                 sudo tee "$VM_CONF" > /dev/null << 'VMCONF'
 # Auto-generated VM performance optimizations
-output * bg #2E3440 solid_color
+# Note: wallpaper is managed by mados-sway-wallpapers, not here
 gaps inner 0
 gaps outer 0
 VMCONF
@@ -112,7 +112,7 @@ VMCONF
                     sudo mkdir -p /etc/sway/config.d
                     sudo tee "$VM_CONF" > /dev/null << 'VMCONF'
 # Auto-generated VM performance optimizations
-output * bg #2E3440 solid_color
+# Note: wallpaper is managed by mados-sway-wallpapers, not here
 gaps inner 0
 gaps outer 0
 VMCONF

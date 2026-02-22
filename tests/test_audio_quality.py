@@ -187,16 +187,45 @@ class TestConfigGeneration(unittest.TestCase):
 class TestPipeWireConfigFormat(unittest.TestCase):
     """Verify PipeWire configuration format is correct."""
 
-    def test_config_structure(self):
-        """Generated config must have proper PipeWire syntax."""
+    def test_daemon_config_structure(self):
+        """pipewire.conf.d config must have context.properties."""
         with open(AUDIO_QUALITY_SCRIPT) as f:
             content = f.read()
 
-        # Check for key PipeWire configuration properties
+        # Check for key PipeWire daemon configuration properties
         self.assertIn("default.clock.rate", content)
         self.assertIn("default.clock.quantum", content)
+        self.assertIn("default.clock.allowed-rates", content)
+
+    def test_client_config_has_stream_properties(self):
+        """client.conf.d config must have stream.properties section."""
+        with open(AUDIO_QUALITY_SCRIPT) as f:
+            content = f.read()
+        self.assertIn("client.conf.d", content)
+        self.assertIn("stream.properties", content)
         self.assertIn("resample.quality", content)
-        self.assertIn("audio.format", content)
+
+    def test_client_rt_config_exists(self):
+        """client-rt.conf.d config must also be created."""
+        with open(AUDIO_QUALITY_SCRIPT) as f:
+            content = f.read()
+        self.assertIn("client-rt.conf.d", content)
+
+    def test_stream_properties_not_in_pipewire_conf(self):
+        """stream.properties must NOT be in pipewire.conf.d (belongs in client.conf.d)."""
+        with open(AUDIO_QUALITY_SCRIPT) as f:
+            content = f.read()
+        # The pipewire.conf.d heredoc should end before stream.properties
+        # Find the pipewire.conf.d heredoc and verify it only has context.properties
+        import re
+        pw_conf_blocks = re.findall(
+            r'pipewire\.conf\.d/99-mados.*?\nEOF',
+            content,
+            re.DOTALL
+        )
+        for block in pw_conf_blocks:
+            self.assertNotIn("stream.properties", block,
+                "stream.properties must not be in pipewire.conf.d (use client.conf.d)")
 
     def test_uses_high_quality_resampling(self):
         """Config should set high quality resampling (quality=10)."""
@@ -236,6 +265,20 @@ class TestWirePlumberConfig(unittest.TestCase):
             content = f.read()
         self.assertIn("api.alsa.use-acp", content)
         self.assertIn("api.alsa.use-ucm", content)
+
+    def test_wireplumber_uses_correct_directory(self):
+        """WirePlumber config must go to /etc/wireplumber, not /etc/pipewire."""
+        with open(AUDIO_QUALITY_SCRIPT) as f:
+            content = f.read()
+        # Must have separate wireplumber directory
+        self.assertIn('/etc/wireplumber', content)
+        self.assertIn('.config/wireplumber', content)
+
+    def test_wireplumber_dir_separate_from_pipewire(self):
+        """SYSTEM_WIREPLUMBER_DIR must not be under /etc/pipewire."""
+        with open(AUDIO_QUALITY_SCRIPT) as f:
+            content = f.read()
+        self.assertIn('SYSTEM_WIREPLUMBER_DIR="/etc/wireplumber"', content)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -326,7 +369,9 @@ class TestAudioQualityIntegration(unittest.TestCase):
 
         # Should handle both system and user configs
         self.assertIn("/etc/pipewire", content)
+        self.assertIn("/etc/wireplumber", content)
         self.assertIn(".config/pipewire", content)
+        self.assertIn(".config/wireplumber", content)
         self.assertIn("/etc/skel", content)
 
     def test_safe_for_missing_hardware(self):

@@ -1,0 +1,3 @@
+#!/bin/bash
+export PYTHONPATH="/usr/local/lib${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m mados_video_player "$@"

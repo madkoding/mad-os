@@ -59,6 +59,47 @@ def create_disk_page(app):
 
     content.pack_start(app.disk_buttons_box, False, False, 0)
 
+    # Ventoy persistence option
+    ventoy_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+    ventoy_box.set_margin_top(16)
+
+    ventoy_header = Gtk.Label()
+    ventoy_header.set_markup(
+        f'<span weight="bold" foreground="{NORD_FROST["nord8"]}">Ventoy USB Persistence</span>'
+    )
+    ventoy_header.set_halign(Gtk.Align.START)
+    ventoy_box.pack_start(ventoy_header, False, False, 0)
+
+    ventoy_desc = Gtk.Label()
+    ventoy_desc.set_markup(
+        f'<span size="9000" foreground="{NORD_SNOW_STORM["nord4"]}">If installing to Ventoy USB, select persistence size:</span>'
+    )
+    ventoy_desc.set_halign(Gtk.Align.START)
+    ventoy_box.pack_start(ventoy_desc, False, False, 0)
+
+    ventoy_options = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    ventoy_options.set_margin_top(4)
+
+    app.ventoy_combo = Gtk.ComboBoxText()
+    persist_sizes = [
+        (512, "512 MB"),
+        (1024, "1 GB"),
+        (2048, "2 GB"),
+        (4096, "4 GB (default)"),
+        (6144, "6 GB"),
+        (8192, "8 GB"),
+    ]
+    for size, label in persist_sizes:
+        app.ventoy_combo.append(str(size), label)
+    app.ventoy_combo.set_active(3)
+    app.ventoy_combo.set_tooltip_text("Size of persistence file for Ventoy USB")
+
+    ventoy_options.pack_start(Gtk.Label(label="Size:"), False, False, 0)
+    ventoy_options.pack_start(app.ventoy_combo, False, False, 0)
+    ventoy_box.pack_start(ventoy_options, False, False, 0)
+
+    content.pack_start(ventoy_box, False, False, 0)
+
     # Navigation
     nav = create_nav_buttons(
         app, lambda x: app.notebook.prev_page(), lambda x: _on_disk_next(app)
@@ -202,6 +243,10 @@ def _on_disk_next(app):
     name = app.selected_disk_info["name"]
     size_str = app.selected_disk_info["size"]
     app.install_data["disk"] = f"/dev/{name}"
+
+    # Save Ventoy persistence size
+    ventoy_size = int(app.ventoy_combo.get_active_id())
+    app.install_data["ventoy_persist_size"] = ventoy_size
 
     # Parse disk size
     try:

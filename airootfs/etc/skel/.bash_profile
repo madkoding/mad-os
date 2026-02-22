@@ -9,6 +9,9 @@
 if [ -z "$WAYLAND_DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
   export XDG_SESSION_TYPE=wayland
   export MOZ_ENABLE_WAYLAND=1
+  export GTK_THEME=Nordic
+  export XCURSOR_THEME=Adwaita
+  export XCURSOR_SIZE=16
 
   # Select compositor based on hardware capabilities
   COMPOSITOR="hyprland"
@@ -41,7 +44,7 @@ if [ -z "$WAYLAND_DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
               sudo mkdir -p /etc/sway/config.d
               sudo tee "$VM_CONF" > /dev/null << 'VMCONF'
 # Auto-generated VM performance optimizations
-output * bg #2E3440 solid_color
+# Note: wallpaper is managed by mados-sway-wallpapers, not here
 gaps inner 0
 gaps outer 0
 VMCONF
@@ -103,7 +106,7 @@ VMCONF
                   sudo mkdir -p /etc/sway/config.d
                   sudo tee "$VM_CONF" > /dev/null << 'VMCONF'
 # Auto-generated VM performance optimizations
-output * bg #2E3440 solid_color
+# Note: wallpaper is managed by mados-sway-wallpapers, not here
 gaps inner 0
 gaps outer 0
 VMCONF

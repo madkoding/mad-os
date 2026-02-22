@@ -1068,16 +1068,22 @@ class TestVMPerformanceOptimizations(unittest.TestCase):
         self.assertIn("systemd-detect-virt --vm", hyprland_block,
                        ".zlogin must check for VM before generating Hyprland config")
 
-    def test_sway_vm_config_has_solid_background(self):
-        """Sway VM config must use solid color background instead of wallpaper."""
+    def test_sway_vm_config_delegates_wallpaper(self):
+        """Sway VM config must NOT override wallpaper (managed by mados-sway-wallpapers)."""
         # Check in sway-session
         path = os.path.join(BIN_DIR, "sway-session")
         with open(path) as f:
             content = f.read()
-        self.assertIn("solid_color", content,
-                       "sway-session VM config must use solid_color background")
-        self.assertIn("#2E3440", content,
-                       "sway-session VM config must use Nord color for background")
+        self.assertIn("mados-sway-wallpapers", content,
+                       "sway-session VM config must reference mados-sway-wallpapers")
+        # The VM config should NOT contain 'output * bg' to avoid overriding wallpaper script
+        # Find the VMCONF block and verify it doesn't set output bg
+        vmconf_start = content.find("<< 'VMCONF'")
+        vmconf_end = content.find("VMCONF", vmconf_start + 10) if vmconf_start >= 0 else -1
+        if vmconf_start >= 0 and vmconf_end >= 0:
+            vmconf_block = content[vmconf_start:vmconf_end]
+            self.assertNotIn("output * bg", vmconf_block,
+                           "VM config must not override wallpaper with output * bg")
 
     def test_sway_vm_config_has_no_gaps(self):
         """Sway VM config must disable gaps for better performance."""
@@ -1095,8 +1101,8 @@ class TestVMPerformanceOptimizations(unittest.TestCase):
         path = os.path.join(SKEL_DIR, ".bash_profile")
         with open(path) as f:
             content = f.read()
-        self.assertIn("solid_color", content,
-                       ".bash_profile must generate solid_color background in VM config")
+        self.assertIn("mados-sway-wallpapers", content,
+                       ".bash_profile VM config must reference mados-sway-wallpapers")
         self.assertIn("gaps inner 0", content,
                        ".bash_profile must generate gaps inner 0 in VM config")
         self.assertIn("gaps outer 0", content,
@@ -1107,8 +1113,8 @@ class TestVMPerformanceOptimizations(unittest.TestCase):
         path = os.path.join(AIROOTFS, "home", "mados", ".zlogin")
         with open(path) as f:
             content = f.read()
-        self.assertIn("solid_color", content,
-                       ".zlogin must generate solid_color background in VM config")
+        self.assertIn("mados-sway-wallpapers", content,
+                       ".zlogin VM config must reference mados-sway-wallpapers")
         self.assertIn("gaps inner 0", content,
                        ".zlogin must generate gaps inner 0 in VM config")
         self.assertIn("gaps outer 0", content,

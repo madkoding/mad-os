@@ -1,0 +1,6 @@
+#!/bin/bash
+# madOS Launcher - Application dock for Wayland compositors
+# Launches the Python GTK dock application
+
+export PYTHONPATH="/usr/local/lib${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m mados_launcher "$@"

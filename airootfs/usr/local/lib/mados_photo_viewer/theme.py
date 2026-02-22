@@ -54,10 +54,11 @@ NORD.update(NORD_SNOW_STORM)
 NORD.update(NORD_FROST)
 NORD.update(NORD_AURORA)
 
-_CSS_END_COLOR = '";\n    color: "'
-_CSS_END_COLOR_CLOSE = '");\n    color: "'
-_CSS_END_BORDER = '";\n    border: 1px solid "'
-_CSS_END_BORDER_COLOR = '";\n    border-color: "'
+_CSS_END_COLOR = ';\n    color: '
+_CSS_END_COLOR_CLOSE = ');\n    color: '
+_CSS_END_BORDER = ';\n    border: 1px solid '
+_CSS_END_BORDER_COLOR = ';\n    border-color: '
+_CSS_END_BORDER_COLOR_CLOSE = ');\n    border-color: '
 
 NORD_CSS = (
     """
@@ -116,7 +117,7 @@ button:hover {
     + NORD["nord8"]
     + """, """
     + NORD["nord9"]
-    + _CSS_END_BORDER_COLOR
+    + _CSS_END_BORDER_COLOR_CLOSE
     + NORD["nord8"]
     + """;
 }
@@ -126,7 +127,7 @@ button:active, button:checked {
     + NORD["nord10"]
     + """, """
     + NORD["nord9"]
-    + _CSS_END_BORDER_COLOR
+    + _CSS_END_BORDER_COLOR_CLOSE
     + NORD["nord7"]
     + """;
 }
@@ -439,7 +440,7 @@ progressbar progress {
     + NORD["nord2"]
     + """, """
     + NORD["nord1"]
-    + _CSS_END_COLOR
+    + _CSS_END_COLOR_CLOSE
     + NORD["nord4"]
     + _CSS_END_BORDER_COLOR
     + NORD["nord3"]
@@ -455,7 +456,7 @@ progressbar progress {
     + NORD["nord3"]
     + """, """
     + NORD["nord2"]
-    + _CSS_END_COLOR
+    + _CSS_END_COLOR_CLOSE
     + NORD["nord8"]
     + """;
 }
