@@ -106,6 +106,7 @@ PACKAGES_PHASE2 = [
     # madOS Native Apps Dependencies
     'python-pillow', 'poppler-glib',
     'gstreamer', 'gst-plugins-base', 'gst-plugins-good', 'gst-python',
+    'gst-plugins-ugly', 'gst-plugins-bad', 'gst-libav', 'gst-plugin-gtk',
 ]
 
 # Combined package list (all packages for both phases)

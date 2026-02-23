@@ -79,6 +79,7 @@ class AudioBackend:
         self._apply_lock = threading.Lock()
         self._eq_process = None  # Subprocess running 'pipewire -c'
         self._last_error = ""  # Last error message from PipeWire
+        self._original_default_sink_id = None  # ID of original default sink before EQ
 
         # Detect available audio systems
         self.has_pipewire = self._check_command("pw-cli")
@@ -421,6 +422,128 @@ context.modules = [
                 timeout=2,
             )
 
+    def _save_original_default_sink(self):
+        """Save the current default sink ID so it can be restored later.
+
+        Uses wpctl to find the current default audio sink node ID
+        before the EQ sink replaces it.
+        """
+        if self._original_default_sink_id is not None:
+            return  # Already saved
+
+        if not self.has_wpctl:
+            return
+
+        try:
+            rc, stdout, _ = self._run_command(
+                ["wpctl", "inspect", DEFAULT_AUDIO_SINK]
+            )
+            if rc == 0 and stdout:
+                for line in stdout.splitlines():
+                    line = line.strip()
+                    if line.startswith("id "):
+                        # Format: "id N, ..."
+                        parts = line.split(",")[0].split()
+                        if len(parts) >= 2:
+                            try:
+                                self._original_default_sink_id = int(parts[1])
+                            except ValueError:
+                                pass
+                        break
+        except Exception:
+            pass
+
+    def _set_default_sink_to_eq(self):
+        """Set the PipeWire default audio sink to the EQ capture node.
+
+        After the filter-chain process starts, the EQ capture node
+        (mados-eq-capture) appears as an Audio/Sink in PipeWire.
+        Setting it as the default sink routes all audio through the EQ.
+
+        Returns:
+            True if the default sink was changed successfully.
+        """
+        if not self.has_wpctl:
+            return False
+
+        # Find the EQ capture node ID using pw-cli
+        eq_node_id = self._find_eq_sink_node_id()
+        if eq_node_id is None:
+            return False
+
+        try:
+            rc, _, _ = self._run_command(
+                ["wpctl", "set-default", str(eq_node_id)]
+            )
+            return rc == 0
+        except Exception:
+            return False
+
+    def _find_eq_sink_node_id(self):
+        """Find the PipeWire node ID of the EQ capture sink.
+
+        Searches the PipeWire object list for a node whose name matches
+        the EQ capture node name (mados-eq-capture).
+
+        Returns:
+            The node ID as an integer, or None if not found.
+        """
+        if not self.has_pipewire:
+            return None
+
+        try:
+            rc, stdout, _ = self._run_command(
+                ["pw-cli", "list-objects"], timeout=3
+            )
+            if rc != 0 or not stdout:
+                return None
+
+            # Parse pw-cli list-objects output to find our EQ capture node.
+            # Each object block starts with "id N, ..." and has properties
+            # on subsequent indented lines.
+            current_id = None
+            for line in stdout.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("id "):
+                    # "id 42, type PipeWire:Interface:Node/3"
+                    parts = stripped.split(",")[0].split()
+                    if len(parts) >= 2:
+                        try:
+                            current_id = int(parts[1])
+                        except ValueError:
+                            current_id = None
+                elif current_id is not None:
+                    # Look for node.name = "mados-eq-capture"
+                    if "node.name" in stripped:
+                        if f'"{EQ_NODE_NAME}-capture"' in stripped:
+                            return current_id
+
+            return None
+        except Exception:
+            return None
+
+    def _restore_default_sink(self):
+        """Restore the original default audio sink after disabling EQ.
+
+        Uses the saved original sink ID to restore routing so audio
+        goes directly to the hardware output again.
+        """
+        if self._original_default_sink_id is None:
+            return
+
+        if not self.has_wpctl:
+            self._original_default_sink_id = None
+            return
+
+        try:
+            self._run_command(
+                ["wpctl", "set-default", str(self._original_default_sink_id)]
+            )
+        except Exception:
+            pass
+        finally:
+            self._original_default_sink_id = None
+
     def _start_eq_process(self):
         """Start a new PipeWire process hosting the EQ filter-chain.
 
@@ -498,6 +621,9 @@ context.modules = [
                 # Try PulseAudio fallback
                 return self._apply_eq_pulseaudio()
 
+            # Save the current default sink before switching to EQ
+            self._save_original_default_sink()
+
             # Write config and (re)start the filter-chain process
             if not self._write_config():
                 return False, "Failed to write filter-chain configuration"
@@ -505,6 +631,11 @@ context.modules = [
             if not self._start_eq_process():
                 detail = self._last_error or "unknown error"
                 return False, f"Failed to start filter-chain: {detail}"
+
+            # Route all audio through the EQ by setting it as default sink
+            if not self._set_default_sink_to_eq():
+                print("Warning: Could not set EQ as default sink. "
+                      "Audio may not be routed through the equalizer.")
 
             return True, "eq_applied"
 
@@ -537,12 +668,17 @@ context.modules = [
     def disable_eq(self):
         """Disable the equalizer by stopping the filter-chain process.
 
+        Restores the original default audio sink so audio bypasses the
+        EQ and goes directly to the hardware output.
+
         Returns:
             Tuple of (success: bool, message: str).
         """
         self.enabled = False
 
         if self.has_pipewire:
+            # Restore original default sink before stopping the EQ process
+            self._restore_default_sink()
             self._stop_eq_process()
             # Remove config file
             try:
@@ -800,8 +936,10 @@ context.modules = [
     def cleanup(self):
         """Clean up resources when the application is closing.
 
-        Stops the filter-chain subprocess and removes config files.
+        Restores the original default audio sink, stops the filter-chain
+        subprocess, and removes config files.
         """
+        self._restore_default_sink()
         self._stop_eq_process()
         try:
             if EQ_CONFIG_FILE.exists():

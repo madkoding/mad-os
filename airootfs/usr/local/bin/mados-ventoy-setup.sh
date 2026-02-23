@@ -1,355 +1,208 @@
 #!/bin/bash
+# =============================================================================
+# mados-ventoy-setup.sh - Persistence Detection & State Writer
+# =============================================================================
+# This script runs at boot to detect if persistence is available and writes
+# state to /run/mados-persist.env for other services to use.
+#
+# It does NOT create persistence images during boot (the USB is mounted and
+# in use, making writes unreliable or impossible).
+#
+# === PERSISTENCE MODES ===
+#
+# 1. ARCHISO cow_device (true persistence via boot parameter):
+#    - User creates a partition labeled 'mados-persist' on the USB
+#    - GRUB "with Persistence" entry auto-detects it via cow_label=
+#    - Archiso uses the partition as its overlay → fully transparent
+#
+# 2. VENTOY native persistence:
+#    - User creates .dat file BEFORE booting using Ventoy tools
+#    - Ventoy handles the overlay internally
+#    - See: https://www.ventoy.net/en/plugin_persistence.html
+#
+# 3. RSYNC-based persistence (fallback):
+#    - If a partition/file labeled 'mados-persist' exists but cow_device
+#      was not used, the mados-persist-sync service syncs /home periodically
+#
+# =============================================================================
 
-VENTOY_PERSIST_SIZE_MB=4096
-MIN_FREE_SPACE_MB=512
-PERSISTENCE_LABEL="mados-persist"
-PERSISTENCE_FILE="mados-persistence.dat"
-VENTOY_JSON="/ventoy/ventoy.json"
 CONFIG_FILE="/etc/mados/ventoy-persist.conf"
-
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+STATE_FILE="/run/mados-persist.env"
 
 log_info() {
-    echo -e "${GREEN}[Ventoy Auto-Persist]${NC} $1"
+    echo "[mados-persist] $1"
 }
 
 log_warn() {
-    echo -e "${YELLOW}[Ventoy Auto-Persist]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[Ventoy Auto-Persist]${NC} $1"
+    echo "[mados-persist] WARNING: $1"
 }
 
 load_config() {
     if [ -f "$CONFIG_FILE" ]; then
+        # shellcheck source=/dev/null
         . "$CONFIG_FILE"
-        log_info "Loaded config from $CONFIG_FILE"
-        if [ -n "$VENTOY_PERSIST_SIZE_MB" ]; then
-            VENTOY_PERSIST_SIZE_MB="${VENTOY_PERSIST_SIZE_MB}"
-            log_info "Persistence size: ${VENTOY_PERSIST_SIZE_MB}MB"
-        fi
     fi
 }
 
 is_ventoy_boot() {
+    [ -f /proc/cmdline ] && grep -q "ventoy" /proc/cmdline
+}
+
+is_live_environment() {
+    [ -d /run/archiso ]
+}
+
+# Check if archiso was booted with cow_device= (true persistence)
+detect_cow_device() {
     if [ -f /proc/cmdline ]; then
-        local cmdline=$(cat /proc/cmdline)
-        if echo "$cmdline" | grep -q "ventoy"; then
-            return 0
-        fi
+        local cmdline
+        cmdline=$(cat /proc/cmdline)
+        for param in $cmdline; do
+            case "$param" in
+                cow_device=*)
+                    echo "${param#*=}"
+                    return 0
+                    ;;
+            esac
+        done
     fi
     return 1
 }
 
-is_ventoy_usb() {
-    local boot_dev="$1"
-    
-    if [ -d "${boot_dev}/ventoy" ]; then
+# Check if archiso was booted with cow_label= (true persistence by label)
+detect_cow_label() {
+    if [ -f /proc/cmdline ]; then
+        local cmdline
+        cmdline=$(cat /proc/cmdline)
+        for param in $cmdline; do
+            case "$param" in
+                cow_label=*)
+                    echo "${param#*=}"
+                    return 0
+                    ;;
+            esac
+        done
+    fi
+    return 1
+}
+
+# Look for a partition labeled mados-persist (for rsync-based fallback)
+detect_persistence_partition() {
+    local device
+    device=$(blkid -L "mados-persist" 2>/dev/null)
+    if [ -n "$device" ] && [ -b "$device" ]; then
+        echo "$device"
         return 0
     fi
-    
-    if is_ventoy_boot; then
-        return 0
-    fi
-    
-    for label in "VTOYEFI" "VTOY"; do
-        if blkid -L "$label" >/dev/null 2>&1; then
-            return 0
-        fi
-    done
-    
     return 1
 }
 
-find_ventoy_partition() {
-    for label in "VTOYEFI" "VTOY"; do
-        local device=$(blkid -L "$label" 2>/dev/null)
-        if [ -n "$device" ]; then
-            echo "$device"
-            return 0
-        fi
-    done
-    
-    if [ -d /run/archiso/bootmnt ]; then
-        local ventoy_path="/run/archiso/bootmnt"
-        if [ -d "$ventoy_path/ventoy" ] || [ -f "$ventoy_path/ventoy/ventoy.json" ]; then
-            echo "$ventoy_path"
-            return 0
-        fi
-        
-        if is_ventoy_boot; then
-            echo "$ventoy_path"
-            return 0
-        fi
-    fi
-    
-    return 1
-}
+# Look for persistence .dat files on the boot mount
+detect_persistence_file() {
+    local boot_mnt="/run/archiso/bootmnt"
 
-get_usb_device() {
-    local boot_dev="$1"
-    
-    if [ -b "$boot_dev" ]; then
-        local dev_name=$(basename "$boot_dev")
-        local dev_base="/dev/${dev_name%%[0-9]*}"
-        echo "$dev_base"
-        return 0
-    elif [ -d "$boot_dev" ]; then
-        local device=$(df "$boot_dev" 2>/dev/null | tail -1 | awk '{print $1}')
-        if [ -b "$device" ]; then
-            local dev_name=$(basename "$device")
-            local dev_base="/dev/${dev_name%%[0-9]*}"
-            echo "$dev_base"
-            return 0
-        fi
-        
-        local mount_device=$(findmnt -n -o SOURCE "$boot_dev" 2>/dev/null)
-        if [ -b "$mount_device" ]; then
-            local dev_name=$(basename "$mount_device")
-            local dev_base="/dev/${dev_name%%[0-9]*}"
-            echo "$dev_base"
-            return 0
-        fi
-    fi
-    
-    return 1
-}
-
-get_free_space_mb() {
-    local device="$1"
-    
-    if [ -b "$device" ]; then
-        local sector_size=512
-        local total_sectors=$(blockdev --getsize64 "$device" 2>/dev/null)
-        total_sectors=$((total_sectors / sector_size))
-        
-        local last_part=$(parted -s "$device" print 2>/dev/null | grep -E "^[0-9]+" | tail -1 | awk '{print $1}')
-        
-        if [ -z "$last_part" ]; then
-            echo "0"
-            return 1
-        fi
-        
-        local last_part_start=$(parted -s "$device" unit s print 2>/dev/null | grep -E "^\s*$last_part" | awk '{print $2}' | sed 's/s//')
-        local disk_end=$(parted -s "$device" unit s print 2>/dev/null | grep "Disk /dev" | awk '{print $3}' | sed 's/s//')
-        
-        if [ -z "$last_part_start" ] || [ -z "$disk_end" ]; then
-            echo "0"
-            return 1
-        fi
-        
-        local free_sectors=$((disk_end - last_part_start))
-        local free_mb=$((free_sectors * sector_size / 1024 / 1024))
-        
-        echo "$free_mb"
-        return 0
-    fi
-    
-    echo "0"
-    return 1
-}
-
-create_persistence_image() {
-    local ventoy_path="$1"
-    local size_mb="$2"
-    local output_file="${ventoy_path}/ventoy/${PERSISTENCE_FILE}"
-    
-    log_info "Creating persistence image of ${size_mb}MB at $output_file"
-    
-    mkdir -p "${ventoy_path}/ventoy"
-    
-    dd if=/dev/zero of="$output_file" bs=1M count="$size_mb" status=progress 2>&1
-    
-    if [ $? -ne 0 ]; then
-        log_error "Failed to create persistence image"
+    if [ ! -d "$boot_mnt" ]; then
         return 1
     fi
-    
-    mkfs.ext4 -F -L "$PERSISTENCE_LABEL" "$output_file" >/dev/null 2>&1
-    
-    if [ $? -ne 0 ]; then
-        log_error "Failed to format persistence image"
-        rm -f "$output_file"
-        return 1
-    fi
-    
-    log_info "Persistence image created successfully"
-    return 0
-}
 
-find_iso_file() {
-    local ventoy_path="$1"
-    
-    for ext in iso IMG; do
-        local iso_file=$(find "$ventoy_path" -maxdepth 3 -iname "*.${ext}" -type f 2>/dev/null | head -1)
-        if [ -n "$iso_file" ]; then
-            echo "$iso_file"
+    for file in \
+        "$boot_mnt/ventoy/persistence/persistence.dat" \
+        "$boot_mnt/ventoy/mados-persistence.dat" \
+        "$boot_mnt/mados-persistence.dat"; do
+        if [ -f "$file" ]; then
+            echo "$file"
             return 0
         fi
     done
-    
+
     return 1
 }
 
-create_ventoy_json() {
-    local ventoy_path="$1"
-    local iso_file="$2"
-    
-    local ventoy_dir="${ventoy_path}/ventoy"
-    mkdir -p "$ventoy_dir"
-    
-    local json_file="${ventoy_dir}/ventoy.json"
-    
-    local iso_basename
-    iso_basename=$(basename "$iso_file")
-    
-    cat > "$json_file" << EOF
-{
-    "persistence" : [
-        {
-            "image": "/ISO/${iso_basename}",
-            "backend": "/ventoy/${PERSISTENCE_FILE}"
-        }
-    ]
-}
+# Write persistence state to /run/mados-persist.env
+# Other services (mados-persist-sync) read this file
+write_state() {
+    local mode="$1"
+    local device="$2"
+
+    mkdir -p "$(dirname "$STATE_FILE")"
+    cat > "$STATE_FILE" << EOF
+# mados persistence state (auto-generated at boot)
+MADOS_PERSIST_MODE="${mode}"
+MADOS_PERSIST_DEVICE="${device}"
+MADOS_PERSIST_VENTOY=$(is_ventoy_boot && echo "1" || echo "0")
+MADOS_PERSIST_ACTIVE=$( [ "$mode" != "none" ] && echo "1" || echo "0" )
 EOF
-    
-    log_info "Created ventoy.json at $json_file"
-    log_info "ISO: ${iso_basename}"
-    log_info "Persistence: ${PERSISTENCE_FILE}"
+    chmod 644 "$STATE_FILE"
 }
 
-setup_ventoy_persistence() {
+main() {
     load_config
-    
-    if [ ! -d /run/archiso ]; then
-        log_warn "Not in live environment, skipping Ventoy auto-persistence"
+
+    if ! is_live_environment; then
+        log_info "Not in live environment, skipping persistence detection"
+        write_state "none" ""
         return 0
     fi
-    
-    log_info "Starting Ventoy auto-persistence setup..."
-    
-    if ! is_ventoy_boot; then
-        log_info "Not booted via Ventoy (standard USB boot), skipping auto-persistence"
+
+    log_info "Detecting persistence configuration..."
+
+    # Priority 1: archiso cow_device= parameter (real transparent persistence)
+    local cow_dev
+    cow_dev=$(detect_cow_device)
+    if [ -n "$cow_dev" ]; then
+        log_info "Archiso cow_device persistence ACTIVE: $cow_dev"
+        log_info "All changes are saved transparently to the device"
+        write_state "cow_device" "$cow_dev"
         return 0
     fi
-    
-    log_info "Ventoy boot detected, searching for Ventoy partition..."
-    
-    local ventoy_part=$(find_ventoy_partition)
-    
-    if [ -z "$ventoy_part" ]; then
-        log_warn "Not running on Ventoy USB, skipping auto-persistence"
-        return 1
-    fi
-    
-    log_info "Ventoy partition found: $ventoy_part"
-    
-    if ! is_ventoy_usb "$ventoy_part"; then
-        log_warn "Not a Ventoy USB, skipping"
-        return 1
-    fi
-    
-    local mount_point=""
-    if [ -b "$ventoy_part" ]; then
-        if mountpoint -q "$ventoy_part" 2>/dev/null; then
-            mount_point=$(findmnt -n -o TARGET "$ventoy_part" 2>/dev/null)
+
+    # Priority 2: archiso cow_label= parameter (real persistence by label)
+    local cow_label
+    cow_label=$(detect_cow_label)
+    if [ -n "$cow_label" ]; then
+        local label_dev
+        label_dev=$(blkid -L "$cow_label" 2>/dev/null)
+        if [ -n "$label_dev" ]; then
+            log_info "Archiso cow_label persistence ACTIVE: $cow_label -> $label_dev"
+            write_state "cow_label" "$label_dev"
+            return 0
         else
-            mount_point=$(findmnt -n -o TARGET "$ventoy_part" 2>/dev/null)
-            if [ -z "$mount_point" ]; then
-                mount_point="/mnt/ventoy"
-                mkdir -p "$mount_point"
-                mount -o rw "$ventoy_part" "$mount_point" 2>/dev/null
-                if [ $? -ne 0 ]; then
-                    log_error "Cannot mount Ventoy partition as read-write"
-                    return 1
-                fi
-            fi
-        fi
-    elif [ -d "$ventoy_part" ]; then
-        mount_point="$ventoy_part"
-    fi
-    
-    if [ -z "$mount_point" ]; then
-        log_error "Could not determine mount point for Ventoy partition"
-        return 1
-    fi
-    
-    log_info "Mount point: $mount_point"
-    
-    local ro_check_file="${mount_point}/.ventoy_write_test"
-    touch "$ro_check_file" 2>/dev/null
-    if [ ! -f "$ro_check_file" ]; then
-        log_warn "Ventoy partition is read-only, attempting remount..."
-        mount -o remount,rw "$mount_point" 2>/dev/null
-        touch "$ro_check_file" 2>/dev/null
-        if [ ! -f "$ro_check_file" ]; then
-            log_error "Cannot write to Ventoy partition. Is this a live ISO booted in read-only mode?"
-            return 1
+            log_warn "cow_label=$cow_label specified but no matching partition found"
         fi
     fi
-    rm -f "$ro_check_file"
-    
-    local usb_dev=$(get_usb_device "$ventoy_part")
-    
-    if [ -z "$usb_dev" ]; then
-        log_error "Could not determine USB device"
-        return 1
-    fi
-    
-    log_info "USB device: $usb_dev"
-    
-    local persist_file="${mount_point}/ventoy/${PERSISTENCE_FILE}"
-    
-    if [ -f "$persist_file" ]; then
-        log_info "Persistence file already exists: $persist_file"
+
+    # Priority 3: Partition labeled mados-persist (for rsync-based sync)
+    local persist_part
+    persist_part=$(detect_persistence_partition)
+    if [ -n "$persist_part" ]; then
+        log_info "Found persistence partition: $persist_part"
+        log_info "rsync-based sync will be used (mados-persist-sync service)"
+        write_state "partition" "$persist_part"
         return 0
     fi
-    
-    local free_space=$(get_free_space_mb "$usb_dev")
-    
-    if [ "$free_space" -lt "$MIN_FREE_SPACE_MB" ]; then
-        log_warn "Not enough free space on USB (${free_space}MB available, ${MIN_FREE_SPACE_MB}MB minimum)"
-        return 1
+
+    # Priority 4: Persistence .dat file on boot device (rsync-based sync)
+    local persist_file
+    persist_file=$(detect_persistence_file)
+    if [ -n "$persist_file" ]; then
+        log_info "Found persistence file: $persist_file"
+        log_info "rsync-based sync will be used (mados-persist-sync service)"
+        write_state "file" "$persist_file"
+        return 0
     fi
-    
-    log_info "Free space available: ${free_space}MB"
-    
-    local size_to_use=$((free_space - 256))
-    if [ "$size_to_use" -gt "$VENTOY_PERSIST_SIZE_MB" ]; then
-        size_to_use=$VENTOY_PERSIST_SIZE_MB
-    fi
-    
-    if [ "$size_to_use" -lt "$MIN_FREE_SPACE_MB" ]; then
-        log_warn "Not enough space after reserving buffer"
-        return 1
-    fi
-    
-    log_info "Creating persistence file of ${size_to_use}MB..."
-    
-    if ! create_persistence_image "$mount_point" "$size_to_use"; then
-        return 1
-    fi
-    
-    local iso_file=$(find_iso_file "$mount_point")
-    
-    if [ -n "$iso_file" ]; then
-        log_info "Found ISO: $iso_file"
-        create_ventoy_json "$mount_point" "$iso_file"
+
+    # No persistence found
+    if is_ventoy_boot; then
+        log_info "Booted via Ventoy but no persistence configured"
+        log_info "To enable: mados-persistence info"
     else
-        log_warn "No ISO file found, creating ventoy.json without ISO reference"
-        create_ventoy_json "$mount_point" "/ISO/madOS.iso"
+        log_info "No persistence configured, using tmpfs (changes lost on reboot)"
+        log_info "To enable: create a partition labeled 'mados-persist' on the USB"
+        log_info "Then boot with 'madOS Live with Persistence' option"
     fi
-    
-    log_info "Ventoy auto-persistence setup completed successfully!"
-    log_info "The system will now use persistence on next boot"
-    
+
+    write_state "none" ""
     return 0
 }
 
-setup_ventoy_persistence
+main "$@"

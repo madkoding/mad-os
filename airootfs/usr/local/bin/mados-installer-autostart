@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# madOS Installer Autostart Helper
+# Launched by Sway config - checks conditions and starts the GTK installer
+# Only runs in live environment (archiso) and NOT when booted via Ventoy
+
+is_ventoy_boot() {
+    if [ -f /proc/cmdline ]; then
+        grep -q "ventoy" /proc/cmdline && return 0
+    fi
+    return 1
+}
+
+# Only launch installer if in archiso live environment and NOT in Ventoy mode
+if [ -d /run/archiso ] && ! is_ventoy_boot; then
+    sleep 2
+    sudo WAYLAND_DISPLAY="$WAYLAND_DISPLAY" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" /usr/local/bin/install-mados
+fi

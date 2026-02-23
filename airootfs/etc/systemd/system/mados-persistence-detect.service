@@ -1,9 +1,8 @@
 [Unit]
-Description=mados Persistence Detection
-DefaultDependencies=no
-After=systemd-remount-fs.service
-Before=local-fs-pre.target
-Wants=local-fs-pre.target
+Description=madOS Persistence Mount
+After=mados-ventoy-setup.service local-fs.target
+Requires=mados-ventoy-setup.service
+Before=mados-persist-sync.service
 
 [Service]
 Type=oneshot

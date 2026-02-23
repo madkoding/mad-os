@@ -1,14 +1,15 @@
 [Unit]
-Description=mados Persistence Sync (Ventoy-style)
-After=multi-user.target
-Wants=network-online.target
+Description=madOS Persistence Sync (rsync-based)
+After=mados-persistence-detect.service
+Requires=mados-persistence-detect.service
 
 [Service]
-Type=forking
+Type=simple
 ExecStart=/usr/local/bin/mados-persist-sync.sh start
 ExecStop=/usr/local/bin/mados-persist-sync.sh stop
 Restart=on-failure
-RestartSec=10
+RestartSec=30
+TimeoutStopSec=60
 
 [Install]
 WantedBy=multi-user.target

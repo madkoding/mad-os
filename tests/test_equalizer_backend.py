@@ -491,20 +491,54 @@ class TestApplyEq(unittest.TestCase):
         self.backend.apply_eq(gains=None)
         self.assertEqual(self.backend.gains, [1.0] * 8)
 
+    @patch("mados_equalizer.backend.AudioBackend._set_default_sink_to_eq")
     @patch("mados_equalizer.backend.AudioBackend._write_config")
     @patch("mados_equalizer.backend.AudioBackend._start_eq_process")
-    def test_apply_eq_calls_write_config_when_enabled(self, mock_start, mock_write):
+    def test_apply_eq_calls_write_config_when_enabled(self, mock_start, mock_write, mock_set_sink):
         """apply_eq should write config when enabled and PipeWire available."""
         self.backend.enabled = True
         self.backend.has_pipewire = True
         mock_write.return_value = True
         mock_start.return_value = True
+        mock_set_sink.return_value = True
 
         success, message = self.backend.apply_eq(gains=[0.0] * 8)
 
         self.assertTrue(success)
         mock_write.assert_called_once()
         mock_start.assert_called_once()
+
+    @patch("mados_equalizer.backend.AudioBackend._set_default_sink_to_eq")
+    @patch("mados_equalizer.backend.AudioBackend._write_config")
+    @patch("mados_equalizer.backend.AudioBackend._start_eq_process")
+    def test_apply_eq_sets_default_sink_to_eq(self, mock_start, mock_write, mock_set_sink):
+        """apply_eq should set the EQ sink as default after starting."""
+        self.backend.enabled = True
+        self.backend.has_pipewire = True
+        mock_write.return_value = True
+        mock_start.return_value = True
+        mock_set_sink.return_value = True
+
+        success, message = self.backend.apply_eq(gains=[0.0] * 8)
+
+        self.assertTrue(success)
+        mock_set_sink.assert_called_once()
+
+    @patch("mados_equalizer.backend.AudioBackend._set_default_sink_to_eq")
+    @patch("mados_equalizer.backend.AudioBackend._write_config")
+    @patch("mados_equalizer.backend.AudioBackend._start_eq_process")
+    def test_apply_eq_succeeds_even_if_set_default_fails(self, mock_start, mock_write, mock_set_sink):
+        """apply_eq should succeed even if setting default sink fails (warning only)."""
+        self.backend.enabled = True
+        self.backend.has_pipewire = True
+        mock_write.return_value = True
+        mock_start.return_value = True
+        mock_set_sink.return_value = False
+
+        success, message = self.backend.apply_eq(gains=[0.0] * 8)
+
+        self.assertTrue(success)
+        self.assertEqual(message, "eq_applied")
 
     @patch("mados_equalizer.backend.AudioBackend._write_config")
     def test_apply_eq_returns_false_on_write_failure(self, mock_write):
@@ -527,6 +561,192 @@ class TestApplyEq(unittest.TestCase):
         success, message = self.backend.apply_eq(gains=[0.0] * 8)
 
         mock_disable.assert_called_once()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Default sink routing (PipeWire)
+# ═══════════════════════════════════════════════════════════════════════════
+class TestDefaultSinkRouting(unittest.TestCase):
+    """Test default sink save / set / restore for PipeWire EQ routing."""
+
+    @patch("mados_equalizer.backend.shutil.which")
+    @patch("mados_equalizer.backend.AudioBackend._detect_output_device")
+    def setUp(self, mock_detect, mock_which):
+        mock_which.return_value = None
+        self.backend = AudioBackend()
+
+    def test_initial_original_sink_id_is_none(self):
+        """_original_default_sink_id should be None initially."""
+        self.assertIsNone(self.backend._original_default_sink_id)
+
+    @patch("mados_equalizer.backend.AudioBackend._run_command")
+    def test_save_original_default_sink_parses_id(self, mock_run):
+        """_save_original_default_sink should parse the sink ID from wpctl."""
+        self.backend.has_wpctl = True
+        mock_run.return_value = (
+            0,
+            "id 42, type PipeWire:Interface:Node/3\n"
+            "  node.name = \"alsa_output.pci-0000_00_1b.0.analog-stereo\"\n",
+            "",
+        )
+
+        self.backend._save_original_default_sink()
+
+        self.assertEqual(self.backend._original_default_sink_id, 42)
+
+    @patch("mados_equalizer.backend.AudioBackend._run_command")
+    def test_save_original_sink_only_once(self, mock_run):
+        """_save_original_default_sink should not overwrite a saved ID."""
+        self.backend.has_wpctl = True
+        self.backend._original_default_sink_id = 10
+
+        self.backend._save_original_default_sink()
+
+        # Should NOT call wpctl again
+        mock_run.assert_not_called()
+        self.assertEqual(self.backend._original_default_sink_id, 10)
+
+    def test_save_original_sink_noop_without_wpctl(self):
+        """_save_original_default_sink should be a no-op without wpctl."""
+        self.backend.has_wpctl = False
+        self.backend._save_original_default_sink()
+        self.assertIsNone(self.backend._original_default_sink_id)
+
+    @patch("mados_equalizer.backend.AudioBackend._find_eq_sink_node_id")
+    @patch("mados_equalizer.backend.AudioBackend._run_command")
+    def test_set_default_sink_to_eq(self, mock_run, mock_find):
+        """_set_default_sink_to_eq should call wpctl set-default with EQ node ID."""
+        self.backend.has_wpctl = True
+        mock_find.return_value = 99
+        mock_run.return_value = (0, "", "")
+
+        result = self.backend._set_default_sink_to_eq()
+
+        self.assertTrue(result)
+        mock_run.assert_called_once_with(
+            ["wpctl", "set-default", "99"]
+        )
+
+    @patch("mados_equalizer.backend.AudioBackend._find_eq_sink_node_id")
+    def test_set_default_sink_to_eq_returns_false_when_not_found(self, mock_find):
+        """_set_default_sink_to_eq should return False if EQ node not found."""
+        self.backend.has_wpctl = True
+        mock_find.return_value = None
+
+        result = self.backend._set_default_sink_to_eq()
+
+        self.assertFalse(result)
+
+    def test_set_default_sink_to_eq_returns_false_without_wpctl(self):
+        """_set_default_sink_to_eq should return False without wpctl."""
+        self.backend.has_wpctl = False
+
+        result = self.backend._set_default_sink_to_eq()
+
+        self.assertFalse(result)
+
+    @patch("mados_equalizer.backend.AudioBackend._run_command")
+    def test_find_eq_sink_node_id_parses_pw_cli(self, mock_run):
+        """_find_eq_sink_node_id should find the mados-eq-capture node."""
+        self.backend.has_pipewire = True
+        pw_output = (
+            'id 10, type PipeWire:Interface:Node/3\n'
+            '\tnode.name = "alsa_output.pci-0000_00_1b.0.analog-stereo"\n'
+            'id 42, type PipeWire:Interface:Node/3\n'
+            '\tnode.name = "mados-eq-capture"\n'
+            'id 43, type PipeWire:Interface:Node/3\n'
+            '\tnode.name = "mados-eq-playback"\n'
+        )
+        mock_run.return_value = (0, pw_output, "")
+
+        result = self.backend._find_eq_sink_node_id()
+
+        self.assertEqual(result, 42)
+
+    @patch("mados_equalizer.backend.AudioBackend._run_command")
+    def test_find_eq_sink_node_id_returns_none_when_missing(self, mock_run):
+        """_find_eq_sink_node_id should return None if EQ node not present."""
+        self.backend.has_pipewire = True
+        pw_output = (
+            'id 10, type PipeWire:Interface:Node/3\n'
+            '\tnode.name = "alsa_output.pci-0000_00_1b.0.analog-stereo"\n'
+        )
+        mock_run.return_value = (0, pw_output, "")
+
+        result = self.backend._find_eq_sink_node_id()
+
+        self.assertIsNone(result)
+
+    def test_find_eq_sink_node_id_returns_none_without_pipewire(self):
+        """_find_eq_sink_node_id should return None without PipeWire."""
+        self.backend.has_pipewire = False
+
+        result = self.backend._find_eq_sink_node_id()
+
+        self.assertIsNone(result)
+
+    @patch("mados_equalizer.backend.AudioBackend._run_command")
+    def test_restore_default_sink(self, mock_run):
+        """_restore_default_sink should call wpctl set-default with saved ID."""
+        self.backend.has_wpctl = True
+        self.backend._original_default_sink_id = 42
+        mock_run.return_value = (0, "", "")
+
+        self.backend._restore_default_sink()
+
+        mock_run.assert_called_once_with(
+            ["wpctl", "set-default", "42"]
+        )
+        self.assertIsNone(self.backend._original_default_sink_id)
+
+    def test_restore_default_sink_noop_when_no_saved_id(self):
+        """_restore_default_sink should be a no-op with no saved ID."""
+        self.backend.has_wpctl = True
+        self.backend._original_default_sink_id = None
+
+        # Should not raise
+        self.backend._restore_default_sink()
+
+    def test_restore_default_sink_clears_id_without_wpctl(self):
+        """_restore_default_sink should clear saved ID even without wpctl."""
+        self.backend.has_wpctl = False
+        self.backend._original_default_sink_id = 42
+
+        self.backend._restore_default_sink()
+
+        self.assertIsNone(self.backend._original_default_sink_id)
+
+    @patch("mados_equalizer.backend.AudioBackend._stop_eq_process")
+    @patch("mados_equalizer.backend.AudioBackend._restore_default_sink")
+    def test_disable_eq_restores_default_sink(self, mock_restore, mock_stop):
+        """disable_eq should restore the original default sink."""
+        self.backend.has_pipewire = True
+
+        success, message = self.backend.disable_eq()
+
+        self.assertTrue(success)
+        mock_restore.assert_called_once()
+
+    @patch("mados_equalizer.backend.AudioBackend._stop_eq_process")
+    @patch("mados_equalizer.backend.AudioBackend._restore_default_sink")
+    def test_disable_eq_restores_before_stopping(self, mock_restore, mock_stop):
+        """disable_eq should restore sink before stopping EQ process."""
+        self.backend.has_pipewire = True
+        call_order = []
+        mock_restore.side_effect = lambda: call_order.append("restore")
+        mock_stop.side_effect = lambda: call_order.append("stop")
+
+        self.backend.disable_eq()
+
+        self.assertEqual(call_order, ["restore", "stop"])
+
+    @patch("mados_equalizer.backend.AudioBackend._stop_eq_process")
+    @patch("mados_equalizer.backend.AudioBackend._restore_default_sink")
+    def test_cleanup_restores_default_sink(self, mock_restore, mock_stop):
+        """cleanup should restore the original default sink."""
+        self.backend.cleanup()
+
+        mock_restore.assert_called_once()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
