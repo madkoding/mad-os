@@ -354,10 +354,10 @@ class SwayBackend:
 
     # ── Workspaces ──
     def workspace_prev(self):
-        self._run("swaymsg 'workspace prev'; mados-sway-wallpaper-set")
+        self._run("mados-sway-workspace-cycle prev")
 
     def workspace_next(self):
-        self._run("swaymsg 'workspace next'; mados-sway-wallpaper-set")
+        self._run("mados-sway-workspace-cycle next")
 
     def move_to_workspace_prev(self):
         self._run("swaymsg 'move container to workspace prev'")

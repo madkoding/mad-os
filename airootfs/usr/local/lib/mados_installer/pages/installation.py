@@ -1196,6 +1196,7 @@ systemctl enable earlyoom
 systemctl enable systemd-timesyncd
 systemctl enable greetd
 systemctl enable iwd
+systemctl enable bluetooth
 
 echo '[PROGRESS 8/9] Applying system configuration...'
 # --- Non-critical section: errors below should not abort installation ---

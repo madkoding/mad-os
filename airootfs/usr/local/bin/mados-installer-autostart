@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 # madOS Installer Autostart Helper
-# Launched by Sway config - checks conditions and starts the GTK installer
+# Launched by Sway/Hyprland config - checks conditions and starts the GTK installer
 # Only runs in live environment (archiso) and NOT when booted via Ventoy
+
+LOG="/var/log/mados-installer-autostart.log"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG" 2>/dev/null
+}
 
 is_ventoy_boot() {
     if [ -f /proc/cmdline ]; then
@@ -11,7 +17,30 @@ is_ventoy_boot() {
 }
 
 # Only launch installer if in archiso live environment and NOT in Ventoy mode
-if [ -d /run/archiso ] && ! is_ventoy_boot; then
-    sleep 2
-    sudo WAYLAND_DISPLAY="$WAYLAND_DISPLAY" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" /usr/local/bin/install-mados
+if [ ! -d /run/archiso ]; then
+    log "Not in archiso live environment, skipping installer autostart"
+    exit 0
+fi
+
+if is_ventoy_boot; then
+    log "Ventoy boot detected, skipping installer autostart"
+    exit 0
+fi
+
+log "Live environment detected, launching installer..."
+
+# Ensure GTK uses the Wayland backend
+export GDK_BACKEND=wayland
+
+sleep 2
+
+# Use --preserve-env to pass Wayland display variables through sudo
+# (sudoers env_keep also lists these, but --preserve-env is explicit and reliable)
+if [ -x /usr/local/bin/install-mados ]; then
+    log "Starting install-mados"
+    sudo --preserve-env=WAYLAND_DISPLAY,XDG_RUNTIME_DIR,GDK_BACKEND \
+        /usr/local/bin/install-mados
+else
+    log "ERROR: /usr/local/bin/install-mados not found or not executable"
+    exit 1
 fi

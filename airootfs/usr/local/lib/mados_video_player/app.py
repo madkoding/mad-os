@@ -29,6 +29,9 @@ if GST_AVAILABLE:
 class VideoPlayerApp(Gtk.Window):
     """Main video player application window."""
 
+    PLAYLIST_WIDTH = 280
+    MIN_WINDOW_WIDTH = 400
+
     def __init__(self, initial_files=None):
         """Initialize the video player application.
 
@@ -60,7 +63,7 @@ class VideoPlayerApp(Gtk.Window):
         self._db = PlaylistDB()
 
         # Window setup
-        self.set_default_size(960, 600)
+        self.set_default_size(640, 400)
         self.set_wmclass(__app_id__, __app_name__)
         self.set_icon_name("multimedia-video-player")
         self.connect("destroy", self._on_destroy)
@@ -141,9 +144,9 @@ class VideoPlayerApp(Gtk.Window):
         self._video_display.get_style_context().add_class("video-area")
         self._video_container.add(self._video_display)
 
-        # Placeholder overlay (shown when no video)
-        self._placeholder = self._build_placeholder()
-        self._video_container.add_overlay(self._placeholder)
+        # Placeholder reference (no overlay displayed)
+        self._placeholder = Gtk.Box()
+        self._placeholder_text = Gtk.Label()
 
         # Double-click on video for fullscreen
         self._video_event = Gtk.EventBox()
@@ -159,7 +162,7 @@ class VideoPlayerApp(Gtk.Window):
         # Playlist sidebar
         self._playlist_panel = self._build_playlist_panel()
         self._content_paned.pack2(self._playlist_panel, False, False)
-        self._content_paned.set_position(680)
+        self._content_paned.set_position(440)
 
         # Status bar
         self._build_status_bar(vbox)
@@ -303,18 +306,6 @@ class VideoPlayerApp(Gtk.Window):
         self._playlist_menu_item = playlist_toggle_item
         view_menu.append(playlist_toggle_item)
 
-        view_menu.append(Gtk.SeparatorMenuItem())
-
-        # Language submenu
-        lang_item = Gtk.MenuItem(label=self._t("language"))
-        lang_menu = Gtk.Menu()
-        for lang in get_languages():
-            l_item = Gtk.MenuItem(label=lang)
-            l_item.connect("activate", self._on_language_change, lang)
-            lang_menu.append(l_item)
-        lang_item.set_submenu(lang_menu)
-        view_menu.append(lang_item)
-
         menu_bar.append(view_item)
 
         # --- Help menu ---
@@ -448,7 +439,7 @@ class VideoPlayerApp(Gtk.Window):
         controls.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
 
         # Volume mute button
-        self._mute_btn = Gtk.Button(label="\u266b")
+        self._mute_btn = Gtk.Button(label="\U0001f50a")
         self._mute_btn.set_tooltip_text(self._t("volume"))
         self._mute_btn.connect("clicked", lambda w: self._on_toggle_mute())
         controls.pack_start(self._mute_btn, False, False, 0)
@@ -486,7 +477,7 @@ class VideoPlayerApp(Gtk.Window):
         """Build the playlist sidebar panel."""
         panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         panel.get_style_context().add_class("playlist-panel")
-        panel.set_size_request(280, -1)
+        panel.set_size_request(self.PLAYLIST_WIDTH, -1)
 
         # Header
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
@@ -666,13 +657,13 @@ class VideoPlayerApp(Gtk.Window):
     def _update_volume_icon(self):
         """Update the mute button icon."""
         if self._engine.muted:
-            self._mute_btn.set_label("\u2669")
+            self._mute_btn.set_label("\U0001f507")
         elif self._engine.volume > 0.5:
-            self._mute_btn.set_label("\u266b")
+            self._mute_btn.set_label("\U0001f50a")
         elif self._engine.volume > 0:
-            self._mute_btn.set_label("\u266a")
+            self._mute_btn.set_label("\U0001f509")
         else:
-            self._mute_btn.set_label("\u2669")
+            self._mute_btn.set_label("\U0001f507")
 
     # ------------------------------------------------------------------
     # Seek bar
@@ -940,15 +931,28 @@ class VideoPlayerApp(Gtk.Window):
     # ------------------------------------------------------------------
 
     def _toggle_playlist(self):
-        """Toggle playlist panel visibility."""
+        """Toggle playlist panel visibility and resize window accordingly."""
         self._playlist_visible = not self._playlist_visible
         self._playlist_panel.set_visible(self._playlist_visible)
         self._playlist_btn.set_active(self._playlist_visible)
+        self._resize_for_playlist()
 
     def _on_playlist_toggled(self, button):
         """Handle playlist toggle button."""
         self._playlist_visible = button.get_active()
         self._playlist_panel.set_visible(self._playlist_visible)
+        self._resize_for_playlist()
+
+    def _resize_for_playlist(self):
+        """Resize window when playlist visibility changes."""
+        if self._fullscreen_active:
+            return
+        current_width, current_height = self.get_size()
+        if self._playlist_visible:
+            self.resize(current_width + self.PLAYLIST_WIDTH, current_height)
+        else:
+            new_width = max(self.MIN_WINDOW_WIDTH, current_width - self.PLAYLIST_WIDTH)
+            self.resize(new_width, current_height)
 
     # ------------------------------------------------------------------
     # Language

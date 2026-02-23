@@ -1666,6 +1666,46 @@ class TestSwayWallpaperStartup(unittest.TestCase):
             "daemon should always try to reconnect for reliability",
         )
 
+    def test_sway_wallpaper_uses_swww(self):
+        """mados-sway-wallpapers must use swww for smooth wallpaper transitions."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "swww img",
+            content,
+            "Script must use swww img for smooth wallpaper transitions (no black flash)",
+        )
+
+    def test_sway_wallpaper_uses_fade_transition(self):
+        """mados-sway-wallpapers must use fade transition for smooth switching."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "--transition-type fade",
+            content,
+            "Script must use fade transition type to avoid black flash",
+        )
+
+    def test_sway_wallpaper_starts_swww_daemon(self):
+        """mados-sway-wallpapers must start swww-daemon if not running."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "swww-daemon",
+            content,
+            "Script must start swww-daemon for wallpaper transitions",
+        )
+
+    def test_sway_wallpaper_initial_no_transition(self):
+        """mados-sway-wallpapers must set initial wallpaper without transition."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "--transition-type none",
+            content,
+            "Script must use --transition-type none for initial wallpaper (fast startup)",
+        )
+
 
 class TestSwayWallpaperSetHelper(unittest.TestCase):
     """Verify mados-sway-wallpaper-set helper script."""
@@ -1702,13 +1742,23 @@ class TestSwayWallpaperSetHelper(unittest.TestCase):
         )
 
     def test_helper_uses_swaymsg(self):
-        """Helper must set wallpaper via swaymsg."""
+        """Helper must use swaymsg (for workspace queries or fallback)."""
         with open(self.HELPER_SCRIPT) as f:
             content = f.read()
         self.assertIn(
             "swaymsg",
             content,
-            "Helper must use swaymsg to set wallpaper",
+            "Helper must use swaymsg for workspace queries or fallback wallpaper setting",
+        )
+
+    def test_helper_uses_swww(self):
+        """Helper must use swww for smooth wallpaper transitions."""
+        with open(self.HELPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "swww img",
+            content,
+            "Helper must use swww img for smooth wallpaper transitions (no black flash)",
         )
 
     def test_helper_accepts_workspace_argument(self):
@@ -1755,6 +1805,82 @@ class TestSwayWallpaperSetHelper(unittest.TestCase):
             "$mod+Mod1+Right",
             content,
             "Sway config must bind Super+Alt+Right for workspace next",
+        )
+
+    def test_sway_config_uses_workspace_cycle_for_arrows(self):
+        """Sway config must use mados-sway-workspace-cycle for Super+Alt+arrows."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-sway-workspace-cycle prev",
+            content,
+            "Sway config must use mados-sway-workspace-cycle prev for Super+Alt+Left",
+        )
+        self.assertIn(
+            "mados-sway-workspace-cycle next",
+            content,
+            "Sway config must use mados-sway-workspace-cycle next for Super+Alt+Right",
+        )
+
+
+class TestSwayWorkspaceCycleScript(unittest.TestCase):
+    """Verify mados-sway-workspace-cycle helper script."""
+
+    CYCLE_SCRIPT = os.path.join(BIN_DIR, "mados-sway-workspace-cycle")
+    SWAY_CONF = os.path.join(SKEL_DIR, ".config", "sway", "config")
+
+    def test_cycle_script_exists(self):
+        """mados-sway-workspace-cycle script must exist."""
+        self.assertTrue(
+            os.path.isfile(self.CYCLE_SCRIPT),
+            "mados-sway-workspace-cycle script missing from /usr/local/bin/",
+        )
+
+    def test_cycle_script_has_shebang(self):
+        """mados-sway-workspace-cycle must have a bash shebang."""
+        with open(self.CYCLE_SCRIPT) as f:
+            first_line = f.readline()
+        self.assertIn("bash", first_line)
+
+    def test_cycle_script_uses_workspace_number(self):
+        """Cycle script must use 'workspace number' for explicit switching."""
+        with open(self.CYCLE_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "workspace number",
+            content,
+            "Script must use 'workspace number N' to create/switch workspaces explicitly",
+        )
+
+    def test_cycle_script_wraps_around(self):
+        """Cycle script must wrap around workspace numbers."""
+        with open(self.CYCLE_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "MAX_WS",
+            content,
+            "Script must define MAX_WS for wrap-around calculation",
+        )
+
+    def test_cycle_script_calls_wallpaper_set(self):
+        """Cycle script must trigger wallpaper change after workspace switch."""
+        with open(self.CYCLE_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-sway-wallpaper-set",
+            content,
+            "Script must call mados-sway-wallpaper-set after switching workspace",
+        )
+
+    def test_profiledef_has_cycle_script_permissions(self):
+        """profiledef.sh must set permissions for mados-sway-workspace-cycle."""
+        profiledef = os.path.join(REPO_DIR, "profiledef.sh")
+        with open(profiledef) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-sway-workspace-cycle",
+            content,
+            "profiledef.sh must include permissions for mados-sway-workspace-cycle",
         )
 
 

@@ -66,6 +66,7 @@ file_permissions=(
   ["/usr/local/bin/mados-wallpaper-glitch"]="0:0:755"
   ["/usr/local/bin/mados-sway-wallpapers"]="0:0:755"
   ["/usr/local/bin/mados-sway-wallpaper-set"]="0:0:755"
+  ["/usr/local/bin/mados-sway-workspace-cycle"]="0:0:755"
   ["/usr/local/bin/mados-audio-player"]="0:0:755"
   ["/usr/local/lib/mados_audio_player/"]="0:0:755"
   ["/usr/local/lib/mados-media-helper.sh"]="0:0:755"
