@@ -19,6 +19,7 @@ import threading
 
 from . import __app_id__, __app_name__, __version__
 from .backend import AudioBackend
+from .database import EqualizerStateDB
 from .presets import (
     PresetManager, FREQUENCY_BANDS, BAND_LABELS, BAND_KEYS,
     GAIN_MIN, GAIN_MAX, GAIN_DEFAULT, BUILTIN_PRESET_ORDER,
@@ -154,14 +155,18 @@ class EqualizerApp:
 
     def __init__(self):
         """Initialize the application, create UI, and show the window."""
-        self.language = detect_system_language()
         self._updating_sliders = False
         self._updating_preset = False
         self._eq_apply_timeout_id = None  # Debounce timer for slider changes
 
-        # Initialize backend and preset manager
+        # Initialize persistence, backend, and preset manager
+        self.state_db = EqualizerStateDB()
         self.backend = AudioBackend()
         self.preset_manager = PresetManager()
+
+        # Load persisted state (language, gains, preset, enabled)
+        saved = self.state_db.load_state()
+        self.language = saved.get("language") or detect_system_language()
 
         # Apply Nord theme
         apply_theme()
@@ -170,12 +175,45 @@ class EqualizerApp:
         self._build_window()
         self._build_ui()
 
+        # Restore persisted gains and preset
+        self._restore_saved_state(saved)
+
         # Load initial state
         self._refresh_device_info()
         self._refresh_volume()
 
         # Show the window
         self.window.show_all()
+
+    def _restore_saved_state(self, saved):
+        """Restore UI state from the persisted database values.
+
+        Args:
+            saved: Dictionary from state_db.load_state().
+        """
+        # Restore gains to sliders
+        saved_gains = saved.get("gains")
+        if saved_gains and len(saved_gains) == 8:
+            self._set_slider_values(saved_gains)
+
+        # Restore selected preset
+        saved_preset = saved.get("preset")
+        if saved_preset:
+            preset = self.preset_manager.get_preset(saved_preset)
+            if preset:
+                self._updating_preset = True
+                self.preset_combo.set_active_id(saved_preset)
+                self._updating_preset = False
+                self.delete_button.set_sensitive(not preset.get("builtin", True))
+
+        # Restore enabled state
+        if saved.get("enabled"):
+            gains = [s.get_value() for s in self.band_scales]
+            self.backend.gains = gains
+            success, message = self.backend.enable_eq()
+            if success:
+                self._update_enable_button(True)
+                self._set_status(self._t("eq_applied"))
 
     def _t(self, key):
         """Get translated text for a key using the current language.
@@ -595,12 +633,14 @@ class EqualizerApp:
 
         Called by GLib.timeout_add after 150 ms of no slider changes.
         Collects current slider values and applies them asynchronously.
+        Also persists the current gains to the database.
 
         Returns:
             False to prevent the timeout from repeating.
         """
         self._eq_apply_timeout_id = None
         gains = [s.get_value() for s in self.band_scales]
+        self.state_db.save_gains(gains)
         self.backend.apply_eq_async(
             gains=gains,
             callback=lambda ok, msg: GLib.idle_add(self._on_eq_applied, ok, msg),
@@ -610,7 +650,8 @@ class EqualizerApp:
     def _on_preset_changed(self, combo):
         """Handle preset selection change.
 
-        Loads the selected preset's gain values into the sliders.
+        Loads the selected preset's gain values into the sliders
+        and persists the selection to the database.
 
         Args:
             combo: The Gtk.ComboBoxText that changed.
@@ -631,6 +672,10 @@ class EqualizerApp:
 
         # Apply preset gains to sliders
         self._set_slider_values(preset['gains'])
+
+        # Persist preset selection and gains
+        self.state_db.save_preset(active_id)
+        self.state_db.save_gains(preset['gains'])
 
     def _set_slider_values(self, gains):
         """Set all 8 band sliders to the given gain values.
@@ -655,6 +700,8 @@ class EqualizerApp:
     def _on_toggle_eq(self, button):
         """Handle the enable/disable toggle button click.
 
+        Persists the new enabled state to the database.
+
         Args:
             button: The Gtk.Button that was clicked.
         """
@@ -663,6 +710,7 @@ class EqualizerApp:
             success, message = self.backend.disable_eq()
             self._update_enable_button(False)
             self._set_status(self._t('eq_disabled'))
+            self.state_db.save_enabled(False)
         else:
             # Enable EQ with current slider values
             gains = [s.get_value() for s in self.band_scales]
@@ -671,6 +719,7 @@ class EqualizerApp:
             if success:
                 self._update_enable_button(True)
                 self._set_status(self._t('eq_applied'))
+                self.state_db.save_enabled(True)
             else:
                 self._update_enable_button(False)
                 self._set_status(self._t(message) if message in TRANSLATIONS.get(self.language, {}) else message)
@@ -799,6 +848,8 @@ class EqualizerApp:
         self.preset_combo.set_active(0)  # Select "Flat"
         self._updating_preset = False
         self.delete_button.set_sensitive(False)
+        self.state_db.save_gains(flat_gains)
+        self.state_db.save_preset("flat")
 
     def _on_volume_changed(self, scale):
         """Handle master volume slider change.
@@ -924,6 +975,8 @@ class EqualizerApp:
     def _on_delete(self, window, event):
         """Handle window close (delete-event).
 
+        Persists the full equalizer state and cleans up the backend.
+
         Args:
             window: The Gtk.Window.
             event: The Gdk.Event.
@@ -935,6 +988,18 @@ class EqualizerApp:
         if self._eq_apply_timeout_id is not None:
             GLib.source_remove(self._eq_apply_timeout_id)
             self._eq_apply_timeout_id = None
+
+        # Persist full state before closing
+        gains = [s.get_value() for s in self.band_scales]
+        preset_key = self.preset_combo.get_active_id() or ""
+        self.state_db.save_state(
+            gains=gains,
+            enabled=self.backend.enabled,
+            preset_key=preset_key,
+            language=self.language,
+        )
+        self.state_db.close()
+
         self.backend.cleanup()
         return False
 

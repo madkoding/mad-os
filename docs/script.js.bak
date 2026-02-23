@@ -85,7 +85,7 @@
                 const originalText = block.textContent;
                 const copyText = 'Copied!';
                 block.textContent = copyText;
-                block.style.color = 'var(--neon-cyan, #00fff5)';
+                block.style.color = 'var(--nord14)';
                 setTimeout(() => {
                     block.textContent = originalText;
                     block.style.color = '';
@@ -95,8 +95,8 @@
     });
 
     // Console branding
-    console.log('%cmadOS', 'font-size: 24px; font-weight: bold; color: #88c0d0; text-shadow: 0 0 10px #88c0d0;');
-    console.log('%cNordic Cyberpunk // AI-Orchestrated Arch Linux', 'font-size: 12px; color: #b48ead;');
+    console.log('%cmadOS', 'font-size: 24px; font-weight: bold; color: #88c0d0;');
+    console.log('%cAI-Orchestrated Arch Linux', 'font-size: 12px; color: #81a1c1;');
     console.log('%chttps://github.com/madkoding/mad-os', 'font-size: 11px; color: #a3be8c;');
 
     // Konami Easter Egg
