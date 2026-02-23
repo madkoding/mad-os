@@ -151,6 +151,7 @@ label {{
 
 .time-label {{
     color: {nord8};
+    /* Falls back to monospace when DSEG7/Digital-7 fonts are not installed */
     font-family: "DSEG7 Classic", "DSEG7 Modern", "Digital-7", monospace;
     font-size: 14px;
     text-shadow: 0 0 6px rgba(136, 192, 208, 0.7), 0 0 12px rgba(136, 192, 208, 0.4);

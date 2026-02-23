@@ -29,6 +29,9 @@ if GST_AVAILABLE:
 class VideoPlayerApp(Gtk.Window):
     """Main video player application window."""
 
+    PLAYLIST_WIDTH = 280
+    MIN_WINDOW_WIDTH = 400
+
     def __init__(self, initial_files=None):
         """Initialize the video player application.
 
@@ -474,7 +477,7 @@ class VideoPlayerApp(Gtk.Window):
         """Build the playlist sidebar panel."""
         panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         panel.get_style_context().add_class("playlist-panel")
-        panel.set_size_request(280, -1)
+        panel.set_size_request(self.PLAYLIST_WIDTH, -1)
 
         # Header
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
@@ -944,12 +947,11 @@ class VideoPlayerApp(Gtk.Window):
         """Resize window when playlist visibility changes."""
         if self._fullscreen_active:
             return
-        playlist_width = 280
         current_width, current_height = self.get_size()
         if self._playlist_visible:
-            self.resize(current_width + playlist_width, current_height)
+            self.resize(current_width + self.PLAYLIST_WIDTH, current_height)
         else:
-            new_width = max(400, current_width - playlist_width)
+            new_width = max(self.MIN_WINDOW_WIDTH, current_width - self.PLAYLIST_WIDTH)
             self.resize(new_width, current_height)
 
     # ------------------------------------------------------------------
