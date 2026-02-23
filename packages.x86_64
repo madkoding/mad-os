@@ -43,6 +43,7 @@ nodejs
 npm
 git
 openssh
+sqlite
 python
 python-gobject
 python-cairo

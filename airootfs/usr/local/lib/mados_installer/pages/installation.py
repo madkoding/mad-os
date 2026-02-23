@@ -1306,6 +1306,15 @@ su - {username} -c "mkdir -p ~/Pictures/{{Wallpapers,Screenshots}}"
 cp -r /etc/skel/.config/* /home/{username}/.config/ 2>/dev/null || true
 cp -r /etc/skel/Pictures/* /home/{username}/Pictures/ 2>/dev/null || true
 cp /etc/skel/.gtkrc-2.0 /home/{username}/.gtkrc-2.0 2>/dev/null || true
+
+# Copy system media content to user directories
+mkdir -p /usr/share/music /usr/share/video
+cp /usr/share/music/* /home/{username}/Music/ 2>/dev/null || true
+cp /usr/share/video/* /home/{username}/Videos/ 2>/dev/null || true
+
+# Install media links profile script for future users
+cp /etc/profile.d/mados-media-links.sh /etc/profile.d/ 2>/dev/null || true
+
 chown -R {username}:{username} /home/{username}
 
 # Set keyboard layout in Sway and Hyprland configs based on locale

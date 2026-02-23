@@ -544,6 +544,7 @@ class PhotoViewerApp(Gtk.Window):
             if result.returncode == 0:
                 self._status_filename.set_text(self._t('wallpaper_set'))
                 self._update_sway_config(filepath)
+                self._update_wallpaper_db(filepath)
             else:
                 self._show_error(self._t('wallpaper_error') + f" ({result.stderr.strip()})")
         except FileNotFoundError:
@@ -571,10 +572,83 @@ class PhotoViewerApp(Gtk.Window):
             )
             self._status_filename.set_text(self._t('wallpaper_set'))
             self._update_hyprland_config(filepath)
+            self._update_wallpaper_db(filepath)
         except FileNotFoundError:
             self._show_error(self._t('wallpaper_error') + " (swaybg not found)")
         except subprocess.TimeoutExpired:
             self._show_error(self._t('wallpaper_error') + " (timeout)")
+
+    def _update_wallpaper_db(self, filepath):
+        """Update the wallpaper SQLite database with the new wallpaper assignment.
+
+        Inserts the wallpaper path into the catalog if missing, then updates
+        the assignment for the current workspace so the wallpaper daemon
+        and keybinding helper will use it on workspace switches.
+
+        Args:
+            filepath: Absolute path to the wallpaper image.
+        """
+        import sqlite3 as _sqlite3
+
+        db_path = os.path.expanduser('~/.local/share/mados/wallpapers.db')
+        if not os.path.isfile(db_path):
+            return
+
+        # Detect current workspace number
+        current_ws = None
+        try:
+            result = subprocess.run(
+                ['swaymsg', '-t', 'get_workspaces'],
+                capture_output=True, text=True, timeout=3
+            )
+            if result.returncode == 0:
+                import json
+                for ws in json.loads(result.stdout):
+                    if ws.get('focused'):
+                        current_ws = ws.get('num')
+                        break
+        except Exception:
+            pass
+
+        if current_ws is None:
+            # Try Hyprland
+            try:
+                result = subprocess.run(
+                    ['hyprctl', 'activeworkspace', '-j'],
+                    capture_output=True, text=True, timeout=3
+                )
+                if result.returncode == 0:
+                    import json
+                    data = json.loads(result.stdout)
+                    current_ws = data.get('id')
+            except Exception:
+                pass
+
+        if current_ws is None:
+            return
+
+        try:
+            conn = _sqlite3.connect(db_path, timeout=5)
+            conn.execute("PRAGMA journal_mode=WAL;")
+            # Ensure the wallpaper is in the catalog
+            conn.execute(
+                "INSERT OR IGNORE INTO wallpapers(path) VALUES(?);",
+                (filepath,)
+            )
+            # Get its id
+            row = conn.execute(
+                "SELECT id FROM wallpapers WHERE path=?;",
+                (filepath,)
+            ).fetchone()
+            if row:
+                conn.execute(
+                    "INSERT OR REPLACE INTO assignments(workspace, wallpaper_id) VALUES(?, ?);",
+                    (current_ws, row[0])
+                )
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass  # Non-critical: wallpaper was already applied visually
 
     def _update_sway_config(self, filepath):
         """Attempt to update the Sway config with the new wallpaper path.

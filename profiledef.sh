@@ -22,6 +22,7 @@ bootstrap_tarball_compression=('zstd' '-c' '-T0' '--auto-threads=logical' '--lon
 file_permissions=(
   ["/etc/shadow"]="0:0:400"
   ["/etc/profile.d/mados-welcome.sh"]="0:0:755"
+  ["/etc/profile.d/mados-media-links.sh"]="0:0:755"
   ["/etc/sudoers.d/99-opencode-nopasswd"]="0:0:440"
   ["/root"]="0:0:750"
   ["/root/customize_airootfs.sh"]="0:0:755"
@@ -64,6 +65,7 @@ file_permissions=(
   ["/usr/local/bin/mados-logs"]="0:0:755"
   ["/usr/local/bin/mados-wallpaper-glitch"]="0:0:755"
   ["/usr/local/bin/mados-sway-wallpapers"]="0:0:755"
+  ["/usr/local/bin/mados-sway-wallpaper-set"]="0:0:755"
   ["/usr/local/bin/mados-audio-player"]="0:0:755"
   ["/usr/local/lib/mados_audio_player/"]="0:0:755"
   ["/usr/local/lib/mados-media-helper.sh"]="0:0:755"

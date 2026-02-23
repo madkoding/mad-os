@@ -3,11 +3,16 @@
 # On startup, assigns a random wallpaper from /usr/share/backgrounds/
 # to each workspace and switches wallpaper with cyberpunk glitch effects
 # on workspace focus events via Hyprland IPC socket.
+#
+# Wallpaper catalog and per-workspace assignments are stored in a SQLite
+# database at ~/.local/share/mados/wallpapers.db so they persist across
+# reboots and can be read/edited by a future wallpaper-settings GUI.
 
 WALLPAPER_DIR="/usr/share/backgrounds"
 MAX_WORKSPACES=10
 LOG_TAG="mados-wallpaper-glitch"
-STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/mados-wallpapers-$$"
+DB_DIR="${HOME}/.local/share/mados"
+DB_PATH="${DB_DIR}/wallpapers.db"
 
 # Transition effects that simulate digital interference / glitch
 TRANSITIONS=("pixelate" "wave" "wipe" "grow")
@@ -18,7 +23,7 @@ log() {
 }
 
 cleanup() {
-    rm -rf "$STATE_DIR" 2>/dev/null
+    log "daemon exiting, database preserved at $DB_PATH"
 }
 trap cleanup EXIT
 
@@ -35,23 +40,65 @@ kill_previous() {
     done
 }
 
-# Collect available wallpaper files into WALLPAPERS array
-collect_wallpapers() {
-    WALLPAPERS=()
-    if [[ -d "$WALLPAPER_DIR" ]]; then
-        while IFS= read -r -d '' file; do
-            WALLPAPERS+=("$file")
-        done < <(find "$WALLPAPER_DIR" -maxdepth 1 -type f \
-            \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
-            -print0 | sort -z)
-    fi
+# ── SQLite helpers ──────────────────────────────────────────────────────
 
-    if [[ ${#WALLPAPERS[@]} -eq 0 ]]; then
+# Initialise the database schema (idempotent)
+init_db() {
+    mkdir -p "$DB_DIR"
+    sqlite3 "$DB_PATH" <<'SQL'
+PRAGMA journal_mode=WAL;
+CREATE TABLE IF NOT EXISTS wallpapers (
+    id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    path TEXT    UNIQUE NOT NULL
+);
+CREATE TABLE IF NOT EXISTS assignments (
+    workspace    INTEGER PRIMARY KEY,
+    wallpaper_id INTEGER NOT NULL REFERENCES wallpapers(id)
+);
+SQL
+    log "database ready at $DB_PATH"
+}
+
+# Synchronise the WALLPAPER_DIR contents into the wallpapers table.
+sync_wallpapers_to_db() {
+    local count
+    while IFS= read -r -d '' file; do
+        local escaped
+        escaped="${file//\'/\'\'}"  
+        sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO wallpapers(path) VALUES('$escaped');"
+    done < <(find "$WALLPAPER_DIR" -maxdepth 1 -type f \
+        \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+        -print0 | sort -z)
+
+    # Remove rows whose files no longer exist on disk
+    sqlite3 "$DB_PATH" "SELECT id, path FROM wallpapers;" | while IFS='|' read -r wid wpath; do
+        if [[ ! -f "$wpath" ]]; then
+            sqlite3 "$DB_PATH" "DELETE FROM wallpapers WHERE id=$wid;"
+            sqlite3 "$DB_PATH" "DELETE FROM assignments WHERE wallpaper_id=$wid;"
+            log "removed missing wallpaper: $wpath"
+        fi
+    done
+
+    count="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM wallpapers;")"
+    if [[ "$count" -eq 0 ]]; then
         log "ERROR: no wallpapers found in $WALLPAPER_DIR"
         return 1
     fi
+    log "wallpaper catalog: $count entries"
+    return 0
+}
 
-    log "found ${#WALLPAPERS[@]} wallpapers in $WALLPAPER_DIR"
+# Collect available wallpaper IDs into WALLPAPERS array
+collect_wallpapers() {
+    WALLPAPERS=()
+    while IFS='|' read -r wid wpath; do
+        WALLPAPERS+=("$wid|$wpath")
+    done < <(sqlite3 "$DB_PATH" "SELECT id, path FROM wallpapers ORDER BY path;")
+    if [[ ${#WALLPAPERS[@]} -eq 0 ]]; then
+        log "ERROR: wallpapers table is empty"
+        return 1
+    fi
+    log "found ${#WALLPAPERS[@]} wallpapers in database"
     return 0
 }
 
@@ -60,30 +107,56 @@ shuffle_wallpapers() {
     local i j tmp
     for (( i=${#WALLPAPERS[@]}-1; i>0; i-- )); do
         j=$(( RANDOM % (i+1) ))
-        tmp="${WALLPAPERS[$i]}"
-        WALLPAPERS[$i]="${WALLPAPERS[$j]}"
-        WALLPAPERS[$j]="$tmp"
+        tmp="${WALLPAPERS[i]}"
+        WALLPAPERS[i]="${WALLPAPERS[j]}"
+        WALLPAPERS[j]="$tmp"
     done
 }
 
-# Write wallpaper assignments to state files (one file per workspace)
+# Write randomised wallpaper assignments into the database.
+# Preserves existing user assignments.
 assign_wallpapers() {
-    mkdir -p "$STATE_DIR"
     local count=${#WALLPAPERS[@]}
+    local existing
+    existing="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM assignments;")"
+
+    if [[ "$existing" -gt 0 ]]; then
+        local invalid
+        invalid="$(sqlite3 "$DB_PATH" \
+            "SELECT a.workspace FROM assignments a LEFT JOIN wallpapers w ON a.wallpaper_id=w.id WHERE w.id IS NULL;")"
+        if [[ -n "$invalid" ]]; then
+            for ws in $invalid; do
+                sqlite3 "$DB_PATH" "DELETE FROM assignments WHERE workspace=$ws;"
+                log "removed stale assignment for workspace $ws"
+            done
+            existing="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM assignments;")"
+        fi
+    fi
+
+    if [[ "$existing" -ge "$MAX_WORKSPACES" ]]; then
+        log "all $MAX_WORKSPACES workspaces already assigned, keeping existing"
+        return 0
+    fi
+
     for (( ws=1; ws<=MAX_WORKSPACES; ws++ )); do
-        local idx=$(( (ws - 1) % count ))
-        echo "${WALLPAPERS[$idx]}" > "$STATE_DIR/ws-$ws"
-        log "workspace $ws -> $(basename "${WALLPAPERS[$idx]}")"
+        local has
+        has="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM assignments WHERE workspace=$ws;")"
+        if [[ "$has" -eq 0 ]]; then
+            local idx=$(( (ws - 1) % count ))
+            local entry="${WALLPAPERS[$idx]}"
+            local wid="${entry%%|*}"
+            local wpath="${entry#*|}"
+            sqlite3 "$DB_PATH" "INSERT OR REPLACE INTO assignments(workspace, wallpaper_id) VALUES($ws, $wid);"
+            log "workspace $ws -> $(basename "$wpath")"
+        fi
     done
 }
 
-# Read wallpaper path for a given workspace number from state file
+# Read wallpaper path for a given workspace from the database
 get_wallpaper_for_ws() {
     local ws="$1"
-    local file="$STATE_DIR/ws-$ws"
-    if [[ -f "$file" ]]; then
-        cat "$file"
-    fi
+    sqlite3 "$DB_PATH" \
+        "SELECT w.path FROM assignments a JOIN wallpapers w ON a.wallpaper_id=w.id WHERE a.workspace=$ws LIMIT 1;"
 }
 
 get_random_transition() {
@@ -117,7 +190,7 @@ set_wallpaper() {
 ### Main ###
 
 # Bail out early if required tools are missing
-for cmd in swww socat; do
+for cmd in swww socat sqlite3; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         log "required command not found: $cmd — exiting silently"
         exit 0
@@ -146,7 +219,11 @@ if ! swww query >/dev/null 2>&1; then
     exit 1
 fi
 
-# Collect wallpapers, shuffle, write assignments to state files
+# Initialise / update wallpaper database
+init_db
+sync_wallpapers_to_db || exit 1
+
+# Collect, shuffle, assign
 declare -a WALLPAPERS=()
 collect_wallpapers || exit 1
 shuffle_wallpapers
@@ -164,24 +241,25 @@ log "initial wallpaper set for workspace $current_ws"
 # Track last workspace to avoid redundant wallpaper changes
 last_ws="$current_ws"
 
-# Listen for workspace change events from Hyprland IPC socket
+# Listen for workspace change events from Hyprland IPC socket.
+# Use process substitution (< <(...)) instead of pipe to avoid subshell,
+# so that last_ws variable updates are visible in the main shell.
 log "starting workspace event subscription"
-socat -u "UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock" - 2>/dev/null \
-    | while IFS= read -r event; do
-        case "$event" in
-            workspace\>*)
-                ws_num="${event#workspace>}"
-                # Only change if workspace actually changed
-                if [[ -n "$ws_num" && "$ws_num" =~ ^[0-9]+$ && "$ws_num" != "$last_ws" ]]; then
-                    wp="$(get_wallpaper_for_ws "$ws_num")"
-                    if [[ -n "$wp" ]]; then
-                        set_wallpaper "$wp" "true"
-                        last_ws="$ws_num"
-                        log "workspace $ws_num -> $(basename "$wp")"
-                    fi
+while IFS= read -r event; do
+    case "$event" in
+        workspace\>*)
+            ws_num="${event#workspace>}"
+            # Only change if workspace actually changed
+            if [[ -n "$ws_num" && "$ws_num" =~ ^[0-9]+$ && "$ws_num" != "$last_ws" ]]; then
+                wp="$(get_wallpaper_for_ws "$ws_num")"
+                if [[ -n "$wp" ]]; then
+                    set_wallpaper "$wp" "true"
+                    last_ws="$ws_num"
+                    log "workspace $ws_num -> $(basename "$wp")"
                 fi
-                ;;
-        esac
-    done
+            fi
+            ;;
+    esac
+done < <(socat -u "UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock" - 2>/dev/null)
 
 log "workspace subscription ended, exiting"
