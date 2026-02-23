@@ -395,7 +395,7 @@ jobs:
             echo "is_prerelease=${{ needs.auto-tag.outputs.is_prerelease }}" >> "$GITHUB_OUTPUT"
             echo "release_type=${{ needs.auto-tag.outputs.release_type }}" >> "$GITHUB_OUTPUT"
             echo "auto_tag=$AUTO_TAG" >> "$GITHUB_OUTPUT"
-            echo "version=$AUTO_VERSION" >> "$GITHUB_ENV"
+            echo "VERSION=$AUTO_VERSION" >> "$GITHUB_ENV"
 
           elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             # Manual tag push: use the tag as-is
@@ -422,7 +422,7 @@ jobs:
               echo "auto_tag=" >> "$GITHUB_OUTPUT"
             fi
             VERSION="${TAG#v}"
-            echo "version=$VERSION" >> "$GITHUB_ENV"
+            echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
           else
             # Manual dispatch or other
