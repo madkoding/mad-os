@@ -265,7 +265,7 @@ class TestHyprlandInstallerAutostart(unittest.TestCase):
         # Check for window rules with title matching (comma separates rule from matcher)
         self.assertRegex(
             self.content,
-            r'windowrule.*,.*match:title.*madOS Installer',
+            r'windowrule\s*=.*,\s*match:title\s*\^\(madOS Installer\)',
             "Hyprland config must have windowrule matching madOS Installer title",
         )
 
