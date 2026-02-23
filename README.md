@@ -411,7 +411,7 @@ Contributions are welcome. Areas for contribution:
 
 | Project | Description | Repository |
 |---------|-------------|------------|
-| **OpenCode** | AI coding assistant | [github.com/opencode-ai/opencode](https://github.com/opencode-ai/opencode) |
+| **OpenCode** | AI coding assistant | [opencode.ai](https://opencode.ai) |
 | **Ollama** | Local LLM runner | [github.com/ollama/ollama](https://github.com/ollama/ollama) |
 | **Node.js** | JavaScript runtime | [nodejs.org](https://nodejs.org/) |
 | **Git** | Version control system | [git-scm.com](https://git-scm.com/) |
