@@ -205,6 +205,9 @@ bindsym --locked XF86AudioMicMute exec wpctl set-mute @DEFAULT_AUDIO_SOURCE@ tog
 bindsym --locked XF86MonBrightnessDown exec brightnessctl set 5%-
 bindsym --locked XF86MonBrightnessUp exec brightnessctl set 5%+
 
+# On-screen keyboard toggle
+bindsym $mod+F12 exec mados-squeekboard toggle
+
 # Screenshots - Using grim/slurp (native Wayland, works on Sway)
 # Ensure Pictures/Screenshots directory exists
 exec_always --no-startup-id mkdir -p ~/Pictures/Screenshots
@@ -229,6 +232,13 @@ exec --no-startup-id env GDK_BACKEND=wayland blueman-applet
 # madOS Application Launcher dock
 exec --no-startup-id mados-launcher
 
+# Steam Deck / Gamepad → WM bridge (translates gamepad buttons to sway commands)
+# Only activates when a gamepad is detected; exits cleanly if none found
+exec --no-startup-id mados-gamepad-wm --compositor sway
+
+# On-screen keyboard (squeekboard) — auto-activates when no physical keyboard detected
+exec --no-startup-id mados-squeekboard auto
+
 # VirtualBox Guest Additions (auto-resize, clipboard, drag-and-drop)
 # Only runs when inside a VirtualBox VM, exits immediately otherwise
 exec --no-startup-id mados-vbox-guest
@@ -251,6 +261,9 @@ for_window [app_id="mados-pdf-viewer"] resize set 900 700
 # Audio Equalizer - floating utility
 for_window [app_id="mados-equalizer"] floating enable
 for_window [app_id="mados-equalizer"] resize set 750 450
+
+# Squeekboard on-screen keyboard — keep at bottom, no focus steal
+for_window [app_id="sm.puri.Squeekboard"] floating enable
 
 ### System includes
 include /etc/sway/config.d/*

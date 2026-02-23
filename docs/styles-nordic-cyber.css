@@ -809,12 +809,103 @@ img {
     height: auto;
 }
 
+/* Bindings Tabs */
+.bindings-tabs {
+    display: flex;
+    gap: var(--s2);
+    margin-top: var(--s6);
+    margin-bottom: 0;
+    border-bottom: 2px solid rgba(93, 216, 238, 0.15);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.bindings-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.bindings-tab {
+    display: flex;
+    align-items: center;
+    gap: var(--s2);
+    padding: var(--s3) var(--s5);
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    white-space: nowrap;
+    position: relative;
+    bottom: -2px;
+}
+
+.bindings-tab svg {
+    opacity: 0.5;
+    transition: opacity 0.25s;
+    flex-shrink: 0;
+}
+
+.bindings-tab:hover {
+    color: var(--neon-cyan);
+    border-bottom-color: rgba(93, 216, 238, 0.3);
+}
+
+.bindings-tab:hover svg {
+    opacity: 0.8;
+}
+
+.bindings-tab.active {
+    color: var(--neon-cyan);
+    border-bottom-color: var(--neon-cyan);
+    text-shadow: 0 0 8px rgba(93, 216, 238, 0.4);
+}
+
+.bindings-tab.active svg {
+    opacity: 1;
+    filter: drop-shadow(0 0 4px rgba(93, 216, 238, 0.4));
+}
+
+.bindings-panel {
+    display: none;
+}
+
+.bindings-panel.active {
+    display: block;
+    animation: fadeInPanel 0.3s ease;
+}
+
+@keyframes fadeInPanel {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.bindings-note {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: var(--s4);
+    margin-bottom: 0;
+    padding: var(--s3) var(--s4);
+    background: rgba(93, 216, 238, 0.05);
+    border-left: 3px solid var(--neon-cyan);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.bindings-note strong {
+    color: var(--neon-cyan);
+}
+
 /* Keyboard Shortcuts Grid */
 .shortcuts-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--s5);
-    margin-top: var(--s6);
+    margin-top: var(--s5);
 }
 
 .shortcuts-group {
@@ -924,6 +1015,15 @@ kbd:active {
 kbd.wide {
     padding: 0 12px;
     min-width: 48px;
+}
+
+kbd.brand-key {
+    padding: 0 6px;
+    min-width: 28px;
+}
+
+kbd.brand-key svg {
+    display: block;
 }
 
 /* ============================================
@@ -2037,6 +2137,15 @@ kbd.wide {
         grid-template-columns: repeat(2, 1fr);
     }
 
+    .bindings-tabs {
+        gap: var(--s1);
+    }
+
+    .bindings-tab {
+        padding: var(--s2) var(--s4);
+        font-size: 0.75rem;
+    }
+
     .hardware-grid {
         grid-template-columns: 1fr;
     }
@@ -2160,7 +2269,7 @@ kbd.wide {
     }
 
     .features-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
     }
 
     .feature-card {
@@ -2388,6 +2497,10 @@ kbd.wide {
         padding: var(--s4);
     }
 
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+
     .feature-text h3 {
         font-size: 1rem;
     }
@@ -2402,6 +2515,22 @@ kbd.wide {
 
     .shortcut-row {
         padding: var(--s1) 0;
+    }
+
+    .bindings-tab {
+        padding: var(--s2) var(--s3);
+        font-size: 0.7rem;
+        gap: var(--s1);
+    }
+
+    .bindings-tab svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .bindings-note {
+        font-size: 0.75rem;
+        padding: var(--s2) var(--s3);
     }
 
     .download-card {

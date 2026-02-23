@@ -1,0 +1,279 @@
+#!/usr/bin/env bash
+# mados-squeekboard - Auto-detect keyboard presence and manage squeekboard
+#
+# Monitors for physical keyboard devices. When no physical keyboard is
+# detected, starts squeekboard (on-screen virtual keyboard). When a
+# physical keyboard is connected, squeekboard is stopped.
+#
+# Usage:
+#   mados-squeekboard              # Auto-detect and monitor (default)
+#   mados-squeekboard start        # Force start squeekboard
+#   mados-squeekboard stop         # Force stop squeekboard
+#   mados-squeekboard status       # Show current status
+#   mados-squeekboard toggle       # Toggle squeekboard on/off
+
+set -euo pipefail
+
+LOGGER_TAG="mados-squeekboard"
+SQUEEKBOARD_PID_FILE="${XDG_RUNTIME_DIR:-/tmp}/mados-squeekboard.pid"
+FORCE_FILE="${XDG_RUNTIME_DIR:-/tmp}/mados-squeekboard-force"
+
+# ── Helpers ──────────────────────────────────────────────────────────────
+
+log_info() {
+    logger -p user.info -t "$LOGGER_TAG" "$*" 2>/dev/null || true
+    echo "[INFO] $*"
+}
+
+log_warn() {
+    logger -p user.warning -t "$LOGGER_TAG" "$*" 2>/dev/null || true
+    echo "[WARN] $*" >&2
+}
+
+# Check if squeekboard binary is available
+check_squeekboard() {
+    if ! command -v squeekboard >/dev/null 2>&1; then
+        log_warn "squeekboard not found - install with: sudo pacman -S squeekboard"
+        exit 1
+    fi
+}
+
+# Detect if any physical keyboard is connected
+# Returns 0 if a physical keyboard is found, 1 otherwise
+has_physical_keyboard() {
+    local found=false
+
+    # Method 1: Check /sys/class/input for keyboard devices
+    for dev in /sys/class/input/event*; do
+        [[ -d "$dev" ]] || continue
+        local capabilities_file="$dev/device/capabilities/key"
+        [[ -f "$capabilities_file" ]] || continue
+
+        # Read key capabilities bitmap
+        local keys
+        keys=$(cat "$capabilities_file" 2>/dev/null) || continue
+
+        # A physical keyboard has key capability bits for alphabet keys
+        # The key bitmap for a full keyboard typically has bits set in the
+        # range corresponding to KEY_Q (16) through KEY_P (25), etc.
+        # A keyboard bitmap usually has a long hex string; mice/gamepads are shorter
+        # Full keyboards: multiple hex groups with extensive bits
+        # Check that the capability line has enough hex groups (at least 3 space-separated)
+        local num_groups
+        num_groups=$(echo "$keys" | wc -w)
+        if [[ "$num_groups" -ge 3 ]]; then
+            # Verify this isn't a power button or other special device
+            local name_file="$dev/device/name"
+            local dev_name=""
+            [[ -f "$name_file" ]] && dev_name=$(cat "$name_file" 2>/dev/null)
+
+            # Skip known non-keyboard devices
+            case "$dev_name" in
+                *"Power Button"*|*"Sleep Button"*|*"Lid Switch"*|*"Video Bus"*) continue ;;
+                *"PC Speaker"*|*"gpio"*|*"rfkill"*) continue ;;
+                # Skip gamepad/joystick devices
+                *"gamepad"*|*"Gamepad"*|*"joystick"*|*"Joystick"*) continue ;;
+                # Skip virtual keyboard (squeekboard itself)
+                *"squeekboard"*|*"Squeekboard"*|*"Virtual"*) continue ;;
+            esac
+
+            # Additional check: verify EV capabilities include EV_KEY (bit 1) and EV_REP (bit 4)
+            local ev_file="$dev/device/capabilities/ev"
+            if [[ -f "$ev_file" ]]; then
+                local ev_caps
+                ev_caps=$(cat "$ev_file" 2>/dev/null) || continue
+                # EV_KEY=0x1, EV_REP=0x10 → combined bit mask must include 0x11 = 17 (decimal)
+                local ev_hex="${ev_caps##* }"  # last hex group
+                local ev_dec=$((16#${ev_hex}))
+                # Check that both EV_KEY (bit 1) and EV_REP (bit 4) are set → keyboard
+                if (( (ev_dec & 0x12) == 0x12 )); then
+                    found=true
+                    break
+                fi
+            fi
+        fi
+    done
+
+    $found && return 0 || return 1
+}
+
+# Start squeekboard
+start_squeekboard() {
+    # Don't start if already running
+    if is_running; then
+        log_info "squeekboard is already running"
+        return 0
+    fi
+
+    # Check Wayland session
+    if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+        log_warn "No Wayland display detected, cannot start squeekboard"
+        return 1
+    fi
+
+    log_info "Starting squeekboard (on-screen keyboard)"
+
+    # Set environment for GTK layer shell (bottom panel)
+    export GDK_BACKEND=wayland
+
+    squeekboard &
+    local pid=$!
+    echo "$pid" > "$SQUEEKBOARD_PID_FILE"
+
+    log_info "squeekboard started (PID: $pid)"
+    return 0
+}
+
+# Stop squeekboard
+stop_squeekboard() {
+    if [[ -f "$SQUEEKBOARD_PID_FILE" ]]; then
+        local pid
+        pid=$(cat "$SQUEEKBOARD_PID_FILE" 2>/dev/null)
+        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" 2>/dev/null
+            log_info "squeekboard stopped (PID: $pid)"
+        fi
+        rm -f "$SQUEEKBOARD_PID_FILE"
+    fi
+
+    # Also kill any stray squeekboard processes
+    pkill -f "squeekboard" 2>/dev/null || true
+}
+
+# Check if squeekboard is running
+is_running() {
+    if [[ -f "$SQUEEKBOARD_PID_FILE" ]]; then
+        local pid
+        pid=$(cat "$SQUEEKBOARD_PID_FILE" 2>/dev/null)
+        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            return 0
+        fi
+        rm -f "$SQUEEKBOARD_PID_FILE"
+    fi
+    pgrep -x squeekboard >/dev/null 2>&1
+}
+
+# Toggle squeekboard on/off
+toggle_squeekboard() {
+    if is_running; then
+        stop_squeekboard
+        touch "$FORCE_FILE"
+        echo "off" > "$FORCE_FILE"
+        echo "squeekboard: OFF"
+    else
+        start_squeekboard
+        touch "$FORCE_FILE"
+        echo "on" > "$FORCE_FILE"
+        echo "squeekboard: ON"
+    fi
+}
+
+# Show status
+show_status() {
+    echo "=== madOS Squeekboard Status ==="
+    if is_running; then
+        echo "  State:    RUNNING"
+        local pid
+        pid=$(cat "$SQUEEKBOARD_PID_FILE" 2>/dev/null || pgrep -x squeekboard 2>/dev/null | head -1)
+        echo "  PID:      ${pid:-unknown}"
+    else
+        echo "  State:    STOPPED"
+    fi
+
+    if has_physical_keyboard; then
+        echo "  Keyboard: DETECTED (physical keyboard connected)"
+    else
+        echo "  Keyboard: NOT DETECTED (no physical keyboard)"
+    fi
+
+    if [[ -f "$FORCE_FILE" ]]; then
+        local force_state
+        force_state=$(cat "$FORCE_FILE" 2>/dev/null)
+        echo "  Override: $force_state (manual override active)"
+    else
+        echo "  Override: none (auto-detect mode)"
+    fi
+}
+
+# Monitor mode: watch for keyboard connect/disconnect events
+monitor_keyboard() {
+    log_info "Starting keyboard monitor (auto-detect mode)"
+
+    # Initial check
+    if has_physical_keyboard; then
+        log_info "Physical keyboard detected - squeekboard not needed"
+    else
+        log_info "No physical keyboard detected - starting squeekboard"
+        start_squeekboard
+    fi
+
+    # Monitor udev events for input device changes
+    # Uses udevadm monitor to watch for keyboard add/remove
+    if ! command -v udevadm >/dev/null 2>&1; then
+        log_warn "udevadm not found, running in single-check mode"
+        # Keep running so the compositor exec doesn't restart
+        while true; do sleep 3600; done
+        return
+    fi
+
+    udevadm monitor --subsystem-match=input --udev 2>/dev/null | while read -r line; do
+        case "$line" in
+            *"add"*|*"remove"*)
+                # Small delay to let the device settle
+                sleep 1
+
+                # Skip if user has forced a state
+                if [[ -f "$FORCE_FILE" ]]; then
+                    continue
+                fi
+
+                if has_physical_keyboard; then
+                    if is_running; then
+                        log_info "Physical keyboard connected - stopping squeekboard"
+                        stop_squeekboard
+                    fi
+                else
+                    if ! is_running; then
+                        log_info "Physical keyboard disconnected - starting squeekboard"
+                        start_squeekboard
+                    fi
+                fi
+                ;;
+        esac
+    done
+}
+
+# ── Main ─────────────────────────────────────────────────────────────────
+
+check_squeekboard
+
+case "${1:-auto}" in
+    start)
+        start_squeekboard
+        ;;
+    stop)
+        stop_squeekboard
+        ;;
+    toggle)
+        toggle_squeekboard
+        ;;
+    status)
+        show_status
+        ;;
+    auto|monitor)
+        # Clear any previous force state
+        rm -f "$FORCE_FILE"
+        monitor_keyboard
+        ;;
+    *)
+        echo "Usage: mados-squeekboard {auto|start|stop|toggle|status}"
+        echo ""
+        echo "Commands:"
+        echo "  auto     Auto-detect keyboard and monitor for changes (default)"
+        echo "  start    Force start squeekboard"
+        echo "  stop     Force stop squeekboard"
+        echo "  toggle   Toggle squeekboard on/off"
+        echo "  status   Show current status"
+        exit 1
+        ;;
+esac

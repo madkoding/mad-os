@@ -1,0 +1,21 @@
+[Unit]
+Description=Download Meli Tech Demo if persistence available
+After=network-online.target mados-persistence-detect.service
+Wants=network-online.target
+# Only run if persistence is available and 3D is present
+ConditionPathIsDirectory=/mnt/persistence
+ConditionPathExists=/dev/dri/renderD128
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=HOME=/home/mados
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+Environment=PYTHONPATH=/usr/local/lib
+ExecStart=/usr/local/bin/setup-meli-demo.sh
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

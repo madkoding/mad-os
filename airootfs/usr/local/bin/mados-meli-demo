@@ -1,0 +1,265 @@
+#!/bin/bash
+# mados-meli-demo - Launcher for Meli Tech Demo
+# Checks for Vulkan/3D acceleration before launching.
+# If the game is not installed, offers to download it.
+#
+# Meli Tech Demo by WilliamsMyGL (itch.io)
+# Requires: Vulkan-capable GPU, 4GB RAM recommended
+
+set -uo pipefail
+
+GAME_NAME="Meli Tech Demo"
+INSTALL_DIR="/opt/meli-demo"
+PERSIST_DIR="/mnt/persistence/opt/meli-demo"
+EXECUTABLE_MARKER=".game-executable"
+SETUP_SCRIPT="/usr/local/bin/setup-meli-demo.sh"
+
+# --- Vulkan/3D Detection ---
+
+check_vulkan_support() {
+    # Check 1: DRM render node must exist (indicates GPU with rendering capability)
+    if [[ ! -e /dev/dri/renderD128 ]]; then
+        return 1
+    fi
+
+    # Check 2: Verify Vulkan ICD (Installable Client Driver) files exist
+    local has_vulkan_icd=false
+    if ls /usr/share/vulkan/icd.d/*.json >/dev/null 2>&1; then
+        has_vulkan_icd=true
+    fi
+    # Also check /etc/vulkan/icd.d/ (alternative location)
+    if ls /etc/vulkan/icd.d/*.json >/dev/null 2>&1; then
+        has_vulkan_icd=true
+    fi
+
+    if [[ "$has_vulkan_icd" == false ]]; then
+        return 1
+    fi
+
+    # Check 3: If vulkaninfo is available, do a real check
+    if command -v vulkaninfo >/dev/null 2>&1; then
+        if vulkaninfo --summary 2>/dev/null | grep -qi "vulkan"; then
+            return 0
+        fi
+        # vulkaninfo failed - Vulkan not working
+        return 1
+    fi
+
+    # Check 4: Verify DRM driver supports 3D
+    # Use the detect-legacy-hardware function if available
+    if [[ -x /usr/local/bin/detect-legacy-hardware ]]; then
+        local hw_result
+        hw_result=$(/usr/local/bin/detect-legacy-hardware 2>/dev/null)
+        local hw_exit=$?
+
+        # detect-legacy-hardware returns 0 for legacy (no 3D), 1 for modern (has 3D)
+        if [[ $hw_exit -eq 0 ]]; then
+            # Legacy hardware detected - no 3D
+            # Exception: VMs with 3D acceleration
+            if echo "$hw_result" | grep -q "VM with 3D acceleration"; then
+                return 0
+            fi
+            return 1
+        fi
+        # Modern hardware - has 3D
+        return 0
+    fi
+
+    # Check 5: Fallback - check DRM driver type
+    local drm_driver=""
+    for card in /sys/class/drm/card*/device/driver; do
+        if [[ -L "$card" ]]; then
+            drm_driver=$(basename "$(readlink "$card")")
+            break
+        fi
+    done
+
+    case "$drm_driver" in
+        i915|amdgpu|radeon|nouveau|nvidia|vmwgfx|virtio-gpu|virgl)
+            return 0
+            ;;
+    esac
+
+    # Check 6: EGL test
+    if command -v eglinfo >/dev/null 2>&1; then
+        if eglinfo 2>/dev/null | grep -qi "OpenGL"; then
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+check_nomodeset() {
+    # nomodeset disables GPU drivers - no 3D possible
+    grep -q 'nomodeset' /proc/cmdline 2>/dev/null
+}
+
+# --- Game Management ---
+
+find_game_dir() {
+    # Check persistence first
+    if [[ -f "$PERSIST_DIR/$EXECUTABLE_MARKER" ]]; then
+        echo "$PERSIST_DIR"
+        return 0
+    fi
+
+    # Check standard location
+    if [[ -f "$INSTALL_DIR/$EXECUTABLE_MARKER" ]]; then
+        echo "$INSTALL_DIR"
+        return 0
+    fi
+
+    # Check if INSTALL_DIR is a symlink to persistence
+    if [[ -L "$INSTALL_DIR" ]] && [[ -f "$(readlink -f "$INSTALL_DIR")/$EXECUTABLE_MARKER" ]]; then
+        echo "$(readlink -f "$INSTALL_DIR")"
+        return 0
+    fi
+
+    return 1
+}
+
+get_game_executable() {
+    local game_dir="$1"
+
+    if [[ -f "$game_dir/$EXECUTABLE_MARKER" ]]; then
+        local exe
+        exe=$(cat "$game_dir/$EXECUTABLE_MARKER")
+        if [[ -x "$exe" ]]; then
+            echo "$exe"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+show_no_vulkan_message() {
+    local msg="$GAME_NAME requiere aceleración 3D con Vulkan.\n\n"
+    msg+="Tu hardware actual no soporta Vulkan o no tiene aceleración 3D habilitada.\n\n"
+    msg+="Requisitos mínimos:\n"
+    msg+="  • GPU: NVIDIA GT 1030 o equivalente\n"
+    msg+="  • 4 GB RAM\n"
+    msg+="  • Soporte Vulkan\n\n"
+
+    if check_nomodeset; then
+        msg+="NOTA: El sistema arrancó con 'nomodeset' que desactiva la aceleración 3D.\n"
+        msg+="Reinicia sin ese parámetro para habilitar aceleración por GPU."
+    fi
+
+    # Try swaynag (Sway's built-in notification bar)
+    if command -v swaynag >/dev/null 2>&1; then
+        swaynag -t warning \
+            -m "$GAME_NAME requiere aceleración 3D (Vulkan). Tu hardware no cumple los requisitos." \
+            --button "Cerrar" "echo ok" &
+        return
+    fi
+
+    # Fallback: show in terminal
+    echo ""
+    echo "  ╔══════════════════════════════════════════╗"
+    echo "  ║   Vulkan/3D no disponible                ║"
+    echo "  ╚══════════════════════════════════════════╝"
+    echo ""
+    echo -e "$msg"
+}
+
+show_install_prompt() {
+    # Try swaynag for graphical prompt
+    if command -v swaynag >/dev/null 2>&1; then
+        swaynag -t warning \
+            -m "$GAME_NAME no está instalado. ¿Deseas descargarlo? (~400MB)" \
+            --button "Descargar" "foot -T 'Meli Demo Setup' -e $SETUP_SCRIPT" \
+            --button "Cancelar" "echo cancel" &
+        return 0
+    fi
+
+    # Terminal mode: just run setup directly
+    return 1
+}
+
+# --- Main ---
+
+main() {
+    # Check for Vulkan/3D support
+    if check_nomodeset; then
+        show_no_vulkan_message
+        exit 1
+    fi
+
+    if ! check_vulkan_support; then
+        show_no_vulkan_message
+        exit 1
+    fi
+
+    # Check if game is installed
+    local game_dir
+    game_dir=$(find_game_dir 2>/dev/null) || true
+
+    if [[ -z "$game_dir" ]]; then
+        # Game not installed - prompt to download
+        if [[ -t 1 ]]; then
+            # Running in a terminal - run setup directly
+            echo ""
+            echo "  $GAME_NAME no está instalado."
+            echo "  Iniciando descarga (~400MB)..."
+            echo ""
+
+            if [[ -x "$SETUP_SCRIPT" ]]; then
+                bash "$SETUP_SCRIPT"
+                # Re-check after installation
+                game_dir=$(find_game_dir 2>/dev/null) || true
+            else
+                echo "  Error: Script de instalación no encontrado: $SETUP_SCRIPT"
+                exit 1
+            fi
+        else
+            # Not in a terminal - show graphical prompt
+            if ! show_install_prompt; then
+                # Fallback: open a terminal with the setup script
+                if command -v foot >/dev/null 2>&1; then
+                    foot -T "Meli Demo Setup" -e "$SETUP_SCRIPT"
+                    # Re-check after installation
+                    game_dir=$(find_game_dir 2>/dev/null) || true
+                fi
+            fi
+        fi
+
+        # Verify installation succeeded
+        if [[ -z "$game_dir" ]]; then
+            exit 1
+        fi
+    fi
+
+    # Get the game executable
+    local game_exe
+    game_exe=$(get_game_executable "$game_dir")
+
+    if [[ -z "$game_exe" ]]; then
+        echo "  Error: No se encontró el ejecutable del juego en $game_dir"
+        echo "  Intenta reinstalar: setup-meli-demo.sh"
+        exit 1
+    fi
+
+    # Launch the game
+    echo "  Lanzando $GAME_NAME..."
+    logger -p user.info -t mados-meli-demo "Launching $GAME_NAME: $game_exe" 2>/dev/null || true
+
+    local game_basedir
+    game_basedir=$(dirname "$game_exe")
+
+    cd "$game_basedir" || exit 1
+
+    # Set environment for optimal Vulkan performance
+    export SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-wayland,x11}"
+    export DXVK_LOG_LEVEL="${DXVK_LOG_LEVEL:-none}"
+
+    # Disable Wayland for Unreal Engine games (UE4/5 have Wayland issues)
+    # Force X11 via XWayland for better compatibility
+    export SDL_VIDEODRIVER="x11"
+
+    # Launch the game
+    exec "$game_exe" "$@"
+}
+
+main "$@"

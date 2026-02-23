@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Meli Tech Demo
+Name[es]=Meli Tech Demo
+Comment=Dive into the void with Meli - A tech demo by WilliamsMyGL
+Comment[es]=Sumérgete en el vacío con Meli - Tech demo de WilliamsMyGL
+Exec=mados-meli-demo
+Icon=applications-games
+Terminal=false
+Type=Application
+Categories=Game;ActionGame;
+Keywords=meli;game;demo;vulkan;3d;
