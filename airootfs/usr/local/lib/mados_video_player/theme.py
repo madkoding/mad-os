@@ -114,9 +114,9 @@ button:disabled {{
 
 /* Transport button (play/pause/stop) */
 .transport-btn {{
-    font-size: 16px;
-    min-width: 36px;
-    min-height: 36px;
+    font-size: 22px;
+    min-width: 44px;
+    min-height: 44px;
     border-radius: 4px;
     padding: 4px;
 }}
@@ -151,8 +151,11 @@ label {{
 
 .time-label {{
     color: {nord8};
-    font-family: monospace;
-    font-size: 12px;
+    /* Falls back to monospace when DSEG7/Digital-7 fonts are not installed */
+    font-family: "DSEG7 Classic", "DSEG7 Modern", "Digital-7", monospace;
+    font-size: 14px;
+    text-shadow: 0 0 6px rgba(136, 192, 208, 0.7), 0 0 12px rgba(136, 192, 208, 0.4);
+    letter-spacing: 1px;
 }}
 
 .title-label {{
