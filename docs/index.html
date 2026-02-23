@@ -125,6 +125,7 @@ layout: none
                 <li><a href="#hardware">Hardware</a></li>
                 <li><a href="#download">Download</a></li>
                 <li><a href="#credits">Credits</a></li>
+                <li><a href="#roadmap">Roadmap</a></li>
                 <li><a href="https://github.com/madkoding/mad-os" target="_blank" rel="noopener" class="nav-github">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
                     <span>GitHub</span>
@@ -824,6 +825,310 @@ layout: none
         </div>
     </section>
 
+    <!-- Roadmap -->
+    <section id="roadmap" class="roadmap">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">Development Plan</span>
+                <h2>Roadmap</h2>
+                <p>Reliability, ROI & Scalability — our path to a production-grade AI Linux distro</p>
+            </div>
+
+            <div class="roadmap-pillars">
+                <!-- Reliability Pillar -->
+                <div class="roadmap-pillar">
+                    <div class="roadmap-pillar-header">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        <h3>Reliability</h3>
+                    </div>
+                    <div class="roadmap-items">
+                        <div class="roadmap-item priority-high">
+                            <div class="roadmap-item-header">
+                                <span class="roadmap-badge badge-high">P1</span>
+                                <span class="roadmap-status status-planned">Planned</span>
+                            </div>
+                            <h4>Externalize Bash Templates</h4>
+                            <p>Move ~600 LoC of inline bash from Python installer to standalone .sh templates validated by ShellCheck</p>
+                            <div class="roadmap-tags">
+                                <span class="tag-impact">High Impact</span>
+                                <span class="tag-effort">Medium Effort</span>
+                            </div>
+                        </div>
+                        <div class="roadmap-item priority-high">
+                            <div class="roadmap-item-header">
+                                <span class="roadmap-badge badge-high">P3</span>
+                                <span class="roadmap-status status-planned">Planned</span>
+                            </div>
+                            <h4>Phase 2 Rollback & Recovery</h4>
+                            <p>Checkpoint system for first-boot script with resume-on-failure and user notification via Waybar widget</p>
+                            <div class="roadmap-tags">
+                                <span class="tag-impact">High Impact</span>
+                                <span class="tag-effort">Medium Effort</span>
+                            </div>
+                        </div>
+                        <div class="roadmap-item priority-medium">
+                            <div class="roadmap-item-header">
+                                <span class="roadmap-badge badge-medium">P4</span>
+                                <span class="roadmap-status status-planned">Planned</span>
+                            </div>
+                            <h4>Strict ShellCheck in CI</h4>
+                            <p>Remove continue-on-error from CI pipeline so lint failures block releases</p>
+                            <div class="roadmap-tags">
+                                <span class="tag-impact">Medium Impact</span>
+                                <span class="tag-effort">Low Effort</span>
+                            </div>
+                        </div>
+                        <div class="roadmap-item priority-low">
+                            <div class="roadmap-item-header">
+                                <span class="roadmap-badge badge-low">P10</span>
+                                <span class="roadmap-status status-planned">Planned</span>
+                            </div>
+                            <h4>Post-Install Health Checks</h4>
+                            <p>mados-health-check script verifying services, disk space, ZRAM, network and GPU detection</p>
+                            <div class="roadmap-tags">
+                                <span class="tag-impact">Medium Impact</span>
+                                <span class="tag-effort">Medium Effort</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ROI Pillar -->
+                <div class="roadmap-pillar">
+                    <div class="roadmap-pillar-header">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                        <h3>ROI</h3>
+                    </div>
+                    <div class="roadmap-items">
+                        <div class="roadmap-item priority-high">
+                            <div class="roadmap-item-header">
+                                <span class="roadmap-badge badge-high">P2</span>
+                                <span class="roadmap-status status-planned">Planned</span>
+                            </div>
+                            <h4>Modular Installer Refactor</h4>
+                            <p>Split 1800-line installation.py into partitioning, packages, config_generator and file_copier modules</p>
+                            <div class="roadmap-tags">
+                                <span class="tag-impact">High Impact</span>
+                                <span class="tag-effort">High Effort</span>
+                            </div>
+                        </div>
+                        <div class="roadmap-item priority-medium">
+                            <div class="roadmap-item-header">
+                                <span class="roadmap-badge badge-medium">P5</span>
+                                <span class="roadmap-status status-planned">Planned</span>
+                            </div>
+                            <h4>Phase 2 Progress Indicator</h4>
+                            <p>Dynamic MOTD banner and Waybar widget showing first-boot setup progress in real time</p>
+                            <div class="roadmap-tags">
+                                <span class="tag-impact">Medium Impact</span>
+                                <span class="tag-effort">Low Effort</span>
+                            </div>
+                        </div>
+                        <div class="roadmap-item priority-medium">
+                            <div class="roadmap-item-header">
+                                <span class="roadmap-badge badge-medium">P6</span>
+                                <span class="roadmap-status status-planned">Planned</span>
+                            </div>
+                            <h4>CI Package Cache</h4>
+                            <p>Cache pacman packages between ISO builds using actions/cache — save 5-10 min per build</p>
+                            <div class="roadmap-tags">
+                                <span class="tag-impact">Medium Impact</span>
+                                <span class="tag-effort">Low Effort</span>
+                            </div>
+                        </div>
+                        <div class="roadmap-item priority-medium">
+                            <div class="roadmap-item-header">
+                                <span class="roadmap-badge badge-medium">P—</span>
+                                <span class="roadmap-status status-planned">Planned</span>
+                            </div>
+                            <h4>Code Coverage & ISO Smoke Test</h4>
+                            <p>Add pytest-cov with 60% threshold and automated QEMU boot test to validate ISO before release</p>
+                            <div class="roadmap-tags">
+                                <span class="tag-impact">Medium Impact</span>
+                                <span class="tag-effort">Medium Effort</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scalability Pillar -->
+                <div class="roadmap-pillar">
+                    <div class="roadmap-pillar-header">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                        <h3>Scalability</h3>
+                    </div>
+                    <div class="roadmap-items">
+                        <div class="roadmap-item priority-medium">
+                            <div class="roadmap-item-header">
+                                <span class="roadmap-badge badge-medium">P7</span>
+                                <span class="roadmap-status status-planned">Planned</span>
+                            </div>
+                            <h4>Adaptive Hardware Config</h4>
+                            <p>Dynamic ZRAM, swappiness and I/O scheduler tuning based on detected RAM, CPU and storage type</p>
+                            <div class="roadmap-tags">
+                                <span class="tag-impact">Medium Impact</span>
+                                <span class="tag-effort">Medium Effort</span>
+                            </div>
+                        </div>
+                        <div class="roadmap-item priority-medium">
+                            <div class="roadmap-item-header">
+                                <span class="roadmap-badge badge-medium">P8</span>
+                                <span class="roadmap-status status-planned">Planned</span>
+                            </div>
+                            <h4>Package Selection in Installer</h4>
+                            <p>New installer page with grouped checkboxes: Dev Tools, AI/ML, GPU Compute, Multimedia</p>
+                            <div class="roadmap-tags">
+                                <span class="tag-impact">High Impact</span>
+                                <span class="tag-effort">High Effort</span>
+                            </div>
+                        </div>
+                        <div class="roadmap-item priority-low">
+                            <div class="roadmap-item-header">
+                                <span class="roadmap-badge badge-low">P9</span>
+                                <span class="roadmap-status status-planned">Planned</span>
+                            </div>
+                            <h4>Build Profiles System</h4>
+                            <p>Minimal, standard, developer and media ISO profiles via packages-{profile}.x86_64 files</p>
+                            <div class="roadmap-tags">
+                                <span class="tag-impact">High Impact</span>
+                                <span class="tag-effort">High Effort</span>
+                            </div>
+                        </div>
+                        <div class="roadmap-item priority-low">
+                            <div class="roadmap-item-header">
+                                <span class="roadmap-badge badge-low">P11</span>
+                                <span class="roadmap-status status-planned">Planned</span>
+                            </div>
+                            <h4>Automated Provisioning</h4>
+                            <p>mados-config.yaml for unattended installs — define disk, user, packages and post-install scripts</p>
+                            <div class="roadmap-tags">
+                                <span class="tag-impact">High Impact</span>
+                                <span class="tag-effort">High Effort</span>
+                            </div>
+                        </div>
+                        <div class="roadmap-item priority-low">
+                            <div class="roadmap-item-header">
+                                <span class="roadmap-badge badge-low">P12</span>
+                                <span class="roadmap-status status-planned">Planned</span>
+                            </div>
+                            <h4>OTA Update System</h4>
+                            <p>mados-update command checking GitHub Releases with delta packages and Waybar notification widget</p>
+                            <div class="roadmap-tags">
+                                <span class="tag-impact">High Impact</span>
+                                <span class="tag-effort">Very High Effort</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Priority Matrix -->
+            <div class="roadmap-matrix">
+                <div class="matrix-header">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                    <span>Priority Matrix</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Priority</th>
+                            <th>Item</th>
+                            <th>Impact</th>
+                            <th>Effort</th>
+                            <th>Pillar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="roadmap-badge badge-high">P1</span></td>
+                            <td>Externalize Bash Templates</td>
+                            <td><span class="impact-high">High</span></td>
+                            <td>Medium</td>
+                            <td><span class="pillar-tag pillar-reliability">Reliability</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="roadmap-badge badge-high">P2</span></td>
+                            <td>Modular Installer Refactor</td>
+                            <td><span class="impact-high">High</span></td>
+                            <td>High</td>
+                            <td><span class="pillar-tag pillar-roi">ROI</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="roadmap-badge badge-high">P3</span></td>
+                            <td>Phase 2 Rollback & Recovery</td>
+                            <td><span class="impact-high">High</span></td>
+                            <td>Medium</td>
+                            <td><span class="pillar-tag pillar-reliability">Reliability</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="roadmap-badge badge-medium">P4</span></td>
+                            <td>Strict ShellCheck in CI</td>
+                            <td><span class="impact-medium">Medium</span></td>
+                            <td>Low</td>
+                            <td><span class="pillar-tag pillar-reliability">Reliability</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="roadmap-badge badge-medium">P5</span></td>
+                            <td>Phase 2 Progress Indicator</td>
+                            <td><span class="impact-medium">Medium</span></td>
+                            <td>Low</td>
+                            <td><span class="pillar-tag pillar-roi">ROI</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="roadmap-badge badge-medium">P6</span></td>
+                            <td>CI Package Cache</td>
+                            <td><span class="impact-medium">Medium</span></td>
+                            <td>Low</td>
+                            <td><span class="pillar-tag pillar-roi">ROI</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="roadmap-badge badge-medium">P7</span></td>
+                            <td>Adaptive Hardware Config</td>
+                            <td><span class="impact-medium">Medium</span></td>
+                            <td>Medium</td>
+                            <td><span class="pillar-tag pillar-scalability">Scalability</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="roadmap-badge badge-medium">P8</span></td>
+                            <td>Package Selection in Installer</td>
+                            <td><span class="impact-high">High</span></td>
+                            <td>High</td>
+                            <td><span class="pillar-tag pillar-scalability">Scalability</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="roadmap-badge badge-low">P9</span></td>
+                            <td>Build Profiles System</td>
+                            <td><span class="impact-high">High</span></td>
+                            <td>High</td>
+                            <td><span class="pillar-tag pillar-scalability">Scalability</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="roadmap-badge badge-low">P10</span></td>
+                            <td>Post-Install Health Checks</td>
+                            <td><span class="impact-medium">Medium</span></td>
+                            <td>Medium</td>
+                            <td><span class="pillar-tag pillar-reliability">Reliability</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="roadmap-badge badge-low">P11</span></td>
+                            <td>Automated Provisioning</td>
+                            <td><span class="impact-high">High</span></td>
+                            <td>High</td>
+                            <td><span class="pillar-tag pillar-scalability">Scalability</span></td>
+                        </tr>
+                        <tr>
+                            <td><span class="roadmap-badge badge-low">P12</span></td>
+                            <td>OTA Update System</td>
+                            <td><span class="impact-high">High</span></td>
+                            <td>Very High</td>
+                            <td><span class="pillar-tag pillar-scalability">Scalability</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
@@ -844,6 +1149,7 @@ layout: none
                         <a href="#download">Download</a>
                         <a href="#features">Features</a>
                         <a href="#showcase">Desktop</a>
+                        <a href="#roadmap">Roadmap</a>
                         <a href="#credits">Credits</a>
                     </div>
                     <div class="footer-col">
