@@ -143,9 +143,9 @@ bindsym $mod+8 workspace number 8; exec mados-sway-wallpaper-set 8
 bindsym $mod+9 workspace number 9; exec mados-sway-wallpaper-set 9
 bindsym $mod+0 workspace number 10; exec mados-sway-wallpaper-set 10
 
-# Switch workspaces with Super+Alt+arrows
-bindsym $mod+Mod1+Left workspace prev; exec mados-sway-wallpaper-set
-bindsym $mod+Mod1+Right workspace next; exec mados-sway-wallpaper-set
+# Switch workspaces with Super+Alt+arrows (cycles 1-5 with wrap-around)
+bindsym $mod+Mod1+Left exec mados-sway-workspace-cycle prev
+bindsym $mod+Mod1+Right exec mados-sway-workspace-cycle next
 
 # Move to workspaces
 bindsym $mod+Shift+1 move container to workspace number 1

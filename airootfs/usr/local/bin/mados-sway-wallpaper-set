@@ -33,6 +33,15 @@ if [[ -f "$DB_PATH" ]] && command -v sqlite3 >/dev/null 2>&1; then
     wallpaper="$(sqlite3 "$DB_PATH" \
         "SELECT w.path FROM assignments a JOIN wallpapers w ON a.wallpaper_id=w.id WHERE a.workspace=$ws LIMIT 1;" 2>/dev/null)"
     if [[ -n "$wallpaper" && -f "$wallpaper" ]]; then
-        swaymsg output "*" bg "$wallpaper" fill 2>/dev/null || true
+        # Use swww for smooth fade transition (no black flash)
+        if command -v swww >/dev/null 2>&1 && swww query >/dev/null 2>&1; then
+            swww img "$wallpaper" \
+                --transition-type fade \
+                --transition-duration 0.5 \
+                --transition-fps 60 2>/dev/null || true
+        else
+            # Fallback to swaymsg if swww is not available
+            swaymsg output "*" bg "$wallpaper" fill 2>/dev/null || true
+        fi
     fi
 fi

@@ -165,18 +165,21 @@ get_wallpaper_for_ws() {
         "SELECT w.path FROM assignments a JOIN wallpapers w ON a.wallpaper_id=w.id WHERE a.workspace=$ws LIMIT 1;"
 }
 
-# Set wallpaper for all outputs via swaymsg
+# Set wallpaper via swww with smooth fade transition (no black flash)
 set_wallpaper() {
     local wallpaper="$1"
+    local use_transition="${2:-true}"
     if [[ -z "$wallpaper" || ! -f "$wallpaper" ]]; then
         log "WARNING: wallpaper not found: ${wallpaper:-empty}"
         return 1
     fi
-    if swaymsg output "*" bg "$wallpaper" fill; then
-        return 0
+    if [[ "$use_transition" == "true" ]]; then
+        swww img "$wallpaper" \
+            --transition-type fade \
+            --transition-duration 0.5 \
+            --transition-fps 60 2>/dev/null
     else
-        log "WARNING: swaymsg failed to set wallpaper: $wallpaper"
-        return 1
+        swww img "$wallpaper" --transition-type none 2>/dev/null
     fi
 }
 
@@ -197,7 +200,7 @@ wait_for_sway() {
 ### Main ###
 
 # Ensure required tools exist
-for cmd in swaymsg jq sqlite3; do
+for cmd in swaymsg jq sqlite3 swww; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         log "ERROR: required command not found: $cmd"
         exit 1
@@ -209,6 +212,17 @@ wait_for_sway || exit 1
 
 # Brief pause to let sway finish initializing outputs
 sleep 0.5
+
+# Start swww-daemon if not already running (provides smooth transitions)
+if ! swww query >/dev/null 2>&1; then
+    swww-daemon &
+    disown
+    # Wait for swww-daemon to become ready
+    for _attempt in $(seq 1 30); do
+        swww query >/dev/null 2>&1 && break
+        sleep 0.5
+    done
+fi
 
 # Initialise / update wallpaper database
 init_db
@@ -225,11 +239,11 @@ last_ws="$(swaymsg -t get_workspaces 2>/dev/null \
     | jq -r '.[] | select(.focused==true) | .num' 2>/dev/null)" || true
 [[ -z "$last_ws" || "$last_ws" == "null" ]] && last_ws=1
 
-# Set initial wallpaper (with one retry)
+# Set initial wallpaper without transition (fast startup)
 wp="$(get_wallpaper_for_ws "$last_ws")"
-if ! set_wallpaper "$wp"; then
+if ! set_wallpaper "$wp" "false"; then
     sleep 0.5
-    set_wallpaper "$wp" || true
+    set_wallpaper "$wp" "false" || true
 fi
 log "initial wallpaper set for workspace $last_ws"
 
