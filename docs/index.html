@@ -184,40 +184,8 @@ layout: none
                     </div>
                 </div>
                 <div class="hero-visual">
-                    <div class="terminal-window">
-                        <div class="terminal-header">
-                            <div class="terminal-dots">
-                                <span class="dot dot-red"></span>
-                                <span class="dot dot-yellow"></span>
-                                <span class="dot dot-green"></span>
-                            </div>
-                            <span class="terminal-title">foot ~ madOS</span>
-                        </div>
-                        <div class="terminal-body" id="terminal">
-                            <div class="terminal-line">
-                                <span class="t-prompt">$</span> <span class="t-cmd">neofetch</span>
-                            </div>
-                            <div class="terminal-line t-output">
-                                <pre class="neofetch-output">      /\        <span class="t-accent">user@madOS</span>
-     /  \       <span class="t-muted">-----------</span>
-    /\   \      <span class="t-label">OS:</span> madOS (Arch Linux)
-   /      \     <span class="t-label">WM:</span> Sway / Hyprland
-  /   ,,   \    <span class="t-label">Theme:</span> Nord
- /   |  |   \   <span class="t-label">Terminal:</span> foot
-/_-''    ''-_\  <span class="t-label">RAM:</span> <span class="t-success">300MB</span> / 1.9GB</pre>
-                            </div>
-                            <div class="terminal-line">
-                                <span class="t-prompt">$</span> <span class="t-cmd">sudo install-mados</span>
-                            </div>
-                            <div class="terminal-line t-output">
-<span class="t-success">&#10003;</span> Starting GTK installer...
-<span class="t-success">&#10003;</span> AI optimization enabled
-<span class="t-info">&#10140; Ready to install madOS!</span>
-                            </div>
-                            <div class="terminal-line">
-                                <span class="t-prompt">$</span> <span class="t-cursor"></span>
-                            </div>
-                        </div>
+                    <div class="hero-preview">
+                        <img src="preview.png" alt="madOS Desktop Preview" class="hero-preview-img">
                     </div>
                 </div>
             </div>
@@ -232,76 +200,116 @@ layout: none
                 <h2>Key Features</h2>
                 <p>Everything you need in a lightweight and powerful operating system</p>
             </div>
+
+            <!-- Hero features -->
+            <div class="features-hero">
+                <div class="feature-card feature-card-hero">
+                    <div class="feature-hero-left">
+                        <div class="feature-icon feature-icon-lg">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.58-3.25 3.93L12 22"/><path d="M12 2a4 4 0 0 0-4 4c0 1.95 1.4 3.58 3.25 3.93"/><path d="M8.56 13.68C5.09 14.9 3 17.2 3 20h18c0-2.8-2.09-5.1-5.56-6.32"/></svg>
+                        </div>
+                        <div>
+                            <h3>OpenCode Integration</h3>
+                            <p>AI assistant for intelligent system orchestration, code generation, debugging and advanced assistance — pre-installed globally.</p>
+                        </div>
+                    </div>
+                    <div class="feature-tags">
+                        <span class="feature-tag">AI-Powered</span>
+                        <span class="feature-tag">Pre-installed</span>
+                        <span class="feature-tag">Passwordless sudo</span>
+                    </div>
+                </div>
+                <div class="feature-card feature-card-hero">
+                    <div class="feature-hero-left">
+                        <div class="feature-icon feature-icon-lg">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        </div>
+                        <div>
+                            <h3>Adaptive Desktop</h3>
+                            <p>Automatic GPU detection at boot — Hyprland with 3D acceleration, Sway with software rendering. Both using Nord theme at ~300MB RAM.</p>
+                        </div>
+                    </div>
+                    <div class="feature-tags">
+                        <span class="feature-tag">Hyprland</span>
+                        <span class="feature-tag">Sway</span>
+                        <span class="feature-tag">~300MB RAM</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature grid -->
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.58-3.25 3.93L12 22"/><path d="M12 2a4 4 0 0 0-4 4c0 1.95 1.4 3.58 3.25 3.93"/><path d="M8.56 13.68C5.09 14.9 3 17.2 3 20h18c0-2.8-2.09-5.1-5.56-6.32"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h12"/></svg>
                     </div>
-                    <h3>OpenCode Integration</h3>
-                    <p>Integrated AI assistant for intelligent system orchestration and advanced assistance.</p>
+                    <div class="feature-text">
+                        <h3>Low RAM Optimized</h3>
+                        <p>Designed for 1.9GB systems with ZRAM, EarlyOOM and aggressive kernel tuning.</p>
+                    </div>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M6 12h.01"/><path d="M10 12h.01"/><path d="M14 12h.01"/><path d="M18 12h.01"/><path d="M6 16h12"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M12 7V3M2 11h20M7 11v4M12 11v4M17 11v4"/></svg>
                     </div>
-                    <h3>Optimized for Low RAM</h3>
-                    <p>Specifically designed for systems with 1.9GB RAM (Intel Atom) with ZRAM and EarlyOOM.</p>
+                    <div class="feature-text">
+                        <h3>GPU Compute</h3>
+                        <p>NVIDIA CUDA and AMD ROCm auto-detected and activated at boot.</p>
+                    </div>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
                     </div>
-                    <h3>Adaptive Desktop</h3>
-                    <p>Sway or Hyprland depending on your hardware. With 3D acceleration: Hyprland. Without: Sway. Both with Nord theme and ~300MB RAM.</p>
+                    <div class="feature-text">
+                        <h3>Persistent USB</h3>
+                        <p>Auto-configured persistent storage. Use directly from USB across reboots.</p>
+                    </div>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                     </div>
-                    <h3>Built-in WiFi Setup</h3>
-                    <p>Connect to your WiFi network directly from the installer. Automatic network scanning with WPA2 support.</p>
+                    <div class="feature-text">
+                        <h3>GTK Installer</h3>
+                        <p>Beautiful graphical installer with Nord theme, real-time progress and boot splash.</p>
+                    </div>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/><line x1="14" y1="4" x2="10" y2="20"/></svg>
                     </div>
-                    <h3>6 Languages</h3>
-                    <p>Installer available in English, Spanish, French, German, Chinese and Japanese with automatic keyboard layout.</p>
+                    <div class="feature-text">
+                        <h3>Dev Ready</h3>
+                        <p>Node.js, npm, Git, VS Code and Oh My Zsh pre-installed out of the box.</p>
+                    </div>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/><line x1="14" y1="4" x2="10" y2="20"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                     </div>
-                    <h3>Ready to Develop</h3>
-                    <p>Node.js, npm, Git, and VS Code pre-installed to start coding immediately.</p>
+                    <div class="feature-text">
+                        <h3>6 Languages</h3>
+                        <p>English, Spanish, French, German, Chinese and Japanese with auto keyboard layout.</p>
+                    </div>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
                     </div>
-                    <h3>Persistent USB</h3>
-                    <p>Flash the ISO to a USB and use it directly without installing. Free space is auto-configured as persistent storage.</p>
+                    <div class="feature-text">
+                        <h3>WiFi Built-in</h3>
+                        <p>Network scanning and WPA2/WPA3 connection directly from the installer.</p>
+                    </div>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                     </div>
-                    <h3>GTK Installer</h3>
-                    <p>GTK graphical installer with Nord theme, intuitive navigation, real-time progress and animated boot splash.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <div class="feature-text">
+                        <h3>Secure by Default</h3>
+                        <p>Locked root, dual UEFI bootloader, secure passwords and per-user isolation.</p>
                     </div>
-                    <h3>Secure by Default</h3>
-                    <p>Locked root, dual UEFI bootloader (NVRAM + fallback), secure passwords and per-user OpenCode isolation.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M12 7V3"/><path d="M2 11h20"/><path d="M7 11v4"/><path d="M12 11v4"/><path d="M17 11v4"/></svg>
-                    </div>
-                    <h3>GPU Compute (CUDA / ROCm)</h3>
-                    <p>Pre-installed NVIDIA CUDA and AMD ROCm drivers. Auto-detection at boot with automatic compute activation for AI and parallel computing.</p>
                 </div>
             </div>
         </div>
@@ -313,7 +321,7 @@ layout: none
             <div class="section-header">
                 <span class="section-label">Environment</span>
                 <h2>Wayland + Nord Desktop</h2>
-                <p>Sway or Hyprland depending on your hardware, with Nord theme and optimized configuration for productivity</p>
+                <p>Auto-detected compositor with unified Nord theme — keyboard-driven, lightweight, beautiful</p>
             </div>
             <div class="showcase-preview">
                 <div class="preview-frame">
@@ -323,83 +331,179 @@ layout: none
                         </div>
                         <span class="preview-title">Sway / Hyprland — madOS Desktop</span>
                     </div>
-                    <img src="mad-os-wallpaper.jpg" alt="madOS Desktop" class="preview-image" loading="lazy">
+                    <img src="preview.png" alt="madOS Desktop" class="preview-image" loading="lazy">
                 </div>
             </div>
-            <div class="showcase-apps">
-                <div class="app-group">
-                    <h3>Desktop Environment</h3>
-                    <div class="app-list">
-                        <div class="app-item">
-                            <strong>Sway</strong>
-                            <span>Wayland compositor (no 3D acceleration)</span>
-                        </div>
-                        <div class="app-item">
-                            <strong>Hyprland</strong>
-                            <span>Wayland compositor (with 3D acceleration)</span>
-                        </div>
-                        <div class="app-item">
-                            <strong>Waybar</strong>
-                            <span>Customizable status bar</span>
-                        </div>
-                        <div class="app-item">
-                            <strong>Wofi</strong>
-                            <span>Application launcher</span>
-                        </div>
-                        <div class="app-item">
-                            <strong>Foot</strong>
-                            <span>Fast terminal emulator</span>
-                        </div>
-                        <div class="app-item">
-                            <strong>Mako</strong>
-                            <span>Notification daemon</span>
-                        </div>
+            <div class="shortcuts-grid">
+                <!-- Basics -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10"/><line x1="10" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="14" y2="10"/><line x1="18" y1="10" x2="18" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
+                        Basics
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd class="wide">Return</kbd></div>
+                        <span class="shortcut-desc">Open Terminal</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>D</kbd></div>
+                        <span class="shortcut-desc">App Launcher</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>Shift</kbd><kbd>Q</kbd></div>
+                        <span class="shortcut-desc">Close Window</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>Shift</kbd><kbd>C</kbd></div>
+                        <span class="shortcut-desc">Reload Config</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>Shift</kbd><kbd>E</kbd></div>
+                        <span class="shortcut-desc">Exit Sway</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>E</kbd></div>
+                        <span class="shortcut-desc">File Manager</span>
                     </div>
                 </div>
-                <div class="app-group">
-                    <h3>Applications</h3>
-                    <div class="app-list">
-                        <div class="app-item">
-                            <strong>Chromium</strong>
-                            <span>Web browser</span>
-                        </div>
-                        <div class="app-item">
-                            <strong>VS Code</strong>
-                            <span>Code editor</span>
-                        </div>
-                        <div class="app-item">
-                            <strong>PCManFM</strong>
-                            <span>File manager</span>
-                        </div>
-                        <div class="app-item">
-                            <strong>LXAppearance</strong>
-                            <span>Theme configurator</span>
-                        </div>
+
+                <!-- Navigation -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/></svg>
+                        Navigation
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>H J K L</kbd></div>
+                        <span class="shortcut-desc">Focus Window</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>← ↓ ↑ →</kbd></div>
+                        <span class="shortcut-desc">Focus Window</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>Shift</kbd><kbd>H J K L</kbd></div>
+                        <span class="shortcut-desc">Move Window</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>Shift</kbd><kbd>← ↓ ↑ →</kbd></div>
+                        <span class="shortcut-desc">Move Window</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>A</kbd></div>
+                        <span class="shortcut-desc">Focus Parent</span>
                     </div>
                 </div>
-                <div class="app-group">
-                    <h3>Development Tools</h3>
-                    <div class="app-list">
-                        <div class="app-item">
-                            <strong>OpenCode</strong>
-                            <span>AI Assistant</span>
-                        </div>
-                        <div class="app-item">
-                            <strong>Node.js</strong>
-                            <span>v24.x & npm</span>
-                        </div>
-                        <div class="app-item">
-                            <strong>Git</strong>
-                            <span>Version control</span>
-                        </div>
-                        <div class="app-item">
-                            <strong>htop</strong>
-                            <span>System monitor</span>
-                        </div>
-                        <div class="app-item">
-                            <strong>Vim & Nano</strong>
-                            <span>Text editors</span>
-                        </div>
+
+                <!-- Workspaces -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                        Workspaces
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>1</kbd> – <kbd>0</kbd></div>
+                        <span class="shortcut-desc">Switch Workspace</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>Shift</kbd><kbd>1</kbd> – <kbd>0</kbd></div>
+                        <span class="shortcut-desc">Move to Workspace</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>Alt</kbd><kbd>←</kbd></div>
+                        <span class="shortcut-desc">Previous Workspace</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>Alt</kbd><kbd>→</kbd></div>
+                        <span class="shortcut-desc">Next Workspace</span>
+                    </div>
+                </div>
+
+                <!-- Layout -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                        Layout
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>B</kbd></div>
+                        <span class="shortcut-desc">Split Horizontal</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>V</kbd></div>
+                        <span class="shortcut-desc">Split Vertical</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>S</kbd></div>
+                        <span class="shortcut-desc">Stacking Layout</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>W</kbd></div>
+                        <span class="shortcut-desc">Tabbed Layout</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>F</kbd></div>
+                        <span class="shortcut-desc">Fullscreen</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>R</kbd></div>
+                        <span class="shortcut-desc">Resize Mode</span>
+                    </div>
+                </div>
+
+                <!-- Floating & Scratchpad -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+                        Floating & Scratchpad
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>Shift</kbd><kbd class="wide">Space</kbd></div>
+                        <span class="shortcut-desc">Toggle Floating</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd class="wide">Space</kbd></div>
+                        <span class="shortcut-desc">Focus Float/Tiled</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>Shift</kbd><kbd>-</kbd></div>
+                        <span class="shortcut-desc">Move to Scratchpad</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>-</kbd></div>
+                        <span class="shortcut-desc">Show Scratchpad</span>
+                    </div>
+                </div>
+
+                <!-- Screenshots & Media -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        Screenshots & Media
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Super</kbd><kbd>Shift</kbd><kbd>S</kbd></div>
+                        <span class="shortcut-desc">Area → Clipboard</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="wide">Print</kbd></div>
+                        <span class="shortcut-desc">Area Screenshot</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Shift</kbd><kbd class="wide">Print</kbd></div>
+                        <span class="shortcut-desc">Full Screenshot</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>Ctrl</kbd><kbd class="wide">Print</kbd></div>
+                        <span class="shortcut-desc">Window Screenshot</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>🔊</kbd><kbd>🔇</kbd><kbd>🎤</kbd></div>
+                        <span class="shortcut-desc">Volume / Mute / Mic</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>🔆</kbd><kbd>🔅</kbd></div>
+                        <span class="shortcut-desc">Brightness Up / Down</span>
                     </div>
                 </div>
             </div>
@@ -440,7 +544,7 @@ layout: none
                         </div>
                         <div>
                             <strong>GPU</strong>
-                            <p>Pre-installed NVIDIA CUDA and AMD ROCm drivers. GPU compute auto-detection at boot. With 3D acceleration: Hyprland. Without: Sway.</p>
+                            <p>Intel, NVIDIA or AMD — auto-detected with compute support</p>
                         </div>
                     </div>
                     <div class="spec-item">
@@ -550,34 +654,50 @@ layout: none
                 </div>
             </div>
             <div class="install-steps">
-                <h3>Installation Steps</h3>
+                <h3>Getting Started</h3>
                 <div class="steps-timeline">
                     <div class="step">
-                        <div class="step-number">1</div>
+                        <div class="step-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            <span class="step-number">1</span>
+                        </div>
                         <div class="step-content">
-                            <h4>Create Bootable USB</h4>
-                            <code>sudo dd if=madOS-*.iso of=/dev/sdX bs=4M status=progress</code>
+                            <h4>Download</h4>
+                            <p>Get the latest ISO from Internet Archive or GitHub Releases</p>
                         </div>
                     </div>
+                    <div class="step-connector"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></div>
                     <div class="step">
-                        <div class="step-number">2</div>
+                        <div class="step-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 8h20"/><path d="M9 4v4"/><path d="M15 4v4"/></svg>
+                            <span class="step-number">2</span>
+                        </div>
                         <div class="step-content">
-                            <h4>Boot from USB</h4>
-                            <p>Desktop starts automatically with persistent storage</p>
+                            <h4>Flash USB</h4>
+                            <code>dd if=madOS-*.iso of=/dev/sdX bs=4M</code>
+                            <span class="step-hint">or use Ventoy / balenaEtcher</span>
                         </div>
                     </div>
+                    <div class="step-connector"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></div>
                     <div class="step">
-                        <div class="step-number">3</div>
+                        <div class="step-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                            <span class="step-number">3</span>
+                        </div>
                         <div class="step-content">
-                            <h4>Use or Install</h4>
-                            <p>Use directly from USB or install with the GTK installer</p>
+                            <h4>Boot & Go</h4>
+                            <p>Desktop loads automatically — use live or run the installer</p>
                         </div>
                     </div>
+                    <div class="step-connector"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg></div>
                     <div class="step">
-                        <div class="step-number">4</div>
+                        <div class="step-icon step-icon-accent">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                            <span class="step-number">4</span>
+                        </div>
                         <div class="step-content">
-                            <h4>Enjoy madOS!</h4>
-                            <p>Your changes persist across reboots on the USB</p>
+                            <h4>Ready!</h4>
+                            <p>AI assistant, dev tools & persistent storage out of the box</p>
                         </div>
                     </div>
                 </div>
@@ -593,101 +713,110 @@ layout: none
                 <h2>Credits</h2>
                 <p>Open source projects and content that make madOS possible</p>
             </div>
-            <div class="credits-grid">
-                <div class="credits-category">
-                    <h3>Core System</h3>
-                    <ul class="credits-list">
-                        <li><a href="https://archlinux.org/" target="_blank" rel="noopener">Arch Linux</a><span>Base distribution</span></li>
-                        <li><a href="https://gitlab.archlinux.org/archlinux/archiso" target="_blank" rel="noopener">archiso</a><span>ISO building framework</span></li>
-                        <li><a href="https://kernel.org/" target="_blank" rel="noopener">Linux Kernel</a><span>Operating system kernel</span></li>
-                    </ul>
+            <div class="credits-columns">
+                <div class="credits-col">
+                    <div class="credits-group">
+                        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>Core System</h3>
+                        <div class="credits-items">
+                            <a href="https://archlinux.org/" target="_blank" rel="noopener">Arch Linux</a>
+                            <a href="https://gitlab.archlinux.org/archlinux/archiso" target="_blank" rel="noopener">archiso</a>
+                            <a href="https://kernel.org/" target="_blank" rel="noopener">Linux Kernel</a>
+                        </div>
+                    </div>
+                    <div class="credits-group">
+                        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><circle cx="12" cy="10" r="3"/></svg>Desktop Environment</h3>
+                        <div class="credits-items">
+                            <a href="https://github.com/hyprwm/Hyprland" target="_blank" rel="noopener">Hyprland</a>
+                            <a href="https://github.com/swaywm/sway" target="_blank" rel="noopener">Sway</a>
+                            <a href="https://github.com/LGFae/swww" target="_blank" rel="noopener">swww</a>
+                            <a href="https://github.com/swaywm/swaybg" target="_blank" rel="noopener">swaybg</a>
+                            <a href="https://github.com/Alexays/Waybar" target="_blank" rel="noopener">Waybar</a>
+                            <a href="https://hg.sr.ht/~scoopta/wofi" target="_blank" rel="noopener">Wofi</a>
+                            <a href="https://github.com/emersion/mako" target="_blank" rel="noopener">Mako</a>
+                            <a href="https://codeberg.org/dnkl/foot" target="_blank" rel="noopener">Foot</a>
+                            <a href="https://git.sr.ht/~kennylevinsen/greetd" target="_blank" rel="noopener">greetd</a>
+                            <a href="https://github.com/rharber/ReGreet" target="_blank" rel="noopener">ReGreet</a>
+                            <a href="https://github.com/cage-kiosk/cage" target="_blank" rel="noopener">Cage</a>
+                        </div>
+                    </div>
+                    <div class="credits-group">
+                        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>Applications</h3>
+                        <div class="credits-items">
+                            <a href="https://www.chromium.org/" target="_blank" rel="noopener">Chromium</a>
+                            <a href="https://github.com/microsoft/vscode" target="_blank" rel="noopener">VS Code</a>
+                            <a href="https://github.com/mpv-player/mpv" target="_blank" rel="noopener">mpv</a>
+                            <a href="https://github.com/lxde/pcmanfm" target="_blank" rel="noopener">PCManFM</a>
+                            <a href="https://freedesktop.org/software/pulseaudio/pavucontrol/" target="_blank" rel="noopener">pavucontrol</a>
+                        </div>
+                    </div>
                 </div>
-                <div class="credits-category">
-                    <h3>Desktop Environment</h3>
-                    <ul class="credits-list">
-                        <li><a href="https://github.com/hyprwm/Hyprland" target="_blank" rel="noopener">Hyprland</a><span>Dynamic tiling Wayland compositor</span></li>
-                        <li><a href="https://github.com/swaywm/sway" target="_blank" rel="noopener">Sway</a><span>i3-compatible Wayland compositor</span></li>
-                        <li><a href="https://github.com/LGFae/swww" target="_blank" rel="noopener">swww</a><span>Animated wallpaper daemon</span></li>
-                        <li><a href="https://github.com/swaywm/swaybg" target="_blank" rel="noopener">swaybg</a><span>Wallpaper tool for Wayland</span></li>
-                        <li><a href="https://github.com/Alexays/Waybar" target="_blank" rel="noopener">Waybar</a><span>Customizable Wayland bar</span></li>
-                        <li><a href="https://hg.sr.ht/~scoopta/wofi" target="_blank" rel="noopener">Wofi</a><span>Application launcher</span></li>
-                        <li><a href="https://github.com/emersion/mako" target="_blank" rel="noopener">Mako</a><span>Notification daemon</span></li>
-                        <li><a href="https://codeberg.org/dnkl/foot" target="_blank" rel="noopener">Foot</a><span>Wayland terminal</span></li>
-                        <li><a href="https://git.sr.ht/~kennylevinsen/greetd" target="_blank" rel="noopener">greetd</a><span>Login manager</span></li>
-                        <li><a href="https://github.com/rharber/ReGreet" target="_blank" rel="noopener">ReGreet</a><span>GTK greeter</span></li>
-                        <li><a href="https://github.com/cage-kiosk/cage" target="_blank" rel="noopener">Cage</a><span>Kiosk compositor</span></li>
-                    </ul>
+                <div class="credits-col">
+                    <div class="credits-group">
+                        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>AI & Development</h3>
+                        <div class="credits-items">
+                            <a href="https://github.com/opencode-ai/opencode" target="_blank" rel="noopener">OpenCode</a>
+                            <a href="https://github.com/ollama/ollama" target="_blank" rel="noopener">Ollama</a>
+                            <a href="https://nodejs.org/" target="_blank" rel="noopener">Node.js</a>
+                            <a href="https://git-scm.com/" target="_blank" rel="noopener">Git</a>
+                            <a href="https://github.com/ohmyzsh/ohmyzsh" target="_blank" rel="noopener">Oh My Zsh</a>
+                        </div>
+                    </div>
+                    <div class="credits-group">
+                        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Audio & Multimedia</h3>
+                        <div class="credits-items">
+                            <a href="https://github.com/PipeWire/pipewire" target="_blank" rel="noopener">PipeWire</a>
+                            <a href="https://github.com/PipeWire/wireplumber" target="_blank" rel="noopener">WirePlumber</a>
+                            <a href="https://gstreamer.freedesktop.org/" target="_blank" rel="noopener">GStreamer</a>
+                            <a href="https://github.com/karlstav/cava" target="_blank" rel="noopener">CAVA</a>
+                            <a href="https://github.com/hpjansson/chafa" target="_blank" rel="noopener">chafa</a>
+                        </div>
+                    </div>
+                    <div class="credits-group">
+                        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>System Utilities</h3>
+                        <div class="credits-items">
+                            <a href="https://github.com/rfjakob/earlyoom" target="_blank" rel="noopener">EarlyOOM</a>
+                            <a href="https://github.com/systemd/zram-generator" target="_blank" rel="noopener">zram-generator</a>
+                            <a href="https://networkmanager.dev/" target="_blank" rel="noopener">NetworkManager</a>
+                            <a href="https://gitlab.freedesktop.org/plymouth/plymouth" target="_blank" rel="noopener">Plymouth</a>
+                            <a href="https://github.com/fastfetch-cli/fastfetch" target="_blank" rel="noopener">fastfetch</a>
+                            <a href="https://github.com/blueman-project/blueman" target="_blank" rel="noopener">Blueman</a>
+                        </div>
+                    </div>
                 </div>
-                <div class="credits-category">
-                    <h3>Themes & Appearance</h3>
-                    <ul class="credits-list">
-                        <li><a href="https://github.com/EliverLara/Nordic" target="_blank" rel="noopener">Nordic GTK Theme</a><span>Dark Nord GTK theme</span></li>
-                        <li><a href="https://github.com/MolassesLover/Nordzy-icon" target="_blank" rel="noopener">Nordzy Icons</a><span>Nord-themed icon pack</span></li>
-                        <li><a href="https://www.nordtheme.com/" target="_blank" rel="noopener">Nord Color Scheme</a><span>Arctic color palette</span></li>
-                        <li><a href="https://github.com/ryanoasis/nerd-fonts" target="_blank" rel="noopener">JetBrains Mono Nerd Font</a><span>Developer font with glyphs</span></li>
-                        <li><a href="https://github.com/googlefonts/noto-emoji" target="_blank" rel="noopener">Noto Emoji</a><span>Color emoji by Google</span></li>
-                    </ul>
-                </div>
-                <div class="credits-category">
-                    <h3>Applications</h3>
-                    <ul class="credits-list">
-                        <li><a href="https://www.chromium.org/" target="_blank" rel="noopener">Chromium</a><span>Web browser</span></li>
-                        <li><a href="https://github.com/microsoft/vscode" target="_blank" rel="noopener">VS Code</a><span>Code editor</span></li>
-                        <li><a href="https://github.com/mpv-player/mpv" target="_blank" rel="noopener">mpv</a><span>Media player</span></li>
-                        <li><a href="https://github.com/lxde/pcmanfm" target="_blank" rel="noopener">PCManFM</a><span>File manager</span></li>
-                        <li><a href="https://freedesktop.org/software/pulseaudio/pavucontrol/" target="_blank" rel="noopener">pavucontrol</a><span>Volume control</span></li>
-                    </ul>
-                </div>
-                <div class="credits-category">
-                    <h3>AI & Development</h3>
-                    <ul class="credits-list">
-                        <li><a href="https://github.com/opencode-ai/opencode" target="_blank" rel="noopener">OpenCode</a><span>AI coding assistant</span></li>
-                        <li><a href="https://github.com/ollama/ollama" target="_blank" rel="noopener">Ollama</a><span>Local LLM runner</span></li>
-                        <li><a href="https://nodejs.org/" target="_blank" rel="noopener">Node.js</a><span>JavaScript runtime</span></li>
-                        <li><a href="https://git-scm.com/" target="_blank" rel="noopener">Git</a><span>Version control</span></li>
-                        <li><a href="https://github.com/ohmyzsh/ohmyzsh" target="_blank" rel="noopener">Oh My Zsh</a><span>Zsh framework</span></li>
-                    </ul>
-                </div>
-                <div class="credits-category">
-                    <h3>Audio & Multimedia</h3>
-                    <ul class="credits-list">
-                        <li><a href="https://github.com/PipeWire/pipewire" target="_blank" rel="noopener">PipeWire</a><span>Multimedia engine</span></li>
-                        <li><a href="https://github.com/PipeWire/wireplumber" target="_blank" rel="noopener">WirePlumber</a><span>Session manager</span></li>
-                        <li><a href="https://gstreamer.freedesktop.org/" target="_blank" rel="noopener">GStreamer</a><span>Multimedia framework</span></li>
-                        <li><a href="https://github.com/karlstav/cava" target="_blank" rel="noopener">CAVA</a><span>Audio visualizer</span></li>
-                        <li><a href="https://github.com/hpjansson/chafa" target="_blank" rel="noopener">chafa</a><span>Terminal graphics viewer</span></li>
-                    </ul>
-                </div>
-                <div class="credits-category">
-                    <h3>System Utilities</h3>
-                    <ul class="credits-list">
-                        <li><a href="https://github.com/rfjakob/earlyoom" target="_blank" rel="noopener">EarlyOOM</a><span>Early OOM daemon</span></li>
-                        <li><a href="https://github.com/systemd/zram-generator" target="_blank" rel="noopener">zram-generator</a><span>ZRAM swap config</span></li>
-                        <li><a href="https://networkmanager.dev/" target="_blank" rel="noopener">NetworkManager</a><span>Network daemon</span></li>
-                        <li><a href="https://gitlab.freedesktop.org/plymouth/plymouth" target="_blank" rel="noopener">Plymouth</a><span>Boot splash</span></li>
-                        <li><a href="https://github.com/fastfetch-cli/fastfetch" target="_blank" rel="noopener">fastfetch</a><span>System info tool</span></li>
-                        <li><a href="https://github.com/blueman-project/blueman" target="_blank" rel="noopener">Blueman</a><span>Bluetooth manager</span></li>
-                    </ul>
-                </div>
-                <div class="credits-category">
-                    <h3>GTK / Python Stack</h3>
-                    <ul class="credits-list">
-                        <li><a href="https://www.gtk.org/" target="_blank" rel="noopener">GTK 3</a><span>GUI toolkit</span></li>
-                        <li><a href="https://pygobject.gnome.org/" target="_blank" rel="noopener">PyGObject</a><span>Python GObject bindings</span></li>
-                        <li><a href="https://poppler.freedesktop.org/" target="_blank" rel="noopener">Poppler</a><span>PDF rendering library</span></li>
-                        <li><a href="https://github.com/python-pillow/Pillow" target="_blank" rel="noopener">Pillow</a><span>Python imaging library</span></li>
-                        <li><a href="https://github.com/wmww/gtk-layer-shell" target="_blank" rel="noopener">gtk-layer-shell</a><span>Wayland layer shell</span></li>
-                    </ul>
-                </div>
-                <div class="credits-category credits-media">
-                    <h3>Media Content</h3>
-                    <ul class="credits-list">
-                        <li>
-                            <a href="https://www.lukhash.com/" target="_blank" rel="noopener">LukHash</a>
-                            <span>Touching The Sky (music)</span>
-                            <a href="https://lukhash.bandcamp.com/track/overdrive" target="_blank" rel="noopener" class="credits-badge">Bandcamp</a>
-                        </li>
-                    </ul>
+                <div class="credits-col">
+                    <div class="credits-group">
+                        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6l-4.9 3.6 1.9-5.8L4 8.8h6.1z"/></svg>Themes & Appearance</h3>
+                        <div class="credits-items">
+                            <a href="https://github.com/EliverLara/Nordic" target="_blank" rel="noopener">Nordic GTK</a>
+                            <a href="https://github.com/MolassesLover/Nordzy-icon" target="_blank" rel="noopener">Nordzy Icons</a>
+                            <a href="https://www.nordtheme.com/" target="_blank" rel="noopener">Nord</a>
+                            <a href="https://github.com/ryanoasis/nerd-fonts" target="_blank" rel="noopener">Nerd Fonts</a>
+                            <a href="https://github.com/googlefonts/noto-emoji" target="_blank" rel="noopener">Noto Emoji</a>
+                        </div>
+                    </div>
+                    <div class="credits-group">
+                        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>GTK / Python Stack</h3>
+                        <div class="credits-items">
+                            <a href="https://www.gtk.org/" target="_blank" rel="noopener">GTK 3</a>
+                            <a href="https://pygobject.gnome.org/" target="_blank" rel="noopener">PyGObject</a>
+                            <a href="https://poppler.freedesktop.org/" target="_blank" rel="noopener">Poppler</a>
+                            <a href="https://github.com/python-pillow/Pillow" target="_blank" rel="noopener">Pillow</a>
+                            <a href="https://github.com/wmww/gtk-layer-shell" target="_blank" rel="noopener">gtk-layer-shell</a>
+                        </div>
+                    </div>
+                    <div class="credits-group credits-highlight">
+                        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Media Content</h3>
+                        <div class="credits-media-item">
+                            <div class="credits-media-info">
+                                <strong>LukHash</strong>
+                                <span>Touching The Sky</span>
+                            </div>
+                            <div class="credits-media-links">
+                                <a href="https://www.lukhash.com/" target="_blank" rel="noopener">Website</a>
+                                <a href="https://lukhash.bandcamp.com/track/overdrive" target="_blank" rel="noopener">Bandcamp</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
