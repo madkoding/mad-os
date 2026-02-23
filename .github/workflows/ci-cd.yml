@@ -487,32 +487,25 @@ jobs:
 
 
   # ================================================================
-  # Stage 6: Release (solo en main/stable, no en develop/beta)
+  # Stage 6: Upload to Internet Archive (todas las builds)
   # ================================================================
-  release:
-    name: "🚀 Release & Deploy"
+  upload-archive:
+    name: "📦 Upload to Archive"
     needs: build
-    if: |
-      needs.build.result == 'success' &&
-      needs.build.outputs.is_release == 'true'
+    if: needs.build.result == 'success'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     outputs:
       download_url: ${{ steps.upload_ia.outputs.download_url }}
+      identifier: ${{ steps.upload_ia.outputs.identifier }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Download ISO artifact
         uses: actions/download-artifact@v4
         with:
           name: mados-iso
           path: out
 
-      # ---------- Sub-stage 6.1: Upload to Internet Archive ----------
       - name: Install Internet Archive CLI
         run: pip install internetarchive
 
@@ -563,7 +556,30 @@ jobs:
           echo "download_url=$DOWNLOAD_URL" >> "$GITHUB_OUTPUT"
           echo "identifier=$IDENTIFIER" >> "$GITHUB_OUTPUT"
 
-      # ---------- Sub-stage 6.2: Create GitHub Release ----------
+  # ================================================================
+  # Stage 7: GitHub Release (solo stable)
+  # ================================================================
+  release:
+    name: "🚀 GitHub Release"
+    needs: [build, upload-archive]
+    if: |
+      needs.build.result == 'success' &&
+      needs.upload-archive.result == 'success' &&
+      needs.build.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mados-iso
+          path: out
+
       - name: Set release tag
         id: release_tag
         run: |
@@ -592,7 +608,7 @@ jobs:
 
             ### 📥 Descarga
 
-            🌐 **[Descargar ISO desde Internet Archive](${{ steps.upload_ia.outputs.download_url }})**
+            🌐 **[Descargar ISO desde Internet Archive](${{ needs.upload-archive.outputs.download_url }})**
 
             ${{ needs.build.outputs.is_prerelease == 'true' && format('> ⚠️ Esta es una build de prueba ({0}). Para la versión estable, consulta la [última release](https://github.com/{1}/releases/latest).', needs.build.outputs.release_type, github.repository) || '' }}
 
@@ -607,14 +623,14 @@ jobs:
           make_latest: ${{ needs.build.outputs.is_release == 'true' }}
 
   # ================================================================
-  # Stage 7: Update Website Download Link (todas las builds)
+  # Stage 8: Update Website Download Link (después de subir a IA)
   # ================================================================
   update-website:
     name: "🌐 Update Website"
-    needs: [build, release]
+    needs: [build, upload-archive]
     if: |
-      always() && !cancelled() &&
-      needs.build.result == 'success'
+      needs.build.result == 'success' &&
+      needs.upload-archive.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -629,23 +645,7 @@ jobs:
       - name: Update Website Download Link
         run: |
           VERSION="${{ needs.build.outputs.version }}"
-          ISO_NAME="${{ needs.build.outputs.iso_name }}"
-          RELEASE_TYPE="${{ needs.build.outputs.release_type }}"
-          SHORT_SHA="${{ needs.build.outputs.short_sha }}"
-
-          # Build the download URL (same logic as release job)
-          if [[ "$RELEASE_TYPE" == "stable" ]]; then
-            IDENTIFIER="mados-${VERSION}"
-          else
-            IDENTIFIER="mados-${RELEASE_TYPE}-${VERSION}-${SHORT_SHA}"
-          fi
-
-          # Use release job URL if available, otherwise construct it
-          if [ -n "${{ needs.release.outputs.download_url }}" ]; then
-            DOWNLOAD_URL="${{ needs.release.outputs.download_url }}"
-          else
-            DOWNLOAD_URL="https://archive.org/download/${IDENTIFIER}/${ISO_NAME}"
-          fi
+          DOWNLOAD_URL="${{ needs.upload-archive.outputs.download_url }}"
 
           echo "Updating website with:"
           echo "  Version: $VERSION"
