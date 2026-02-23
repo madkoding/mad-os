@@ -1025,6 +1025,94 @@ img {
 }
 
 /* ============================================
+   Credits
+   ============================================ */
+.credits {
+    padding: var(--s9) 0;
+    background: var(--bg-base);
+}
+
+.credits-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--s5);
+}
+
+.credits-category {
+    padding: var(--s5);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    transition: border-color 0.2s;
+}
+
+.credits-category:hover {
+    border-color: var(--border-hover);
+}
+
+.credits-category h3 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: var(--s4);
+    padding-bottom: var(--s3);
+    border-bottom: 1px solid var(--border);
+}
+
+.credits-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+}
+
+.credits-list li {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s2);
+    flex-wrap: wrap;
+}
+
+.credits-list li a {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.2s;
+    white-space: nowrap;
+}
+
+.credits-list li a:hover {
+    color: var(--accent);
+}
+
+.credits-list li span {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.credits-badge {
+    font-size: 0.68rem !important;
+    font-weight: 600 !important;
+    color: var(--accent) !important;
+    padding: 1px 8px;
+    border-radius: 100px;
+    background: var(--accent-dim);
+    white-space: nowrap;
+}
+
+.credits-badge:hover {
+    background: rgba(136, 192, 208, 0.25);
+}
+
+.credits-media {
+    grid-column: 1 / -1;
+    background: var(--bg-elevated);
+}
+
+/* ============================================
    Footer
    ============================================ */
 .footer {
@@ -1231,6 +1319,14 @@ img {
 
     .features-grid {
         grid-template-columns: 1fr;
+    }
+
+    .credits-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .credits-media {
+        grid-column: auto;
     }
 
     .showcase-apps {
