@@ -30,31 +30,36 @@ CONFIG_FILE="/etc/mados/ventoy-persist.conf"
 STATE_FILE="/run/mados-persist.env"
 
 log_info() {
-    echo "[mados-persist] $1"
+    local msg="$1"
+    echo "[mados-persist] $msg"
+    return 0
 }
 
 log_warn() {
-    echo "[mados-persist] WARNING: $1"
+    local msg="$1"
+    echo "[mados-persist] WARNING: $msg"
+    return 0
 }
 
 load_config() {
-    if [ -f "$CONFIG_FILE" ]; then
+    if [[ -f "$CONFIG_FILE" ]]; then
         # shellcheck source=/dev/null
         . "$CONFIG_FILE"
     fi
+    return 0
 }
 
 is_ventoy_boot() {
-    [ -f /proc/cmdline ] && grep -q "ventoy" /proc/cmdline
+    [[ -f /proc/cmdline ]] && grep -q "ventoy" /proc/cmdline
 }
 
 is_live_environment() {
-    [ -d /run/archiso ]
+    [[ -d /run/archiso ]]
 }
 
 # Check if archiso was booted with cow_device= (true persistence)
 detect_cow_device() {
-    if [ -f /proc/cmdline ]; then
+    if [[ -f /proc/cmdline ]]; then
         local cmdline
         cmdline=$(cat /proc/cmdline)
         for param in $cmdline; do
@@ -63,6 +68,7 @@ detect_cow_device() {
                     echo "${param#*=}"
                     return 0
                     ;;
+                *) ;;
             esac
         done
     fi
@@ -71,7 +77,7 @@ detect_cow_device() {
 
 # Check if archiso was booted with cow_label= (true persistence by label)
 detect_cow_label() {
-    if [ -f /proc/cmdline ]; then
+    if [[ -f /proc/cmdline ]]; then
         local cmdline
         cmdline=$(cat /proc/cmdline)
         for param in $cmdline; do
@@ -80,6 +86,7 @@ detect_cow_label() {
                     echo "${param#*=}"
                     return 0
                     ;;
+                *) ;;
             esac
         done
     fi
@@ -90,7 +97,7 @@ detect_cow_label() {
 detect_persistence_partition() {
     local device
     device=$(blkid -L "mados-persist" 2>/dev/null)
-    if [ -n "$device" ] && [ -b "$device" ]; then
+    if [[ -n "$device" ]] && [[ -b "$device" ]]; then
         echo "$device"
         return 0
     fi
@@ -101,7 +108,7 @@ detect_persistence_partition() {
 detect_persistence_file() {
     local boot_mnt="/run/archiso/bootmnt"
 
-    if [ ! -d "$boot_mnt" ]; then
+    if [[ ! -d "$boot_mnt" ]]; then
         return 1
     fi
 
@@ -109,7 +116,7 @@ detect_persistence_file() {
         "$boot_mnt/ventoy/persistence/persistence.dat" \
         "$boot_mnt/ventoy/mados-persistence.dat" \
         "$boot_mnt/mados-persistence.dat"; do
-        if [ -f "$file" ]; then
+        if [[ -f "$file" ]]; then
             echo "$file"
             return 0
         fi
@@ -130,9 +137,10 @@ write_state() {
 MADOS_PERSIST_MODE="${mode}"
 MADOS_PERSIST_DEVICE="${device}"
 MADOS_PERSIST_VENTOY=$(is_ventoy_boot && echo "1" || echo "0")
-MADOS_PERSIST_ACTIVE=$( [ "$mode" != "none" ] && echo "1" || echo "0" )
+MADOS_PERSIST_ACTIVE=$( [[ "$mode" != "none" ]] && echo "1" || echo "0" )
 EOF
     chmod 644 "$STATE_FILE"
+    return 0
 }
 
 main() {
@@ -149,7 +157,7 @@ main() {
     # Priority 1: archiso cow_device= parameter (real transparent persistence)
     local cow_dev
     cow_dev=$(detect_cow_device)
-    if [ -n "$cow_dev" ]; then
+    if [[ -n "$cow_dev" ]]; then
         log_info "Archiso cow_device persistence ACTIVE: $cow_dev"
         log_info "All changes are saved transparently to the device"
         write_state "cow_device" "$cow_dev"
@@ -159,10 +167,10 @@ main() {
     # Priority 2: archiso cow_label= parameter (real persistence by label)
     local cow_label
     cow_label=$(detect_cow_label)
-    if [ -n "$cow_label" ]; then
+    if [[ -n "$cow_label" ]]; then
         local label_dev
         label_dev=$(blkid -L "$cow_label" 2>/dev/null)
-        if [ -n "$label_dev" ]; then
+        if [[ -n "$label_dev" ]]; then
             log_info "Archiso cow_label persistence ACTIVE: $cow_label -> $label_dev"
             write_state "cow_label" "$label_dev"
             return 0
@@ -174,7 +182,7 @@ main() {
     # Priority 3: Partition labeled mados-persist (for rsync-based sync)
     local persist_part
     persist_part=$(detect_persistence_partition)
-    if [ -n "$persist_part" ]; then
+    if [[ -n "$persist_part" ]]; then
         log_info "Found persistence partition: $persist_part"
         log_info "rsync-based sync will be used (mados-persist-sync service)"
         write_state "partition" "$persist_part"
@@ -184,7 +192,7 @@ main() {
     # Priority 4: Persistence .dat file on boot device (rsync-based sync)
     local persist_file
     persist_file=$(detect_persistence_file)
-    if [ -n "$persist_file" ]; then
+    if [[ -n "$persist_file" ]]; then
         log_info "Found persistence file: $persist_file"
         log_info "rsync-based sync will be used (mados-persist-sync service)"
         write_state "file" "$persist_file"

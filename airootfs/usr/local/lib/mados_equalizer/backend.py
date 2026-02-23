@@ -422,6 +422,29 @@ context.modules = [
                 timeout=2,
             )
 
+    @staticmethod
+    def _parse_id_from_line(line):
+        """Extract an integer node ID from a pw-cli/wpctl id line.
+
+        Parses lines like ``id 42, type PipeWire:Interface:Node/3``
+        and returns the integer ``42``, or *None* on failure.
+        """
+        parts = line.split(",")[0].split()
+        if len(parts) >= 2:
+            try:
+                return int(parts[1])
+            except ValueError:
+                pass
+        return None
+
+    def _parse_node_id_from_inspect(self, stdout):
+        """Return the node ID from ``wpctl inspect`` output, or *None*."""
+        for line in stdout.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("id "):
+                return self._parse_id_from_line(stripped)
+        return None
+
     def _save_original_default_sink(self):
         """Save the current default sink ID so it can be restored later.
 
@@ -439,17 +462,9 @@ context.modules = [
                 ["wpctl", "inspect", DEFAULT_AUDIO_SINK]
             )
             if rc == 0 and stdout:
-                for line in stdout.splitlines():
-                    line = line.strip()
-                    if line.startswith("id "):
-                        # Format: "id N, ..."
-                        parts = line.split(",")[0].split()
-                        if len(parts) >= 2:
-                            try:
-                                self._original_default_sink_id = int(parts[1])
-                            except ValueError:
-                                pass
-                        break
+                node_id = self._parse_node_id_from_inspect(stdout)
+                if node_id is not None:
+                    self._original_default_sink_id = node_id
         except Exception:
             pass
 
@@ -479,6 +494,22 @@ context.modules = [
         except Exception:
             return False
 
+    def _parse_eq_sink_from_objects(self, stdout):
+        """Parse ``pw-cli list-objects`` output and return the EQ sink node ID.
+
+        Returns the integer node ID whose ``node.name`` matches the
+        EQ capture name, or *None* if not found.
+        """
+        current_id = None
+        for line in stdout.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("id "):
+                current_id = self._parse_id_from_line(stripped)
+            elif current_id is not None and "node.name" in stripped:
+                if f'"{EQ_NODE_NAME}-capture"' in stripped:
+                    return current_id
+        return None
+
     def _find_eq_sink_node_id(self):
         """Find the PipeWire node ID of the EQ capture sink.
 
@@ -498,27 +529,7 @@ context.modules = [
             if rc != 0 or not stdout:
                 return None
 
-            # Parse pw-cli list-objects output to find our EQ capture node.
-            # Each object block starts with "id N, ..." and has properties
-            # on subsequent indented lines.
-            current_id = None
-            for line in stdout.splitlines():
-                stripped = line.strip()
-                if stripped.startswith("id "):
-                    # "id 42, type PipeWire:Interface:Node/3"
-                    parts = stripped.split(",")[0].split()
-                    if len(parts) >= 2:
-                        try:
-                            current_id = int(parts[1])
-                        except ValueError:
-                            current_id = None
-                elif current_id is not None:
-                    # Look for node.name = "mados-eq-capture"
-                    if "node.name" in stripped:
-                        if f'"{EQ_NODE_NAME}-capture"' in stripped:
-                            return current_id
-
-            return None
+            return self._parse_eq_sink_from_objects(stdout)
         except Exception:
             return None
 
