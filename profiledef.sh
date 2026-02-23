@@ -68,9 +68,11 @@ file_permissions=(
   ["/usr/local/lib/mados_audio_player/"]="0:0:755"
   ["/usr/local/lib/mados-media-helper.sh"]="0:0:755"
   ["/usr/local/bin/mados-persistence"]="0:0:755"
+  ["/usr/local/bin/mados-vbox-guest"]="0:0:755"
   ["/usr/local/bin/mados-persist-sync.sh"]="0:0:755"
   ["/usr/local/bin/mados-persist-detect.sh"]="0:0:755"
   ["/usr/local/bin/mados-ventoy-setup.sh"]="0:0:755"
+  ["/usr/local/bin/mados-timezone-detect.sh"]="0:0:755"
   ["/etc/mados/"]="0:0:755"
   ["/etc/mados/ventoy-persist.conf"]="0:0:644"
 )

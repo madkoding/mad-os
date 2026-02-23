@@ -229,6 +229,10 @@ exec --no-startup-id env GDK_BACKEND=wayland blueman-applet
 # madOS Application Launcher dock
 exec --no-startup-id mados-launcher
 
+# VirtualBox Guest Additions (auto-resize, clipboard, drag-and-drop)
+# Only runs when inside a VirtualBox VM, exits immediately otherwise
+exec --no-startup-id mados-vbox-guest
+
 # Xwayland (for maim screenshots)
 exec_always --no-startup-id "pgrep Xwayland || echo 'Xwayland should auto-start'"
 

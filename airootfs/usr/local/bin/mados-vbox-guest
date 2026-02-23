@@ -1,0 +1,45 @@
+#!/bin/bash
+# mados-vbox-guest - Start VirtualBox Guest Additions user-level services
+# Enables display auto-resize, shared clipboard, and drag-and-drop
+# Only runs when inside a VirtualBox VM
+
+# Exit quickly if not in a VirtualBox VM
+if ! systemd-detect-virt --vm --quiet 2>/dev/null; then
+    exit 0
+fi
+
+VIRT_TYPE=$(systemd-detect-virt 2>/dev/null)
+if [ "$VIRT_TYPE" != "oracle" ]; then
+    exit 0
+fi
+
+# Check that VBoxClient is available
+if ! command -v VBoxClient >/dev/null 2>&1; then
+    logger -p user.warning -t mados-vbox-guest "VBoxClient not found - virtualbox-guest-utils may not be installed"
+    exit 1
+fi
+
+logger -p user.info -t mados-vbox-guest "Starting VirtualBox Guest Additions user services"
+
+# Kill any existing VBoxClient instances to avoid duplicates
+pkill -f "VBoxClient --" 2>/dev/null
+sleep 0.3
+
+# Start VBoxClient services
+# --vmsvga: Display auto-resize (works with VMSVGA/VBoxSVGA graphics controllers)
+VBoxClient --vmsvga &
+logger -p user.info -t mados-vbox-guest "Started VBoxClient --vmsvga (display auto-resize)"
+
+# --clipboard: Shared clipboard between host and guest
+VBoxClient --clipboard &
+logger -p user.info -t mados-vbox-guest "Started VBoxClient --clipboard"
+
+# --draganddrop: Drag and drop between host and guest
+VBoxClient --draganddrop &
+logger -p user.info -t mados-vbox-guest "Started VBoxClient --draganddrop"
+
+# --seamless: Seamless window integration
+VBoxClient --seamless &
+logger -p user.info -t mados-vbox-guest "Started VBoxClient --seamless"
+
+logger -p user.info -t mados-vbox-guest "All VirtualBox guest services started"
