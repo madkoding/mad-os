@@ -11,7 +11,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GdkPixbuf
 
-from .config import EXCLUDED_DESKTOP, ICON_SIZE
+from .config import EXCLUDED_DESKTOP, ICON_SIZE, AVAHI_DESKTOP_FILES
 from . import config as _config
 
 
@@ -99,9 +99,24 @@ def _fallback_icon(size=ICON_SIZE):
     return None
 
 
+def _is_avahi_running():
+    """Check whether avahi-daemon is currently active via systemctl."""
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-active", "--quiet", "avahi-daemon"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
 def scan_desktop_entries():
     """Scan standard directories for .desktop files and return sorted list of DesktopEntry."""
     entries = {}
+    avahi_active = _is_avahi_running()
 
     for directory in _config.DESKTOP_DIRS:
         if not os.path.isdir(directory):
@@ -112,6 +127,9 @@ def scan_desktop_entries():
             if fname in EXCLUDED_DESKTOP:
                 continue
             if fname in entries:
+                continue
+            # Hide Avahi entries when the service is not running
+            if not avahi_active and fname in AVAHI_DESKTOP_FILES:
                 continue
 
             filepath = os.path.join(directory, fname)

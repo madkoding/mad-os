@@ -44,6 +44,9 @@ from .config import (
     SHADOW_OFFSET_Y,
     SHADOW_LAYERS,
     SHADOW_BASE_ALPHA,
+    ICON_ZOOM_SIZE,
+    ICON_ZOOM_STEP,
+    ICON_ZOOM_INTERVAL_MS,
 )
 from .desktop_entries import scan_desktop_entries, launch_application, group_entries, EntryGroup
 from .window_tracker import WindowTracker
@@ -79,6 +82,12 @@ class LauncherApp:
         self._entries = []
         self._grouped = []         # list of DesktopEntry | EntryGroup
         self._icon_buttons = []    # list of (btn, indicator_draw, entry)
+
+        # Icon zoom animation state: id(btn) -> {current_size, target_size, timer, entry, btn}
+        self._zoom_state = {}
+
+        # Active popover reference (for dismissing on outside click)
+        self._active_popover = None
 
         # Window tracker
         self._tracker = WindowTracker()
@@ -169,6 +178,7 @@ class LauncherApp:
                 self._screen_height = geom.height
 
         self.window.connect("destroy", self._on_destroy)
+        self.window.connect("button-press-event", self._on_window_button_press)
 
     # ------------------------------------------------------------------ #
     # UI Layout
@@ -509,7 +519,7 @@ class LauncherApp:
         return False
 
     def _on_left_grip_release(self, widget, event):
-        """On release of left grip: only save drag (no toggle)."""
+        """On release of left grip: toggle if click, save if drag."""
         if event.button != 1:
             return True
 
@@ -518,7 +528,12 @@ class LauncherApp:
         if self._is_dragging:
             self._is_dragging = False
             self._save_state()
-        # No toggle on click — left grip is only for dragging
+        else:
+            # Click — toggle (collapse) the dock
+            self._expanded = not self._expanded
+            self._revealer.set_reveal_child(self._expanded)
+            self._tab_draw.queue_draw()  # Redraw chevron direction
+            self._save_state()
 
         # Restore grab cursor
         win = widget.get_window()
@@ -578,6 +593,13 @@ class LauncherApp:
         btn.add(image)
         btn.connect("clicked", self._on_icon_clicked, entry.exec_cmd)
 
+        # Zoom on hover
+        btn.add_events(
+            Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK
+        )
+        btn.connect("enter-notify-event", self._on_icon_enter, entry)
+        btn.connect("leave-notify-event", self._on_icon_leave, entry)
+
         # Indicator drawing area (small dot below icon)
         indicator = Gtk.DrawingArea()
         indicator.set_size_request(ICON_SIZE, INDICATOR_HEIGHT)
@@ -602,6 +624,13 @@ class LauncherApp:
         image = self._make_icon_image(group.representative)
         btn.add(image)
         btn.connect("clicked", self._on_group_clicked, group)
+
+        # Zoom on hover
+        btn.add_events(
+            Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK
+        )
+        btn.connect("enter-notify-event", self._on_icon_enter, group.representative)
+        btn.connect("leave-notify-event", self._on_icon_leave, group.representative)
 
         # Indicator: show dot if any entry in the group is running
         indicator = Gtk.DrawingArea()
@@ -634,10 +663,14 @@ class LauncherApp:
 
     def _on_group_clicked(self, button, group):
         """Show a popover listing all entries in the group."""
+        # Dismiss any previously open popover
+        self._dismiss_active_popover()
+
         popover = Gtk.Popover()
         popover.set_relative_to(button)
         popover.set_position(Gtk.PositionType.RIGHT)
         popover.get_style_context().add_class("launcher-popup")
+        popover.connect("closed", self._on_popover_closed)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         vbox.set_margin_start(4)
@@ -690,6 +723,7 @@ class LauncherApp:
 
         popover.add(vbox)
         popover.show_all()
+        self._active_popover = popover
 
     def _on_popover_item_clicked(self, button, popover, exec_cmd):
         """Launch app from popover and close it."""
@@ -720,6 +754,101 @@ class LauncherApp:
             self._tab_draw.queue_draw()
             self._save_state()
         return False  # GLib.SOURCE_REMOVE
+
+    # ------------------------------------------------------------------ #
+    # Popover dismiss on outside click
+    # ------------------------------------------------------------------ #
+
+    def _dismiss_active_popover(self):
+        """Close the currently active popover, if any."""
+        if self._active_popover:
+            try:
+                self._active_popover.popdown()
+            except Exception:
+                pass
+            self._active_popover = None
+
+    def _on_popover_closed(self, popover):
+        """Clear active popover reference when it closes."""
+        if self._active_popover is popover:
+            self._active_popover = None
+
+    def _on_window_button_press(self, widget, event):
+        """Dismiss any open popover when clicking on the dock background."""
+        self._dismiss_active_popover()
+        return False  # Let the event propagate
+
+    # ------------------------------------------------------------------ #
+    # Icon zoom animation on hover
+    # ------------------------------------------------------------------ #
+
+    def _on_icon_enter(self, btn, event, entry):
+        """Start zoom-in animation when mouse enters an icon button."""
+        self._animate_icon_zoom(btn, ICON_ZOOM_SIZE, entry)
+        return False
+
+    def _on_icon_leave(self, btn, event, entry):
+        """Start zoom-out animation when mouse leaves an icon button."""
+        self._animate_icon_zoom(btn, ICON_SIZE, entry)
+        return False
+
+    def _animate_icon_zoom(self, btn, target_size, entry):
+        """Begin an animated zoom toward target_size for the given icon button."""
+        key = id(btn)
+        state = self._zoom_state.get(key)
+
+        # Cancel any running animation for this button
+        if state and state.get("timer"):
+            GLib.source_remove(state["timer"])
+
+        current = state["current_size"] if state else ICON_SIZE
+        self._zoom_state[key] = {
+            "current_size": current,
+            "target_size": target_size,
+            "entry": entry,
+            "btn": btn,
+            "timer": GLib.timeout_add(ICON_ZOOM_INTERVAL_MS, self._zoom_tick, key),
+        }
+
+    def _zoom_tick(self, key):
+        """Advance one frame of the icon zoom animation."""
+        state = self._zoom_state.get(key)
+        if not state:
+            return False
+
+        current = state["current_size"]
+        target = state["target_size"]
+
+        if current == target:
+            state["timer"] = None
+            return False  # Animation complete
+
+        # Step toward target
+        if current < target:
+            new_size = min(current + ICON_ZOOM_STEP, target)
+        else:
+            new_size = max(current - ICON_ZOOM_STEP, target)
+
+        state["current_size"] = new_size
+        self._apply_icon_size(state["btn"], new_size, state["entry"])
+
+        if new_size == target:
+            state["timer"] = None
+            return False  # Done
+        return True  # Continue animation
+
+    def _apply_icon_size(self, btn, size, entry):
+        """Set the icon image inside a button to the given pixel size."""
+        image = btn.get_child()
+        if image is None:
+            return
+        if entry.pixbuf:
+            pixbuf = entry.pixbuf.scale_simple(
+                size, size, GdkPixbuf.InterpType.BILINEAR
+            )
+            image.set_from_pixbuf(pixbuf)
+        else:
+            image.set_pixel_size(size)
 
     # ------------------------------------------------------------------ #
     # Window state tracking and indicators

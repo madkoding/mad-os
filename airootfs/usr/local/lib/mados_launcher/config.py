@@ -69,5 +69,18 @@ EXCLUDED_DESKTOP = {
 CONFIG_DIR = os.path.expanduser("~/.config/mados-launcher")
 STATE_FILE = os.path.join(CONFIG_DIR, "state.json")
 
+# --- Icon Zoom on Hover ---
+ICON_ZOOM_SIZE = 32            # Target icon size on hover (pixels)
+ICON_ZOOM_STEP = 2             # Pixels per animation frame
+ICON_ZOOM_INTERVAL_MS = 25     # Milliseconds between animation frames
+
+# --- Service-Dependent Filtering ---
+# Desktop entry filenames to hide when avahi-daemon is not running
+AVAHI_DESKTOP_FILES = {
+    "avahi-discover.desktop",
+    "bvnc.desktop",
+    "bssh.desktop",
+}
+
 # --- Refresh ---
 REFRESH_INTERVAL_SECONDS = 30  # Rescan .desktop files every N seconds
