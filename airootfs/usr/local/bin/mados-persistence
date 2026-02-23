@@ -1,8 +1,15 @@
 #!/bin/bash
+# =============================================================================
+# mados-persistence - User-facing CLI for persistence management
+# =============================================================================
+# Usage:
+#   mados-persistence status   # Show persistence status
+#   mados-persistence info     # Show setup instructions
+#   mados-persistence sync     # Force manual sync (rsync mode only)
+# =============================================================================
 
-PERSISTENCE_FILE="/mados-persistence.dat"
+STATE_FILE="/run/mados-persist.env"
 PERSISTENCE_MOUNT="/mnt/mados-persist"
-MOUNTED_PERSIST=""
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -10,211 +17,148 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-print_status() {
-    echo -e "${GREEN}mados-persistence${NC} - Ventoy-style persistent USB manager"
-    echo ""
-}
+read_state() {
+    MADOS_PERSIST_MODE="none"
+    MADOS_PERSIST_DEVICE=""
+    MADOS_PERSIST_VENTOY="0"
+    MADOS_PERSIST_ACTIVE="0"
 
-detect_persistence() {
-    local boot_dev=""
-    
-    if [ -d /run/archiso/bootmnt ]; then
-        boot_dev="/run/archiso/bootmnt"
-    elif [ -f /proc/cmdline ]; then
-        local cmdline=$(cat /proc/cmdline)
-        for param in $cmdline; do
-            case "$param" in
-                archisosearchuuid=*)
-                    local uuid="${param#*=}"
-                    boot_dev=$(blkid -U "$uuid" 2>/dev/null)
-                    boot_dev=$(dirname "$boot_dev")
-                    break
-                    ;;
-            esac
-        done
+    if [ -f "$STATE_FILE" ]; then
+        # shellcheck source=/dev/null
+        . "$STATE_FILE"
     fi
-    
-    if [ -n "$boot_dev" ]; then
-        if [ -f "${boot_dev}${PERSISTENCE_FILE}" ]; then
-            echo "${boot_dev}${PERSISTENCE_FILE}"
-            return 0
-        elif [ -f "${boot_dev}/ventoy${PERSISTENCE_FILE}" ]; then
-            echo "${boot_dev}/ventoy${PERSISTENCE_FILE}"
-            return 0
-        fi
-    fi
-    
-    for label in "mados-persist" "vtoycow" "persistence"; do
-        local device=$(blkid -L "$label" 2>/dev/null)
-        if [ -n "$device" ]; then
-            echo "$device"
-            return 0
-        fi
-    done
-    
-    return 1
-}
-
-check_ventoy_mode() {
-    if [ -f /proc/cmdline ]; then
-        local cmdline=$(cat /proc/cmdline)
-        for param in $cmdline; do
-            case "$param" in
-                cow_device=*)
-                    return 0
-                    ;;
-            esac
-        done
-    fi
-    return 1
 }
 
 cmd_status() {
-    echo "=== Persistence Status ==="
+    read_state
+
+    echo -e "${BLUE}=== madOS Persistence Status ===${NC}"
     echo ""
-    
-    if check_ventoy_mode; then
-        echo -e "${GREEN}Mode: Ventoy cow_device (native persistence)${NC}"
-    elif [ -n "$MADOS_PERSISTENCE_ACTIVE" ]; then
-        echo -e "${GREEN}Persistence: ACTIVE (file-based)${NC}"
+
+    case "$MADOS_PERSIST_MODE" in
+        cow_device)
+            echo -e "${GREEN}Mode: Archiso cow_device (native transparent persistence)${NC}"
+            echo -e "Device: ${MADOS_PERSIST_DEVICE}"
+            echo -e "All changes are saved ${GREEN}automatically${NC} to the device."
+            echo "No sync needed."
+            ;;
+        cow_label)
+            echo -e "${GREEN}Mode: Archiso cow_label (native transparent persistence)${NC}"
+            echo -e "Device: ${MADOS_PERSIST_DEVICE}"
+            echo -e "All changes are saved ${GREEN}automatically${NC} via overlay."
+            echo "No sync needed."
+            ;;
+        partition)
+            echo -e "${GREEN}Mode: rsync-based (partition)${NC}"
+            echo -e "Device: ${MADOS_PERSIST_DEVICE}"
+            if mountpoint -q "$PERSISTENCE_MOUNT" 2>/dev/null; then
+                echo -e "Mount: ${GREEN}$PERSISTENCE_MOUNT (mounted)${NC}"
+                local used
+                used=$(df -h "$PERSISTENCE_MOUNT" 2>/dev/null | tail -1 | awk '{print $3 "/" $2 " (" $5 ")"}')
+                echo -e "Usage: $used"
+            else
+                echo -e "Mount: ${RED}Not mounted${NC}"
+            fi
+            echo ""
+            echo "Data is synced every 5 minutes (home, root, configs)."
+            echo "Force sync: sudo mados-persistence sync"
+            ;;
+        file)
+            echo -e "${GREEN}Mode: rsync-based (file)${NC}"
+            echo -e "File: ${MADOS_PERSIST_DEVICE}"
+            if mountpoint -q "$PERSISTENCE_MOUNT" 2>/dev/null; then
+                echo -e "Mount: ${GREEN}$PERSISTENCE_MOUNT (mounted)${NC}"
+            else
+                echo -e "Mount: ${RED}Not mounted${NC}"
+            fi
+            echo ""
+            echo "Data is synced every 5 minutes (home, root, configs)."
+            echo "Force sync: sudo mados-persistence sync"
+            ;;
+        *)
+            echo -e "${YELLOW}Persistence: INACTIVE${NC}"
+            echo ""
+            echo "Changes will be lost on reboot."
+            echo "Run 'mados-persistence info' to see how to enable persistence."
+            ;;
+    esac
+
+    echo ""
+    if [ "$MADOS_PERSIST_VENTOY" = "1" ]; then
+        echo -e "Boot method: ${BLUE}Ventoy${NC}"
+    elif [ -d /run/archiso ]; then
+        echo -e "Boot method: ${BLUE}Direct USB/ISO${NC}"
     else
-        echo -e "${YELLOW}Persistence: INACTIVE${NC}"
-    fi
-    
-    if [ -n "$MADOS_PERSISTENCE_DIR" ]; then
-        echo "Persistence directory: $MADOS_PERSISTENCE_DIR"
-    fi
-    
-    if [ -n "$MADOS_PERSISTENCE_DEVICE" ]; then
-        echo "Persistence device: $MADOS_PERSISTENCE_DEVICE"
-    fi
-    
-    echo ""
-    echo "=== Looking for persistence file on boot device ==="
-    
-    if detect_persistence; then
-        echo -e "${GREEN}Found persistence file/partition${NC}"
-    else
-        echo -e "${RED}No persistence file found${NC}"
-    fi
-    
-    echo ""
-    echo "=== Boot parameters ==="
-    if [ -f /proc/cmdline ]; then
-        grep -oE 'cow_spacesize=[^ ]+' /proc/cmdline 2>/dev/null || echo "No cow_spacesize parameter"
-        grep -oE 'cow_device=[^ ]+' /proc/cmdline 2>/dev/null || echo "No cow_device parameter (Ventoy sets this automatically)"
+        echo -e "Boot method: ${BLUE}Installed system${NC}"
     fi
 }
 
-cmd_enable() {
-    echo "=== Enabling Persistence ==="
-    
-    if check_ventoy_mode; then
-        echo -e "${GREEN}Already in Ventoy cow_device mode!${NC}"
-        echo "Your changes are being saved automatically to the .dat file"
-        exit 0
-    fi
-    
-    local persist_file=$(detect_persistence)
-    
-    if [ -z "$persist_file" ]; then
-        echo -e "${RED}No persistence file found!${NC}"
-        echo ""
-        echo "To create a persistence file:"
-        echo "  1. Run: sudo mados-persistence-img.sh -s 4096"
-        echo "  2. Copy the file to your USB as 'mados-persistence.dat'"
-        echo "  3. Or create a partition with label 'mados-persist'"
+cmd_sync() {
+    read_state
+
+    if [ "$MADOS_PERSIST_MODE" = "partition" ] || [ "$MADOS_PERSIST_MODE" = "file" ]; then
+        echo "Forcing sync..."
+        /usr/local/bin/mados-persist-sync.sh sync
+        echo -e "${GREEN}Sync complete!${NC}"
+    elif [ "$MADOS_PERSIST_MODE" = "cow_device" ] || [ "$MADOS_PERSIST_MODE" = "cow_label" ]; then
+        echo -e "${GREEN}Native persistence active. Changes are saved automatically.${NC}"
+    else
+        echo -e "${RED}No persistence active. Nothing to sync.${NC}"
         exit 1
     fi
-    
-    echo "Persistence file: $persist_file"
-    
-    if [[ "$persist_file" == /dev/* ]]; then
-        echo "Using block device directly"
-        export MADOS_PERSISTENCE_DIR="$persist_file"
-    else
-        mkdir -p "$PERSISTENCE_MOUNT"
-        
-        if [[ "$persist_file" == *.dat ]]; then
-            local loop_dev=$(losetup -f --show "$persist_file" 2>/dev/null)
-            if [ -z "$loop_dev" ]; then
-                echo -e "${RED}Failed to create loop device${NC}"
-                exit 1
-            fi
-            mount -o rw "$loop_dev" "$PERSISTENCE_MOUNT"
-        else
-            mount -o rw "$persist_file" "$PERSISTENCE_MOUNT"
-        fi
-        
-        export MADOS_PERSISTENCE_DIR="$PERSISTENCE_MOUNT"
-    fi
-    
-    export MADOS_PERSISTENCE_ACTIVE=1
-    
-    echo -e "${GREEN}Persistence enabled!${NC}"
-    echo "Changes will now be saved to: $MADOS_PERSISTENCE_DIR"
-    echo ""
-    echo "Note: For permanent persistence, you need to:"
-    echo "  1. Boot with 'madOS Live with Persistence' option"
-    echo "  2. Or configure cow_device parameter in boot loader"
-}
-
-cmd_disable() {
-    echo "=== Disabling Persistence ==="
-    
-    if [ -d "$PERSISTENCE_MOUNT" ]; then
-        umount "$PERSISTENCE_MOUNT" 2>/dev/null || true
-    fi
-    
-    for loop_dev in $(losetup -j /mados-persistence.dat 2>/dev/null | cut -d: -f1); do
-        losetup -d "$loop_dev" 2>/dev/null || true
-    done
-    
-    unset MADOS_PERSISTENCE_ACTIVE
-    unset MADOS_PERSISTENCE_DIR
-    
-    echo -e "${GREEN}Persistence disabled${NC}"
 }
 
 cmd_info() {
-    print_status
-    
-    echo -e "${BLUE}=== MODOS DE PERSISTENCIA ===${NC}"
+    echo -e "${BLUE}=== madOS Persistence Guide ===${NC}"
     echo ""
-    echo -e "${GREEN}Opción 1: ISO simple (sin persistencia)${NC}"
-    echo "  dd if=mados.iso of=/dev/sdb"
-    echo "  Listo. Boot normal."
+    echo -e "${GREEN}Option 1: USB with persistence partition (recommended)${NC}"
+    echo "  1. Write the ISO to USB:"
+    echo "     sudo dd if=madOS.iso of=/dev/sdX bs=4M status=progress"
+    echo "  2. Create an ext4 partition on remaining USB space:"
+    echo "     sudo fdisk /dev/sdX   # Add new partition"
+    echo "     sudo mkfs.ext4 -L mados-persist /dev/sdX3"
+    echo "  3. Boot and select 'madOS Live with Persistence'"
+    echo "  4. The partition is auto-detected via cow_label=mados-persist"
     echo ""
-    echo -e "${GREEN}Opción 2: Ventoy (CON persistencia)${NC}"
-    echo "  1. Install Ventoy en USB"
-    echo "  2. Descargar script CreatePersistentImg.sh de ventoy.net"
-    echo "  3. sudo sh CreatePersistentImg.sh -s 4096 -l mados-persist"
-    echo "  4. Copiar mados-persistence.dat al USB (/ventoy/persistence/)"
-    echo "  5. Configurar ventoy.json"
+    echo -e "${GREEN}Option 2: Ventoy USB (persistence via Ventoy)${NC}"
+    echo "  1. Install Ventoy on USB: https://ventoy.net"
+    echo "  2. Copy madOS.iso to USB"
+    echo "  3. Create persistence image (on another PC):"
+    echo "     sudo sh CreatePersistentImg.sh -s 4096 -l mados-persist"
+    echo "     (Download from: https://ventoy.net/en/plugin_persistence.html)"
+    echo "  4. Copy persistence.dat to /ventoy/persistence/ on the USB"
+    echo "  5. Configure /ventoy/ventoy.json:"
+    echo '     {'
+    echo '       "persistence": [{'
+    echo '         "image": "/madOS.iso",'
+    echo '         "backend": "/ventoy/persistence/persistence.dat"'
+    echo '       }]'
+    echo '     }'
+    echo "  6. Ventoy handles persistence automatically at boot"
     echo ""
-    echo "Mas info: https://www.ventoy.net/en/plugin_persistence.html"
+    echo -e "${GREEN}Option 3: ISO without persistence${NC}"
+    echo "  Boot normally. All changes stay in RAM and are lost on reboot."
+    echo "  The 'madOS Live' option uses cow_spacesize=256M for temp storage."
     echo ""
-    echo "Comandos:"
-    echo "  mados-persistence status    # Ver estado"
-    echo "  mados-persistence info     # Esta ayuda"
+    echo -e "${YELLOW}Commands:${NC}"
+    echo "  mados-persistence status  # Check current persistence mode"
+    echo "  mados-persistence info    # This help"
+    echo "  mados-persistence sync    # Force sync (rsync mode only)"
 }
 
 case "${1:-status}" in
     status)
         cmd_status
         ;;
-    enable)
-        cmd_enable
-        ;;
-    disable)
-        cmd_disable
+    sync)
+        cmd_sync
         ;;
     info|--help|-h)
         cmd_info
         ;;
     *)
         echo "Unknown command: $1"
-        echo "Use: status, enable, disable, or info"
+        echo "Usage: mados-persistence {status|sync|info}"
         exit 1
         ;;
 esac

@@ -1342,18 +1342,16 @@ if [ -f /etc/skel/.zshrc ]; then
     chown {username}:{username} /home/{username}/.zshrc
 fi
 
-# Ventoy persistence configuration
-VENTOY_PERSIST_SIZE={data.get("ventoy_persist_size", 4096)}
+# Ventoy/persistence configuration
 mkdir -p /etc/mados
-cat > /etc/mados/ventoy-persist.conf <<'EOFVENTOY'
-# madOS Ventoy Persistence Configuration
-# This file is read by mados-ventoy-setup.sh at boot
+cat > /etc/mados/ventoy-persist.conf << EOFVENTOY
+# madOS Persistence Configuration
+# Read by persistence detection at boot
 
-# Maximum size of persistence file in MB (default: 4096)
-# Valid values: 512 - 8192
+# Preferred persistence size in MB (used as reference for Ventoy .dat files)
 VENTOY_PERSIST_SIZE_MB={data.get("ventoy_persist_size", 4096)}
 
-# Minimum free space required on USB in MB (default: 512)
+# Minimum free space required on USB in MB
 MIN_FREE_SPACE_MB=512
 EOFVENTOY
 chmod 644 /etc/mados/ventoy-persist.conf

@@ -169,6 +169,7 @@ python-pillow
 gst-plugins-ugly
 gst-plugins-bad
 gst-libav
+gst-plugin-gtk
 
 # madOS PDF Viewer - PDF rendering and annotations
 poppler-glib
