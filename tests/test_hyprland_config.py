@@ -1278,14 +1278,14 @@ class TestWallpaperGlitchScript(unittest.TestCase):
         with open(self.SCRIPT_PATH) as f:
             content = f.read()
         self.assertIn(
-            "STATE_DIR",
+            "sqlite3",
             content,
-            "Script must use state files for per-workspace wallpaper mapping",
+            "Script must use SQLite for per-workspace wallpaper mapping",
         )
         self.assertIn(
-            "ws-$ws",
+            "assignments",
             content,
-            "Script must write per-workspace state files",
+            "Script must use 'assignments' table for workspace-wallpaper mapping",
         )
 
     def test_script_kills_previous_instances(self):
@@ -1362,6 +1362,31 @@ class TestWallpaperGlitchScript(unittest.TestCase):
             "socat",
             content,
             "Script must check if socat is available",
+        )
+
+    def test_script_uses_sqlite(self):
+        """mados-wallpaper-glitch must use SQLite for wallpaper storage."""
+        with open(self.SCRIPT_PATH) as f:
+            content = f.read()
+        self.assertIn(
+            "sqlite3",
+            content,
+            "Script must use sqlite3 for persistent wallpaper database",
+        )
+        self.assertIn(
+            "wallpapers.db",
+            content,
+            "Script must use wallpapers.db database file",
+        )
+        self.assertIn(
+            "CREATE TABLE IF NOT EXISTS wallpapers",
+            content,
+            "Script must create wallpapers catalog table",
+        )
+        self.assertIn(
+            "CREATE TABLE IF NOT EXISTS assignments",
+            content,
+            "Script must create workspace assignments table",
         )
 
     def test_hyprland_wallpaper_uses_no_transition(self):
@@ -1493,20 +1518,30 @@ class TestSwayWallpaperStartup(unittest.TestCase):
             "(without this, workspace events are never delivered to the while-read loop)",
         )
 
-    def test_sway_wallpaper_script_uses_state_files(self):
-        """mados-sway-wallpapers must use state files for workspace-wallpaper mapping."""
+    def test_sway_wallpaper_script_uses_sqlite(self):
+        """mados-sway-wallpapers must use SQLite for workspace-wallpaper mapping."""
         with open(self.WALLPAPER_SCRIPT) as f:
             content = f.read()
         self.assertIn(
-            "STATE_DIR",
+            "sqlite3",
             content,
-            "Script must use state files to avoid associative array issues in subshells",
+            "Script must use sqlite3 for persistent wallpaper storage",
         )
-        # Should write per-workspace files
         self.assertIn(
-            "ws-$ws",
+            "wallpapers.db",
             content,
-            "Script must write per-workspace state files (ws-1, ws-2, etc.)",
+            "Script must use wallpapers.db database file",
+        )
+        # Should have wallpapers and assignments tables
+        self.assertIn(
+            "CREATE TABLE IF NOT EXISTS wallpapers",
+            content,
+            "Script must create wallpapers catalog table",
+        )
+        self.assertIn(
+            "CREATE TABLE IF NOT EXISTS assignments",
+            content,
+            "Script must create workspace assignments table",
         )
 
     def test_sway_wallpaper_script_uses_inplace_shuffle(self):
@@ -1561,14 +1596,165 @@ class TestSwayWallpaperStartup(unittest.TestCase):
             "Sway config must not hardcode a wallpaper file (managed by script)",
         )
 
-    def test_sway_wallpaper_script_cleans_up(self):
-        """mados-sway-wallpapers must clean up state files on exit."""
+    def test_sway_wallpaper_script_has_exit_trap(self):
+        """mados-sway-wallpapers must trap EXIT for cleanup handler."""
         with open(self.WALLPAPER_SCRIPT) as f:
             content = f.read()
         self.assertIn(
             "trap cleanup EXIT",
             content,
-            "Script must trap EXIT to clean up state directory",
+            "Script must trap EXIT for cleanup handler",
+        )
+
+    def test_sway_wallpaper_requires_sqlite3(self):
+        """mados-sway-wallpapers must check for sqlite3 in required tools."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "sqlite3",
+            content,
+            "Script must require sqlite3 command",
+        )
+
+    def test_packages_include_sqlite(self):
+        """packages.x86_64 must include sqlite for wallpaper database."""
+        pkg_file = os.path.join(REPO_DIR, "packages.x86_64")
+        with open(pkg_file) as f:
+            packages = [l.strip() for l in f if l.strip() and not l.startswith("#")]
+        self.assertIn(
+            "sqlite",
+            packages,
+            "sqlite package must be in packages.x86_64 for wallpaper DB",
+        )
+
+    def test_sway_wallpaper_preserves_user_assignments(self):
+        """mados-sway-wallpapers must preserve existing user wallpaper assignments."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        # The script should check existing assignments before overwriting
+        self.assertIn(
+            "SELECT COUNT",
+            content,
+            "Script must check existing assignments before reassigning "
+            "(preserve user selections from wallpaper settings GUI)",
+        )
+
+    def test_sway_wallpaper_uses_persistent_db(self):
+        """mados-sway-wallpapers must store data in ~/.local/share/mados/."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            ".local/share/mados",
+            content,
+            "Database must be in ~/.local/share/mados/ for persistence across reboots",
+        )
+        # Must NOT use PID-based state directories
+        self.assertNotIn(
+            "mados-wallpapers-$$",
+            content,
+            "Must not use PID-based state dirs (use SQLite DB instead)",
+        )
+
+    def test_sway_wallpaper_unlimited_reconnects(self):
+        """mados-sway-wallpapers must not limit reconnection attempts."""
+        with open(self.WALLPAPER_SCRIPT) as f:
+            content = f.read()
+        self.assertNotIn(
+            "MAX_RECONNECTS",
+            content,
+            "Script must not have a MAX_RECONNECTS limit; "
+            "daemon should always try to reconnect for reliability",
+        )
+
+
+class TestSwayWallpaperSetHelper(unittest.TestCase):
+    """Verify mados-sway-wallpaper-set helper script."""
+
+    HELPER_SCRIPT = os.path.join(BIN_DIR, "mados-sway-wallpaper-set")
+    SWAY_CONF = os.path.join(SKEL_DIR, ".config", "sway", "config")
+
+    def test_helper_script_exists(self):
+        """mados-sway-wallpaper-set helper must exist."""
+        self.assertTrue(
+            os.path.isfile(self.HELPER_SCRIPT),
+            "mados-sway-wallpaper-set script missing from /usr/local/bin/",
+        )
+
+    def test_helper_script_has_shebang(self):
+        """mados-sway-wallpaper-set must have a bash shebang."""
+        with open(self.HELPER_SCRIPT) as f:
+            first_line = f.readline()
+        self.assertIn("bash", first_line)
+
+    def test_helper_reads_sqlite_db(self):
+        """Helper must read from the same SQLite database as the daemon."""
+        with open(self.HELPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "wallpapers.db",
+            content,
+            "Helper must read from wallpapers.db database",
+        )
+        self.assertIn(
+            "sqlite3",
+            content,
+            "Helper must use sqlite3 to query the database",
+        )
+
+    def test_helper_uses_swaymsg(self):
+        """Helper must set wallpaper via swaymsg."""
+        with open(self.HELPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "swaymsg",
+            content,
+            "Helper must use swaymsg to set wallpaper",
+        )
+
+    def test_helper_accepts_workspace_argument(self):
+        """Helper must accept optional workspace number argument."""
+        with open(self.HELPER_SCRIPT) as f:
+            content = f.read()
+        # Should reference $1 or ${1} for workspace argument
+        self.assertTrue(
+            "$1" in content or "${1" in content,
+            "Helper must accept workspace number as first argument",
+        )
+
+    def test_profiledef_has_helper_permissions(self):
+        """profiledef.sh must set permissions for mados-sway-wallpaper-set."""
+        profiledef = os.path.join(REPO_DIR, "profiledef.sh")
+        with open(profiledef) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-sway-wallpaper-set",
+            content,
+            "profiledef.sh must include permissions for mados-sway-wallpaper-set",
+        )
+
+    def test_sway_config_calls_helper_on_workspace_switch(self):
+        """Sway config must call wallpaper helper on workspace switch bindings."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-sway-wallpaper-set",
+            content,
+            "Sway config workspace bindings must call mados-sway-wallpaper-set",
+        )
+
+    def test_sway_workspace_switch_uses_super_alt_arrows(self):
+        """Sway config must use Super+Alt+arrows for workspace prev/next."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "$mod+Mod1+Left",
+            content,
+            "Sway config must bind Super+Alt+Left for workspace prev",
+        )
+        self.assertIn(
+            "$mod+Mod1+Right",
+            content,
+            "Sway config must bind Super+Alt+Right for workspace next",
         )
 
 
