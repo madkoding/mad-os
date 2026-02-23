@@ -879,6 +879,7 @@ class TestIconZoomConfig(unittest.TestCase):
         # Verify the delta is reachable with the step size
         # (it doesn't have to be perfectly divisible, just reasonable)
         max_steps = zoom_delta / ICON_ZOOM_STEP
+        # 50 steps at ICON_ZOOM_INTERVAL_MS each would be 1250ms — well beyond usable
         self.assertLessEqual(max_steps, 50, "Zoom should complete in a reasonable number of steps")
 
     def test_zoom_animation_total_time_reasonable(self):

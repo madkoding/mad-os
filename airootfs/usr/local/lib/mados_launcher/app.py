@@ -83,7 +83,7 @@ class LauncherApp:
         self._grouped = []         # list of DesktopEntry | EntryGroup
         self._icon_buttons = []    # list of (btn, indicator_draw, entry)
 
-        # Icon zoom animation state: id(btn) -> {current_size, target_size, timer, entry, btn}
+        # Icon zoom animation state: id(btn) -> {current_size, target_size, timer (GLib source ID or None), entry, btn}
         self._zoom_state = {}
 
         # Active popover reference (for dismissing on outside click)
@@ -764,7 +764,7 @@ class LauncherApp:
         if self._active_popover:
             try:
                 self._active_popover.popdown()
-            except Exception:
+            except (AttributeError, RuntimeError):
                 pass
             self._active_popover = None
 
