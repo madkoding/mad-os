@@ -15,7 +15,7 @@ exec {
     gsettings set $gnome-schema text-scaling-factor 0.75
     gsettings set $gnome-schema cursor-theme "$(grep -m1 '^gtk-cursor-theme-name=' ~/.config/gtk-3.0/settings.ini 2>/dev/null | cut -d= -f2 || echo Adwaita)"
     gsettings set $gnome-schema cursor-size "$(grep -m1 '^gtk-cursor-theme-size=' ~/.config/gtk-3.0/settings.ini 2>/dev/null | cut -d= -f2 || echo 16)"
-    gsettings set $gnome-schema font-name "$(grep -m1 '^gtk-font-name=' ~/.config/gtk-3.0/settings.ini 2>/dev/null | cut -d= -f2 || echo 'Sans 10')"
+    gsettings set $gnome-schema font-name "$(grep -m1 '^gtk-font-name=' ~/.config/gtk-3.0/settings.ini 2>/dev/null | cut -d= -f2 || echo 'JetBrainsMono Nerd Font 10')"
     systemctl --user import-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP
     hash dbus-update-activation-environment 2>/dev/null && \
          dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP
@@ -142,6 +142,10 @@ bindsym $mod+7 workspace number 7
 bindsym $mod+8 workspace number 8
 bindsym $mod+9 workspace number 9
 bindsym $mod+0 workspace number 10
+
+# Switch workspaces with arrows
+bindsym $mod+Ctrl+Left workspace prev
+bindsym $mod+Ctrl+Right workspace next
 
 # Move to workspaces
 bindsym $mod+Shift+1 move container to workspace number 1
