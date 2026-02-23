@@ -74,6 +74,10 @@ from mados_launcher.config import (
     ANIMATION_DURATION,
     STATE_FILE,
     CONFIG_DIR,
+    ICON_ZOOM_SIZE,
+    ICON_ZOOM_STEP,
+    ICON_ZOOM_INTERVAL_MS,
+    AVAHI_DESKTOP_FILES,
 )
 from mados_launcher.desktop_entries import (
     _clean_exec,
@@ -83,6 +87,7 @@ from mados_launcher.desktop_entries import (
     EntryGroup,
     group_entries,
     _icon_group_key,
+    _is_avahi_running,
 )
 from mados_launcher import __version__, __app_id__, __app_name__
 
@@ -123,6 +128,21 @@ class TestConfig(unittest.TestCase):
 
     def test_excluded_desktop_contains_self(self):
         self.assertIn("mados-launcher.desktop", EXCLUDED_DESKTOP)
+
+    def test_icon_zoom_size_larger_than_icon(self):
+        self.assertGreater(ICON_ZOOM_SIZE, ICON_SIZE)
+
+    def test_icon_zoom_step_positive(self):
+        self.assertGreater(ICON_ZOOM_STEP, 0)
+
+    def test_icon_zoom_interval_positive(self):
+        self.assertGreater(ICON_ZOOM_INTERVAL_MS, 0)
+
+    def test_avahi_desktop_files_is_set(self):
+        self.assertIsInstance(AVAHI_DESKTOP_FILES, set)
+        self.assertIn("avahi-discover.desktop", AVAHI_DESKTOP_FILES)
+        self.assertIn("bvnc.desktop", AVAHI_DESKTOP_FILES)
+        self.assertIn("bssh.desktop", AVAHI_DESKTOP_FILES)
 
 
 # ======================================================================
@@ -732,6 +752,149 @@ class TestWindowTracker(unittest.TestCase):
         tracker._running = {"mados-equalizer"}
         self.assertTrue(
             tracker.is_running("python3 -m mados_equalizer")
+        )
+
+
+# ======================================================================
+# Test: Avahi Filtering
+# ======================================================================
+
+class TestAvahiFiltering(unittest.TestCase):
+    """Test filtering of Avahi-related desktop entries."""
+
+    def test_is_avahi_running_returns_bool(self):
+        """_is_avahi_running() should return a boolean."""
+        result = _is_avahi_running()
+        self.assertIsInstance(result, bool)
+
+    def test_avahi_entries_filtered_when_inactive(self):
+        """Avahi desktop entries should be filtered when avahi-daemon is not running."""
+        import mados_launcher.desktop_entries as de_mod
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create avahi desktop files
+            with open(os.path.join(tmpdir, "avahi-discover.desktop"), "w") as f:
+                f.write(textwrap.dedent("""\
+                    [Desktop Entry]
+                    Type=Application
+                    Name=Avahi Discover
+                    Exec=avahi-discover
+                    Icon=network-wired
+                """))
+
+            with open(os.path.join(tmpdir, "bvnc.desktop"), "w") as f:
+                f.write(textwrap.dedent("""\
+                    [Desktop Entry]
+                    Type=Application
+                    Name=Avahi VNC Browser
+                    Exec=bvnc
+                    Icon=network-wired
+                """))
+
+            # Create a normal desktop file
+            with open(os.path.join(tmpdir, "normal-app.desktop"), "w") as f:
+                f.write(textwrap.dedent("""\
+                    [Desktop Entry]
+                    Type=Application
+                    Name=Normal App
+                    Exec=normal-app
+                    Icon=utilities-terminal
+                """))
+
+            # Mock avahi as not running
+            orig_dirs = de_mod._config.DESKTOP_DIRS
+            de_mod._config.DESKTOP_DIRS = [tmpdir]
+            try:
+                with patch.object(de_mod, '_is_avahi_running', return_value=False):
+                    entries = scan_desktop_entries()
+                    names = [e.name for e in entries]
+                    self.assertEqual(names, ["Normal App"])
+                    self.assertNotIn("Avahi Discover", names)
+                    self.assertNotIn("Avahi VNC Browser", names)
+            finally:
+                de_mod._config.DESKTOP_DIRS = orig_dirs
+
+    def test_avahi_entries_included_when_active(self):
+        """Avahi desktop entries should be included when avahi-daemon is running."""
+        import mados_launcher.desktop_entries as de_mod
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create avahi desktop files
+            with open(os.path.join(tmpdir, "avahi-discover.desktop"), "w") as f:
+                f.write(textwrap.dedent("""\
+                    [Desktop Entry]
+                    Type=Application
+                    Name=Avahi Discover
+                    Exec=avahi-discover
+                    Icon=network-wired
+                """))
+
+            with open(os.path.join(tmpdir, "bssh.desktop"), "w") as f:
+                f.write(textwrap.dedent("""\
+                    [Desktop Entry]
+                    Type=Application
+                    Name=Avahi SSH Browser
+                    Exec=bssh
+                    Icon=network-wired
+                """))
+
+            # Create a normal desktop file
+            with open(os.path.join(tmpdir, "normal-app.desktop"), "w") as f:
+                f.write(textwrap.dedent("""\
+                    [Desktop Entry]
+                    Type=Application
+                    Name=Normal App
+                    Exec=normal-app
+                    Icon=utilities-terminal
+                """))
+
+            # Mock avahi as running
+            orig_dirs = de_mod._config.DESKTOP_DIRS
+            de_mod._config.DESKTOP_DIRS = [tmpdir]
+            try:
+                with patch.object(de_mod, '_is_avahi_running', return_value=True):
+                    entries = scan_desktop_entries()
+                    names = [e.name for e in entries]
+                    self.assertIn("Avahi Discover", names)
+                    self.assertIn("Avahi SSH Browser", names)
+                    self.assertIn("Normal App", names)
+            finally:
+                de_mod._config.DESKTOP_DIRS = orig_dirs
+
+
+# ======================================================================
+# Test: Icon Zoom Configuration
+# ======================================================================
+
+class TestIconZoomConfig(unittest.TestCase):
+    """Validate icon zoom animation configuration."""
+
+    def test_zoom_size_reachable_in_steps(self):
+        """ICON_ZOOM_SIZE should be reachable within reasonable steps from ICON_SIZE."""
+        zoom_delta = ICON_ZOOM_SIZE - ICON_SIZE
+        self.assertGreater(zoom_delta, 0, "ICON_ZOOM_SIZE must be larger than ICON_SIZE")
+        
+        # Verify the delta is reachable with the step size
+        # (it doesn't have to be perfectly divisible, just reasonable)
+        max_steps = zoom_delta / ICON_ZOOM_STEP
+        # 50 steps at ICON_ZOOM_INTERVAL_MS each would be 1250ms — well beyond usable
+        self.assertLessEqual(max_steps, 50, "Zoom should complete in a reasonable number of steps")
+
+    def test_zoom_animation_total_time_reasonable(self):
+        """Total zoom animation time should be between 50ms and 500ms."""
+        zoom_delta = ICON_ZOOM_SIZE - ICON_SIZE
+        steps = zoom_delta / ICON_ZOOM_STEP
+        total_time_ms = steps * ICON_ZOOM_INTERVAL_MS
+        
+        self.assertGreaterEqual(
+            total_time_ms, 50,
+            f"Animation too fast: {total_time_ms}ms (should be >= 50ms)"
+        )
+        self.assertLessEqual(
+            total_time_ms, 500,
+            f"Animation too slow: {total_time_ms}ms (should be <= 500ms)"
         )
 
 
