@@ -1701,9 +1701,9 @@ class TestSwayWallpaperStartup(unittest.TestCase):
         with open(self.WALLPAPER_SCRIPT) as f:
             content = f.read()
         self.assertIn(
-            '"false"',
+            "--transition-type none",
             content,
-            "Script must set initial wallpaper without transition for fast startup",
+            "Script must use --transition-type none for initial wallpaper (fast startup)",
         )
 
 
