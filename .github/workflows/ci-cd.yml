@@ -499,6 +499,9 @@ jobs:
     permissions:
       contents: write
 
+    outputs:
+      download_url: ${{ steps.upload_ia.outputs.download_url }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -603,16 +606,55 @@ jobs:
             out/SHA256SUMS
           make_latest: ${{ needs.build.outputs.is_release == 'true' }}
 
-      # ---------- Sub-stage 6.3: Update Website (solo stable) ----------
-      - name: Update Website Download Link
-        if: needs.build.outputs.is_release == 'true'
-        run: |
-          DOWNLOAD_URL="${{ steps.upload_ia.outputs.download_url }}"
-          ISO_NAME="${{ needs.build.outputs.iso_name }}"
-          VERSION="${{ needs.build.outputs.version }}"
+  # ================================================================
+  # Stage 7: Update Website Download Link (todas las builds)
+  # ================================================================
+  update-website:
+    name: "🌐 Update Website"
+    needs: [build, release]
+    if: |
+      always() && !cancelled() &&
+      needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
-          git fetch origin main
-          git checkout main
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Update Website Download Link
+        run: |
+          VERSION="${{ needs.build.outputs.version }}"
+          ISO_NAME="${{ needs.build.outputs.iso_name }}"
+          RELEASE_TYPE="${{ needs.build.outputs.release_type }}"
+          SHORT_SHA="${{ needs.build.outputs.short_sha }}"
+
+          # Build the download URL (same logic as release job)
+          if [[ "$RELEASE_TYPE" == "stable" ]]; then
+            IDENTIFIER="mados-${VERSION}"
+          else
+            IDENTIFIER="mados-${RELEASE_TYPE}-${VERSION}-${SHORT_SHA}"
+          fi
+
+          # Use release job URL if available, otherwise construct it
+          if [ -n "${{ needs.release.outputs.download_url }}" ]; then
+            DOWNLOAD_URL="${{ needs.release.outputs.download_url }}"
+          else
+            DOWNLOAD_URL="https://archive.org/download/${IDENTIFIER}/${ISO_NAME}"
+          fi
+
+          echo "Updating website with:"
+          echo "  Version: $VERSION"
+          echo "  URL: $DOWNLOAD_URL"
+
+          # Pull latest main to avoid non-fast-forward errors
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
 
           sed -i "s|https://archive.org/download/mados-[^/]*/madOS-[^\"]*\.iso|$DOWNLOAD_URL|g" docs/index.html
           sed -i "s|data-version=\"[^\"]*\"|data-version=\"$VERSION\"|g" docs/index.html
@@ -620,9 +662,17 @@ jobs:
           if git diff --quiet docs/index.html; then
             echo "No changes needed in website"
           else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
             git add docs/index.html
-            git commit -m "Update download link and version to $VERSION [skip ci]"
-            git push origin main
+            git commit -m "🌐 Update download link to $VERSION [skip ci]"
+            # Retry push with rebase in case of concurrent changes
+            for i in 1 2 3; do
+              if git push origin main; then
+                echo "✅ Website updated successfully"
+                break
+              else
+                echo "⚠️ Push failed (attempt $i/3), rebasing and retrying..."
+                git pull --rebase origin main
+                sleep 2
+              fi
+            done
           fi
