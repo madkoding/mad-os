@@ -1630,6 +1630,350 @@ kbd.wide {
 
 
 /* ============================================
+   Roadmap
+   ============================================ */
+.roadmap {
+    padding: var(--s9) 0;
+    position: relative;
+}
+
+.roadmap::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--neon-cyan), var(--neon-purple), var(--neon-cyan), transparent);
+    opacity: 0.35;
+}
+
+.roadmap-pillars {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--s5);
+    margin-bottom: var(--s7);
+}
+
+.roadmap-pillar {
+    background: var(--bg-surface);
+    border: 1px solid rgba(93, 216, 238, 0.1);
+    border-radius: var(--s3);
+    padding: var(--s5);
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.roadmap-pillar:hover {
+    border-color: rgba(93, 216, 238, 0.25);
+    box-shadow: 0 0 30px rgba(93, 216, 238, 0.05);
+}
+
+.roadmap-pillar-header {
+    display: flex;
+    align-items: center;
+    gap: var(--s3);
+    margin-bottom: var(--s5);
+    padding-bottom: var(--s3);
+    border-bottom: 1px solid rgba(93, 216, 238, 0.1);
+}
+
+.roadmap-pillar-header svg {
+    color: var(--neon-cyan);
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 4px rgba(93, 216, 238, 0.3));
+}
+
+.roadmap-pillar-header h3 {
+    font-family: var(--font-segment);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--neon-cyan);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 8px rgba(93, 216, 238, 0.2);
+}
+
+.roadmap-items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+}
+
+.roadmap-item {
+    background: var(--bg-card);
+    border: 1px solid rgba(93, 216, 238, 0.06);
+    border-left: 3px solid var(--text-muted);
+    border-radius: 0 var(--s2) var(--s2) 0;
+    padding: var(--s3) var(--s4);
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.roadmap-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.roadmap-item.priority-high {
+    border-left-color: var(--neon-cyan);
+}
+
+.roadmap-item.priority-medium {
+    border-left-color: var(--neon-purple);
+}
+
+.roadmap-item.priority-low {
+    border-left-color: var(--text-muted);
+}
+
+.roadmap-item.priority-high:hover {
+    border-color: rgba(93, 216, 238, 0.2);
+    border-left-color: var(--neon-cyan);
+}
+
+.roadmap-item.priority-medium:hover {
+    border-color: rgba(224, 124, 216, 0.2);
+    border-left-color: var(--neon-purple);
+}
+
+.roadmap-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--s2);
+}
+
+.roadmap-badge {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.badge-high {
+    background: rgba(93, 216, 238, 0.15);
+    color: var(--neon-cyan);
+    border: 1px solid rgba(93, 216, 238, 0.3);
+    text-shadow: 0 0 6px rgba(93, 216, 238, 0.3);
+}
+
+.badge-medium {
+    background: rgba(224, 124, 216, 0.12);
+    color: var(--neon-purple);
+    border: 1px solid rgba(224, 124, 216, 0.25);
+    text-shadow: 0 0 6px rgba(224, 124, 216, 0.2);
+}
+
+.badge-low {
+    background: rgba(76, 86, 106, 0.3);
+    color: var(--text-muted);
+    border: 1px solid rgba(76, 86, 106, 0.4);
+}
+
+.roadmap-status {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 100px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.roadmap-status::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-planned {
+    color: var(--text-muted);
+    background: rgba(76, 86, 106, 0.2);
+}
+
+.status-planned::before {
+    background: var(--text-muted);
+}
+
+.status-progress {
+    color: #ebcb8b;
+    background: rgba(235, 203, 139, 0.12);
+}
+
+.status-progress::before {
+    background: #ebcb8b;
+    box-shadow: 0 0 6px rgba(235, 203, 139, 0.5);
+}
+
+.status-done {
+    color: var(--neon-green);
+    background: rgba(163, 190, 140, 0.12);
+}
+
+.status-done::before {
+    background: var(--neon-green);
+    box-shadow: 0 0 6px rgba(163, 190, 140, 0.5);
+}
+
+.roadmap-item h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--s1);
+}
+
+.roadmap-item p {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: var(--s2);
+}
+
+.roadmap-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s1);
+}
+
+.roadmap-tags span {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-weight: 500;
+}
+
+.tag-impact {
+    background: rgba(93, 216, 238, 0.08);
+    color: rgba(93, 216, 238, 0.7);
+    border: 1px solid rgba(93, 216, 238, 0.12);
+}
+
+.tag-effort {
+    background: rgba(224, 124, 216, 0.08);
+    color: rgba(224, 124, 216, 0.7);
+    border: 1px solid rgba(224, 124, 216, 0.12);
+}
+
+/* Roadmap Matrix */
+.roadmap-matrix {
+    background: var(--bg-surface);
+    border: 1px solid rgba(93, 216, 238, 0.12);
+    border-radius: var(--s3);
+    padding: var(--s5);
+    overflow-x: auto;
+}
+
+.matrix-header {
+    display: flex;
+    align-items: center;
+    gap: var(--s2);
+    margin-bottom: var(--s4);
+    padding-bottom: var(--s3);
+    border-bottom: 1px solid rgba(93, 216, 238, 0.1);
+}
+
+.matrix-header svg {
+    color: var(--neon-purple);
+    filter: drop-shadow(0 0 4px rgba(224, 124, 216, 0.3));
+}
+
+.matrix-header span {
+    font-family: var(--font-segment);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--neon-purple);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 6px rgba(224, 124, 216, 0.2);
+}
+
+.roadmap-matrix table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.roadmap-matrix thead th {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    text-align: left;
+    padding: var(--s2) var(--s3);
+    border-bottom: 1px solid rgba(93, 216, 238, 0.1);
+}
+
+.roadmap-matrix tbody tr {
+    transition: background 0.2s;
+}
+
+.roadmap-matrix tbody tr:hover {
+    background: rgba(93, 216, 238, 0.03);
+}
+
+.roadmap-matrix tbody td {
+    padding: var(--s2) var(--s3);
+    border-bottom: 1px solid rgba(76, 86, 106, 0.15);
+    color: var(--text-secondary);
+    vertical-align: middle;
+}
+
+.roadmap-matrix tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.impact-high {
+    color: var(--neon-cyan);
+    font-weight: 600;
+    text-shadow: 0 0 6px rgba(93, 216, 238, 0.2);
+}
+
+.impact-medium {
+    color: var(--neon-purple);
+    font-weight: 500;
+}
+
+.impact-low {
+    color: var(--text-muted);
+}
+
+.pillar-tag {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.pillar-reliability {
+    background: rgba(93, 216, 238, 0.1);
+    color: var(--neon-cyan);
+    border: 1px solid rgba(93, 216, 238, 0.2);
+}
+
+.pillar-roi {
+    background: rgba(224, 124, 216, 0.1);
+    color: var(--neon-purple);
+    border: 1px solid rgba(224, 124, 216, 0.2);
+}
+
+.pillar-scalability {
+    background: rgba(163, 190, 140, 0.1);
+    color: var(--neon-green);
+    border: 1px solid rgba(163, 190, 140, 0.2);
+}
+
+
+/* ============================================
    Animations
    ============================================ */
 @keyframes fadeInUp {
@@ -1703,6 +2047,7 @@ kbd.wide {
 
     .download-meta {
         flex-direction: row;
+        flex-wrap: wrap;
         padding-left: 0;
         border-left: none;
         padding-top: var(--s5);
@@ -1723,6 +2068,14 @@ kbd.wide {
         max-width: none;
         flex-basis: calc(50% - var(--s3));
     }
+
+    .roadmap-pillars {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .roadmap-pillars > :last-child {
+        grid-column: 1 / -1;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1742,6 +2095,7 @@ kbd.wide {
         border-top: 1px solid rgba(93, 216, 238, 0.12);
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
         gap: var(--s3);
+        z-index: 100;
     }
 
     .nav-menu.active {
@@ -1778,14 +2132,23 @@ kbd.wide {
 
     .hero-subtitle {
         font-size: 0.95rem;
+        max-width: 100%;
     }
 
     .hero-cta {
         flex-direction: column;
+        align-items: stretch;
+    }
+
+    .hero-cta .btn {
+        justify-content: center;
+        text-align: center;
     }
 
     .hero-stats {
         gap: var(--s4);
+        flex-wrap: wrap;
+        justify-content: center;
     }
 
     .stat-value {
@@ -1820,6 +2183,34 @@ kbd.wide {
         grid-template-columns: 1fr;
     }
 
+    .shortcut-row {
+        flex-wrap: wrap;
+        gap: var(--s2);
+    }
+
+    .shortcut-keys {
+        flex-wrap: wrap;
+    }
+
+    .shortcut-desc {
+        white-space: normal;
+        text-align: left;
+        width: 100%;
+        font-size: 0.75rem;
+    }
+
+    kbd {
+        min-width: 24px;
+        height: 24px;
+        padding: 0 6px;
+        font-size: 0.65rem;
+    }
+
+    kbd.wide {
+        min-width: 40px;
+        padding: 0 8px;
+    }
+
     .steps-timeline {
         flex-direction: column;
         align-items: center;
@@ -1827,12 +2218,41 @@ kbd.wide {
 
     .step {
         flex-basis: auto;
-        max-width: 280px;
+        max-width: 100%;
         width: 100%;
     }
 
     .step-connector {
         display: none;
+    }
+
+    .install-steps {
+        padding: var(--s5) var(--s4);
+    }
+
+    .download-card {
+        padding: var(--s5);
+    }
+
+    .btn-download {
+        padding: 0.8rem 1.2rem;
+        font-size: 0.9rem;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .download-meta {
+        flex-direction: column;
+    }
+
+    .credits-media-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--s3);
+    }
+
+    .credits-media-links {
+        flex-wrap: wrap;
     }
 
     .footer-top {
@@ -1842,12 +2262,73 @@ kbd.wide {
 
     .footer-links {
         gap: var(--s7);
+        flex-wrap: wrap;
     }
 
+    .roadmap-pillars {
+        grid-template-columns: 1fr;
+    }
 
+    .roadmap-pillars > :last-child {
+        grid-column: auto;
+    }
+
+    .roadmap-matrix table {
+        font-size: 0.75rem;
+    }
+
+    .roadmap-matrix thead th {
+        font-size: 0.6rem;
+    }
+
+    .roadmap-matrix tbody td {
+        padding: var(--s2);
+    }
 }
 
 @media (max-width: 480px) {
+    .container {
+        padding: 0 var(--s3);
+    }
+
+    .roadmap-pillar {
+        padding: var(--s4);
+    }
+
+    .roadmap-pillar-header h3 {
+        font-size: 0.95rem;
+    }
+
+    .roadmap-item h4 {
+        font-size: 0.82rem;
+    }
+
+    .roadmap-item p {
+        font-size: 0.72rem;
+    }
+
+    .roadmap-matrix {
+        padding: var(--s3);
+    }
+
+    .roadmap-matrix table {
+        font-size: 0.68rem;
+    }
+
+    .matrix-header span {
+        font-size: 0.8rem;
+    }
+
+    .hero {
+        padding: calc(64px + var(--s5)) 0 var(--s5);
+    }
+
+    .hero-badge {
+        font-size: 0.7rem;
+        padding: var(--s1) var(--s3);
+        margin-bottom: var(--s4);
+    }
+
     .hero-logo {
         max-width: 160px;
     }
@@ -1856,8 +2337,14 @@ kbd.wide {
         font-size: 1.1rem;
     }
 
+    .hero-subtitle {
+        font-size: 0.85rem;
+    }
+
     .hero-stats {
         flex-wrap: wrap;
+        justify-content: center;
+        gap: var(--s3);
     }
 
     .stat-divider {
@@ -1866,21 +2353,156 @@ kbd.wide {
 
     .stat {
         min-width: 80px;
+        text-align: center;
     }
 
     .stat-value {
         font-size: 1.25rem;
     }
 
-    .download-card {
-        padding: var(--s5);
+    .stat-unit {
+        font-size: 0.7rem;
     }
 
-    .download-meta {
-        flex-direction: column;
+    .section-header h2 {
+        font-size: 1.4rem;
+    }
+
+    .section-header p {
+        font-size: 0.9rem;
+    }
+
+    .section-label {
+        font-size: 0.8rem;
+    }
+
+    .feature-card-hero {
+        padding: var(--s4);
+    }
+
+    .feature-card-hero h3 {
+        font-size: 1.15rem;
+    }
+
+    .feature-card {
+        padding: var(--s4);
+    }
+
+    .feature-text h3 {
+        font-size: 1rem;
+    }
+
+    .feature-text p {
+        font-size: 0.78rem;
+    }
+
+    .shortcuts-group {
+        padding: var(--s4);
+    }
+
+    .shortcut-row {
+        padding: var(--s1) 0;
+    }
+
+    .download-card {
+        padding: var(--s4);
+    }
+
+    .download-info h3 {
+        font-size: 1.2rem;
+    }
+
+    .download-info p {
+        font-size: 0.85rem;
+    }
+
+    .btn-download {
+        padding: 0.7rem 1rem;
+        font-size: 0.8rem;
+    }
+
+    .btn-download span {
+        font-size: 0.8rem;
+    }
+
+    .meta-item {
+        padding: var(--s2) var(--s3);
+    }
+
+    .meta-value {
+        font-size: 0.8rem;
+    }
+
+    .install-steps {
+        padding: var(--s4) var(--s3);
+    }
+
+    .install-steps h3 {
+        font-size: 1.1rem;
+    }
+
+    .step-icon {
+        width: 48px;
+        height: 48px;
+    }
+
+    .step-content h4 {
+        font-size: 0.85rem;
+    }
+
+    .step-content p {
+        font-size: 0.75rem;
+    }
+
+    .step-content code {
+        font-size: 0.65rem;
+        padding: var(--s1) var(--s2);
+        word-break: break-all;
+    }
+
+    .credits-group {
+        padding: var(--s4);
+    }
+
+    .credits-group h3 {
+        font-size: 0.68rem;
+    }
+
+    .credits-items a {
+        font-size: 0.72rem;
+        padding: 3px 10px;
     }
 
     .footer-links {
-        flex-wrap: wrap;
+        flex-direction: column;
+        gap: var(--s5);
+    }
+
+    .footer-brand p {
+        font-size: 0.78rem;
+    }
+
+    .footer-bottom p {
+        font-size: 0.72rem;
+    }
+
+    .monitor-label {
+        font-size: 0.85rem;
+    }
+
+    .monitor-value {
+        font-size: 0.85rem;
+    }
+
+    .spec-item {
+        padding: var(--s3) var(--s4);
+    }
+
+    .spec-item strong {
+        font-size: 0.8rem;
+    }
+
+    .spec-item p {
+        font-size: 0.72rem;
     }
 }

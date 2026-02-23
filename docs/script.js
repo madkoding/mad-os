@@ -54,7 +54,7 @@
 
     // Intersection Observer — reveal animations
     const revealElements = document.querySelectorAll(
-        '.feature-card, .spec-item, .app-group, .step, .preview-frame, .system-monitor, .download-card'
+        '.feature-card, .spec-item, .app-group, .step, .preview-frame, .system-monitor, .download-card, .roadmap-pillar, .roadmap-item, .roadmap-matrix'
     );
 
     const revealObserver = new IntersectionObserver((entries) => {
