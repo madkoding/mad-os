@@ -214,8 +214,9 @@ class AudioPlayerApp:
         self.title_area.connect("draw", self._on_title_draw)
         frame.pack_start(self.title_area, False, False, 0)
 
-        # Marquee scroll timer (~60ms for smooth animation)
-        self._marquee_timer_id = GLib.timeout_add(60, self._on_marquee_tick)
+        # Animation timer (~33ms / 30 FPS to match cava framerate)
+        self._tick_count = 0
+        self._marquee_timer_id = GLib.timeout_add(33, self._on_marquee_tick)
 
         # Artist / Album
         self.artist_label = Gtk.Label(label="")
@@ -505,7 +506,16 @@ class AudioPlayerApp:
         self.playlist_toggle_label.set_text(
             f"\U000f040a {self._t('playlist')}"
         )
+        # Force window to shrink: temporarily set a small size request,
+        # then resize and remove the constraint on the next idle cycle.
+        self.window.set_size_request(480, 200)
         self.window.resize(480, 200)
+        GLib.idle_add(self._reset_size_request_after_collapse)
+
+    def _reset_size_request_after_collapse(self):
+        """Remove the fixed size request so the user can still resize freely."""
+        self.window.set_size_request(-1, -1)
+        return False
 
     # ─── Status Bar ─────────────────────────────────────────────
 
@@ -1018,11 +1028,14 @@ class AudioPlayerApp:
     # ─── Marquee Scrolling Title ────────────────────────────────
 
     def _on_marquee_tick(self):
-        """Advance the marquee scroll offset and redraw."""
-        self._marquee_offset += 1
-        # Update spectrum bars (smooth animation)
+        """Advance animation at 30 FPS; marquee scrolls every other tick."""
+        self._tick_count += 1
+        # Marquee scrolls every 2 ticks (~66ms) to keep same visual speed
+        if self._tick_count % 2 == 0:
+            self._marquee_offset += 1
+            self.title_area.queue_draw()
+        # Update spectrum bars every tick (30 FPS)
         self.spectrum.update()
-        self.title_area.queue_draw()
         # Redraw the track-display frame for spectrum bars
         if hasattr(self, '_spectrum_frame'):
             self._spectrum_frame.queue_draw()

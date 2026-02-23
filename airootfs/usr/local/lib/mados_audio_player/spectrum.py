@@ -21,7 +21,7 @@ import time
 # Number of frequency bars
 NUM_BARS = 28
 
-# Bar peak hold and decay settings
+# Bar peak hold and decay settings (tuned for 30 FPS update rate)
 PEAK_DECAY = 0.4       # Peak indicator falls this much per tick
 BAR_GRAVITY = 0.6      # Bar gravity (how fast bars fall)
 
@@ -111,7 +111,7 @@ class SpectrumAnalyzer:
     def update(self):
         """Update bar positions with smooth gravity/decay animation.
 
-        Call this from the UI timer (~60ms) to animate bars falling.
+        Call this from the UI timer (~33ms / 30 FPS) to animate bars falling.
         """
         with self._lock:
             for i in range(self.num_bars):

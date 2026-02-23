@@ -136,8 +136,8 @@ tooltip {{
 
 tooltip label {{
     color: {NORD['nord6']};
-    font-size: 12px;
-    font-family: "JetBrains Mono", "Noto Sans", monospace;
+    font-size: 10px;
+    font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
 }}
 
 /* ===== Separator ===== */
@@ -186,8 +186,8 @@ popover.background.launcher-popup > contents {{
 
 .popup-row label {{
     color: {NORD['nord4']};
-    font-size: 13px;
-    font-family: "JetBrains Mono", "Noto Sans", monospace;
+    font-size: 10px;
+    font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
 }}
 
 .popup-row:hover label {{

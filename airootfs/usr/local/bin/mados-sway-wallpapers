@@ -151,20 +151,60 @@ fi
 log "initial wallpaper set for workspace $current_ws"
 
 # Subscribe to workspace focus events.
-# jq --unbuffered is CRITICAL: without it, jq buffers output in a pipe
-# and the while-read loop never receives events promptly.
-# stderr is sent to /dev/null to prevent non-JSON output from breaking jq.
+# Process each JSON event individually inside the while-read loop to avoid
+# triple-pipe buffering issues (swaymsg|jq|while) where jq can silently die
+# and break the entire chain. Reconnects automatically if subscription drops.
 log "starting workspace event subscription"
-swaymsg -t subscribe '["workspace"]' -m 2>/dev/null \
-    | jq --unbuffered -r 'select(.change == "focus") | .current.num // empty' 2>/dev/null \
-    | while IFS= read -r ws_num; do
-        if [[ -n "$ws_num" && "$ws_num" =~ ^[0-9]+$ ]]; then
-            wp="$(get_wallpaper_for_ws "$ws_num")"
-            if [[ -n "$wp" ]]; then
-                set_wallpaper "$wp"
-                log "workspace $ws_num -> $(basename "$wp")"
-            fi
-        fi
-    done
 
-log "workspace subscription ended, exiting"
+MAX_RECONNECTS=10
+reconnect_count=0
+last_reconnect=0
+
+while true; do
+    now="$(date +%s)"
+    # Reset counter if last reconnect was more than 60s ago
+    if (( now - last_reconnect > 60 )); then
+        reconnect_count=0
+    fi
+
+    if (( reconnect_count >= MAX_RECONNECTS )); then
+        log "ERROR: too many reconnects ($MAX_RECONNECTS), giving up"
+        break
+    fi
+
+    log "subscribing to workspace events (attempt $((reconnect_count + 1)))"
+    last_reconnect="$now"
+
+    # Read each raw JSON event line from swaymsg and process inline.
+    # This is more robust than piping through jq as an intermediate filter,
+    # because a single malformed line won't kill the entire pipeline.
+    swaymsg -t subscribe '["workspace"]' -m 2>/dev/null \
+        | while IFS= read -r line; do
+            # Skip empty lines
+            [[ -z "$line" ]] && continue
+
+            # Parse workspace number from the event JSON
+            ws_num="$(printf '%s' "$line" \
+                | jq -r 'select(.change == "focus") | .current.num // empty' 2>/dev/null)" || continue
+
+            if [[ -n "$ws_num" && "$ws_num" =~ ^[0-9]+$ ]]; then
+                wp="$(get_wallpaper_for_ws "$ws_num")"
+                if [[ -n "$wp" ]]; then
+                    set_wallpaper "$wp"
+                    log "workspace $ws_num -> $(basename "$wp")"
+                fi
+            fi
+        done
+
+    reconnect_count=$((reconnect_count + 1))
+    log "workspace subscription ended, reconnecting in 2s..."
+    sleep 2
+
+    # Verify sway is still running before reconnecting
+    if ! swaymsg -t get_version >/dev/null 2>&1; then
+        log "sway IPC unavailable, exiting"
+        break
+    fi
+done
+
+log "wallpaper daemon exiting"

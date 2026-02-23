@@ -102,6 +102,13 @@ class MpvBackend:
             '--volume=100',
             '--audio-display=no',
             f'--ao={self._detect_audio_output()}',
+            # Audio buffer: 1 second to prevent choppy playback on slow CPUs
+            '--audio-buffer=1.0',
+            # Demuxer readahead: 5 seconds of data buffered ahead
+            '--demuxer-max-bytes=512KiB',
+            '--demuxer-readahead-secs=5',
+            # Enable gapless audio for smooth track transitions
+            '--gapless-audio=yes',
         ]
 
         try:

@@ -75,6 +75,7 @@ class LauncherApp:
         self._drag_update_pending = False
         self._pending_margin = 0
         self._screen_height = 768  # Will be updated
+        self._auto_collapse_id = None  # Timer ID for auto-collapse after launch
         self._entries = []
         self._grouped = []         # list of DesktopEntry | EntryGroup
         self._icon_buttons = []    # list of (btn, indicator_draw, entry)
@@ -694,10 +695,31 @@ class LauncherApp:
         """Launch app from popover and close it."""
         popover.popdown()
         launch_application(exec_cmd)
+        self._schedule_auto_collapse()
 
     def _on_icon_clicked(self, button, exec_cmd):
         """Launch the clicked application."""
         launch_application(exec_cmd)
+        self._schedule_auto_collapse()
+
+    def _schedule_auto_collapse(self):
+        """Auto-collapse the dock 3 seconds after launching an application."""
+        if not self._expanded:
+            return
+        # Cancel any previous pending auto-collapse
+        if hasattr(self, '_auto_collapse_id') and self._auto_collapse_id:
+            GLib.source_remove(self._auto_collapse_id)
+        self._auto_collapse_id = GLib.timeout_add_seconds(3, self._auto_collapse)
+
+    def _auto_collapse(self):
+        """Collapse the dock (called from timer)."""
+        self._auto_collapse_id = None
+        if self._expanded:
+            self._expanded = False
+            self._revealer.set_reveal_child(False)
+            self._tab_draw.queue_draw()
+            self._save_state()
+        return False  # GLib.SOURCE_REMOVE
 
     # ------------------------------------------------------------------ #
     # Window state tracking and indicators
