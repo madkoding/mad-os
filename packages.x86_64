@@ -147,6 +147,7 @@ wpa_supplicant
 dosfstools
 e2fsprogs
 ntfs-3g
+unzip
 
 # Soporte VM
 virtualbox-guest-utils
@@ -156,6 +157,12 @@ open-vm-tools
 greetd
 greetd-regreet
 cage
+
+# Gamepad/Steam Deck support
+python-evdev
+
+# On-screen virtual keyboard (auto-activated when no physical keyboard detected)
+squeekboard
 
 # madOS Native Apps Dependencies
 # madOS Photo Viewer - image viewing and video playback

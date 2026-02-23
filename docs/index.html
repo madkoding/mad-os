@@ -315,6 +315,42 @@ layout: none
                     </div>
                 </div>
             </div>
+
+            <!-- Gamepad hero features -->
+            <div class="features-hero">
+                <div class="feature-card feature-card-hero">
+                    <div class="feature-hero-left">
+                        <div class="feature-icon feature-icon-lg">
+                            <svg width="28" height="28" viewBox="0 0 496 512" fill="currentColor"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg>
+                        </div>
+                        <div>
+                            <h3>Steam Deck Ready</h3>
+                            <p>Full gamepad-to-WM bindings for Steam Deck. Manage windows, workspaces and media with buttons and back paddles — with automatic game inhibition.</p>
+                        </div>
+                    </div>
+                    <div class="feature-tags">
+                        <span class="feature-tag">Back Paddles</span>
+                        <span class="feature-tag">Game Aware</span>
+                        <span class="feature-tag">Auto-detect</span>
+                    </div>
+                </div>
+                <div class="feature-card feature-card-hero">
+                    <div class="feature-hero-left">
+                        <div class="feature-icon feature-icon-lg">
+                            <svg width="28" height="28" viewBox="1 1 30 30" fill="currentColor"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg>
+                        </div>
+                        <div>
+                            <h3>Xbox Controller</h3>
+                            <p>Xbox Series gamepad support with LT/RT media combos, Share button screenshot and auto-profile detection — zero configuration needed.</p>
+                        </div>
+                    </div>
+                    <div class="feature-tags">
+                        <span class="feature-tag">LT/RT Combos</span>
+                        <span class="feature-tag">Share Button</span>
+                        <span class="feature-tag">Auto-profile</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -337,6 +373,24 @@ layout: none
                     <img src="preview.png" alt="madOS Desktop" class="preview-image" loading="lazy">
                 </div>
             </div>
+            <!-- Bindings Tabs -->
+            <div class="bindings-tabs">
+                <button class="bindings-tab active" data-tab="keyboard">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10"/><line x1="10" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="14" y2="10"/><line x1="18" y1="10" x2="18" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
+                    Keyboard
+                </button>
+                <button class="bindings-tab" data-tab="steamdeck">
+                    <svg width="16" height="16" viewBox="0 0 496 512" fill="currentColor"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg>
+                    Steam Deck
+                </button>
+                <button class="bindings-tab" data-tab="xbox">
+                    <svg width="16" height="16" viewBox="1 1 30 30" fill="currentColor"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg>
+                    Xbox Controller
+                </button>
+            </div>
+
+            <!-- ═══ KEYBOARD TAB ═══ -->
+            <div class="bindings-panel active" id="tab-keyboard">
             <div class="shortcuts-grid">
                 <!-- Basics -->
                 <div class="shortcuts-group">
@@ -362,7 +416,7 @@ layout: none
                     </div>
                     <div class="shortcut-row">
                         <div class="shortcut-keys"><kbd>Super</kbd><kbd>Shift</kbd><kbd>E</kbd></div>
-                        <span class="shortcut-desc">Exit Sway</span>
+                        <span class="shortcut-desc">Exit Compositor</span>
                     </div>
                     <div class="shortcut-row">
                         <div class="shortcut-keys"><kbd>Super</kbd><kbd>E</kbd></div>
@@ -509,6 +563,303 @@ layout: none
                         <span class="shortcut-desc">Brightness Up / Down</span>
                     </div>
                 </div>
+            </div>
+            </div>
+
+            <!-- ═══ STEAM DECK TAB ═══ -->
+            <div class="bindings-panel" id="tab-steamdeck">
+            <p class="bindings-note">Via <strong>mados-gamepad-wm</strong> daemon — auto-detected, auto-inhibits during games. Back paddles always work.</p>
+            <div class="shortcuts-grid">
+                <!-- Basics -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10"/><line x1="10" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="14" y2="10"/><line x1="18" y1="10" x2="18" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
+                        Basics
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>A</kbd></div>
+                        <span class="shortcut-desc">Open Terminal</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>X</kbd></div>
+                        <span class="shortcut-desc">App Launcher</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>B</kbd></div>
+                        <span class="shortcut-desc">Close Window</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>R3</kbd></div>
+                        <span class="shortcut-desc">Reload Config</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>Start</kbd><kbd>Select</kbd></div>
+                        <span class="shortcut-desc">Exit Compositor</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>Y</kbd></div>
+                        <span class="shortcut-desc">File Manager</span>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/></svg>
+                        Navigation
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>D-pad</kbd></div>
+                        <span class="shortcut-desc">Focus Window</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>L1</kbd><kbd>D-pad</kbd></div>
+                        <span class="shortcut-desc">Move Window</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>L1</kbd><kbd>D-pad</kbd></div>
+                        <span class="shortcut-desc">Resize Window</span>
+                    </div>
+                </div>
+
+                <!-- Workspaces -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                        Workspaces
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>R1</kbd><kbd>D-pad ← →</kbd></div>
+                        <span class="shortcut-desc">Switch Workspace</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>R1</kbd><kbd>D-pad</kbd></div>
+                        <span class="shortcut-desc">Move to Workspace</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>L1</kbd></div>
+                        <span class="shortcut-desc">Previous Workspace</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>R1</kbd></div>
+                        <span class="shortcut-desc">Next Workspace</span>
+                    </div>
+                </div>
+
+                <!-- Layout -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                        Layout
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>Start</kbd></div>
+                        <span class="shortcut-desc">Fullscreen</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>Select</kbd></div>
+                        <span class="shortcut-desc">Toggle Floating</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="wide">Start</kbd></div>
+                        <span class="shortcut-desc">Toggle Layout</span>
+                    </div>
+                </div>
+
+                <!-- Scratchpad & System -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+                        Scratchpad & System
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>L3</kbd></div>
+                        <span class="shortcut-desc">Show Scratchpad</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="0 0 496 512" fill="currentColor" style="vertical-align: middle"><path d="M496 256c0 137-111.2 248-248.4 248-113.8 0-209.6-76.3-239-180.4l95.2 39.3c6.4 32.1 34.9 56.4 68.9 56.4 39.2 0 71.1-32.1 70.8-71.4l84.9-60.6c50.1.2 91.3-40.7 91.3-91 0-50.4-40.9-91.2-91.3-91.2-50.2 0-91 40.8-91 91.2v.8L152 304c-17.5-.5-34 5.6-47 16.7L0 274.3C5.2 130.5 118.2 16 256 16c137.3 0 240 110.8 240 240z"/></svg></kbd><kbd>L3</kbd><kbd>R3</kbd></div>
+                        <span class="shortcut-desc">Toggle WM Bindings</span>
+                    </div>
+                </div>
+
+                <!-- Media & Screenshots -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        Media & Screenshots
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>L4</kbd></div>
+                        <span class="shortcut-desc">Volume Down</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>R4</kbd></div>
+                        <span class="shortcut-desc">Volume Up</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>L5</kbd></div>
+                        <span class="shortcut-desc">Brightness Down</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>R5</kbd></div>
+                        <span class="shortcut-desc">Brightness Up</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="wide">Select</kbd></div>
+                        <span class="shortcut-desc">Screenshot (Region)</span>
+                    </div>
+                </div>
+            </div>
+            </div>
+
+            <!-- ═══ XBOX CONTROLLER TAB ═══ -->
+            <div class="bindings-panel" id="tab-xbox">
+            <p class="bindings-note">Via <strong>mados-gamepad-wm</strong> daemon — auto-detected, auto-inhibits during games. LT/RT media combos always work.</p>
+            <div class="shortcuts-grid">
+                <!-- Basics -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10"/><line x1="10" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="14" y2="10"/><line x1="18" y1="10" x2="18" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
+                        Basics
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>A</kbd></div>
+                        <span class="shortcut-desc">Open Terminal</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>X</kbd></div>
+                        <span class="shortcut-desc">App Launcher</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>B</kbd></div>
+                        <span class="shortcut-desc">Close Window</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>RS</kbd></div>
+                        <span class="shortcut-desc">Reload Config</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>Menu</kbd><kbd>View</kbd></div>
+                        <span class="shortcut-desc">Exit Compositor</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>Y</kbd></div>
+                        <span class="shortcut-desc">File Manager</span>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/></svg>
+                        Navigation
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>D-pad</kbd></div>
+                        <span class="shortcut-desc">Focus Window</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>LB</kbd><kbd>D-pad</kbd></div>
+                        <span class="shortcut-desc">Move Window</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>LB</kbd><kbd>D-pad</kbd></div>
+                        <span class="shortcut-desc">Resize Window</span>
+                    </div>
+                </div>
+
+                <!-- Workspaces -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                        Workspaces
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>RB</kbd><kbd>D-pad ← →</kbd></div>
+                        <span class="shortcut-desc">Switch Workspace</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>RB</kbd><kbd>D-pad</kbd></div>
+                        <span class="shortcut-desc">Move to Workspace</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>LB</kbd></div>
+                        <span class="shortcut-desc">Previous Workspace</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>RB</kbd></div>
+                        <span class="shortcut-desc">Next Workspace</span>
+                    </div>
+                </div>
+
+                <!-- Layout -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                        Layout
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>Menu</kbd></div>
+                        <span class="shortcut-desc">Fullscreen</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>View</kbd></div>
+                        <span class="shortcut-desc">Toggle Floating</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="wide">Menu</kbd></div>
+                        <span class="shortcut-desc">Toggle Layout</span>
+                    </div>
+                </div>
+
+                <!-- Scratchpad & System -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+                        Scratchpad & System
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>LS</kbd></div>
+                        <span class="shortcut-desc">Show Scratchpad</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="brand-key"><svg width="14" height="14" viewBox="1 1 30 30" fill="currentColor" style="vertical-align: middle"><path d="M11.9 9.3c-5.1-5.1-6.4-4-6.4-4C2.7 8 1 11.8 1 16c0 3.4 1.1 6.6 3.1 9.1h.1V25C3 21.5 8.9 12.9 11.9 9.3zm14.6-4s-1.3-1.1-6.4 3.9c3 3.6 8.9 12.2 7.7 15.7v.1h.1c1.9-2.5 3.1-5.7 3.1-9.1 0-4.1-1.7-7.9-4.5-10.6zM16 5.4c.5-.2 4.9-2.8 7.8-2.1h.1v-.1C21.5 1.8 19 1 16 1s-5.5.8-7.8 2.2v.1h.1c2.5-.6 6.6 1.5 7.7 2.1zm0 7.7c0-.1 0-.1 0 0C11.4 16.5 3.7 25 6.1 27.3 8.8 29.6 12.2 31 16 31s7.2-1.4 9.9-3.7c2.3-2.4-5.4-10.8-9.9-14.2z"/></svg></kbd><kbd>LS</kbd><kbd>RS</kbd></div>
+                        <span class="shortcut-desc">Toggle WM Bindings</span>
+                    </div>
+                </div>
+
+                <!-- Media & Screenshots -->
+                <div class="shortcuts-group">
+                    <h3 class="shortcuts-group-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        Media & Screenshots
+                    </h3>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>LT</kbd><kbd>D-pad ↑</kbd></div>
+                        <span class="shortcut-desc">Volume Up</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>LT</kbd><kbd>D-pad ↓</kbd></div>
+                        <span class="shortcut-desc">Volume Down</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>RT</kbd><kbd>D-pad ↑</kbd></div>
+                        <span class="shortcut-desc">Brightness Up</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd>RT</kbd><kbd>D-pad ↓</kbd></div>
+                        <span class="shortcut-desc">Brightness Down</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="wide">Share</kbd></div>
+                        <span class="shortcut-desc">Screenshot (Region)</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <div class="shortcut-keys"><kbd class="wide">View</kbd></div>
+                        <span class="shortcut-desc">Screenshot (Region)</span>
+                    </div>
+                </div>
+            </div>
             </div>
         </div>
     </section>

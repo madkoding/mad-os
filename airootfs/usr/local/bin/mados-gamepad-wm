@@ -1,0 +1,1013 @@
+#!/usr/bin/env python3
+"""
+mados-gamepad-wm — Gamepad to Window Manager bridge for madOS
+
+Reads gamepad events via evdev and translates button combos into
+swaymsg / hyprctl commands, providing full WM control without a keyboard.
+
+Supported controllers:
+  - Steam Deck (all buttons including back paddles L4/R4/L5/R5)
+  - Xbox Series X|S / Xbox One (with LT/RT trigger-based media combos)
+  - Any XInput-compatible gamepad
+
+Steam Deck Layout:
+  - A (BTN_SOUTH)     B (BTN_EAST)     X (BTN_NORTH)    Y (BTN_WEST)
+  - L1 (BTN_TL)       R1 (BTN_TR)
+  - L2 (ABS_Z)        R2 (ABS_RZ)      — analog triggers
+  - L3 (BTN_THUMBL)   R3 (BTN_THUMBR)  — stick clicks
+  - D-pad: ABS_HAT0X (-1=L,+1=R)  ABS_HAT0Y (-1=U,+1=D)
+  - Steam (BTN_MODE)  Select/View (BTN_SELECT)  Start/Menu (BTN_START)
+  - L4 (BTN_TRIGGER_HAPPY1)  R4 (BTN_TRIGGER_HAPPY2)
+  - L5 (BTN_TRIGGER_HAPPY3)  R5 (BTN_TRIGGER_HAPPY4)
+
+Xbox Series Layout:
+  - A (BTN_SOUTH)     B (BTN_EAST)     X (BTN_NORTH)    Y (BTN_WEST)
+  - LB (BTN_TL)       RB (BTN_TR)
+  - LT (ABS_Z)        RT (ABS_RZ)      — analog triggers
+  - LS (BTN_THUMBL)   RS (BTN_THUMBR)  — stick clicks
+  - D-pad: ABS_HAT0X (-1=L,+1=R)  ABS_HAT0Y (-1=U,+1=D)
+  - Xbox (BTN_MODE)   View (BTN_SELECT)  Menu (BTN_START)
+  - Share (KEY_RECORD) — Xbox Series only
+
+Usage:
+  mados-gamepad-wm [--compositor sway|hyprland] [--device /dev/input/eventN]
+"""
+
+import argparse
+import glob
+import os
+import signal
+import subprocess
+import sys
+import time
+
+try:
+    import evdev
+    from evdev import ecodes
+except ImportError:
+    print("ERROR: python-evdev is required. Install with: sudo pacman -S python-evdev",
+          file=sys.stderr)
+    sys.exit(1)
+
+# ─── Constants ──────────────────────────────────────────────────────────────────
+
+VERSION = "2.0.0"
+
+# Inhibit check interval (seconds) — how often to poll for games/fullscreen
+INHIBIT_CHECK_INTERVAL = 2.0
+
+# ─── Gamepad Profiles ───────────────────────────────────────────────────────────
+# "deck"    — Has back paddles (L4/R4/L5/R5), uses them for vol/brightness
+# "xbox"    — No back paddles, uses LT/RT + D-pad for vol/brightness
+# "generic" — Same as xbox (safe fallback)
+PROFILE_DECK = "deck"
+PROFILE_XBOX = "xbox"
+PROFILE_GENERIC = "generic"
+
+# Button codes (evdev)
+BTN_SOUTH = ecodes.BTN_SOUTH          # A
+BTN_EAST = ecodes.BTN_EAST            # B
+BTN_NORTH = ecodes.BTN_NORTH          # X  (top button on Steam Deck)
+BTN_WEST = ecodes.BTN_WEST            # Y  (left button on Steam Deck)
+BTN_TL = ecodes.BTN_TL                # L1
+BTN_TR = ecodes.BTN_TR                # R1
+BTN_SELECT = ecodes.BTN_SELECT        # View / ...
+BTN_START = ecodes.BTN_START          # Menu / ≡
+BTN_MODE = ecodes.BTN_MODE            # Steam button
+BTN_THUMBL = ecodes.BTN_THUMBL        # L3 (left stick click)
+BTN_THUMBR = ecodes.BTN_THUMBR        # R3 (right stick click)
+BTN_TH1 = ecodes.BTN_TRIGGER_HAPPY1   # L4 (back paddle)
+BTN_TH2 = ecodes.BTN_TRIGGER_HAPPY2   # R4 (back paddle)
+BTN_TH3 = ecodes.BTN_TRIGGER_HAPPY3   # L5 (back paddle)
+BTN_TH4 = ecodes.BTN_TRIGGER_HAPPY4   # R5 (back paddle)
+
+# Xbox Share button (KEY_RECORD on xpad/xone drivers)
+try:
+    KEY_RECORD = ecodes.KEY_RECORD         # 167
+except AttributeError:
+    KEY_RECORD = 167  # fallback if ecodes doesn't define it
+
+# D-pad axis codes
+ABS_HAT0X = ecodes.ABS_HAT0X  # -1=Left, 0=Center, +1=Right
+ABS_HAT0Y = ecodes.ABS_HAT0Y  # -1=Up,   0=Center, +1=Down
+
+# Trigger axes (analog)
+ABS_Z = ecodes.ABS_Z      # L2 trigger
+ABS_RZ = ecodes.ABS_RZ    # R2 trigger
+
+# Trigger threshold (0-255, consider >128 as pressed)
+TRIGGER_THRESHOLD = 128
+
+# Repeat rate for held D-pad (seconds)
+DPAD_REPEAT_DELAY = 0.4
+DPAD_REPEAT_RATE = 0.1
+
+LOG_PREFIX = "[mados-gamepad-wm]"
+
+# Device name patterns for auto-detecting gamepad profile
+DECK_NAME_PATTERNS = {
+    "steam deck", "valve software steam controller",
+    "steam virtual gamepad",
+}
+XBOX_NAME_PATTERNS = {
+    "xbox", "microsoft x-box", "xbox series", "xbox one",
+    "xbox 360", "xbox wireless", "xb1",
+}
+
+# Known game/Steam process names that should inhibit gamepad-WM bindings
+# When any of these are the focused window or running, bindings are paused
+INHIBIT_WM_CLASSES = {
+    # Steam client & games
+    "steam", "steamwebhelper", "steam_app_",
+    # Common game engines / launchers
+    "gamescope", "gameoverlayui",
+    # Proton/Wine games
+    "wine", "proton", "pressure-vessel",
+    # Emulators
+    "retroarch", "dolphin-emu", "pcsx2", "rpcs3", "yuzu", "cemu",
+    "ppsspp", "desmume", "mgba", "citra",
+    # Common native Linux games
+    "factorio", "minecraft", "supertuxkart",
+}
+
+# Process names that indicate a game session is active
+INHIBIT_PROCESS_NAMES = {
+    "gamescope", "steam", "reaper",  # reaper = Steam's game process wrapper
+}
+
+
+# ─── Game Inhibition System ─────────────────────────────────────────────────────
+
+class InhibitChecker:
+    """Detect when games/Steam are active and inhibit gamepad-WM bindings.
+
+    Three detection methods:
+    1. Focused window app_id/class matches known game patterns
+    2. Focused window is fullscreen (likely a game)
+    3. Known game processes are running (gamescope, steam game wrapper)
+
+    When inhibited, only the manual toggle combo (Steam+L3+R3) is processed.
+    Back paddle media keys (L4/R4/L5/R5) always work regardless of inhibit state.
+    """
+
+    def __init__(self, compositor_name):
+        self.compositor = compositor_name
+        self.inhibited = False
+        self.manual_override = None  # None=auto, True=force-on, False=force-off
+        self._last_check = 0
+        self._cached_result = False
+
+    def is_inhibited(self):
+        """Check if bindings should be inhibited (cached, polled periodically)."""
+        if self.manual_override is not None:
+            return not self.manual_override  # manual_override=True means WM active
+
+        now = time.monotonic()
+        if now - self._last_check >= INHIBIT_CHECK_INTERVAL:
+            self._last_check = now
+            self._cached_result = self._check_inhibit()
+            if self._cached_result != self.inhibited:
+                self.inhibited = self._cached_result
+                state = "INHIBITED (game detected)" if self.inhibited else "ACTIVE"
+                print(f"{LOG_PREFIX} Bindings: {state}")
+
+        return self.inhibited
+
+    def toggle_manual(self):
+        """Toggle manual override. Returns new state description."""
+        if self.manual_override is None:
+            # First toggle: force OFF (inhibit)
+            self.manual_override = False
+            self.inhibited = True
+            return "MANUALLY DISABLED"
+        elif self.manual_override is False:
+            # Second toggle: force ON (un-inhibit)
+            self.manual_override = True
+            self.inhibited = False
+            return "MANUALLY ENABLED"
+        else:
+            # Third toggle: back to auto
+            self.manual_override = None
+            self._last_check = 0  # force re-check
+            return "AUTO-DETECT"
+
+    def _check_inhibit(self):
+        """Actually check if a game is active. Called every INHIBIT_CHECK_INTERVAL."""
+        try:
+            if self.compositor == "sway":
+                return self._check_sway()
+            else:
+                return self._check_hyprland()
+        except Exception:
+            return False  # on error, don't inhibit
+
+    def _check_sway(self):
+        """Check Sway focused window for game indicators."""
+        try:
+            import json
+            out = subprocess.check_output(
+                ["swaymsg", "-t", "get_tree"],
+                timeout=1, stderr=subprocess.DEVNULL
+            )
+            tree = json.loads(out)
+            focused = self._find_focused_sway(tree)
+            if focused:
+                app_id = (focused.get("app_id") or "").lower()
+                wm_class = (focused.get("window_properties", {}).get("class") or "").lower()
+                is_fs = focused.get("fullscreen_mode", 0) == 1
+
+                # Check app_id / class against known games
+                if self._matches_game(app_id) or self._matches_game(wm_class):
+                    return True
+
+                # Fullscreen + not a known desktop app = likely a game
+                if is_fs and not self._is_known_desktop_app(app_id, wm_class):
+                    return True
+
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError,
+                FileNotFoundError, json.JSONDecodeError):
+            pass
+
+        # Check for game-session processes
+        return self._check_game_processes()
+
+    def _check_hyprland(self):
+        """Check Hyprland focused window for game indicators."""
+        try:
+            import json
+            out = subprocess.check_output(
+                ["hyprctl", "activewindow", "-j"],
+                timeout=1, stderr=subprocess.DEVNULL
+            )
+            window = json.loads(out)
+            wm_class = (window.get("class") or "").lower()
+            is_fs = window.get("fullscreen", False)
+
+            if self._matches_game(wm_class):
+                return True
+
+            if is_fs and not self._is_known_desktop_app(wm_class, wm_class):
+                return True
+
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError,
+                FileNotFoundError):
+            pass
+
+        return self._check_game_processes()
+
+    def _find_focused_sway(self, node):
+        """Recursively find the focused node in Sway's tree."""
+        if node.get("focused"):
+            return node
+        for child in node.get("nodes", []) + node.get("floating_nodes", []):
+            result = self._find_focused_sway(child)
+            if result:
+                return result
+        return None
+
+    @staticmethod
+    def _matches_game(app_id_or_class):
+        """Check if an app_id/class matches known game patterns."""
+        if not app_id_or_class:
+            return False
+        name = app_id_or_class.lower()
+        for pattern in INHIBIT_WM_CLASSES:
+            if pattern in name:
+                return True
+        return False
+
+    @staticmethod
+    def _is_known_desktop_app(app_id, wm_class):
+        """Return True if this is a known desktop app (not a game) in fullscreen."""
+        known_apps = {
+            "foot", "chromium", "firefox", "code", "code-oss",
+            "pcmanfm", "wofi", "waybar", "mako",
+            "pavucontrol", "blueman", "nm-applet",
+            "install-mados", "mados-photo-viewer", "mados-pdf-viewer",
+            "mados-video-player", "mados-audio-player", "mados-equalizer",
+            "mados-launcher", "mpv",
+        }
+        return (app_id in known_apps) or (wm_class in known_apps)
+
+    @staticmethod
+    def _check_game_processes():
+        """Check if known game-session processes are running."""
+        try:
+            out = subprocess.check_output(
+                ["ps", "-eo", "comm="],
+                timeout=1, stderr=subprocess.DEVNULL
+            ).decode("utf-8", errors="replace")
+            procs = {line.strip().lower() for line in out.splitlines()}
+            # gamescope is a strong indicator (Steam Deck gaming mode)
+            if "gamescope" in procs:
+                return True
+            # Check for Steam's reaper (game process wrapper)
+            if "reaper" in procs:
+                # reaper alone isn't enough — Steam itself uses it.
+                # Only inhibit if there's also a steam_app process
+                for proc in procs:
+                    if proc.startswith("steam_app_") or "proton" in proc:
+                        return True
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError,
+                FileNotFoundError):
+            pass
+        return False
+
+
+# ─── WM Backends ────────────────────────────────────────────────────────────────
+
+class SwayBackend:
+    """Execute actions via swaymsg for Sway compositor."""
+
+    name = "sway"
+
+    @staticmethod
+    def _run(cmd):
+        try:
+            subprocess.Popen(
+                cmd, shell=True,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+        except Exception as e:
+            print(f"{LOG_PREFIX} sway cmd error: {e}", file=sys.stderr)
+
+    @staticmethod
+    def _sway(sway_cmd):
+        SwayBackend._run(f"swaymsg '{sway_cmd}'")
+
+    # ── Navigation ──
+    def focus_left(self):   self._sway("focus left")
+    def focus_right(self):  self._sway("focus right")
+    def focus_up(self):     self._sway("focus up")
+    def focus_down(self):   self._sway("focus down")
+
+    def move_left(self):    self._sway("move left")
+    def move_right(self):   self._sway("move right")
+    def move_up(self):      self._sway("move up")
+    def move_down(self):    self._sway("move down")
+
+    # ── Resize ──
+    def resize_shrink_w(self): self._sway("resize shrink width 30px")
+    def resize_grow_w(self):   self._sway("resize grow width 30px")
+    def resize_shrink_h(self): self._sway("resize shrink height 30px")
+    def resize_grow_h(self):   self._sway("resize grow height 30px")
+
+    # ── Workspaces ──
+    def workspace_prev(self):
+        self._run("swaymsg 'workspace prev'; mados-sway-wallpaper-set")
+
+    def workspace_next(self):
+        self._run("swaymsg 'workspace next'; mados-sway-wallpaper-set")
+
+    def move_to_workspace_prev(self):
+        self._run("swaymsg 'move container to workspace prev'")
+
+    def move_to_workspace_next(self):
+        self._run("swaymsg 'move container to workspace next'")
+
+    # ── Window operations ──
+    def close_window(self):      self._sway("kill")
+    def fullscreen(self):        self._sway("fullscreen")
+    def toggle_floating(self):   self._sway("floating toggle")
+    def focus_mode_toggle(self): self._sway("focus mode_toggle")
+    def scratchpad_show(self):   self._sway("scratchpad show")
+    def scratchpad_move(self):   self._sway("move scratchpad")
+    def layout_toggle(self):     self._sway("layout toggle tabbed split")
+
+    # ── Apps ──
+    def terminal(self):   self._run("foot &")
+    def launcher(self):   self._run("wofi --show drun &")
+    def file_manager(self): self._run("pcmanfm &")
+
+    # ── Session ──
+    def reload(self):     self._sway("reload")
+    def exit_wm(self):
+        self._run("swaynag -t warning -m 'Salir de Sway?' -B 'Sí, salir' 'swaymsg exit'")
+
+    # ── Screenshot ──
+    def screenshot_region(self):
+        self._run('grim -g "$(slurp)" ~/Pictures/Screenshots/Screenshot-$(date +%Y-%m-%d-%H-%M-%S).png')
+
+    def screenshot_full(self):
+        self._run("grim ~/Pictures/Screenshots/Screenshot-$(date +%Y-%m-%d-%H-%M-%S).png")
+
+    # ── Media ──
+    def volume_up(self):
+        self._run("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ -l 1.0")
+
+    def volume_down(self):
+        self._run("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-")
+
+    def volume_mute(self):
+        self._run("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle")
+
+    def brightness_up(self):
+        self._run("brightnessctl set 5%+")
+
+    def brightness_down(self):
+        self._run("brightnessctl set 5%-")
+
+
+class HyprlandBackend:
+    """Execute actions via hyprctl for Hyprland compositor."""
+
+    name = "hyprland"
+
+    @staticmethod
+    def _run(cmd):
+        try:
+            subprocess.Popen(
+                cmd, shell=True,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+        except Exception as e:
+            print(f"{LOG_PREFIX} hyprland cmd error: {e}", file=sys.stderr)
+
+    @staticmethod
+    def _hypr(dispatch_cmd):
+        HyprlandBackend._run(f"hyprctl dispatch {dispatch_cmd}")
+
+    # ── Navigation ──
+    def focus_left(self):   self._hypr("movefocus l")
+    def focus_right(self):  self._hypr("movefocus r")
+    def focus_up(self):     self._hypr("movefocus u")
+    def focus_down(self):   self._hypr("movefocus d")
+
+    def move_left(self):    self._hypr("movewindow l")
+    def move_right(self):   self._hypr("movewindow r")
+    def move_up(self):      self._hypr("movewindow u")
+    def move_down(self):    self._hypr("movewindow d")
+
+    # ── Resize ──
+    def resize_shrink_w(self): self._hypr("resizeactive -30 0")
+    def resize_grow_w(self):   self._hypr("resizeactive 30 0")
+    def resize_shrink_h(self): self._hypr("resizeactive 0 -30")
+    def resize_grow_h(self):   self._hypr("resizeactive 0 30")
+
+    # ── Workspaces ──
+    def workspace_prev(self): self._hypr("workspace e-1")
+    def workspace_next(self): self._hypr("workspace e+1")
+
+    def move_to_workspace_prev(self): self._hypr("movetoworkspace e-1")
+    def move_to_workspace_next(self): self._hypr("movetoworkspace e+1")
+
+    # ── Window operations ──
+    def close_window(self):      self._hypr("killactive")
+    def fullscreen(self):        self._hypr("fullscreen")
+    def toggle_floating(self):   self._hypr("togglefloating")
+    def focus_mode_toggle(self): self._hypr("cyclenext")
+    def scratchpad_show(self):   self._hypr("togglespecialworkspace scratchpad")
+    def scratchpad_move(self):   self._hypr("movetoworkspacesilent special:scratchpad")
+    def layout_toggle(self):     self._hypr("togglesplit")
+
+    # ── Apps ──
+    def terminal(self):     self._run("foot &")
+    def launcher(self):     self._run("wofi --show drun &")
+    def file_manager(self): self._run("pcmanfm &")
+
+    # ── Session ──
+    def reload(self):     self._run("hyprctl reload")
+    def exit_wm(self):    self._hypr("exit")
+
+    # ── Screenshot ──
+    def screenshot_region(self):
+        self._run('grim -g "$(slurp)" ~/Pictures/Screenshots/Screenshot-$(date +%Y-%m-%d-%H-%M-%S).png')
+
+    def screenshot_full(self):
+        self._run("grim ~/Pictures/Screenshots/Screenshot-$(date +%Y-%m-%d-%H-%M-%S).png")
+
+    # ── Media ──
+    def volume_up(self):
+        self._run("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+ -l 1.0")
+
+    def volume_down(self):
+        self._run("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-")
+
+    def volume_mute(self):
+        self._run("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle")
+
+    def brightness_up(self):
+        self._run("brightnessctl set 5%+")
+
+    def brightness_down(self):
+        self._run("brightnessctl set 5%-")
+
+
+# ─── Gamepad Profile Detection ──────────────────────────────────────────────────
+
+def detect_gamepad_profile(devices):
+    """Detect the gamepad type from device names and capabilities.
+
+    Returns one of: PROFILE_DECK, PROFILE_XBOX, PROFILE_GENERIC
+    """
+    for dev in devices:
+        name_lower = dev.name.lower()
+        caps = dev.capabilities(verbose=False)
+        key_caps = set(caps.get(ecodes.EV_KEY, []))
+
+        # Steam Deck: has back paddles (BTN_TRIGGER_HAPPY1+)
+        has_paddles = bool({BTN_TH1, BTN_TH2, BTN_TH3, BTN_TH4} & key_caps)
+        if has_paddles:
+            for pattern in DECK_NAME_PATTERNS:
+                if pattern in name_lower:
+                    return PROFILE_DECK
+            # Has paddles but unknown name → still treat as deck
+            return PROFILE_DECK
+
+        # Xbox: match name patterns
+        for pattern in XBOX_NAME_PATTERNS:
+            if pattern in name_lower:
+                return PROFILE_XBOX
+
+    # Unknown gamepad → generic (same bindings as xbox)
+    return PROFILE_GENERIC
+
+
+# ─── Gamepad State & Dispatcher ─────────────────────────────────────────────────
+
+class GamepadState:
+    """Track held buttons and dispatch combos."""
+
+    def __init__(self, backend, inhibit_checker=None, profile=PROFILE_GENERIC):
+        self.backend = backend
+        self.inhibit_checker = inhibit_checker
+        self.profile = profile
+        self.buttons = set()          # currently held button codes
+        self.dpad_x = 0               # -1 left, 0 center, +1 right
+        self.dpad_y = 0               # -1 up, 0 center, +1 down
+        self.l2_pressed = False
+        self.r2_pressed = False
+        self._dpad_last_time = 0      # for repeat
+        self._dpad_repeating = False
+        self._combo_fired = set()     # combos already fired (avoid re-fire while held)
+
+    @property
+    def steam(self):
+        return BTN_MODE in self.buttons
+
+    @property
+    def l1(self):
+        return BTN_TL in self.buttons
+
+    @property
+    def r1(self):
+        return BTN_TR in self.buttons
+
+    def on_button(self, code, pressed):
+        """Handle button press/release."""
+        if pressed:
+            self.buttons.add(code)
+        else:
+            self.buttons.discard(code)
+            # Clear combos involving this button so they can re-fire
+            self._combo_fired = {c for c in self._combo_fired if code not in c}
+
+        if pressed:
+            self._dispatch_button(code)
+
+    def on_dpad(self, axis, value):
+        """Handle D-pad axis change."""
+        if axis == ABS_HAT0X:
+            self.dpad_x = value
+        elif axis == ABS_HAT0Y:
+            self.dpad_y = value
+
+        if value != 0:
+            self._dpad_last_time = time.monotonic()
+            self._dpad_repeating = False
+            self._dispatch_dpad()
+
+    def on_trigger(self, axis, value):
+        """Handle analog trigger."""
+        if axis == ABS_Z:
+            self.l2_pressed = value > TRIGGER_THRESHOLD
+        elif axis == ABS_RZ:
+            self.r2_pressed = value > TRIGGER_THRESHOLD
+
+    def tick(self):
+        """Call periodically to handle D-pad repeat."""
+        if self.dpad_x == 0 and self.dpad_y == 0:
+            return
+
+        now = time.monotonic()
+        elapsed = now - self._dpad_last_time
+
+        if not self._dpad_repeating:
+            if elapsed >= DPAD_REPEAT_DELAY:
+                self._dpad_repeating = True
+                self._dpad_last_time = now
+                self._dispatch_dpad()
+        else:
+            if elapsed >= DPAD_REPEAT_RATE:
+                self._dpad_last_time = now
+                self._dispatch_dpad()
+
+    def _combo_key(self, *codes):
+        """Create a frozenset key for a combo and check if already fired."""
+        key = frozenset(codes)
+        if key in self._combo_fired:
+            return False
+        self._combo_fired.add(key)
+        return True
+
+    def _dispatch_button(self, code):
+        """Dispatch action based on current button combination."""
+        b = self.backend
+
+        # ── Steam/Xbox + L3 + R3 → Toggle manual override (ALWAYS active) ──
+        if self.steam and BTN_THUMBL in self.buttons and BTN_THUMBR in self.buttons:
+            if self._combo_key(BTN_MODE, BTN_THUMBL, BTN_THUMBR):
+                if self.inhibit_checker:
+                    new_state = self.inhibit_checker.toggle_manual()
+                    print(f"{LOG_PREFIX} Manual toggle: {new_state}")
+                    # Notify user visually via compositor
+                    try:
+                        subprocess.Popen(
+                            f"notify-send -t 2000 'Gamepad WM' '{new_state}'",
+                            shell=True,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                        )
+                    except Exception:
+                        pass
+            return
+
+        # ── Check inhibition (skip WM bindings when game is active) ──
+        # Back paddles (deck) and Share button (xbox) ALWAYS work
+        is_media_key = (
+            code in (BTN_TH1, BTN_TH2, BTN_TH3, BTN_TH4)
+            or code == KEY_RECORD
+        )
+        if not is_media_key and self.inhibit_checker and self.inhibit_checker.is_inhibited():
+            return  # Game is active — don't send WM commands
+
+        # ── Steam/Xbox + Start + Select → Exit WM ──
+        if self.steam and BTN_START in self.buttons and BTN_SELECT in self.buttons:
+            if self._combo_key(BTN_MODE, BTN_START, BTN_SELECT):
+                b.exit_wm()
+            return
+
+        # ── Steam/Xbox + button combos ──
+        if self.steam:
+            if code == BTN_SOUTH:  # A → Terminal
+                if self._combo_key(BTN_MODE, BTN_SOUTH):
+                    b.terminal()
+
+            elif code == BTN_EAST:  # B → Close window
+                if self._combo_key(BTN_MODE, BTN_EAST):
+                    b.close_window()
+
+            elif code == BTN_NORTH:  # X → Launcher (wofi)
+                if self._combo_key(BTN_MODE, BTN_NORTH):
+                    b.launcher()
+
+            elif code == BTN_WEST:  # Y → File manager
+                if self._combo_key(BTN_MODE, BTN_WEST):
+                    b.file_manager()
+
+            elif code == BTN_TL:  # L1/LB → Prev workspace
+                if self._combo_key(BTN_MODE, BTN_TL):
+                    b.workspace_prev()
+
+            elif code == BTN_TR:  # R1/RB → Next workspace
+                if self._combo_key(BTN_MODE, BTN_TR):
+                    b.workspace_next()
+
+            elif code == BTN_START:  # Start/Menu → Fullscreen
+                if self._combo_key(BTN_MODE, BTN_START):
+                    b.fullscreen()
+
+            elif code == BTN_SELECT:  # Select/View → Float toggle
+                if self._combo_key(BTN_MODE, BTN_SELECT):
+                    b.toggle_floating()
+
+            elif code == BTN_THUMBL:  # L3/LS → Scratchpad show
+                if self._combo_key(BTN_MODE, BTN_THUMBL):
+                    b.scratchpad_show()
+
+            elif code == BTN_THUMBR:  # R3/RS → Reload compositor
+                if self._combo_key(BTN_MODE, BTN_THUMBR):
+                    b.reload()
+
+            return  # Don't process non-Steam/Xbox combos when modifier is held
+
+        # ── Back paddle combos — Deck only (no Steam needed) ──
+        if self.profile == PROFILE_DECK:
+            if code == BTN_TH1:  # L4 → Volume down
+                b.volume_down()
+                return
+            elif code == BTN_TH2:  # R4 → Volume up
+                b.volume_up()
+                return
+            elif code == BTN_TH3:  # L5 → Brightness down
+                b.brightness_down()
+                return
+            elif code == BTN_TH4:  # R5 → Brightness up
+                b.brightness_up()
+                return
+
+        # ── Xbox Share button → Screenshot (region) ──
+        if code == KEY_RECORD and not self.steam:
+            b.screenshot_region()
+            return
+
+        # ── Select/View alone → Screenshot region ──
+        if code == BTN_SELECT and not self.steam and len(self.buttons) == 1:
+            b.screenshot_region()
+
+        # ── Start/Menu alone → Layout toggle (tabbed/split) ──
+        if code == BTN_START and not self.steam and len(self.buttons) == 1:
+            b.layout_toggle()
+
+    def _dispatch_dpad(self):
+        """Dispatch D-pad actions based on held modifiers."""
+        b = self.backend
+
+        # ── LT/RT + D-pad media combos (xbox/generic) — work even during games ──
+        if self.profile != PROFILE_DECK:
+            if self.l2_pressed and not self.steam and not self.l1 and not self.r1:
+                # LT + D-pad up/down → Volume up/down
+                if self.dpad_y == -1:  b.volume_up()
+                elif self.dpad_y == 1: b.volume_down()
+                return
+            if self.r2_pressed and not self.steam and not self.l1 and not self.r1:
+                # RT + D-pad up/down → Brightness up/down
+                if self.dpad_y == -1:  b.brightness_up()
+                elif self.dpad_y == 1: b.brightness_down()
+                return
+
+        # D-pad is inhibited when a game is active (games need D-pad)
+        if self.inhibit_checker and self.inhibit_checker.is_inhibited():
+            return
+
+        # ── Steam/Xbox + L1/LB + D-pad → Move window ──
+        if self.steam and self.l1:
+            if self.dpad_x == -1:  b.move_left()
+            elif self.dpad_x == 1: b.move_right()
+            if self.dpad_y == -1:  b.move_up()
+            elif self.dpad_y == 1: b.move_down()
+            return
+
+        # ── Steam/Xbox + R1/RB + D-pad → Move window to workspace ──
+        if self.steam and self.r1:
+            if self.dpad_x == -1:  b.move_to_workspace_prev()
+            elif self.dpad_x == 1: b.move_to_workspace_next()
+            return
+
+        # ── Steam/Xbox + D-pad → Focus window ──
+        if self.steam:
+            if self.dpad_x == -1:  b.focus_left()
+            elif self.dpad_x == 1: b.focus_right()
+            if self.dpad_y == -1:  b.focus_up()
+            elif self.dpad_y == 1: b.focus_down()
+            return
+
+        # ── L1/LB + D-pad (no Steam/Xbox) → Resize window ──
+        if self.l1:
+            if self.dpad_x == -1:  b.resize_shrink_w()
+            elif self.dpad_x == 1: b.resize_grow_w()
+            if self.dpad_y == -1:  b.resize_shrink_h()
+            elif self.dpad_y == 1: b.resize_grow_h()
+            return
+
+        # ── R1/RB + D-pad (no Steam/Xbox) → Switch workspace ──
+        if self.r1:
+            if self.dpad_x == -1:  b.workspace_prev()
+            elif self.dpad_x == 1: b.workspace_next()
+            return
+
+
+# ─── Device Detection ───────────────────────────────────────────────────────────
+
+def find_gamepad_devices():
+    """Auto-detect gamepad/joystick devices via evdev."""
+    devices = []
+    for path in sorted(glob.glob("/dev/input/event*")):
+        try:
+            dev = evdev.InputDevice(path)
+            caps = dev.capabilities(verbose=False)
+
+            # Check for gamepad-like capabilities:
+            # Must have buttons (EV_KEY) and absolute axes (EV_ABS) with gamepad buttons
+            has_keys = ecodes.EV_KEY in caps
+            has_abs = ecodes.EV_ABS in caps
+
+            if has_keys and has_abs:
+                key_caps = set(caps.get(ecodes.EV_KEY, []))
+                # Check for common gamepad buttons
+                gamepad_btns = {BTN_SOUTH, BTN_EAST, BTN_NORTH, BTN_WEST,
+                                BTN_TL, BTN_TR, BTN_START, BTN_SELECT}
+                if key_caps & gamepad_btns:
+                    devices.append(dev)
+                    print(f"{LOG_PREFIX} Found gamepad: {dev.name} ({dev.path})")
+                else:
+                    dev.close()
+            else:
+                dev.close()
+        except (PermissionError, OSError):
+            continue
+
+    return devices
+
+
+def find_specific_device(path):
+    """Open a specific device path."""
+    try:
+        dev = evdev.InputDevice(path)
+        print(f"{LOG_PREFIX} Using device: {dev.name} ({dev.path})")
+        return [dev]
+    except (PermissionError, OSError) as e:
+        print(f"{LOG_PREFIX} Cannot open {path}: {e}", file=sys.stderr)
+        return []
+
+
+# ─── Auto-detect compositor ─────────────────────────────────────────────────────
+
+def detect_compositor():
+    """Detect running compositor (sway or hyprland)."""
+    # Check WAYLAND_DISPLAY and try sway first
+    if os.environ.get("SWAYSOCK"):
+        return "sway"
+    if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
+        return "hyprland"
+
+    # Fallback: check running processes
+    try:
+        out = subprocess.check_output(["pgrep", "-x", "sway"],
+                                       stderr=subprocess.DEVNULL)
+        if out.strip():
+            return "sway"
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+
+    try:
+        out = subprocess.check_output(["pgrep", "-x", "Hyprland"],
+                                       stderr=subprocess.DEVNULL)
+        if out.strip():
+            return "hyprland"
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+
+    return "sway"  # default
+
+
+# ─── Main Loop ──────────────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Steam Deck / Gamepad to Sway/Hyprland bridge for madOS"
+    )
+    parser.add_argument("--compositor", "-c", choices=["sway", "hyprland"],
+                        help="Force compositor backend (auto-detected if omitted)")
+    parser.add_argument("--device", "-d",
+                        help="Specific /dev/input/eventN device (auto-detected if omitted)")
+    parser.add_argument("--version", "-v", action="version",
+                        version=f"mados-gamepad-wm {VERSION}")
+    parser.add_argument("--list-devices", "-l", action="store_true",
+                        help="List detected gamepad devices and exit")
+    args = parser.parse_args()
+
+    if args.list_devices:
+        devices = find_gamepad_devices()
+        if not devices:
+            print("No gamepad devices found.")
+        for d in devices:
+            caps = d.capabilities(verbose=False)
+            keys = set(caps.get(ecodes.EV_KEY, []))
+            profile = detect_gamepad_profile([d])
+            print(f"  {d.path}: {d.name} [profile: {profile}]")
+            if BTN_MODE in keys:
+                print(f"    ↳ Has Steam/Xbox button (BTN_MODE)")
+            if BTN_TH1 in keys:
+                print(f"    ↳ Has back paddles (L4/R4/L5/R5)")
+            if KEY_RECORD in keys:
+                print(f"    ↳ Has Share button (KEY_RECORD)")
+            d.close()
+        return
+
+    # Detect or use specified compositor
+    compositor = args.compositor or detect_compositor()
+    if compositor == "hyprland":
+        backend = HyprlandBackend()
+    else:
+        backend = SwayBackend()
+    print(f"{LOG_PREFIX} Using compositor: {backend.name}")
+
+    # Find gamepad devices
+    if args.device:
+        devices = find_specific_device(args.device)
+    else:
+        devices = find_gamepad_devices()
+
+    if not devices:
+        print(f"{LOG_PREFIX} No gamepad found. Waiting for device...", file=sys.stderr)
+        # Retry loop — wait for a gamepad to appear
+        while not devices:
+            time.sleep(3)
+            devices = find_gamepad_devices()
+
+    # Detect gamepad profile (deck / xbox / generic)
+    profile = detect_gamepad_profile(devices)
+    print(f"{LOG_PREFIX} Detected profile: {profile}")
+
+    state = GamepadState(backend, inhibit_checker=InhibitChecker(backend.name),
+                         profile=profile)
+
+    # Graceful shutdown
+    running = True
+
+    def handle_signal(signum, frame):
+        nonlocal running
+        running = False
+        print(f"\n{LOG_PREFIX} Shutting down...")
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    # Label based on profile
+    mod = "Steam" if profile == PROFILE_DECK else "Xbox" if profile == PROFILE_XBOX else "Guide"
+
+    print(f"{LOG_PREFIX} Ready! {mod} button is the modifier key.")
+    print(f"{LOG_PREFIX} Bindings ({profile} profile):")
+    print(f"  {mod} + A        → Terminal (foot)")
+    print(f"  {mod} + B        → Close window")
+    print(f"  {mod} + X        → App launcher (wofi)")
+    print(f"  {mod} + Y        → File manager")
+    print(f"  {mod} + D-pad    → Focus window")
+    print(f"  {mod} + L1+D-pad → Move window")
+    print(f"  {mod} + R1+D-pad → Move to workspace")
+    print(f"  {mod} + L1 / R1  → Workspace prev/next")
+    print(f"  {mod} + Start    → Fullscreen")
+    print(f"  {mod} + Select   → Float toggle")
+    print(f"  {mod} + L3       → Scratchpad")
+    print(f"  {mod} + R3       → Reload compositor")
+    print(f"  L1 + D-pad       → Resize window")
+    print(f"  R1 + D-pad       → Switch workspace")
+    if profile == PROFILE_DECK:
+        print(f"  L4 / R4          → Volume down/up")
+        print(f"  L5 / R5          → Brightness down/up")
+    else:
+        print(f"  LT + D-pad ↑/↓   → Volume up/down")
+        print(f"  RT + D-pad ↑/↓   → Brightness up/down")
+    if profile != PROFILE_DECK:
+        print(f"  Share            → Screenshot (region)")
+    print(f"  Select            → Screenshot (region)")
+    print(f"  Start             → Toggle layout")
+    print(f"  {mod}+Start+Sel  → Exit compositor")
+    print(f"  {mod}+L3+R3      → Toggle WM bindings on/off")
+    print(f"")
+    print(f"{LOG_PREFIX} Auto-inhibit: bindings pause when games/Steam are active.")
+    if profile == PROFILE_DECK:
+        print(f"{LOG_PREFIX} Back paddles (L4/R4/L5/R5) always work for vol/brightness.")
+    else:
+        print(f"{LOG_PREFIX} LT/RT + D-pad always work for vol/brightness (even in games).")
+
+    # Event loop with select()
+    try:
+        while running:
+            # Use select to handle multiple devices with timeout for tick()
+            import select as sel
+            fds = {d.fd: d for d in devices}
+            readable, _, _ = sel.select(list(fds.keys()), [], [], 0.05)
+
+            for fd in readable:
+                dev = fds[fd]
+                try:
+                    for event in dev.read():
+                        if event.type == ecodes.EV_KEY:
+                            pressed = event.value == 1  # 1=press, 0=release
+                            if event.value <= 1:  # ignore repeat (value=2)
+                                state.on_button(event.code, pressed)
+
+                        elif event.type == ecodes.EV_ABS:
+                            if event.code in (ABS_HAT0X, ABS_HAT0Y):
+                                state.on_dpad(event.code, event.value)
+                            elif event.code in (ABS_Z, ABS_RZ):
+                                state.on_trigger(event.code, event.value)
+                except OSError:
+                    # Device disconnected
+                    print(f"{LOG_PREFIX} Device disconnected: {dev.name}",
+                          file=sys.stderr)
+                    devices.remove(dev)
+                    if not devices:
+                        print(f"{LOG_PREFIX} No devices left. Waiting...",
+                              file=sys.stderr)
+                        while running and not devices:
+                            time.sleep(3)
+                            devices = find_gamepad_devices()
+
+            # Handle D-pad repeat
+            state.tick()
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        for d in devices:
+            try:
+                d.close()
+            except Exception:
+                pass
+        print(f"{LOG_PREFIX} Stopped.")
+
+
+if __name__ == "__main__":
+    main()

@@ -94,6 +94,18 @@
         });
     });
 
+    // Bindings Tabs
+    document.querySelectorAll('.bindings-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = tab.dataset.tab;
+            document.querySelectorAll('.bindings-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.bindings-panel').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            const panel = document.getElementById('tab-' + target);
+            if (panel) panel.classList.add('active');
+        });
+    });
+
     // Console branding
     console.log('%cmadOS', 'font-size: 24px; font-weight: bold; color: #88c0d0; text-shadow: 0 0 10px #88c0d0;');
     console.log('%cNordic Cyberpunk // AI-Orchestrated Arch Linux', 'font-size: 12px; color: #b48ead;');
