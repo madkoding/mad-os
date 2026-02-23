@@ -658,6 +658,7 @@ jobs:
 
           sed -i "s|https://archive.org/download/mados-[^/]*/madOS-[^\"]*\.iso|$DOWNLOAD_URL|g" docs/index.html
           sed -i "s|data-version=\"[^\"]*\"|data-version=\"$VERSION\"|g" docs/index.html
+          sed -i "s|<span>Download v[^<]*</span>|<span>Download v$VERSION</span>|g" docs/index.html
 
           if git diff --quiet docs/index.html; then
             echo "No changes needed in website"
