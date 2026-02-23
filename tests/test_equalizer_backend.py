@@ -519,7 +519,7 @@ class TestApplyEq(unittest.TestCase):
         mock_start.return_value = True
         mock_set_sink.return_value = True
 
-        success, message = self.backend.apply_eq(gains=[0.0] * 8)
+        success, _ = self.backend.apply_eq(gains=[0.0] * 8)
 
         self.assertTrue(success)
         mock_set_sink.assert_called_once()
@@ -722,7 +722,7 @@ class TestDefaultSinkRouting(unittest.TestCase):
         """disable_eq should restore the original default sink."""
         self.backend.has_pipewire = True
 
-        success, message = self.backend.disable_eq()
+        success, _ = self.backend.disable_eq()
 
         self.assertTrue(success)
         mock_restore.assert_called_once()

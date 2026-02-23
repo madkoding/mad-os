@@ -29,7 +29,7 @@ log() {
 }
 
 read_state() {
-    if [ -f "$STATE_FILE" ]; then
+    if [[ -f "$STATE_FILE" ]]; then
         # shellcheck source=/dev/null
         . "$STATE_FILE"
         return 0
@@ -43,6 +43,7 @@ is_rsync_mode() {
         partition|file) return 0 ;;
         *) return 1 ;;
     esac
+    return 1
 }
 
 is_persistence_mounted() {
@@ -74,7 +75,7 @@ sync_to_persistence() {
         /root/ "$persist_dir/root/" 2>/dev/null
 
     # /etc/mados - madOS configuration
-    if [ -d /etc/mados ]; then
+    if [[ -d /etc/mados ]]; then
         mkdir -p "$persist_dir/etc.mados/"
         rsync -a --delete \
             /etc/mados/ "$persist_dir/etc.mados/" 2>/dev/null
@@ -91,7 +92,7 @@ load_from_persistence() {
         return 1
     fi
 
-    if [ -z "$(ls -A "$persist_dir" 2>/dev/null)" ]; then
+    if [[ -z "$(ls -A "$persist_dir" 2>/dev/null)" ]]; then
         log "Persistence mount is empty, nothing to load"
         return 1
     fi
@@ -99,19 +100,19 @@ load_from_persistence() {
     log "Loading persisted data..."
 
     # /home
-    if [ -d "$persist_dir/home" ]; then
+    if [[ -d "$persist_dir/home" ]]; then
         rsync -a "$persist_dir/home/" /home/ 2>/dev/null
         log "Restored /home"
     fi
 
     # /root
-    if [ -d "$persist_dir/root" ]; then
+    if [[ -d "$persist_dir/root" ]]; then
         rsync -a "$persist_dir/root/" /root/ 2>/dev/null
         log "Restored /root"
     fi
 
     # /etc/mados
-    if [ -d "$persist_dir/etc.mados" ]; then
+    if [[ -d "$persist_dir/etc.mados" ]]; then
         mkdir -p /etc/mados
         rsync -a "$persist_dir/etc.mados/" /etc/mados/ 2>/dev/null
         log "Restored /etc/mados"
@@ -125,7 +126,7 @@ start_service() {
 
     if ! is_rsync_mode; then
         local mode="${MADOS_PERSIST_MODE:-unknown}"
-        if [ "$mode" = "cow_device" ] || [ "$mode" = "cow_label" ]; then
+        if [[ "$mode" = "cow_device" ]] || [[ "$mode" = "cow_label" ]]; then
             log "Archiso native persistence active, rsync not needed"
         else
             log "No rsync-based persistence configured (mode=$mode)"
@@ -157,6 +158,7 @@ stop_service() {
     log "Stopping persistence sync..."
     sync_to_persistence
     log "Final sync complete"
+    return 0
 }
 
 case "${1:-start}" in

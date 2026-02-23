@@ -16,11 +16,13 @@ STATE_FILE="/run/mados-persist.env"
 PERSISTENCE_MOUNT="/mnt/mados-persist"
 
 log() {
-    echo "[mados-persist-detect] $1"
+    local msg="$1"
+    echo "[mados-persist-detect] $msg"
+    return 0
 }
 
 read_state() {
-    if [ -f "$STATE_FILE" ]; then
+    if [[ -f "$STATE_FILE" ]]; then
         # shellcheck source=/dev/null
         . "$STATE_FILE"
         return 0
@@ -48,7 +50,7 @@ mount_persistence_source() {
         # File (.dat) - set up loop device
         local loop_dev
         loop_dev=$(losetup -f --show "$source" 2>/dev/null)
-        if [ -z "$loop_dev" ]; then
+        if [[ -z "$loop_dev" ]]; then
             log "ERROR: Failed to create loop device for $source"
             return 1
         fi
@@ -81,7 +83,7 @@ main() {
             ;;
         partition|file)
             # rsync-based persistence: mount the source for the sync service
-            if [ -n "$MADOS_PERSIST_DEVICE" ]; then
+            if [[ -n "$MADOS_PERSIST_DEVICE" ]]; then
                 if mount_persistence_source "$MADOS_PERSIST_DEVICE"; then
                     log "Persistence source mounted at $PERSISTENCE_MOUNT"
                 else
@@ -93,6 +95,8 @@ main() {
             log "No persistence active"
             ;;
     esac
+
+    return 0
 }
 
 main "$@"
