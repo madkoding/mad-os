@@ -7,7 +7,9 @@
 # database at ~/.local/share/mados/wallpapers.db so they persist across
 # reboots and can be read/edited by a future wallpaper-settings GUI.
 #
-# Uses jq --unbuffered for immediate event delivery.
+# Architecture: single persistent jq --unbuffered pipeline that filters
+# workspace focus events and emits only workspace numbers.  Zero forks
+# per event — comparable to the Hyprland socat approach.
 
 WALLPAPER_DIR="${WALLPAPER_DIR:-/usr/share/backgrounds}"
 MAX_WORKSPACES=5
@@ -219,21 +221,26 @@ shuffle_wallpapers
 assign_wallpapers
 
 # Determine current workspace
-current_ws="$(swaymsg -t get_workspaces 2>/dev/null \
+last_ws="$(swaymsg -t get_workspaces 2>/dev/null \
     | jq -r '.[] | select(.focused==true) | .num' 2>/dev/null)" || true
-[[ -z "$current_ws" || "$current_ws" == "null" ]] && current_ws=1
+[[ -z "$last_ws" || "$last_ws" == "null" ]] && last_ws=1
 
 # Set initial wallpaper (with one retry)
-wp="$(get_wallpaper_for_ws "$current_ws")"
+wp="$(get_wallpaper_for_ws "$last_ws")"
 if ! set_wallpaper "$wp"; then
     sleep 0.5
     set_wallpaper "$wp" || true
 fi
-log "initial wallpaper set for workspace $current_ws"
+log "initial wallpaper set for workspace $last_ws"
 
-# Subscribe to workspace focus events.
-# Uses jq --unbuffered for immediate event delivery without pipe buffering.
-# Reconnects automatically if subscription drops (unlimited retries with backoff).
+# ── Event subscription ──────────────────────────────────────────────────
+# Uses a single persistent jq --unbuffered process in the pipeline to
+# filter workspace focus events and emit only the workspace number.
+# This means ZERO forks per event — jq stays alive for the lifetime of
+# the subscription, just like socat in the Hyprland daemon.
+#
+# Reconnects automatically if the subscription ends. Backoff only applies
+# when reconnections happen faster than 5 seconds apart (crash loop).
 log "starting workspace event subscription"
 
 reconnect_count=0
@@ -241,40 +248,42 @@ last_reconnect=0
 
 while true; do
     now="$(date +%s)"
-    # Reset counter if last reconnect was more than 60s ago
-    if (( now - last_reconnect > 60 )); then
+    # Reset counter if last successful run lasted more than 10s
+    if (( now - last_reconnect > 10 )); then
         reconnect_count=0
     fi
 
     log "subscribing to workspace events (attempt $((reconnect_count + 1)))"
     last_reconnect="$now"
 
-    # Read each raw JSON event line from swaymsg and process inline.
-    # Uses jq --unbuffered to prevent pipe buffering from delaying events.
-    swaymsg -t subscribe '["workspace"]' -m 2>/dev/null \
-        | while IFS= read -r line; do
-            # Skip empty lines
-            [[ -z "$line" ]] && continue
+    # Single persistent pipeline: swaymsg → jq → while read
+    # jq --unbuffered ensures immediate delivery (no stdio buffering)
+    # jq runs ONCE as a long-lived filter, not forked per event
+    while IFS= read -r ws_num; do
+        # jq already filtered and extracted — ws_num is a clean number
+        [[ -z "$ws_num" ]] && continue
 
-            # Parse workspace number from the event JSON using --unbuffered
-            ws_num="$(printf '%s' "$line" \
-                | jq --unbuffered -r 'select(.change == "focus") | .current.num // empty' 2>/dev/null)" || continue
-
-            if [[ -n "$ws_num" && "$ws_num" =~ ^[0-9]+$ ]]; then
-                wp="$(get_wallpaper_for_ws "$ws_num")"
-                if [[ -n "$wp" ]]; then
-                    set_wallpaper "$wp"
-                    log "workspace $ws_num -> $(basename "$wp")"
-                fi
+        if [[ "$ws_num" =~ ^[0-9]+$ && "$ws_num" != "$last_ws" ]]; then
+            wp="$(get_wallpaper_for_ws "$ws_num")"
+            if [[ -n "$wp" ]]; then
+                set_wallpaper "$wp"
+                last_ws="$ws_num"
+                log "workspace $ws_num -> $(basename "$wp")"
             fi
-        done
+        fi
+    done < <(swaymsg -t subscribe '["workspace"]' -m 2>&1 \
+        | jq --unbuffered -r 'select(.change == "focus") | .current.num // empty' 2>/dev/null)
 
     reconnect_count=$((reconnect_count + 1))
-    # Exponential backoff: 2s, 4s, 8s, ... capped at 30s
-    backoff=$(( 2 ** (reconnect_count > 4 ? 4 : reconnect_count) ))
-    (( backoff > 30 )) && backoff=30
-    log "workspace subscription ended, reconnecting in ${backoff}s..."
-    sleep "$backoff"
+    # Only backoff if reconnections are rapid (crash loop protection)
+    if (( reconnect_count > 1 )); then
+        backoff=$(( reconnect_count > 5 ? 10 : reconnect_count * 2 ))
+        log "rapid reconnect detected, waiting ${backoff}s..."
+        sleep "$backoff"
+    else
+        # Immediate reconnect on first failure
+        sleep 0.5
+    fi
 
     # Verify sway is still running before reconnecting
     if ! swaymsg -t get_version >/dev/null 2>&1; then

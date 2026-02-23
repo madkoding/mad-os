@@ -7,14 +7,14 @@ layout: none
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>madOS - AI-Orchestrated Arch Linux | Lightweight Linux with OpenCode</title>
-    <meta name="description" content="madOS: Nordic cyberpunk Arch Linux distribution optimized for low-RAM systems (1.9GB), with OpenCode AI integration. Nord palette meets synthwave aesthetics. Sway/Hyprland, 300MB RAM. Persistent USB.">
+    <meta name="description" content="madOS: Arch Linux distribution optimized for low-RAM systems (1.9GB), with OpenCode integrated for intelligent orchestration. Sway/Hyprland, Nord theme, ~300MB RAM. Persistent USB.">
 
     <!-- SEO -->
     <link rel="canonical" href="https://madkoding.github.io/mad-os/">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
     <meta name="author" content="madkoding">
     <meta name="generator" content="madOS Project">
-    <meta name="keywords" content="madOS, Arch Linux, OpenCode, AI, Linux, distribution, low RAM, lightweight, Sway, Hyprland, Wayland, Nord, Nordic, cyberpunk, synthwave, neon, retro-futuristic, AI orchestrated, operating system, open source, ZRAM, EarlyOOM, Intel Atom, GTK installer, persistent USB, live USB, CUDA, ROCm, GPU compute, NVIDIA, AMD, OpenCL">
+    <meta name="keywords" content="madOS, Arch Linux, OpenCode, AI, Linux, distribution, low RAM, lightweight, Sway, Hyprland, Wayland, Nord theme, AI orchestrated, operating system, open source, ZRAM, EarlyOOM, Intel Atom, GTK installer, persistent USB, live USB, CUDA, ROCm, GPU compute, NVIDIA, AMD, OpenCL">
     <meta name="theme-color" content="#88c0d0">
     <meta name="color-scheme" content="dark">
 
@@ -26,7 +26,7 @@ layout: none
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://madkoding.github.io/mad-os/">
     <meta property="og:title" content="madOS - AI-Orchestrated Arch Linux">
-    <meta property="og:description" content="Nordic cyberpunk Arch Linux distribution optimized for low-RAM systems (1.9GB) with OpenCode AI integration. Nord palette meets synthwave aesthetics, Sway/Hyprland, 300MB RAM.">
+    <meta property="og:description" content="Arch Linux distribution optimized for low-RAM systems (1.9GB) with OpenCode integrated for intelligent system orchestration. Sway/Hyprland + Nord theme, ~300MB RAM. Persistent USB.">
     <meta property="og:image" content="https://madkoding.github.io/mad-os/og-image.png">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
@@ -39,7 +39,7 @@ layout: none
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://madkoding.github.io/mad-os/">
     <meta name="twitter:title" content="madOS - AI-Orchestrated Arch Linux">
-    <meta name="twitter:description" content="Nordic cyberpunk Arch Linux distribution optimized for low-RAM systems (1.9GB) with OpenCode AI integration. Nord palette meets synthwave.">
+    <meta name="twitter:description" content="Arch Linux distribution optimized for low-RAM systems (1.9GB) with OpenCode integrated for intelligent system orchestration.">
     <meta name="twitter:image" content="https://madkoding.github.io/mad-os/og-image.png">
     <meta name="twitter:image:alt" content="madOS - AI-Orchestrated Arch Linux distribution with terminal preview and key stats">
 
@@ -50,7 +50,7 @@ layout: none
         "@type": "SoftwareApplication",
         "name": "madOS",
         "alternateName": "mad-os",
-        "description": "Nordic cyberpunk AI-Orchestrated Arch Linux distribution optimized for low-RAM systems with OpenCode AI integration. Nord palette meets synthwave aesthetics.",
+        "description": "AI-Orchestrated Arch Linux distribution optimized for low-RAM systems with OpenCode integrated for intelligent system orchestration.",
         "url": "https://madkoding.github.io/mad-os/",
         "applicationCategory": "OperatingSystem",
         "operatingSystem": "Linux",
@@ -79,7 +79,7 @@ layout: none
         "featureList": [
             "OpenCode AI integration",
             "Optimized for 1.9GB RAM systems",
-            "Sway or Hyprland compositor with Nord theme (300MB RAM)",
+            "Sway or Hyprland compositor with Nord theme (~300MB RAM)",
             "Persistent USB via labeled partition (cow_label) or Ventoy",
             "GTK graphical installer with 6 languages",
             "ZRAM and EarlyOOM memory optimization",
@@ -87,7 +87,7 @@ layout: none
             "UEFI and BIOS boot support",
             "Pre-installed development tools"
         ],
-        "keywords": "Arch Linux, AI, OpenCode, lightweight, low RAM, Sway, Hyprland, Wayland, persistent USB, Nord, Nordic, cyberpunk, synthwave"
+        "keywords": "Arch Linux, AI, OpenCode, lightweight, low RAM, Sway, Hyprland, Wayland, persistent USB"
     }
     </script>
     <script type="application/ld+json">
@@ -106,11 +106,10 @@ layout: none
     }
     </script>
 
-    <link rel="stylesheet" href="styles-nordic-cyber.css">
+    <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Navigation -->
@@ -150,10 +149,9 @@ layout: none
                     </h1>
                     <p class="hero-tagline">AI-Orchestrated Arch Linux</p>
                     <p class="hero-subtitle">
-                        A Nordic cyberpunk Arch Linux distribution optimized for low-RAM systems,
-                        with integrated AI for smart system management. Nord palette, neon glow, synthwave soul.
+                        An Arch Linux distribution optimized for low-RAM systems,
+                        with integrated artificial intelligence for smart system management.
                     </p>
-
                     <div class="hero-cta">
                         <a href="#download-iso" class="btn btn-primary">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -170,7 +168,7 @@ layout: none
                     </div>
                     <div class="hero-stats">
                         <div class="stat">
-                            <span class="stat-value">300<span class="stat-unit">MB</span></span>
+                            <span class="stat-value">~300<span class="stat-unit">MB</span></span>
                             <span class="stat-label">RAM Usage</span>
                         </div>
                         <div class="stat-divider"></div>
@@ -200,7 +198,7 @@ layout: none
             <div class="section-header">
                 <span class="section-label">Capabilities</span>
                 <h2>Key Features</h2>
-                <p>Everything you need in a lightweight, powerful, and retro-futuristic operating system</p>
+                <p>Everything you need in a lightweight and powerful operating system</p>
             </div>
 
             <!-- Hero features -->
@@ -228,13 +226,13 @@ layout: none
                         </div>
                         <div>
                             <h3>Adaptive Desktop</h3>
-                            <p>Automatic GPU detection at boot — Hyprland with 3D acceleration, Sway with software rendering. Both using Nord theme at 300MB RAM.</p>
+                            <p>Automatic GPU detection at boot — Hyprland with 3D acceleration, Sway with software rendering. Both using Nord theme at ~300MB RAM.</p>
                         </div>
                     </div>
                     <div class="feature-tags">
                         <span class="feature-tag">Hyprland</span>
                         <span class="feature-tag">Sway</span>
-                        <span class="feature-tag">300MB RAM</span>
+                        <span class="feature-tag">~300MB RAM</span>
                     </div>
                 </div>
             </div>
@@ -322,8 +320,8 @@ layout: none
         <div class="container">
             <div class="section-header">
                 <span class="section-label">Environment</span>
-                <h2>Neon Nordic Desktop</h2>
-                <p>Auto-detected compositor with Nordic cyberpunk aesthetics — keyboard-driven, lightweight, beautiful</p>
+                <h2>Wayland + Nord Desktop</h2>
+                <p>Auto-detected compositor with unified Nord theme — keyboard-driven, lightweight, beautiful</p>
             </div>
             <div class="showcase-preview">
                 <div class="preview-frame">
@@ -518,7 +516,7 @@ layout: none
             <div class="section-header">
                 <span class="section-label">Performance</span>
                 <h2>Target Hardware</h2>
-                <p>madOS breathes neon life into modest hardware — cyberpunk performance on any machine</p>
+                <p>madOS is optimized to breathe new life into modest hardware</p>
             </div>
             <div class="hardware-grid">
                 <div class="hardware-specs">
@@ -622,14 +620,14 @@ layout: none
             <div class="section-header">
                 <span class="section-label">Get It</span>
                 <h2>Download madOS</h2>
-                <p>Jack in and start your madOS experience today</p>
+                <p>Start your madOS experience today</p>
             </div>
             <div id="download-iso" class="download-hero">
                 <div class="download-card">
                     <div class="download-info">
                         <h3>Download ISO</h3>
                         <p>Get the latest official release</p>
-                        <a href="https://archive.org/download/mados-dev-20260223/madOS-dev-2026.02.23-1315-x86_64.iso" target="_blank" rel="noopener" class="btn btn-primary btn-download" data-version="dev-20260223">
+                        <a href="https://archive.org/download/mados-dev-20260223/madOS-dev-2026.02.23-0214-x86_64.iso" target="_blank" rel="noopener" class="btn btn-primary btn-download" data-version="dev-20260223">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                 <polyline points="7 10 12 15 17 10"></polyline>
@@ -713,7 +711,7 @@ layout: none
             <div class="section-header">
                 <span class="section-label">Acknowledgments</span>
                 <h2>Credits</h2>
-                <p>Open source projects and content that power this cyberpunk dream</p>
+                <p>Open source projects and content that make madOS possible</p>
             </div>
             <div class="credits-columns">
                 <div class="credits-col">
@@ -830,7 +828,7 @@ layout: none
             <div class="footer-top">
                 <div class="footer-brand">
                     <img src="mados-logo.png" alt="madOS" class="footer-logo">
-                    <p>AI-Orchestrated Arch Linux // Nordic Cyberpunk & Synthwave</p>
+                    <p>AI-Orchestrated Arch Linux System</p>
                 </div>
                 <div class="footer-links">
                     <div class="footer-col">

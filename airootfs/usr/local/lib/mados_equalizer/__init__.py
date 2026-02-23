@@ -17,6 +17,7 @@ Features:
 Package modules:
     - app: Main GTK3 application window and UI
     - backend: PipeWire/PulseAudio audio processing backend
+    - database: SQLite state persistence across sessions
     - presets: Preset management (built-in and custom)
     - translations: Multi-language translation strings
     - theme: Nord color theme CSS for GTK3
