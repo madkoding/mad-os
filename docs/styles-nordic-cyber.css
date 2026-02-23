@@ -1703,6 +1703,7 @@ kbd.wide {
 
     .download-meta {
         flex-direction: row;
+        flex-wrap: wrap;
         padding-left: 0;
         border-left: none;
         padding-top: var(--s5);
@@ -1742,6 +1743,7 @@ kbd.wide {
         border-top: 1px solid rgba(93, 216, 238, 0.12);
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
         gap: var(--s3);
+        z-index: 100;
     }
 
     .nav-menu.active {
@@ -1778,14 +1780,23 @@ kbd.wide {
 
     .hero-subtitle {
         font-size: 0.95rem;
+        max-width: 100%;
     }
 
     .hero-cta {
         flex-direction: column;
+        align-items: stretch;
+    }
+
+    .hero-cta .btn {
+        justify-content: center;
+        text-align: center;
     }
 
     .hero-stats {
         gap: var(--s4);
+        flex-wrap: wrap;
+        justify-content: center;
     }
 
     .stat-value {
@@ -1820,6 +1831,34 @@ kbd.wide {
         grid-template-columns: 1fr;
     }
 
+    .shortcut-row {
+        flex-wrap: wrap;
+        gap: var(--s2);
+    }
+
+    .shortcut-keys {
+        flex-wrap: wrap;
+    }
+
+    .shortcut-desc {
+        white-space: normal;
+        text-align: left;
+        width: 100%;
+        font-size: 0.75rem;
+    }
+
+    kbd {
+        min-width: 24px;
+        height: 24px;
+        padding: 0 6px;
+        font-size: 0.65rem;
+    }
+
+    kbd.wide {
+        min-width: 40px;
+        padding: 0 8px;
+    }
+
     .steps-timeline {
         flex-direction: column;
         align-items: center;
@@ -1827,12 +1866,41 @@ kbd.wide {
 
     .step {
         flex-basis: auto;
-        max-width: 280px;
+        max-width: 100%;
         width: 100%;
     }
 
     .step-connector {
         display: none;
+    }
+
+    .install-steps {
+        padding: var(--s5) var(--s4);
+    }
+
+    .download-card {
+        padding: var(--s5);
+    }
+
+    .btn-download {
+        padding: 0.8rem 1.2rem;
+        font-size: 0.9rem;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .download-meta {
+        flex-direction: column;
+    }
+
+    .credits-media-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--s3);
+    }
+
+    .credits-media-links {
+        flex-wrap: wrap;
     }
 
     .footer-top {
@@ -1842,12 +1910,25 @@ kbd.wide {
 
     .footer-links {
         gap: var(--s7);
+        flex-wrap: wrap;
     }
-
-
 }
 
 @media (max-width: 480px) {
+    .container {
+        padding: 0 var(--s3);
+    }
+
+    .hero {
+        padding: calc(64px + var(--s5)) 0 var(--s5);
+    }
+
+    .hero-badge {
+        font-size: 0.7rem;
+        padding: var(--s1) var(--s3);
+        margin-bottom: var(--s4);
+    }
+
     .hero-logo {
         max-width: 160px;
     }
@@ -1856,8 +1937,14 @@ kbd.wide {
         font-size: 1.1rem;
     }
 
+    .hero-subtitle {
+        font-size: 0.85rem;
+    }
+
     .hero-stats {
         flex-wrap: wrap;
+        justify-content: center;
+        gap: var(--s3);
     }
 
     .stat-divider {
@@ -1866,21 +1953,156 @@ kbd.wide {
 
     .stat {
         min-width: 80px;
+        text-align: center;
     }
 
     .stat-value {
         font-size: 1.25rem;
     }
 
-    .download-card {
-        padding: var(--s5);
+    .stat-unit {
+        font-size: 0.7rem;
     }
 
-    .download-meta {
-        flex-direction: column;
+    .section-header h2 {
+        font-size: 1.4rem;
+    }
+
+    .section-header p {
+        font-size: 0.9rem;
+    }
+
+    .section-label {
+        font-size: 0.8rem;
+    }
+
+    .feature-card-hero {
+        padding: var(--s4);
+    }
+
+    .feature-card-hero h3 {
+        font-size: 1.15rem;
+    }
+
+    .feature-card {
+        padding: var(--s4);
+    }
+
+    .feature-text h3 {
+        font-size: 1rem;
+    }
+
+    .feature-text p {
+        font-size: 0.78rem;
+    }
+
+    .shortcuts-group {
+        padding: var(--s4);
+    }
+
+    .shortcut-row {
+        padding: var(--s1) 0;
+    }
+
+    .download-card {
+        padding: var(--s4);
+    }
+
+    .download-info h3 {
+        font-size: 1.2rem;
+    }
+
+    .download-info p {
+        font-size: 0.85rem;
+    }
+
+    .btn-download {
+        padding: 0.7rem 1rem;
+        font-size: 0.8rem;
+    }
+
+    .btn-download span {
+        font-size: 0.8rem;
+    }
+
+    .meta-item {
+        padding: var(--s2) var(--s3);
+    }
+
+    .meta-value {
+        font-size: 0.8rem;
+    }
+
+    .install-steps {
+        padding: var(--s4) var(--s3);
+    }
+
+    .install-steps h3 {
+        font-size: 1.1rem;
+    }
+
+    .step-icon {
+        width: 48px;
+        height: 48px;
+    }
+
+    .step-content h4 {
+        font-size: 0.85rem;
+    }
+
+    .step-content p {
+        font-size: 0.75rem;
+    }
+
+    .step-content code {
+        font-size: 0.65rem;
+        padding: var(--s1) var(--s2);
+        word-break: break-all;
+    }
+
+    .credits-group {
+        padding: var(--s4);
+    }
+
+    .credits-group h3 {
+        font-size: 0.68rem;
+    }
+
+    .credits-items a {
+        font-size: 0.72rem;
+        padding: 3px 10px;
     }
 
     .footer-links {
-        flex-wrap: wrap;
+        flex-direction: column;
+        gap: var(--s5);
+    }
+
+    .footer-brand p {
+        font-size: 0.78rem;
+    }
+
+    .footer-bottom p {
+        font-size: 0.72rem;
+    }
+
+    .monitor-label {
+        font-size: 0.85rem;
+    }
+
+    .monitor-value {
+        font-size: 0.85rem;
+    }
+
+    .spec-item {
+        padding: var(--s3) var(--s4);
+    }
+
+    .spec-item strong {
+        font-size: 0.8rem;
+    }
+
+    .spec-item p {
+        font-size: 0.72rem;
     }
 }
