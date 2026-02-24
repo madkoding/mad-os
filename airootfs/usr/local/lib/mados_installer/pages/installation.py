@@ -357,6 +357,7 @@ def _step_copy_scripts(app):
     scripts = [
         "setup-ohmyzsh.sh",
         "setup-onlyoffice.sh",
+        "onlyoffice",
         "detect-legacy-hardware",
         "cage-greeter",
         "sway-session",
@@ -411,6 +412,7 @@ def _step_copy_desktop_files(app):
         "mados-photo-viewer.desktop",
         "mados-pdf-viewer.desktop",
         "mados-equalizer.desktop",
+        "onlyoffice-desktopeditors.desktop",
     ]:
         _copy_item(f"/usr/share/applications/{desktop}", "/mnt/usr/share/applications/")
 
@@ -1800,12 +1802,18 @@ log "Installing ONLYOFFICE Desktop Editors..."
 
 ONLYOFFICE_APPIMAGE="/opt/onlyoffice/DesktopEditors-x86_64.AppImage"
 ONLYOFFICE_URL="https://github.com/ONLYOFFICE/DesktopEditors/releases/latest/download/DesktopEditors-x86_64.AppImage"
+ONLYOFFICE_LIVE="/run/archiso/airootfs/opt/onlyoffice/DesktopEditors-x86_64.AppImage"
 
 if [[ -x "$ONLYOFFICE_APPIMAGE" ]]; then
     log "ONLYOFFICE already present"
 else
     mkdir -p /opt/onlyoffice
-    if curl -fSL --progress-bar -o "$ONLYOFFICE_APPIMAGE" "$ONLYOFFICE_URL"; then
+    # Try copying from live ISO first (pre-installed in ISO build)
+    if [[ -x "$ONLYOFFICE_LIVE" ]]; then
+        cp "$ONLYOFFICE_LIVE" "$ONLYOFFICE_APPIMAGE"
+        chmod +x "$ONLYOFFICE_APPIMAGE"
+        log "ONLYOFFICE AppImage copied from live environment"
+    elif curl -fSL --progress-bar -o "$ONLYOFFICE_APPIMAGE" "$ONLYOFFICE_URL"; then
         chmod +x "$ONLYOFFICE_APPIMAGE"
         log "ONLYOFFICE AppImage downloaded"
     else
@@ -1814,27 +1822,7 @@ else
     fi
 fi
 
-# Create wrapper script
-cat > /usr/local/bin/onlyoffice <<'EOFWRAPPER'
-#!/bin/bash
-exec /opt/onlyoffice/DesktopEditors-x86_64.AppImage --no-sandbox "$@"
-EOFWRAPPER
-chmod 755 /usr/local/bin/onlyoffice
-
-# Create .desktop entry
-cat > /usr/share/applications/onlyoffice-desktopeditors.desktop <<'EOFDESKTOP'
-[Desktop Entry]
-Name=ONLYOFFICE Desktop Editors
-Comment=Edit office documents (text, spreadsheets, presentations)
-Comment[es]=Editar documentos de oficina (texto, hojas de cálculo, presentaciones)
-Exec=/usr/local/bin/onlyoffice %U
-Icon=onlyoffice-desktopeditors
-Terminal=false
-Type=Application
-Categories=Office;WordProcessor;Spreadsheet;Presentation;
-MimeType=application/vnd.oasis.opendocument.text;application/vnd.oasis.opendocument.spreadsheet;application/vnd.oasis.opendocument.presentation;application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.openxmlformats-officedocument.presentationml.presentation;application/msword;application/vnd.ms-excel;application/vnd.ms-powerpoint;
-StartupWMClass=DesktopEditors
-EOFDESKTOP
+# Wrapper and .desktop are already copied by _step_copy_scripts / _step_copy_desktop_files
 
 # Copy setup script for manual retry
 cat > /usr/local/bin/setup-onlyoffice.sh <<'EOFSETUP'

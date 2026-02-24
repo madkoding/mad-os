@@ -1,0 +1,2 @@
+#!/bin/bash
+exec /opt/onlyoffice/DesktopEditors-x86_64.AppImage --no-sandbox "$@"

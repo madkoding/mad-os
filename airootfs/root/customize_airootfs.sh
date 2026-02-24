@@ -117,21 +117,22 @@ else
     fi
 fi
 
-# ── ONLYOFFICE Desktop Editors ────────────────────────────────────────
+# ── ONLYOFFICE Desktop Editors (pre-install AppImage) ─────────────────
 ONLYOFFICE_APPIMAGE="/opt/onlyoffice/DesktopEditors-x86_64.AppImage"
+ONLYOFFICE_URL="https://github.com/ONLYOFFICE/DesktopEditors/releases/latest/download/DesktopEditors-x86_64.AppImage"
 
 if [[ -x "$ONLYOFFICE_APPIMAGE" ]]; then
     echo "✓ ONLYOFFICE Desktop Editors already installed"
 else
-    echo "Installing ONLYOFFICE Desktop Editors..."
-    if bash /usr/local/bin/setup-onlyoffice.sh 2>&1; then
-        if [[ -x "$ONLYOFFICE_APPIMAGE" ]]; then
-            echo "✓ ONLYOFFICE Desktop Editors installed"
-        else
-            echo "⚠ ONLYOFFICE install completed but AppImage not found (will install at boot)"
-        fi
+    echo "Pre-installing ONLYOFFICE Desktop Editors AppImage..."
+    mkdir -p /opt/onlyoffice
+
+    if curl -fSL --progress-bar -o "$ONLYOFFICE_APPIMAGE" "$ONLYOFFICE_URL"; then
+        chmod +x "$ONLYOFFICE_APPIMAGE"
+        echo "✓ ONLYOFFICE Desktop Editors pre-installed"
     else
-        echo "⚠ ONLYOFFICE install failed (will install at boot)"
+        echo "⚠ ONLYOFFICE download failed (will install at boot via service)"
+        rm -f "$ONLYOFFICE_APPIMAGE"
     fi
 fi
 

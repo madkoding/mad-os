@@ -72,6 +72,77 @@ sys.path.insert(0, LIB_DIR)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Live USB – Pre-installed static files (wrapper + .desktop)
+# ═══════════════════════════════════════════════════════════════════════════
+class TestLiveUSBOnlyofficePreInstalled(unittest.TestCase):
+    """Verify ONLYOFFICE wrapper and .desktop are pre-installed in airootfs."""
+
+    def test_wrapper_script_exists(self):
+        """onlyoffice wrapper script must exist in airootfs/usr/local/bin/."""
+        wrapper_path = os.path.join(BIN_DIR, "onlyoffice")
+        self.assertTrue(
+            os.path.isfile(wrapper_path),
+            "onlyoffice wrapper script missing from airootfs/usr/local/bin/ "
+            "– ONLYOFFICE won't be launchable",
+        )
+
+    def test_wrapper_has_shebang(self):
+        """onlyoffice wrapper must start with a bash shebang."""
+        wrapper_path = os.path.join(BIN_DIR, "onlyoffice")
+        with open(wrapper_path) as f:
+            first_line = f.readline().strip()
+        self.assertTrue(first_line.startswith("#!"))
+        self.assertIn("bash", first_line)
+
+    def test_wrapper_runs_appimage(self):
+        """onlyoffice wrapper must execute the AppImage."""
+        wrapper_path = os.path.join(BIN_DIR, "onlyoffice")
+        with open(wrapper_path) as f:
+            content = f.read()
+        self.assertIn(
+            "DesktopEditors-x86_64.AppImage",
+            content,
+            "Wrapper must reference the ONLYOFFICE AppImage",
+        )
+
+    def test_desktop_file_exists(self):
+        """.desktop file must exist in airootfs/usr/share/applications/."""
+        desktop_path = os.path.join(
+            AIROOTFS, "usr", "share", "applications",
+            "onlyoffice-desktopeditors.desktop",
+        )
+        self.assertTrue(
+            os.path.isfile(desktop_path),
+            "onlyoffice-desktopeditors.desktop missing from airootfs – "
+            "ONLYOFFICE won't appear in application menu",
+        )
+
+    def test_desktop_file_has_exec(self):
+        """.desktop file must have Exec pointing to the wrapper."""
+        desktop_path = os.path.join(
+            AIROOTFS, "usr", "share", "applications",
+            "onlyoffice-desktopeditors.desktop",
+        )
+        with open(desktop_path) as f:
+            content = f.read()
+        self.assertIn(
+            "Exec=/usr/local/bin/onlyoffice",
+            content,
+            ".desktop Exec must point to /usr/local/bin/onlyoffice wrapper",
+        )
+
+    def test_desktop_file_has_categories(self):
+        """.desktop file must be categorized under Office."""
+        desktop_path = os.path.join(
+            AIROOTFS, "usr", "share", "applications",
+            "onlyoffice-desktopeditors.desktop",
+        )
+        with open(desktop_path) as f:
+            content = f.read()
+        self.assertIn("Categories=Office;", content)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Live USB – ONLYOFFICE service enablement
 # ═══════════════════════════════════════════════════════════════════════════
 class TestLiveUSBOnlyofficeServiceEnabled(unittest.TestCase):
@@ -186,6 +257,36 @@ class TestLiveUSBOnlyofficeServiceConfig(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# ISO Build – customize_airootfs.sh downloads AppImage directly
+# ═══════════════════════════════════════════════════════════════════════════
+class TestISOBuildOnlyofficePreInstall(unittest.TestCase):
+    """Verify customize_airootfs.sh downloads ONLYOFFICE AppImage at build time."""
+
+    def setUp(self):
+        script_path = os.path.join(AIROOTFS, "root", "customize_airootfs.sh")
+        with open(script_path) as f:
+            self.content = f.read()
+
+    def test_downloads_appimage_directly(self):
+        """Build script must download AppImage directly (not via setup script)."""
+        self.assertIn(
+            "ONLYOFFICE/DesktopEditors/releases",
+            self.content,
+            "customize_airootfs.sh must download from GitHub releases directly",
+        )
+
+    def test_uses_curl_for_download(self):
+        """Build script must use curl to download."""
+        # Find lines containing both curl and ONLYOFFICE
+        self.assertIn("curl", self.content)
+        self.assertIn("ONLYOFFICE_URL", self.content)
+
+    def test_creates_install_directory(self):
+        """Build script must create /opt/onlyoffice directory."""
+        self.assertIn("mkdir -p /opt/onlyoffice", self.content)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Post-installation – ONLYOFFICE setup in installer
 # ═══════════════════════════════════════════════════════════════════════════
 class TestPostInstallOnlyoffice(unittest.TestCase):
@@ -233,11 +334,27 @@ class TestPostInstallOnlyoffice(unittest.TestCase):
         )
 
     def test_installer_creates_desktop_entry(self):
-        """Installer must create .desktop entry for ONLYOFFICE."""
+        """Installer must copy .desktop entry for ONLYOFFICE."""
         self.assertIn(
             "onlyoffice-desktopeditors.desktop",
             self.content,
-            "Installer must create onlyoffice-desktopeditors.desktop",
+            "Installer must copy onlyoffice-desktopeditors.desktop",
+        )
+
+    def test_installer_copies_from_live(self):
+        """Installer must try copying AppImage from live ISO before downloading."""
+        self.assertIn(
+            "ONLYOFFICE_LIVE",
+            self.content,
+            "Installer must reference live ISO path for pre-installed AppImage",
+        )
+
+    def test_installer_copies_wrapper(self):
+        """Installer must copy the onlyoffice wrapper script."""
+        self.assertIn(
+            '"onlyoffice"',
+            self.content,
+            "Installer must copy the onlyoffice wrapper via _step_copy_scripts",
         )
 
 
@@ -287,6 +404,23 @@ class TestProfiledefOnlyofficePermissions(unittest.TestCase):
             self.content,
             pattern,
             "setup-onlyoffice.sh must have 0:0:755 permissions in profiledef.sh",
+        )
+
+    def test_wrapper_has_permissions(self):
+        """profiledef.sh should set permissions for onlyoffice wrapper."""
+        self.assertIn(
+            '"/usr/local/bin/onlyoffice"',
+            self.content,
+            "profiledef.sh must include permissions for onlyoffice wrapper",
+        )
+
+    def test_wrapper_executable(self):
+        """onlyoffice wrapper should have executable permissions (0:0:755)."""
+        pattern = re.compile(r'\["/usr/local/bin/onlyoffice"\]="0:0:755"')
+        self.assertRegex(
+            self.content,
+            pattern,
+            "onlyoffice wrapper must have 0:0:755 permissions in profiledef.sh",
         )
 
 
