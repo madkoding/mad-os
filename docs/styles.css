@@ -1165,9 +1165,36 @@ kbd.brand-key svg {
     scroll-margin-top: 80px;
 }
 
+.download-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s6);
+    margin-bottom: var(--s8);
+}
+
+.download-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: var(--radius-full);
+    background: rgba(255, 45, 149, 0.15);
+    color: var(--neon-pink);
+    border: 1px solid rgba(255, 45, 149, 0.3);
+    margin-bottom: var(--s4);
+}
+
+.download-badge-beta {
+    background: rgba(0, 255, 245, 0.1);
+    color: var(--neon-cyan);
+    border-color: rgba(0, 255, 245, 0.3);
+}
+
 .download-card {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
     gap: var(--s7);
     align-items: center;
     background: linear-gradient(135deg, var(--cyber-bg-deep) 0%, var(--cyber-bg-elevated) 100%);
@@ -1265,12 +1292,39 @@ kbd.brand-key svg {
     filter: brightness(1.3) saturate(1.5);
 }
 
+.download-card-beta {
+    border-color: rgba(0, 255, 245, 0.2);
+    box-shadow:
+        0 4px 30px rgba(0, 0, 0, 0.4),
+        0 0 60px rgba(0, 255, 245, 0.05);
+}
+
+.download-card-beta::before {
+    background: radial-gradient(circle at top right, rgba(0, 255, 245, 0.08), transparent 60%);
+}
+
+.btn-download-beta {
+    background: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-blue) 100%);
+    box-shadow:
+        0 4px 15px rgba(0, 255, 245, 0.3),
+        0 0 30px rgba(0, 255, 245, 0.1);
+}
+
+.btn-download-beta:hover {
+    box-shadow:
+        0 6px 25px rgba(0, 255, 245, 0.4),
+        0 0 50px rgba(0, 255, 245, 0.2);
+    background: linear-gradient(135deg, var(--accent-light) 0%, var(--neon-blue) 100%);
+}
+
 .download-meta {
     display: flex;
-    flex-direction: column;
-    gap: var(--s5);
-    padding-left: var(--s7);
-    border-left: 1px solid rgba(181, 55, 242, 0.15);
+    flex-direction: row;
+    gap: var(--s4);
+    padding-left: 0;
+    border-left: none;
+    padding-top: var(--s5);
+    border-top: 1px solid rgba(181, 55, 242, 0.15);
 }
 
 .meta-item {
@@ -1771,17 +1825,12 @@ kbd.brand-key svg {
         grid-template-columns: 1fr;
     }
 
-    .download-card {
+    .download-grid {
         grid-template-columns: 1fr;
     }
 
-    .download-meta {
-        flex-direction: row;
-        padding-left: 0;
-        border-left: none;
-        padding-top: var(--s5);
-        border-top: 1px solid rgba(181, 55, 242, 0.15);
-        gap: var(--s4);
+    .download-card {
+        grid-template-columns: 1fr;
     }
 
     .steps-timeline {

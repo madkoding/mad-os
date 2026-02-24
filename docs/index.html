@@ -976,18 +976,19 @@ layout: none
                 <h2>Download madOS</h2>
                 <p>Jack in and start your madOS experience today</p>
             </div>
-            <div id="download-iso" class="download-hero">
-                <div class="download-card">
+            <div class="download-grid">
+                <div id="download-stable" class="download-card">
+                    <div class="download-badge">⭐ Stable</div>
                     <div class="download-info">
-                        <h3>Download ISO</h3>
-                        <p>Get the latest official release</p>
-                        <a href="https://archive.org/download/mados-1.23.0/madOS-dev-2026.02.24-1652-x86_64.iso" target="_blank" rel="noopener" class="btn btn-primary btn-download" data-version="1.23.0">
+                        <h3>Stable Release</h3>
+                        <p>Recommended for most users</p>
+                        <a href="https://archive.org/download/mados-dev-20260223/madOS-dev-2026.02.23-1805-x86_64.iso" target="_blank" rel="noopener" class="btn btn-primary btn-download" data-channel="stable" data-version="v1.15.1">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                 <polyline points="7 10 12 15 17 10"></polyline>
                                 <line x1="12" y1="15" x2="12" y2="3"></line>
                             </svg>
-                            <span>Download v1.23.0</span>
+                            <span id="stable-version-text">Download v1.15.1</span>
                         </a>
                         <a href="https://github.com/madkoding/mad-os/releases/latest" target="_blank" rel="noopener" class="download-checksums">View checksums on GitHub</a>
                     </div>
@@ -1001,8 +1002,38 @@ layout: none
                             <span class="meta-value">ISO (Live USB)</span>
                         </div>
                         <div class="meta-item">
-                            <span class="meta-label">License</span>
-                            <span class="meta-value">GPL-3.0</span>
+                            <span class="meta-label">Channel</span>
+                            <span class="meta-value">Main</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="download-beta" class="download-card download-card-beta">
+                    <div class="download-badge download-badge-beta">🧪 Beta</div>
+                    <div class="download-info">
+                        <h3>Beta Release</h3>
+                        <p>Latest features from develop branch</p>
+                        <a href="https://archive.org/download/mados-dev-20260223/madOS-dev-2026.02.23-1805-x86_64.iso" target="_blank" rel="noopener" class="btn btn-primary btn-download btn-download-beta" data-channel="beta" data-version="v1.15.1">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            <span id="beta-version-text">Download v1.15.1</span>
+                        </a>
+                        <a href="https://github.com/madkoding/mad-os/releases" target="_blank" rel="noopener" class="download-checksums">View checksums on GitHub</a>
+                    </div>
+                    <div class="download-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Architecture</span>
+                            <span class="meta-value">x86_64</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Format</span>
+                            <span class="meta-value">ISO (Live USB)</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Channel</span>
+                            <span class="meta-value">Develop</span>
                         </div>
                     </div>
                 </div>
