@@ -441,6 +441,26 @@ class TestInitramfsPresetRestoration(unittest.TestCase):
             "linux.preset must be written before mkinitcpio -P is called",
         )
 
+    def test_kernel_recovery_before_mkinitcpio(self):
+        """Installer must recover kernel from modules dir if /boot/vmlinuz-linux is missing."""
+        self.assertIn(
+            "/usr/lib/modules/", self.content,
+            "Installer must recover kernel from /usr/lib/modules/*/vmlinuz",
+        )
+        recovery_pos = self.content.find("/usr/lib/modules/")
+        mkinitcpio_pos = self.content.find("mkinitcpio -P")
+        self.assertLess(
+            recovery_pos, mkinitcpio_pos,
+            "Kernel recovery must happen before mkinitcpio -P is called",
+        )
+
+    def test_kernel_recovery_fallback_reinstall(self):
+        """Installer must have fallback to reinstall linux package if kernel not found."""
+        self.assertIn(
+            "pacman -S --noconfirm linux", self.content,
+            "Installer must fallback to reinstalling linux package if kernel still missing",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Autologin for live environment

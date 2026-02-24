@@ -1313,6 +1313,23 @@ EOFPRESET
 # Remove archiso-specific mkinitcpio config (no longer needed on installed system)
 rm -f /etc/mkinitcpio.conf.d/archiso.conf
 
+# Ensure kernel image exists at /boot/vmlinuz-linux
+# (archiso may remove it from the rootfs during ISO build)
+if [ ! -f /boot/vmlinuz-linux ]; then
+    echo '  Kernel not found at /boot/vmlinuz-linux, recovering from modules directory...'
+    for kdir in /usr/lib/modules/*/; do
+        if [ -f "${{kdir}}vmlinuz" ]; then
+            cp "${{kdir}}vmlinuz" /boot/vmlinuz-linux
+            echo "  Recovered kernel from ${{kdir}}vmlinuz"
+            break
+        fi
+    done
+fi
+if [ ! -f /boot/vmlinuz-linux ]; then
+    echo '  ERROR: Could not find kernel image. Reinstalling linux package...'
+    pacman -S --noconfirm linux
+fi
+
 mkinitcpio -P
 
 echo '[PROGRESS 7/9] Enabling essential services...'
