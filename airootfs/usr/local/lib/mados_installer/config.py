@@ -123,12 +123,14 @@ GPU_COMPUTE_PACKAGES = {
 
 # Paths to exclude when copying the live rootfs to the target via rsync.
 # Virtual filesystems, caches, and archiso-specific content are skipped.
+# Note: /tmp/* and /run/* are publicly writable directories excluded
+# intentionally — they must not be copied to the installed system.
 RSYNC_EXCLUDES = [
     '/dev/*',
     '/proc/*',
     '/sys/*',
     '/run/*',
-    '/tmp/*',
+    '/tmp/*',  # noqa: S5443 — exclude pattern, not directory access
     '/mnt/*',
     '/var/cache/pacman/pkg/*',
     '/var/log/*',

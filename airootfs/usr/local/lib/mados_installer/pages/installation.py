@@ -611,7 +611,7 @@ def _rsync_rootfs_with_progress(app):
 
     progress_start = 0.21
     progress_end = 0.43
-    pct_re = re.compile(r"(\d+)%")
+    pct_re = re.compile(r"(\d{1,3})%")
 
     proc = subprocess.Popen(
         cmd,
@@ -1006,7 +1006,7 @@ def _run_chroot_with_progress(app):
     )
 
     # Pattern to detect progress markers: [PROGRESS N/M] description
-    progress_pattern = re.compile(r"\[PROGRESS\s+(\d+)/(\d+)\]\s+(.*)")
+    progress_pattern = re.compile(r"\[PROGRESS\s+(\d+)/(\d+)\]\s+(.+)")
 
     while True:
         line = proc.stdout.readline()

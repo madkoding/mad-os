@@ -138,7 +138,7 @@ class TestFirstBootScriptGeneration(unittest.TestCase):
     def test_script_uses_strict_mode(self):
         """Generated script must use bash strict mode."""
         # Look for set -euo pipefail or similar
-        pattern = r"set -[euo]+.*pipefail"
+        pattern = r"set -[euo]+[^\n]*pipefail"
         self.assertIsNotNone(
             re.search(pattern, self.content),
             "First-boot script must use 'set -euo pipefail' for safety",
@@ -500,7 +500,7 @@ class TestFirstBootSelfCleanup(unittest.TestCase):
             "Script must remove itself",
         )
         # Check it removes the script file
-        pattern = r"rm.*mados-first-boot\.sh"
+        pattern = r"rm[^\n]*mados-first-boot\.sh"
         self.assertIsNotNone(
             re.search(pattern, self.content),
             "Script must remove mados-first-boot.sh file",
@@ -602,7 +602,7 @@ class TestGpuDetection(unittest.TestCase):
             "Must use lspci to detect GPU hardware",
         )
         # Verify it filters for VGA/3D/Display controllers
-        pattern = r'lspci.*grep.*-iE.*"VGA\|3D\|Display"'
+        pattern = r'lspci[^\n]*grep[^\n]*-iE[^\n]*"VGA\|3D\|Display"'
         self.assertIsNotNone(
             re.search(pattern, self.content),
             "Must filter lspci output for VGA/3D/Display controllers",
@@ -662,7 +662,7 @@ class TestGpuDetection(unittest.TestCase):
         """NVIDIA packages must only be installed when NVIDIA GPU is detected."""
         # The NVIDIA install block should be inside the nvidia grep conditional
         # (grep and pacman may be separated by log lines)
-        pattern = r'grep.*nvidia.*\n.*?pacman -S.*--noconfirm.*--needed'
+        pattern = r'grep[^\n]*nvidia[^\n]*(?:\n[^\n]*){0,5}\n[^\n]*pacman -S[^\n]*--noconfirm[^\n]*--needed'
         self.assertIsNotNone(
             re.search(pattern, self.content, re.IGNORECASE | re.DOTALL),
             "NVIDIA packages must be installed conditionally after detection",

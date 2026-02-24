@@ -491,7 +491,8 @@ class TestRsyncConfig(unittest.TestCase):
 
     def test_rsync_excludes_run_and_tmp(self):
         """Transient directories /run/* and /tmp/* must be excluded."""
-        for entry in ("/run/*", "/tmp/*"):
+        # These are rsync exclude patterns (not directory access) — safe by design
+        for entry in ("/run/*", "/tmp/*"):  # noqa: S5443
             with self.subTest(exclude=entry):
                 self.assertIn(entry, RSYNC_EXCLUDES)
 
