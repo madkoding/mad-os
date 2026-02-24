@@ -755,9 +755,9 @@ class TestSwayExecCommands(unittest.TestCase):
         """exec commands inside bindsym must have a non-empty command."""
         lines = _config_lines()
         for line in lines:
-            match = re.match(r"^bindsym\s+.+\s+exec\s+(.*)", line)
-            if match:
-                cmd = match.group(1).strip()
+            # String-based check avoids backtracking-vulnerable regex
+            if line.startswith("bindsym ") and " exec " in line:
+                cmd = line.split(" exec ", 1)[1].strip()
                 with self.subTest(line=line[:80]):
                     self.assertGreater(
                         len(cmd),
