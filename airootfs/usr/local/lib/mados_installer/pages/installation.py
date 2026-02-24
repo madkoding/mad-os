@@ -718,9 +718,13 @@ def _prepare_pacman(app):
                     app, f"  Still initializing keyring... ({elapsed}s elapsed)"
                 )
 
+    # systemctl is-active returns: active, activating, inactive, failed, or
+    # deactivating.  We already waited for "activating" above; "active" means
+    # the keyring is fine.  Any other state means the keyring may be missing.
     if status in ("failed", "inactive", "unknown"):
         log_message(app, f"  Keyring service status: {status}, initializing manually...")
-        # Ensure the gnupg directory exists and is writable before pacman-key
+        # Ensure the gnupg directory exists and is writable before pacman-key.
+        # The installer runs as root, so the directory will be root-owned.
         gnupg_dir = "/etc/pacman.d/gnupg"
         os.makedirs(gnupg_dir, mode=0o700, exist_ok=True)
         subprocess.run(["pacman-key", "--init"], check=True)
