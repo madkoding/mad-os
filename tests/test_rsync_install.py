@@ -33,6 +33,11 @@ sys.path.insert(
 from mados_installer.pages.installation import _rsync_rootfs_with_progress
 from mados_installer.config import RSYNC_EXCLUDES
 
+# ---------------------------------------------------------------------------
+# Shared test helpers — extracted to reduce code duplication.
+# ---------------------------------------------------------------------------
+_MOD = "mados_installer.pages.installation"
+
 
 class MockApp:
     """Minimal mock of the GTK application object used by the installer."""
@@ -42,6 +47,52 @@ class MockApp:
         self.status_label = MagicMock()
         self.log_buffer = MagicMock()
         self.log_scrolled = MagicMock()
+
+
+def _make_mock_proc(returncode=0, stdout_lines=None):
+    """Create a mock subprocess with preconfigured stdout and return code."""
+    proc = MagicMock()
+    if stdout_lines is not None:
+        it = iter(stdout_lines)
+        proc.stdout.readline.side_effect = lambda: next(it)
+    else:
+        proc.stdout.readline.return_value = ""
+    proc.returncode = returncode
+    proc.wait.return_value = None
+    return proc
+
+
+def _make_popen_dispatcher(mock_first, mock_rest):
+    """Return a Popen side_effect: first call → *mock_first*, rest → *mock_rest*."""
+    call_idx = [0]
+
+    def dispatcher(cmd, **kwargs):
+        idx = call_idx[0]
+        call_idx[0] += 1
+        return mock_first if idx == 0 else mock_rest
+
+    return dispatcher
+
+
+def _patched_rsync_run(app, *, popen_kw, run_kw,
+                       set_progress_kw=None, os_remove_kw=None,
+                       open_kw=None):
+    """Execute ``_rsync_rootfs_with_progress`` with standard patches applied.
+
+    The six mandatory patch targets are always installed; only the keyword
+    arguments forwarded to each ``patch()`` call vary between tests.
+    """
+    open_patch = (patch("builtins.open", **open_kw) if open_kw is not None
+                  else patch("builtins.open", MagicMock()))
+    with (
+        patch(f"{_MOD}.subprocess.Popen", **popen_kw),
+        patch(f"{_MOD}.subprocess.run", **run_kw),
+        patch(f"{_MOD}.set_progress", **(set_progress_kw or {})),
+        patch(f"{_MOD}.log_message"),
+        patch(f"{_MOD}.os.remove", **(os_remove_kw or {})),
+        open_patch,
+    ):
+        _rsync_rootfs_with_progress(app)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -60,42 +111,24 @@ class TestRsyncCommand(unittest.TestCase):
         popen_calls = []
         run_calls = []
 
-        # First Popen call → rsync; subsequent → extra-packages install
         popen_idx = [0]
 
         def make_popen(cmd, **kwargs):
             popen_calls.append(cmd)
-            mock_proc = MagicMock()
-            mock_proc.stdout.readline.return_value = ""
-            mock_proc.wait.return_value = None
             idx = popen_idx[0]
             popen_idx[0] += 1
-            if idx == 0:
-                mock_proc.returncode = rsync_returncode
-            else:
-                mock_proc.returncode = extras_returncode
-            return mock_proc
+            rc = rsync_returncode if idx == 0 else extras_returncode
+            return _make_mock_proc(returncode=rc)
 
         def mock_run(cmd, **kwargs):
             run_calls.append(cmd)
             return MagicMock(returncode=0)
 
-        with (
-            patch(
-                "mados_installer.pages.installation.subprocess.Popen",
-                side_effect=make_popen,
-            ),
-            patch(
-                "mados_installer.pages.installation.subprocess.run",
-                side_effect=mock_run,
-            ),
-            patch("mados_installer.pages.installation.set_progress"),
-            patch("mados_installer.pages.installation.log_message"),
-            patch("mados_installer.pages.installation.os.remove"),
-            patch("builtins.open", MagicMock()),
-        ):
-            _rsync_rootfs_with_progress(app)
-
+        _patched_rsync_run(
+            app,
+            popen_kw={"side_effect": make_popen},
+            run_kw={"side_effect": mock_run},
+        )
         return popen_calls, run_calls
 
     def test_rsync_invoked_with_correct_flags(self):
@@ -149,15 +182,27 @@ class TestRsyncCommand(unittest.TestCase):
 class TestRsyncProgress(unittest.TestCase):
     """Verify progress updates during the rsync installation phase."""
 
-    def test_progress_range_0_21_to_0_48(self):
-        """Progress must stay within the 0.21 → 0.48 range."""
-        app = MockApp()
+    def _capture_progress(self, *, rsync_stdout_lines=None):
+        """Run the rsync flow and return the list of recorded progress fractions."""
         progress_values = []
 
-        def capture_progress(app_arg, fraction, text):
+        def on_progress(app_arg, fraction, text):
             progress_values.append(fraction)
 
-        # Simulate rsync output with percentage lines
+        mock_rsync = _make_mock_proc(stdout_lines=rsync_stdout_lines)
+        dispatcher = _make_popen_dispatcher(mock_rsync, _make_mock_proc())
+
+        app = MockApp()
+        _patched_rsync_run(
+            app,
+            popen_kw={"side_effect": dispatcher},
+            run_kw={"return_value": MagicMock(returncode=0)},
+            set_progress_kw={"side_effect": on_progress},
+        )
+        return progress_values
+
+    def test_progress_range_0_21_to_0_48(self):
+        """Progress must stay within the 0.21 → 0.48 range."""
         lines = [
             "          5,000  0%    0.00kB/s    0:00:00\n",
             "    100,000,000 25%  100.00MB/s    0:00:03\n",
@@ -166,44 +211,7 @@ class TestRsyncProgress(unittest.TestCase):
             "    400,000,000 100% 100.00MB/s    0:00:00\n",
             "",  # EOF
         ]
-        line_iter = iter(lines)
-
-        mock_rsync = MagicMock()
-        mock_rsync.stdout.readline.side_effect = lambda: next(line_iter)
-        mock_rsync.returncode = 0
-        mock_rsync.wait.return_value = None
-
-        # Extra-packages Popen
-        mock_extras = MagicMock()
-        mock_extras.stdout.readline.return_value = ""
-        mock_extras.returncode = 0
-        mock_extras.wait.return_value = None
-
-        call_idx = [0]
-
-        def make_popen(cmd, **kwargs):
-            idx = call_idx[0]
-            call_idx[0] += 1
-            return mock_rsync if idx == 0 else mock_extras
-
-        with (
-            patch(
-                "mados_installer.pages.installation.subprocess.Popen",
-                side_effect=make_popen,
-            ),
-            patch(
-                "mados_installer.pages.installation.subprocess.run",
-                return_value=MagicMock(returncode=0),
-            ),
-            patch(
-                "mados_installer.pages.installation.set_progress",
-                side_effect=capture_progress,
-            ),
-            patch("mados_installer.pages.installation.log_message"),
-            patch("mados_installer.pages.installation.os.remove"),
-            patch("builtins.open", MagicMock()),
-        ):
-            _rsync_rootfs_with_progress(app)
+        progress_values = self._capture_progress(rsync_stdout_lines=lines)
 
         self.assertGreater(
             len(progress_values), 0, "Should have recorded progress values"
@@ -214,36 +222,7 @@ class TestRsyncProgress(unittest.TestCase):
 
     def test_final_progress_is_0_48(self):
         """The last progress update must be exactly 0.48 (system ready)."""
-        app = MockApp()
-        progress_values = []
-
-        def capture_progress(app_arg, fraction, text):
-            progress_values.append(fraction)
-
-        mock_proc = MagicMock()
-        mock_proc.stdout.readline.return_value = ""
-        mock_proc.returncode = 0
-        mock_proc.wait.return_value = None
-
-        with (
-            patch(
-                "mados_installer.pages.installation.subprocess.Popen",
-                return_value=mock_proc,
-            ),
-            patch(
-                "mados_installer.pages.installation.subprocess.run",
-                return_value=MagicMock(returncode=0),
-            ),
-            patch(
-                "mados_installer.pages.installation.set_progress",
-                side_effect=capture_progress,
-            ),
-            patch("mados_installer.pages.installation.log_message"),
-            patch("mados_installer.pages.installation.os.remove"),
-            patch("builtins.open", MagicMock()),
-        ):
-            _rsync_rootfs_with_progress(app)
-
+        progress_values = self._capture_progress()
         self.assertAlmostEqual(
             progress_values[-1],
             0.48,
@@ -253,36 +232,7 @@ class TestRsyncProgress(unittest.TestCase):
 
     def test_initial_progress_is_0_21(self):
         """The first progress update must be 0.21 (start of rsync)."""
-        app = MockApp()
-        progress_values = []
-
-        def capture_progress(app_arg, fraction, text):
-            progress_values.append(fraction)
-
-        mock_proc = MagicMock()
-        mock_proc.stdout.readline.return_value = ""
-        mock_proc.returncode = 0
-        mock_proc.wait.return_value = None
-
-        with (
-            patch(
-                "mados_installer.pages.installation.subprocess.Popen",
-                return_value=mock_proc,
-            ),
-            patch(
-                "mados_installer.pages.installation.subprocess.run",
-                return_value=MagicMock(returncode=0),
-            ),
-            patch(
-                "mados_installer.pages.installation.set_progress",
-                side_effect=capture_progress,
-            ),
-            patch("mados_installer.pages.installation.log_message"),
-            patch("mados_installer.pages.installation.os.remove"),
-            patch("builtins.open", MagicMock()),
-        ):
-            _rsync_rootfs_with_progress(app)
-
+        progress_values = self._capture_progress()
         self.assertAlmostEqual(
             progress_values[0],
             0.21,
@@ -299,33 +249,18 @@ class TestArchisoCleanup(unittest.TestCase):
 
     def test_removes_mkinitcpio_archiso(self):
         """arch-chroot pacman -Rdd mkinitcpio-archiso must run after rsync."""
-        app = MockApp()
         run_calls = []
-
-        mock_proc = MagicMock()
-        mock_proc.stdout.readline.return_value = ""
-        mock_proc.returncode = 0
-        mock_proc.wait.return_value = None
 
         def capture_run(cmd, **kwargs):
             run_calls.append(cmd)
             return MagicMock(returncode=0)
 
-        with (
-            patch(
-                "mados_installer.pages.installation.subprocess.Popen",
-                return_value=mock_proc,
-            ),
-            patch(
-                "mados_installer.pages.installation.subprocess.run",
-                side_effect=capture_run,
-            ),
-            patch("mados_installer.pages.installation.set_progress"),
-            patch("mados_installer.pages.installation.log_message"),
-            patch("mados_installer.pages.installation.os.remove"),
-            patch("builtins.open", MagicMock()),
-        ):
-            _rsync_rootfs_with_progress(app)
+        app = MockApp()
+        _patched_rsync_run(
+            app,
+            popen_kw={"return_value": _make_mock_proc()},
+            run_kw={"side_effect": capture_run},
+        )
 
         # Find the arch-chroot pacman -Rdd call
         archiso_calls = [
@@ -342,13 +277,6 @@ class TestArchisoCleanup(unittest.TestCase):
 
     def test_empties_machine_id(self):
         """machine-id must be emptied so systemd regenerates it on first boot."""
-        app = MockApp()
-
-        mock_proc = MagicMock()
-        mock_proc.stdout.readline.return_value = ""
-        mock_proc.returncode = 0
-        mock_proc.wait.return_value = None
-
         os_remove_calls = []
         open_calls = []
 
@@ -360,24 +288,14 @@ class TestArchisoCleanup(unittest.TestCase):
             return MagicMock(__enter__=MagicMock(return_value=MagicMock()),
                              __exit__=MagicMock(return_value=False))
 
-        with (
-            patch(
-                "mados_installer.pages.installation.subprocess.Popen",
-                return_value=mock_proc,
-            ),
-            patch(
-                "mados_installer.pages.installation.subprocess.run",
-                return_value=MagicMock(returncode=0),
-            ),
-            patch("mados_installer.pages.installation.set_progress"),
-            patch("mados_installer.pages.installation.log_message"),
-            patch(
-                "mados_installer.pages.installation.os.remove",
-                side_effect=mock_os_remove,
-            ),
-            patch("builtins.open", side_effect=mock_open),
-        ):
-            _rsync_rootfs_with_progress(app)
+        app = MockApp()
+        _patched_rsync_run(
+            app,
+            popen_kw={"return_value": _make_mock_proc()},
+            run_kw={"return_value": MagicMock(returncode=0)},
+            os_remove_kw={"side_effect": mock_os_remove},
+            open_kw={"side_effect": mock_open},
+        )
 
         # Verify os.remove was called for machine-id
         machine_id_removes = [p for p in os_remove_calls if "machine-id" in p]
@@ -402,40 +320,15 @@ class TestRsyncExitCodes(unittest.TestCase):
 
     def _run_with_returncode(self, returncode):
         """Run _rsync_rootfs_with_progress with a specific rsync return code."""
+        dispatcher = _make_popen_dispatcher(
+            _make_mock_proc(returncode), _make_mock_proc()
+        )
         app = MockApp()
-
-        mock_rsync = MagicMock()
-        mock_rsync.stdout.readline.return_value = ""
-        mock_rsync.returncode = returncode
-        mock_rsync.wait.return_value = None
-
-        mock_extras = MagicMock()
-        mock_extras.stdout.readline.return_value = ""
-        mock_extras.returncode = 0
-        mock_extras.wait.return_value = None
-
-        call_idx = [0]
-
-        def make_popen(cmd, **kwargs):
-            idx = call_idx[0]
-            call_idx[0] += 1
-            return mock_rsync if idx == 0 else mock_extras
-
-        with (
-            patch(
-                "mados_installer.pages.installation.subprocess.Popen",
-                side_effect=make_popen,
-            ),
-            patch(
-                "mados_installer.pages.installation.subprocess.run",
-                return_value=MagicMock(returncode=0),
-            ),
-            patch("mados_installer.pages.installation.set_progress"),
-            patch("mados_installer.pages.installation.log_message"),
-            patch("mados_installer.pages.installation.os.remove"),
-            patch("builtins.open", MagicMock()),
-        ):
-            _rsync_rootfs_with_progress(app)
+        _patched_rsync_run(
+            app,
+            popen_kw={"side_effect": dispatcher},
+            run_kw={"return_value": MagicMock(returncode=0)},
+        )
 
     def test_exit_code_0_succeeds(self):
         """rsync exit code 0 (success) should not raise."""

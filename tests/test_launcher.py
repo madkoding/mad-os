@@ -23,9 +23,8 @@ def _setup_gi_mocks():
     """Install mock gi modules so we can import mados_launcher headlessly."""
     gi_mock, repo_mock = install_gtk_mocks(extra_modules=("GtkLayerShell",))
     # Also add submodules that might be imported directly
-    import sys as _sys
     for name in ("Gtk", "GLib", "GdkPixbuf", "Gdk", "Pango", "GtkLayerShell"):
-        _sys.modules[f"gi.repository.{name}"] = getattr(repo_mock, name)
+        sys.modules[f"gi.repository.{name}"] = getattr(repo_mock, name)
 
 
 # Install mocks before importing mados_launcher
