@@ -1118,6 +1118,7 @@ class TestHyprlandConfigVariables(unittest.TestCase):
         "misc:exit_window_retains_fullscreen",
         "misc:initial_workspace_tracking",
         "misc:middle_click_paste",
+        "misc:disable_watchdog_warning",
         # dwindle section
         "dwindle:pseudotile",
         "dwindle:force_split",
