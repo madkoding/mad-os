@@ -1327,7 +1327,7 @@ if [ ! -f /boot/vmlinuz-linux ]; then
 fi
 if [ ! -f /boot/vmlinuz-linux ]; then
     echo '  ERROR: Could not find kernel image. Reinstalling linux package...'
-    pacman -S --noconfirm linux
+    pacman -S --noconfirm linux || {{ echo 'FATAL: Failed to install kernel'; exit 1; }}
 fi
 
 mkinitcpio -P
