@@ -1534,7 +1534,7 @@ log() {{ echo "[Phase 2] $1"; systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/d
 log "Starting madOS Phase 2 setup..."
 
 # ── Step 0: Refresh package databases and update system ─────────────────
-# --- Package section: failures are warnings, not blockers ---
+# --- Package/download operations: failures are warnings, not blockers ---
 set +e
 log "Refreshing package databases and updating system..."
 pacman -Syu --noconfirm 2>&1 || log "Warning: system update returned non-zero (may be OK)"
@@ -1735,7 +1735,7 @@ cat > /etc/chromium/policies/managed/mados-homepage.json <<'EOFPOLICY'
 EOFPOLICY
 
 # ── Step 3b: Install Nordic GTK Theme ──────────────────────────────────
-# --- Download section: failures are warnings, not blockers ---
+# --- Package/download operations: failures are warnings, not blockers ---
 set +e
 if [ -d /usr/share/themes/Nordic ]; then
     log "Nordic GTK theme already installed"
