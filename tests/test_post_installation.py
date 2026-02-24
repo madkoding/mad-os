@@ -402,6 +402,47 @@ class TestPostInstallServices(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Initramfs / mkinitcpio preset restoration
+# ═══════════════════════════════════════════════════════════════════════════
+class TestInitramfsPresetRestoration(unittest.TestCase):
+    """Verify the installer restores the standard linux.preset before mkinitcpio."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_restores_standard_linux_preset(self):
+        """Installer must restore standard linux.preset with default/fallback presets."""
+        self.assertIn(
+            "PRESETS=('default' 'fallback')", self.content,
+            "Installer must restore standard PRESETS=('default' 'fallback') in linux.preset",
+        )
+
+    def test_removes_archiso_mkinitcpio_conf(self):
+        """Installer must remove archiso-specific mkinitcpio config."""
+        self.assertIn(
+            "rm -f /etc/mkinitcpio.conf.d/archiso.conf", self.content,
+            "Installer must remove archiso.conf before mkinitcpio -P",
+        )
+
+    def test_preset_written_before_mkinitcpio(self):
+        """linux.preset must be restored before mkinitcpio -P runs."""
+        preset_pos = self.content.find("PRESETS=('default' 'fallback')")
+        mkinitcpio_pos = self.content.find("mkinitcpio -P")
+        self.assertNotEqual(preset_pos, -1, "Must contain preset restoration")
+        self.assertNotEqual(mkinitcpio_pos, -1, "Must contain mkinitcpio -P")
+        self.assertLess(
+            preset_pos, mkinitcpio_pos,
+            "linux.preset must be written before mkinitcpio -P is called",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Autologin for live environment
 # ═══════════════════════════════════════════════════════════════════════════
 class TestLiveAutologin(unittest.TestCase):

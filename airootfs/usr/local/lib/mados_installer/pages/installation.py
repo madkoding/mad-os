@@ -1296,6 +1296,23 @@ EOFPLYCONF
 echo '[PROGRESS 6/9] Rebuilding initramfs (this takes a while)...'
 # Rebuild initramfs with plymouth hook
 sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect modconf kms block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
+
+# Restore standard linux preset (archiso replaces it with an archiso-specific one)
+cat > /etc/mkinitcpio.d/linux.preset <<'EOFPRESET'
+ALL_config="/etc/mkinitcpio.conf"
+ALL_kver="/boot/vmlinuz-linux"
+
+PRESETS=('default' 'fallback')
+
+default_image="/boot/initramfs-linux.img"
+
+fallback_image="/boot/initramfs-linux-fallback.img"
+fallback_options="-S autodetect"
+EOFPRESET
+
+# Remove archiso-specific mkinitcpio config (no longer needed on installed system)
+rm -f /etc/mkinitcpio.conf.d/archiso.conf
+
 mkinitcpio -P
 
 echo '[PROGRESS 7/9] Enabling essential services...'
