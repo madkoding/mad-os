@@ -187,6 +187,14 @@ class TestSqueekboardSwayIntegration(unittest.TestCase):
             "Sway should have window rules for squeekboard app_id",
         )
 
+    def test_sway_has_no_focus_rule(self):
+        with open(SWAY_CONFIG) as f:
+            content = f.read()
+        self.assertIn(
+            'no_focus [app_id="sm.puri.Squeekboard"]', content,
+            "Sway should use no_focus to prevent squeekboard from stealing focus",
+        )
+
     def test_sway_has_toggle_keybinding(self):
         with open(SWAY_CONFIG) as f:
             content = f.read()
