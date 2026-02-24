@@ -266,10 +266,10 @@ class TestSwayVariables(unittest.TestCase):
     def _get_used_vars(self):
         """Return set of variable names referenced in the config ($var)."""
         content = _read_config()
+        # Remove comments first to avoid matching vars in comment text
+        clean = re.sub(r"#.*$", "", content, flags=re.MULTILINE)
         # Remove definition lines to only find usage
-        clean = re.sub(r"^\s*set\s+\$\S+\s+.*$", "", content, flags=re.MULTILINE)
-        # Remove comments
-        clean = re.sub(r"#.*$", "", clean, flags=re.MULTILINE)
+        clean = re.sub(r"^\s*set\s+\$\S+\s+.*$", "", clean, flags=re.MULTILINE)
         return set(re.findall(r"\$([\w-]+)", clean))
 
     def test_mod_defined(self):
@@ -690,8 +690,8 @@ class TestSwayExecCommands(unittest.TestCase):
         for line in lines:
             # Match standalone exec (not part of bindsym)
             # exec at the start of a line (top-level) with optional flags
-            match = re.match(r"^exec\s+(.*)", line)
-            if match and not line.startswith("exec_always"):
+            match = re.match(r"^exec(?!_always)\s+(.*)", line)
+            if match:
                 cmd = match.group(1).strip()
                 # Skip exec { blocks (the opening brace)
                 if cmd == "{":
