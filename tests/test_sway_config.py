@@ -549,8 +549,16 @@ class TestSwayWindowRules(unittest.TestCase):
         """Criteria values in brackets should be quoted for safety."""
         rules = self._get_for_window_rules()
         for criteria, _, line in rules:
-            # Find key=value pairs where value is not quoted
-            unquoted = re.findall(r'(\w+)=([^"\s\]]+)', criteria)
+            # Find key=value pairs where value is not quoted (string
+            # split to avoid backtracking-vulnerable regex)
+            unquoted = []
+            for tok in criteria.split():
+                if "=" not in tok:
+                    continue
+                k, _, rest = tok.partition("=")
+                if rest and not rest.startswith('"'):
+                    # Strip trailing ']' that may be part of bracket syntax
+                    unquoted.append((k, rest.rstrip("]")))
             for key, val in unquoted:
                 with self.subTest(line=line[:80], key=key, value=val):
                     if not val.startswith('"'):
