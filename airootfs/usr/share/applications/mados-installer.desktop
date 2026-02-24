@@ -2,7 +2,7 @@
 Comment=Install madOS to disk
 Comment[es]=Instalar madOS en el disco
 Exec=sudo /usr/local/bin/install-mados
-Icon=system-install
+Icon=system-software-install
 Name=madOS Installer
 Name[es]=Instalador madOS
 StartupNotify=true
