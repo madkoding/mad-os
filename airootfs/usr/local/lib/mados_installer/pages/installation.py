@@ -770,15 +770,21 @@ def _run_pacstrap_with_progress(app, packages, max_retries=3):
                 f"  pacstrap failed (exit code {returncode}), "
                 f"retrying ({attempt}/{max_retries})...",
             )
+            # Progress 0.36 = pacstrap phase start (see _run_single_pacstrap)
             set_progress(
                 app, 0.36, f"Retrying installation (attempt {attempt + 1}/{max_retries})..."
             )
             # Refresh databases before retrying
-            subprocess.run(
+            refresh = subprocess.run(
                 ["pacman", "-Sy", "--noconfirm"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+            if refresh.returncode != 0:
+                log_message(
+                    app,
+                    "  Warning: database refresh failed, retrying pacstrap anyway...",
+                )
 
     raise last_error
 
