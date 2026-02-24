@@ -19,6 +19,7 @@ from ..config import (
     PACKAGES_EXTRA,
     GPU_COMPUTE_PACKAGES,
     RSYNC_EXCLUDES,
+    ARCHISO_PACKAGES,
     NORD_FROST,
     LOCALE_KB_MAP,
     TIMEZONES,
@@ -649,8 +650,8 @@ def _rsync_rootfs_with_progress(app):
     set_progress(app, 0.43, "Cleaning archiso artifacts...")
     log_message(app, "Removing archiso-specific packages...")
     subprocess.run(
-        ["arch-chroot", "/mnt", "pacman", "-Rdd", "--noconfirm",
-         "mkinitcpio-archiso"],
+        ["arch-chroot", "/mnt", "pacman", "-Rdd", "--noconfirm"]
+        + list(ARCHISO_PACKAGES),
         capture_output=True,
     )
     # Ensure machine-id is regenerated on first boot
@@ -1583,17 +1584,10 @@ fi
 # AMD ROCm support (skip pre-GCN legacy GPUs)
 AMD_GPU=$(echo "$GPU_LINES" | grep -iE "\\bAMD\\b|\\bATI\\b|Radeon" || true)
 if [ -n "$AMD_GPU" ]; then
-    IS_LEGACY=false
-    if echo "$AMD_GPU" | grep -qiE "Radeon (7[0-9]{{3}}|8[0-9]{{3}}|9[0-9]{{3}}|X[0-9]{{3,4}})"; then
-        IS_LEGACY=true
-    fi
-    if echo "$AMD_GPU" | grep -qiE "Radeon HD [2-6][0-9]{{3}}"; then
-        IS_LEGACY=true
-    fi
-    if echo "$AMD_GPU" | grep -qiE "Rage|Mach[0-9]"; then
-        IS_LEGACY=true
-    fi
-    if [ "$IS_LEGACY" = false ]; then
+    # Single combined check for all legacy AMD GPUs (pre-GCN)
+    if echo "$AMD_GPU" | grep -qiE "Radeon (7[0-9]{{3}}|8[0-9]{{3}}|9[0-9]{{3}}|X[0-9]{{3,4}})|Radeon HD [2-6][0-9]{{3}}|Rage|Mach[0-9]"; then
+        log "Legacy AMD GPU detected – skipping ROCm (unsupported)"
+    else
         log "AMD GPU with ROCm support detected – installing compute packages..."
         if pacman -S --noconfirm --needed {amd_pkgs} 2>&1; then
             log "AMD ROCm packages installed"
@@ -1601,8 +1595,6 @@ if [ -n "$AMD_GPU" ]; then
             log "Warning: some AMD ROCm packages failed to install"
         fi
         GPU_FOUND=true
-    else
-        log "Legacy AMD GPU detected – skipping ROCm (unsupported)"
     fi
 fi
 

@@ -627,10 +627,6 @@ class TestGpuDetection(unittest.TestCase):
 
     def test_legacy_amd_exclusion(self):
         """Script must skip pre-GCN legacy AMD GPUs for ROCm."""
-        self.assertIn(
-            "IS_LEGACY", self.content,
-            "Must track whether AMD GPU is legacy/pre-GCN",
-        )
         # Verify it checks legacy Radeon series (e.g., HD 2xxx-6xxx, Rage)
         self.assertIn(
             "Radeon HD", self.content,
@@ -639,6 +635,10 @@ class TestGpuDetection(unittest.TestCase):
         self.assertIn(
             "Rage", self.content,
             "Must check for ATI Rage legacy GPUs",
+        )
+        self.assertIn(
+            "Legacy AMD GPU detected", self.content,
+            "Must log when a legacy AMD GPU is skipped",
         )
 
     def test_gpu_found_controls_common_packages(self):
@@ -675,11 +675,11 @@ class TestGpuDetection(unittest.TestCase):
             "rocm", self.content.lower(),
             "Must reference ROCm packages for AMD GPUs",
         )
-        # ROCm install is gated by IS_LEGACY=false check
+        # ROCm install is gated by the legacy GPU check
         self.assertIn(
-            'IS_LEGACY" = false',
+            "Legacy AMD GPU detected",
             self.content,
-            "AMD ROCm packages must only install when IS_LEGACY is false",
+            "Must handle legacy AMD GPUs that don't support ROCm",
         )
         # Verify the script mentions ROCm support detection
         self.assertIn(

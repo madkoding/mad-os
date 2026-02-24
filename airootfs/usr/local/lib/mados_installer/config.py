@@ -145,6 +145,10 @@ RSYNC_EXCLUDES = [
     '/etc/machine-id',
 ]
 
+# Archiso-specific packages to remove after copying the live rootfs.
+# These provide initcpio hooks and configs only needed for the live ISO.
+ARCHISO_PACKAGES = ['mkinitcpio-archiso']
+
 # Locale to keyboard layout mapping for Sway/Hyprland
 LOCALE_KB_MAP = {
     'en_US.UTF-8': 'us',
