@@ -677,7 +677,7 @@ class TestGpuDetection(unittest.TestCase):
             grep_idx,
             "Must have a grep for nvidia",
         )
-        window = "\n".join(lines[grep_idx:grep_idx + 6])
+        window = "\n".join(lines[grep_idx:grep_idx + 7])
         self.assertRegex(
             window.lower(),
             r"pacman -s.*--noconfirm.*--needed",
