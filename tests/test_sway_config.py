@@ -255,12 +255,18 @@ class TestSwayRequiredSections(unittest.TestCase):
 class TestSwayVariables(unittest.TestCase):
     """Verify variable definitions and usage are consistent."""
 
+    @staticmethod
+    def _is_set_line(parts):
+        """Return True if the split line tokens represent a 'set $var value' definition."""
+        return len(parts) >= 3 and parts[0] == "set" and parts[1].startswith("$")
+
     def _get_defined_vars(self):
         """Return dict of defined variable names to their values (set $var value)."""
-        content = _read_config()
         defs = {}
-        for m in re.finditer(r"^\s*set\s+\$(\S+)\s+(.+)", content, re.MULTILINE):
-            defs[m.group(1)] = m.group(2).strip()
+        for line in _config_lines():
+            parts = line.split()
+            if self._is_set_line(parts):
+                defs[parts[1][1:]] = " ".join(parts[2:])
         return defs
 
     def _get_used_vars(self):
@@ -268,8 +274,15 @@ class TestSwayVariables(unittest.TestCase):
         content = _read_config()
         # Remove comments first to avoid matching vars in comment text
         clean = re.sub(r"#.*$", "", content, flags=re.MULTILINE)
-        # Remove definition lines to only find usage
-        clean = re.sub(r"^\s*set\s+\$\S+\s+.*$", "", clean, flags=re.MULTILINE)
+        # Remove definition lines to only find usage (line-by-line to avoid
+        # backtracking-vulnerable regex with multiple quantifiers)
+        filtered = []
+        for line in clean.splitlines():
+            parts = line.split()
+            if self._is_set_line(parts):
+                continue
+            filtered.append(line)
+        clean = "\n".join(filtered)
         return set(re.findall(r"\$([\w-]+)", clean))
 
     def test_mod_defined(self):
