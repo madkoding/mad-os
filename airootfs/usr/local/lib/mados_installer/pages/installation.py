@@ -16,7 +16,6 @@ from ..config import (
     PACKAGES,
     PACKAGES_PHASE1,
     PACKAGES_PHASE2,
-    PACKAGES_EXTRA,
     GPU_COMPUTE_PACKAGES,
     RSYNC_EXCLUDES,
     ARCHISO_PACKAGES,
@@ -596,8 +595,7 @@ def _rsync_rootfs_with_progress(app):
     pacstrap.  Virtual filesystems, caches, and archiso-specific files are
     excluded (see ``RSYNC_EXCLUDES`` in config.py).
 
-    After the copy, archiso-specific packages are removed and any extra
-    packages not present in the live ISO (``PACKAGES_EXTRA``) are installed.
+    After the copy, archiso-specific packages are removed.
 
     Progress range: 0.21 → 0.48.
     """
@@ -646,7 +644,7 @@ def _rsync_rootfs_with_progress(app):
 
     log_message(app, "  System files copied successfully")
 
-    # --- Archiso cleanup (0.43 → 0.44) ---
+    # --- Archiso cleanup (0.43 → 0.48) ---
     set_progress(app, 0.43, "Cleaning archiso artifacts...")
     log_message(app, "Removing archiso-specific packages...")
     subprocess.run(
@@ -663,36 +661,6 @@ def _rsync_rootfs_with_progress(app):
     with open(machine_id, "w"):
         pass  # empty file → systemd generates a new id
     log_message(app, "  Archiso cleanup complete")
-
-    # --- Install extra packages not in the ISO (0.44 → 0.48) ---
-    if PACKAGES_EXTRA:
-        set_progress(app, 0.44, "Installing additional packages...")
-        extras = " ".join(PACKAGES_EXTRA)
-        log_message(app, f"Installing packages not in ISO: {extras}")
-        proc = subprocess.Popen(
-            ["arch-chroot", "/mnt", "pacman", "-S", "--noconfirm", "--needed"]
-            + list(PACKAGES_EXTRA),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-        )
-        while True:
-            line = proc.stdout.readline()
-            if not line:
-                break
-            line = line.rstrip()
-            if line:
-                log_message(app, f"  {line}")
-        proc.wait()
-        if proc.returncode != 0:
-            log_message(
-                app,
-                f"  Warning: extra packages returned exit code {proc.returncode} "
-                "(non-fatal, may succeed on first boot)",
-            )
-        else:
-            log_message(app, "  Extra packages installed")
 
     set_progress(app, 0.48, "System ready")
     log_message(app, "Base system ready")

@@ -65,7 +65,7 @@ sys.path.insert(
 )
 
 from mados_installer.pages.installation import _rsync_rootfs_with_progress
-from mados_installer.config import RSYNC_EXCLUDES, PACKAGES_EXTRA
+from mados_installer.config import RSYNC_EXCLUDES
 
 
 class MockApp:
@@ -426,61 +426,6 @@ class TestArchisoCleanup(unittest.TestCase):
             len(machine_id_opens), 0,
             "Must create an empty /mnt/etc/machine-id file",
         )
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Extra packages installation
-# ═══════════════════════════════════════════════════════════════════════════
-class TestExtraPackagesInstall(unittest.TestCase):
-    """Verify PACKAGES_EXTRA are installed after rsync."""
-
-    def test_installs_packages_extra(self):
-        """Must install PACKAGES_EXTRA via arch-chroot pacman -S."""
-        app = MockApp()
-        popen_calls = []
-
-        mock_proc = MagicMock()
-        mock_proc.stdout.readline.return_value = ""
-        mock_proc.returncode = 0
-        mock_proc.wait.return_value = None
-
-        def capture_popen(cmd, **kwargs):
-            popen_calls.append(cmd)
-            return mock_proc
-
-        with (
-            patch(
-                "mados_installer.pages.installation.subprocess.Popen",
-                side_effect=capture_popen,
-            ),
-            patch(
-                "mados_installer.pages.installation.subprocess.run",
-                return_value=MagicMock(returncode=0),
-            ),
-            patch("mados_installer.pages.installation.set_progress"),
-            patch("mados_installer.pages.installation.log_message"),
-            patch("mados_installer.pages.installation.os.remove"),
-            patch("builtins.open", MagicMock()),
-        ):
-            _rsync_rootfs_with_progress(app)
-
-        # The second Popen call should be the extra-packages install
-        self.assertGreaterEqual(
-            len(popen_calls), 2,
-            "Must call Popen at least twice (rsync + extra packages)",
-        )
-        extras_cmd = popen_calls[1]
-        self.assertIn("arch-chroot", extras_cmd)
-        self.assertIn("pacman", extras_cmd)
-        self.assertIn("-S", extras_cmd)
-        self.assertIn("--noconfirm", extras_cmd)
-        self.assertIn("--needed", extras_cmd)
-        for pkg in PACKAGES_EXTRA:
-            with self.subTest(package=pkg):
-                self.assertIn(
-                    pkg, extras_cmd,
-                    f"PACKAGES_EXTRA entry '{pkg}' must be in install command",
-                )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

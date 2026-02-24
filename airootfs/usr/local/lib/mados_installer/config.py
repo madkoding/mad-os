@@ -112,15 +112,6 @@ PACKAGES_PHASE2 = [
 # Combined package list (all packages for both phases)
 PACKAGES = PACKAGES_PHASE1 + PACKAGES_PHASE2
 
-# Packages in PACKAGES_PHASE1 that are NOT included in the live ISO
-# (packages.x86_64).  These are installed via pacman after copying the live
-# rootfs to the target disk.  All other Phase 1 packages are already present
-# in the live ISO and are copied by rsync.
-PACKAGES_EXTRA = [
-    'base-devel',  # meta-package (individual members like gcc/make are in ISO)
-    'sbctl',       # Secure Boot key manager
-]
-
 # GPU Compute packages: NOT included in the live ISO to save ~3-5 GB.
 # Only installed during Phase 2 first-boot when the corresponding GPU
 # hardware is detected via lspci.  Keyed by vendor for conditional install.

@@ -73,7 +73,6 @@ from mados_installer.config import (
     PACKAGES_PHASE1,
     PACKAGES_PHASE2,
     PACKAGES,
-    PACKAGES_EXTRA,
     GPU_COMPUTE_PACKAGES,
     RSYNC_EXCLUDES,
     LOCALE_KB_MAP,
@@ -408,35 +407,6 @@ class TestRsyncConfig(unittest.TestCase):
     """Verify rsync-based installation configuration constants."""
 
     PKG_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._+-]*$")
-
-    # -- PACKAGES_EXTRA ------------------------------------------------
-
-    def test_packages_extra_not_empty(self):
-        """PACKAGES_EXTRA must be a non-empty list."""
-        self.assertIsInstance(PACKAGES_EXTRA, list)
-        self.assertGreater(
-            len(PACKAGES_EXTRA), 0, "PACKAGES_EXTRA must not be empty"
-        )
-
-    def test_packages_extra_valid_names(self):
-        """Every entry in PACKAGES_EXTRA must be a valid Arch package name."""
-        for pkg in PACKAGES_EXTRA:
-            with self.subTest(package=pkg):
-                self.assertRegex(
-                    pkg,
-                    self.PKG_NAME_PATTERN,
-                    f"PACKAGES_EXTRA entry '{pkg}' is not a valid package name",
-                )
-
-    def test_packages_extra_subset_of_phase1(self):
-        """PACKAGES_EXTRA should only contain packages from PACKAGES_PHASE1."""
-        for pkg in PACKAGES_EXTRA:
-            with self.subTest(package=pkg):
-                self.assertIn(
-                    pkg,
-                    PACKAGES_PHASE1,
-                    f"PACKAGES_EXTRA entry '{pkg}' not found in PACKAGES_PHASE1",
-                )
 
     # -- GPU_COMPUTE_PACKAGES ------------------------------------------
 
