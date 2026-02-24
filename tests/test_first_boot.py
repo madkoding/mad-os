@@ -172,10 +172,10 @@ class TestPhase2Packages(unittest.TestCase):
             self.content = f.read()
 
     def test_installs_packages_with_pacman(self):
-        """Script must install packages using pacman."""
+        """Script must install GPU compute packages using pacman."""
         self.assertIn(
-            "pacman -Syu", self.content,
-            "Must use 'pacman -Syu' to install Phase 2 packages",
+            "pacman -S", self.content,
+            "Must use 'pacman -S' to install GPU compute packages",
         )
 
     def test_uses_noconfirm_flag(self):

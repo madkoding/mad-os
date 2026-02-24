@@ -16,6 +16,9 @@ from ..config import (
     PACKAGES,
     PACKAGES_PHASE1,
     PACKAGES_PHASE2,
+    PACKAGES_EXTRA,
+    GPU_COMPUTE_PACKAGES,
+    RSYNC_EXCLUDES,
     NORD_FROST,
     LOCALE_KB_MAP,
     TIMEZONES,
@@ -443,55 +446,23 @@ def _run_installation(app):
         # Step 3: Mount
         _step_mount_filesystems(app, boot_part, root_part, home_part, separate_home)
 
-        # Step 4: Prepare package manager and install Phase 1 packages
+        # Step 4: Copy live system to target (uses rsync instead of
+        # downloading packages, since they already live in the ISO)
         if DEMO_MODE:
-            log_message(app, "[DEMO] Simulating pacman keyring check...")
-            set_progress(app, 0.21, "Checking package manager keyring...")
+            log_message(app, "[DEMO] Simulating system copy from live ISO...")
+            set_progress(app, 0.21, "Copying system files...")
             time.sleep(0.5)
-            log_message(app, "[DEMO] Simulating database sync...")
-            set_progress(app, 0.23, "Synchronizing package databases...")
-            time.sleep(0.5)
-        else:
-            _prepare_pacman(app)
-
-        # Phase 1: only install essential packages (remaining installed on first boot)
-        packages = list(PACKAGES_PHASE1)
-
-        # Step 4a: Download Phase 1 packages in groups (progress stays alive)
-        set_progress(app, 0.25, "Downloading packages...")
-        log_message(app, f"Downloading {len(packages)} essential packages (Phase 1)...")
-
-        if DEMO_MODE:
-            log_message(app, "[DEMO] Simulating package downloads in groups:")
-            group_size = 10
-            for i in range(0, len(packages), group_size):
-                group = packages[i : i + group_size]
-                end = min(i + group_size, len(packages))
-                progress = 0.25 + (0.11 * end / len(packages))
-                set_progress(
-                    app, progress, f"Downloading packages ({end}/{len(packages)})..."
-                )
-                for pkg in group:
-                    log_message(app, f"[DEMO] Downloading {pkg}...")
+            log_message(app, "[DEMO] rsync / → /mnt/ ...")
+            for pct in (25, 50, 75, 100):
+                set_progress(app, 0.21 + 0.22 * pct / 100, f"Copying ({pct}%)...")
                 time.sleep(0.3)
+            log_message(app, "[DEMO] Cleaning archiso artifacts...")
+            time.sleep(0.3)
+            log_message(app, "[DEMO] System files copied")
+            set_progress(app, 0.48, "System files copied")
             time.sleep(0.3)
         else:
-            _download_packages_with_progress(app, packages)
-
-        # Step 4b: Install Phase 1 packages (already cached from download step)
-        set_progress(app, 0.36, "Installing base system...")
-        log_message(app, "Installing base system (Phase 1)...")
-
-        if DEMO_MODE:
-            log_message(app, "[DEMO] Simulating pacstrap with cached packages:")
-            for i, pkg in enumerate(packages):
-                progress = 0.36 + (0.12 * (i + 1) / len(packages))
-                set_progress(app, progress, f"Installing {pkg}...")
-                log_message(app, f"[DEMO] Installing {pkg}...")
-                time.sleep(0.1)
-            time.sleep(0.3)
-        else:
-            _run_pacstrap_with_progress(app, packages)
+            _rsync_rootfs_with_progress(app)
 
         # Step 5: Generate fstab
         set_progress(app, 0.49, "Generating filesystem table...")
@@ -614,6 +585,116 @@ def _finish_installation(app):
     app.install_spinner.stop()
     app.notebook.next_page()
     return False
+
+
+def _rsync_rootfs_with_progress(app):
+    """Copy the live root filesystem to /mnt using rsync.
+
+    All packages from the ISO are already installed in the live system, so
+    copying with rsync is much faster than downloading and re-installing via
+    pacstrap.  Virtual filesystems, caches, and archiso-specific files are
+    excluded (see ``RSYNC_EXCLUDES`` in config.py).
+
+    After the copy, archiso-specific packages are removed and any extra
+    packages not present in the live ISO (``PACKAGES_EXTRA``) are installed.
+
+    Progress range: 0.21 → 0.48.
+    """
+    # --- rsync phase (0.21 → 0.43) ---
+    set_progress(app, 0.21, "Copying live system to disk...")
+    log_message(app, "Copying live system to target disk (rsync)...")
+    log_message(app, "  (Packages already installed in the ISO – no download needed)")
+
+    cmd = ["rsync", "-aAXH", "--info=progress2", "--no-inc-recursive"]
+    for exc in RSYNC_EXCLUDES:
+        cmd.extend(["--exclude", exc])
+    cmd.extend(["/", "/mnt/"])
+
+    progress_start = 0.21
+    progress_end = 0.43
+    pct_re = re.compile(r"(\d+)%")
+
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+
+    while True:
+        line = proc.stdout.readline()
+        if not line:
+            break
+        line = line.rstrip()
+        if not line:
+            continue
+        match = pct_re.search(line)
+        if match:
+            pct = int(match.group(1))
+            progress = progress_start + (progress_end - progress_start) * (pct / 100)
+            set_progress(app, progress, f"Copying system files ({pct}%)...")
+        # Log non-progress lines (errors / warnings) but not individual filenames
+        elif line.startswith("rsync:") or line.startswith("sent "):
+            log_message(app, f"  {line}")
+
+    proc.wait()
+    if proc.returncode not in (0, 24):
+        # 24 = "vanished source files" which is normal on a live system
+        raise subprocess.CalledProcessError(proc.returncode, "rsync")
+
+    log_message(app, "  System files copied successfully")
+
+    # --- Archiso cleanup (0.43 → 0.44) ---
+    set_progress(app, 0.43, "Cleaning archiso artifacts...")
+    log_message(app, "Removing archiso-specific packages...")
+    subprocess.run(
+        ["arch-chroot", "/mnt", "pacman", "-Rdd", "--noconfirm",
+         "mkinitcpio-archiso"],
+        capture_output=True,
+    )
+    # Ensure machine-id is regenerated on first boot
+    machine_id = "/mnt/etc/machine-id"
+    try:
+        os.remove(machine_id)
+    except FileNotFoundError:
+        pass
+    with open(machine_id, "w"):
+        pass  # empty file → systemd generates a new id
+    log_message(app, "  Archiso cleanup complete")
+
+    # --- Install extra packages not in the ISO (0.44 → 0.48) ---
+    if PACKAGES_EXTRA:
+        set_progress(app, 0.44, "Installing additional packages...")
+        extras = " ".join(PACKAGES_EXTRA)
+        log_message(app, f"Installing packages not in ISO: {extras}")
+        proc = subprocess.Popen(
+            ["arch-chroot", "/mnt", "pacman", "-S", "--noconfirm", "--needed"]
+            + list(PACKAGES_EXTRA),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            line = line.rstrip()
+            if line:
+                log_message(app, f"  {line}")
+        proc.wait()
+        if proc.returncode != 0:
+            log_message(
+                app,
+                f"  Warning: extra packages returned exit code {proc.returncode} "
+                "(non-fatal, may succeed on first boot)",
+            )
+        else:
+            log_message(app, "  Extra packages installed")
+
+    set_progress(app, 0.48, "System ready")
+    log_message(app, "Base system ready")
 
 
 def _prepare_pacman(app):
@@ -1448,24 +1529,34 @@ echo "Phase 2 first-boot service installed and enabled"
 def _build_first_boot_script(data):
     """Build the Phase 2 first-boot shell script.
 
-    This script runs on the first boot from the installed disk. It installs
-    remaining packages, configures audio/bluetooth/desktop services, installs
-    Oh My Zsh and OpenCode, then disables itself.
+    This script runs on the first boot from the installed disk.  Most packages
+    are already present (copied from the live ISO via rsync during Phase 1).
+    Phase 2 only downloads GPU compute drivers when the matching hardware is
+    detected, configures audio/bluetooth/desktop services, installs Oh My Zsh
+    and OpenCode, then disables itself.
     """
     username = data["username"]
     locale = data["locale"]
 
-    # Build the Phase 2 package list as a shell array
-    phase2_packages = list(PACKAGES_PHASE2)
-    if locale in ("zh_CN.UTF-8", "ja_JP.UTF-8"):
-        phase2_packages.append("noto-fonts-cjk")
+    nvidia_pkgs = " ".join(GPU_COMPUTE_PACKAGES["nvidia"])
+    amd_pkgs = " ".join(GPU_COMPUTE_PACKAGES["amd"])
+    common_pkgs = " ".join(GPU_COMPUTE_PACKAGES["common"])
 
-    packages_str = " ".join(phase2_packages)
+    cjk_line = ""
+    if locale in ("zh_CN.UTF-8", "ja_JP.UTF-8"):
+        cjk_line = (
+            '\n# CJK fonts for Asian locale\n'
+            'if ! pacman -Q noto-fonts-cjk &>/dev/null; then\n'
+            '    log "Installing CJK fonts for locale..."\n'
+            '    pacman -S --noconfirm --needed noto-fonts-cjk 2>&1 || true\n'
+            'fi\n'
+        )
 
     return f"""#!/bin/bash
 # madOS First Boot Setup (Phase 2)
-# Installs remaining packages and configures services
-# This script runs once on first boot and then disables itself
+# Most packages are already installed (copied from the live ISO).
+# This script installs GPU compute drivers when matching hardware is
+# detected, configures services, and sets up tools, then disables itself.
 set -euo pipefail
 
 LOG_TAG="mados-first-boot"
@@ -1473,17 +1564,56 @@ log() {{ echo "[Phase 2] $1"; systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/d
 
 log "Starting madOS Phase 2 setup..."
 
-# ── Step 1: Install remaining packages ──────────────────────────────────
-log "Installing additional packages..."
-PACKAGES=({packages_str})
+# ── Step 1: Install GPU compute drivers (only for supported hardware) ───
+log "Detecting GPU compute capabilities..."
+GPU_LINES=$(lspci 2>/dev/null | grep -iE "VGA|3D|Display" || true)
+GPU_FOUND=false
 
-# Sync databases and install Phase 2 packages in one step
-if pacman -Syu --noconfirm --needed "${{PACKAGES[@]}}" 2>&1; then
-    log "All Phase 2 packages installed successfully"
-else
-    log "Warning: Some packages may have failed to install"
+# NVIDIA CUDA support
+if echo "$GPU_LINES" | grep -qi nvidia; then
+    log "NVIDIA GPU detected – installing CUDA compute packages..."
+    if pacman -S --noconfirm --needed {nvidia_pkgs} 2>&1; then
+        log "NVIDIA CUDA packages installed"
+    else
+        log "Warning: some NVIDIA packages failed to install"
+    fi
+    GPU_FOUND=true
 fi
 
+# AMD ROCm support (skip pre-GCN legacy GPUs)
+AMD_GPU=$(echo "$GPU_LINES" | grep -iE "\\bAMD\\b|\\bATI\\b|Radeon" || true)
+if [ -n "$AMD_GPU" ]; then
+    IS_LEGACY=false
+    if echo "$AMD_GPU" | grep -qiE "Radeon (7[0-9]{{3}}|8[0-9]{{3}}|9[0-9]{{3}}|X[0-9]{{3,4}})"; then
+        IS_LEGACY=true
+    fi
+    if echo "$AMD_GPU" | grep -qiE "Radeon HD [2-6][0-9]{{3}}"; then
+        IS_LEGACY=true
+    fi
+    if echo "$AMD_GPU" | grep -qiE "Rage|Mach[0-9]"; then
+        IS_LEGACY=true
+    fi
+    if [ "$IS_LEGACY" = false ]; then
+        log "AMD GPU with ROCm support detected – installing compute packages..."
+        if pacman -S --noconfirm --needed {amd_pkgs} 2>&1; then
+            log "AMD ROCm packages installed"
+        else
+            log "Warning: some AMD ROCm packages failed to install"
+        fi
+        GPU_FOUND=true
+    else
+        log "Legacy AMD GPU detected – skipping ROCm (unsupported)"
+    fi
+fi
+
+# Common OpenCL headers (only when a compute GPU was found)
+if [ "$GPU_FOUND" = true ]; then
+    pacman -S --noconfirm --needed {common_pkgs} 2>&1 || true
+    log "GPU compute driver setup complete"
+else
+    log "No compute-capable GPU detected – skipping GPU driver download"
+fi
+{cjk_line}
 # ── Step 2: Enable additional services ──────────────────────────────────
 log "Enabling additional services..."
 systemctl enable bluetooth 2>/dev/null || true
