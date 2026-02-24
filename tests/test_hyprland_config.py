@@ -1389,28 +1389,23 @@ class TestWallpaperGlitchScript(unittest.TestCase):
             "Script must create workspace assignments table",
         )
 
-    def test_hyprland_wallpaper_uses_no_transition(self):
-        """hyprland.conf must set initial wallpaper with --transition-type none.
+    def test_hyprland_wallpaper_no_placeholder_line(self):
+        """hyprland.conf must NOT have a swww img placeholder line.
 
-        Fancy transitions (pixelate, wave, etc.) can fail on certain
-        hardware at startup. The initial wallpaper must use no transition
-        for maximum reliability.
+        The initial wallpaper is handled by mados-wallpaper-glitch daemon
+        which waits for swww-daemon and sets the wallpaper without transition.
+        A separate swww img placeholder causes a race condition and flicker.
         """
         content = _read_config()
-        # Find the swww img startup line (not in a comment)
         for line in content.splitlines():
             stripped = line.strip()
             if stripped.startswith("#"):
                 continue
             if "swww img" in stripped and "/usr/share/backgrounds/" in stripped:
-                self.assertIn(
-                    "--transition-type none",
-                    stripped,
-                    "Initial wallpaper must use --transition-type none "
-                    "for reliable startup",
+                self.fail(
+                    "hyprland.conf must NOT have a swww img placeholder line; "
+                    "mados-wallpaper-glitch handles initial wallpaper setup"
                 )
-                return
-        self.fail("hyprland.conf must have a swww img startup line")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1881,6 +1876,263 @@ class TestSwayWorkspaceCycleScript(unittest.TestCase):
             "mados-sway-workspace-cycle",
             content,
             "profiledef.sh must include permissions for mados-sway-workspace-cycle",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Hyprland wallpaper helper scripts (dual coverage: daemon + keybinding)
+# ═══════════════════════════════════════════════════════════════════════════
+class TestHyprlandWallpaperSetHelper(unittest.TestCase):
+    """Verify mados-hyprland-wallpaper-set helper script."""
+
+    HELPER_SCRIPT = os.path.join(BIN_DIR, "mados-hyprland-wallpaper-set")
+    HYPRLAND_CONF = os.path.join(SKEL_DIR, ".config", "hypr", "hyprland.conf")
+
+    def test_helper_script_exists(self):
+        """mados-hyprland-wallpaper-set helper must exist."""
+        self.assertTrue(
+            os.path.isfile(self.HELPER_SCRIPT),
+            "mados-hyprland-wallpaper-set script missing from /usr/local/bin/",
+        )
+
+    def test_helper_script_has_shebang(self):
+        """mados-hyprland-wallpaper-set must have a bash shebang."""
+        with open(self.HELPER_SCRIPT) as f:
+            first_line = f.readline()
+        self.assertIn("bash", first_line)
+
+    def test_helper_reads_sqlite_db(self):
+        """Helper must read from the same SQLite database as the daemon."""
+        with open(self.HELPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "wallpapers.db",
+            content,
+            "Helper must read from wallpapers.db database",
+        )
+        self.assertIn(
+            "sqlite3",
+            content,
+            "Helper must use sqlite3 to query the database",
+        )
+
+    def test_helper_uses_hyprctl(self):
+        """Helper must use hyprctl (for workspace queries)."""
+        with open(self.HELPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "hyprctl",
+            content,
+            "Helper must use hyprctl for workspace queries",
+        )
+
+    def test_helper_uses_swww(self):
+        """Helper must use swww for smooth wallpaper transitions."""
+        with open(self.HELPER_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "swww img",
+            content,
+            "Helper must use swww img for smooth wallpaper transitions",
+        )
+
+    def test_helper_accepts_workspace_argument(self):
+        """Helper must accept optional workspace number argument."""
+        with open(self.HELPER_SCRIPT) as f:
+            content = f.read()
+        self.assertTrue(
+            "$1" in content or "${1" in content,
+            "Helper must accept workspace number as first argument",
+        )
+
+    def test_profiledef_has_helper_permissions(self):
+        """profiledef.sh must set permissions for mados-hyprland-wallpaper-set."""
+        profiledef = os.path.join(REPO_DIR, "profiledef.sh")
+        with open(profiledef) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-hyprland-wallpaper-set",
+            content,
+            "profiledef.sh must include permissions for mados-hyprland-wallpaper-set",
+        )
+
+    def test_hyprland_config_calls_helper_on_workspace_switch(self):
+        """Hyprland config must call wallpaper helper on workspace switch bindings."""
+        with open(self.HYPRLAND_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-hyprland-wallpaper-set",
+            content,
+            "Hyprland config workspace bindings must call mados-hyprland-wallpaper-set",
+        )
+
+    def test_hyprland_workspace_switch_uses_super_alt_arrows(self):
+        """Hyprland config must use Super+Alt+arrows for workspace prev/next."""
+        with open(self.HYPRLAND_CONF) as f:
+            content = f.read()
+        self.assertIn(
+            "$mainMod ALT, Left",
+            content,
+            "Hyprland config must bind Super+Alt+Left for workspace prev",
+        )
+        self.assertIn(
+            "$mainMod ALT, Right",
+            content,
+            "Hyprland config must bind Super+Alt+Right for workspace next",
+        )
+
+
+class TestHyprlandWorkspaceCycleScript(unittest.TestCase):
+    """Verify mados-hyprland-workspace-cycle helper script."""
+
+    CYCLE_SCRIPT = os.path.join(BIN_DIR, "mados-hyprland-workspace-cycle")
+
+    def test_cycle_script_exists(self):
+        """mados-hyprland-workspace-cycle script must exist."""
+        self.assertTrue(
+            os.path.isfile(self.CYCLE_SCRIPT),
+            "mados-hyprland-workspace-cycle script missing from /usr/local/bin/",
+        )
+
+    def test_cycle_script_has_shebang(self):
+        """mados-hyprland-workspace-cycle must have a bash shebang."""
+        with open(self.CYCLE_SCRIPT) as f:
+            first_line = f.readline()
+        self.assertIn("bash", first_line)
+
+    def test_cycle_script_uses_hyprctl(self):
+        """Cycle script must use hyprctl for workspace switching."""
+        with open(self.CYCLE_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "hyprctl",
+            content,
+            "Script must use hyprctl for Hyprland workspace operations",
+        )
+
+    def test_cycle_script_wraps_around(self):
+        """Cycle script must wrap around workspace numbers."""
+        with open(self.CYCLE_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "MAX_WS",
+            content,
+            "Script must define MAX_WS for wrap-around calculation",
+        )
+
+    def test_cycle_script_calls_wallpaper_set(self):
+        """Cycle script must trigger wallpaper change after workspace switch."""
+        with open(self.CYCLE_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-hyprland-wallpaper-set",
+            content,
+            "Script must call mados-hyprland-wallpaper-set after switching workspace",
+        )
+
+    def test_profiledef_has_cycle_script_permissions(self):
+        """profiledef.sh must set permissions for mados-hyprland-workspace-cycle."""
+        profiledef = os.path.join(REPO_DIR, "profiledef.sh")
+        with open(profiledef) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-hyprland-workspace-cycle",
+            content,
+            "profiledef.sh must include permissions for mados-hyprland-workspace-cycle",
+        )
+
+    def test_hyprland_config_uses_workspace_cycle_for_arrows(self):
+        """Hyprland config must use mados-hyprland-workspace-cycle for Super+Alt+arrows."""
+        hyprland_conf = os.path.join(SKEL_DIR, ".config", "hypr", "hyprland.conf")
+        with open(hyprland_conf) as f:
+            content = f.read()
+        self.assertIn(
+            "mados-hyprland-workspace-cycle prev",
+            content,
+            "Hyprland config must use mados-hyprland-workspace-cycle prev for Super+Alt+Left",
+        )
+        self.assertIn(
+            "mados-hyprland-workspace-cycle next",
+            content,
+            "Hyprland config must use mados-hyprland-workspace-cycle next for Super+Alt+Right",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Workspace count consistency (both compositors limited to 5)
+# ═══════════════════════════════════════════════════════════════════════════
+class TestWorkspaceCountConsistency(unittest.TestCase):
+    """Verify both compositors are limited to 5 workspaces."""
+
+    HYPRLAND_CONF = os.path.join(SKEL_DIR, ".config", "hypr", "hyprland.conf")
+    SWAY_CONF = os.path.join(SKEL_DIR, ".config", "sway", "config")
+    GLITCH_SCRIPT = os.path.join(BIN_DIR, "mados-wallpaper-glitch")
+    SWAY_WP_SCRIPT = os.path.join(BIN_DIR, "mados-sway-wallpapers")
+
+    def test_hyprland_no_workspace_6_to_10(self):
+        """Hyprland config must not bind workspaces 6-10."""
+        with open(self.HYPRLAND_CONF) as f:
+            content = f.read()
+        for ws in range(6, 11):
+            for pattern in [f"workspace, {ws}", f"workspace {ws}",
+                            f"movetoworkspace, {ws}"]:
+                for line in content.splitlines():
+                    stripped = line.strip()
+                    if stripped.startswith("#"):
+                        continue
+                    self.assertNotIn(
+                        pattern,
+                        stripped,
+                        f"Hyprland config must not bind workspace {ws} "
+                        f"(only 5 workspaces allowed)",
+                    )
+
+    def test_sway_no_workspace_6_to_10(self):
+        """Sway config must not bind workspaces 6-10."""
+        with open(self.SWAY_CONF) as f:
+            content = f.read()
+        for ws in range(6, 11):
+            for pattern in [f"workspace number {ws}",
+                            f"to workspace number {ws}"]:
+                for line in content.splitlines():
+                    stripped = line.strip()
+                    if stripped.startswith("#"):
+                        continue
+                    self.assertNotIn(
+                        pattern,
+                        stripped,
+                        f"Sway config must not bind workspace {ws} "
+                        f"(only 5 workspaces allowed)",
+                    )
+
+    def test_glitch_script_max_workspaces_5(self):
+        """mados-wallpaper-glitch must set MAX_WORKSPACES=5."""
+        with open(self.GLITCH_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "MAX_WORKSPACES=5",
+            content,
+            "mados-wallpaper-glitch must limit to 5 workspaces",
+        )
+
+    def test_sway_wallpaper_script_max_workspaces_5(self):
+        """mados-sway-wallpapers must set MAX_WORKSPACES=5."""
+        with open(self.SWAY_WP_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            "MAX_WORKSPACES=5",
+            content,
+            "mados-sway-wallpapers must limit to 5 workspaces",
+        )
+
+    def test_glitch_script_ipc_uses_double_arrow(self):
+        """mados-wallpaper-glitch must parse workspace>> (double >) IPC events."""
+        with open(self.GLITCH_SCRIPT) as f:
+            content = f.read()
+        self.assertIn(
+            'workspace>>',
+            content,
+            "IPC event parsing must use workspace>> (double >) per Hyprland socket2 format",
         )
 
 

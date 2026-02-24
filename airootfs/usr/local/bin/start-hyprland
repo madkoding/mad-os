@@ -1,0 +1,68 @@
+#!/bin/bash
+# start-hyprland - Wrapper to launch Hyprland with proper environment
+# Returns non-zero if Hyprland fails to start, allowing fallback to Sway
+#
+# Called from:
+#   - .bash_profile (installed system)
+#   - .zlogin (live environment)
+#   - hyprland-session
+#
+# Key behavior:
+#   - Checks for 3D acceleration before launching
+#   - Detects if Hyprland exits too quickly (< MIN_RUNTIME seconds) as a crash
+#   - Returns exit code 1 on failure so the || fallback to Sway triggers
+
+LOG_TAG="start-hyprland"
+MIN_RUNTIME=5  # seconds - if Hyprland exits faster than this, it failed
+
+logger -p user.info -t "$LOG_TAG" "Preparing to launch Hyprland"
+
+# Ensure required environment variables are set
+export XDG_SESSION_TYPE="${XDG_SESSION_TYPE:-wayland}"
+export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Hyprland}"
+export MOZ_ENABLE_WAYLAND="${MOZ_ENABLE_WAYLAND:-1}"
+
+# Use systemd-logind as the seat management backend (madOS uses systemd)
+export LIBSEAT_BACKEND="${LIBSEAT_BACKEND:-logind}"
+
+# Verify Hyprland binary exists
+if ! command -v Hyprland >/dev/null 2>&1; then
+    logger -p user.err -t "$LOG_TAG" "Hyprland binary not found"
+    echo "Error: Hyprland is not installed" >&2
+    exit 1
+fi
+
+# Pre-flight: verify 3D acceleration is available
+# If detect-legacy-hardware says this is legacy hardware, don't even try Hyprland
+if [ -x /usr/local/bin/detect-legacy-hardware ]; then
+    detect_output=$(/usr/local/bin/detect-legacy-hardware 2>&1)
+    if /usr/local/bin/detect-legacy-hardware >/dev/null 2>&1; then
+        logger -p user.warning -t "$LOG_TAG" "Legacy hardware detected ($detect_output) - refusing to start Hyprland"
+        echo "Legacy hardware detected: $detect_output" >&2
+        echo "Hyprland requires 3D acceleration. Falling back..." >&2
+        exit 1
+    fi
+fi
+
+# Launch Hyprland and measure runtime
+logger -p user.info -t "$LOG_TAG" "Launching Hyprland compositor"
+start_time=$(date +%s)
+Hyprland
+exit_code=$?
+end_time=$(date +%s)
+runtime=$((end_time - start_time))
+
+# If Hyprland exited too quickly, treat as a failure regardless of exit code
+# Hyprland can exit with code 0 even when it fails to render (no GPU, no display, etc.)
+if [ $runtime -lt $MIN_RUNTIME ]; then
+    logger -p user.err -t "$LOG_TAG" "Hyprland exited after ${runtime}s (< ${MIN_RUNTIME}s minimum) with code $exit_code - treating as failure"
+    echo "Hyprland exited too quickly (${runtime}s) - likely failed to initialize display" >&2
+    exit 1
+fi
+
+if [ $exit_code -ne 0 ]; then
+    logger -p user.err -t "$LOG_TAG" "Hyprland exited with code $exit_code after ${runtime}s"
+    echo "Hyprland exited with code $exit_code" >&2
+fi
+
+exit $exit_code
