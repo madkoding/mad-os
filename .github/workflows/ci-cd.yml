@@ -646,25 +646,35 @@ jobs:
         run: |
           VERSION="${{ needs.build.outputs.version }}"
           DOWNLOAD_URL="${{ needs.upload-archive.outputs.download_url }}"
+          RELEASE_TYPE="${{ needs.build.outputs.release_type }}"
+
+          # Determine which channel to update based on release type
+          if [[ "$RELEASE_TYPE" == "stable" ]]; then
+            CHANNEL="stable"
+          else
+            CHANNEL="beta"
+          fi
 
           echo "Updating website with:"
           echo "  Version: $VERSION"
           echo "  URL: $DOWNLOAD_URL"
+          echo "  Channel: $CHANNEL"
 
           # Pull latest main to avoid non-fast-forward errors
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git pull --rebase origin main
 
-          sed -i "s|https://archive.org/download/mados-[^/]*/madOS-[^\"]*\.iso|$DOWNLOAD_URL|g" docs/index.html
-          sed -i "s|data-version=\"[^\"]*\"|data-version=\"$VERSION\"|g" docs/index.html
-          sed -i "s|<span>Download v[^<]*</span>|<span>Download v$VERSION</span>|g" docs/index.html
+          # Update only the matching channel's download link
+          sed -i "/data-channel=\"$CHANNEL\"/s|https://archive.org/download/mados-[^/]*/madOS-[^\"]*\.iso|$DOWNLOAD_URL|g" docs/index.html
+          sed -i "/data-channel=\"$CHANNEL\"/s|data-version=\"[^\"]*\"|data-version=\"$VERSION\"|g" docs/index.html
+          sed -i "s|<span id=\"${CHANNEL}-version-text\">Download v[^<]*</span>|<span id=\"${CHANNEL}-version-text\">Download v$VERSION</span>|g" docs/index.html
 
           if git diff --quiet docs/index.html; then
             echo "No changes needed in website"
           else
             git add docs/index.html
-            git commit -m "🌐 Update download link to $VERSION [skip ci]"
+            git commit -m "🌐 Update $CHANNEL download link to $VERSION [skip ci]"
             # Retry push with rebase in case of concurrent changes
             for i in 1 2 3; do
               if git push origin main; then
