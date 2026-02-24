@@ -117,6 +117,24 @@ else
     fi
 fi
 
+# ── ONLYOFFICE Desktop Editors ────────────────────────────────────────
+ONLYOFFICE_APPIMAGE="/opt/onlyoffice/DesktopEditors-x86_64.AppImage"
+
+if [[ -x "$ONLYOFFICE_APPIMAGE" ]]; then
+    echo "✓ ONLYOFFICE Desktop Editors already installed"
+else
+    echo "Installing ONLYOFFICE Desktop Editors..."
+    if bash /usr/local/bin/setup-onlyoffice.sh 2>&1; then
+        if [[ -x "$ONLYOFFICE_APPIMAGE" ]]; then
+            echo "✓ ONLYOFFICE Desktop Editors installed"
+        else
+            echo "⚠ ONLYOFFICE install completed but AppImage not found (will install at boot)"
+        fi
+    else
+        echo "⚠ ONLYOFFICE install failed (will install at boot)"
+    fi
+fi
+
 # ── Hide unwanted .desktop entries from application menu ──────────────────
 echo "Hiding unwanted application menu entries..."
 for desktop_file in \

@@ -148,6 +148,7 @@ dosfstools
 e2fsprogs
 ntfs-3g
 unzip
+fuse2
 
 # Soporte VM
 virtualbox-guest-utils

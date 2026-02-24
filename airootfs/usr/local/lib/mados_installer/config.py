@@ -107,6 +107,8 @@ PACKAGES_PHASE2 = [
     'python-pillow', 'poppler-glib',
     'gstreamer', 'gst-plugins-base', 'gst-plugins-good', 'gst-python',
     'gst-plugins-ugly', 'gst-plugins-bad', 'gst-libav', 'gst-plugin-gtk',
+    # ONLYOFFICE Desktop Editors (AppImage) dependency
+    'fuse2',
 ]
 
 # Combined package list (all packages for both phases)

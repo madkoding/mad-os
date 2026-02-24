@@ -42,6 +42,7 @@ file_permissions=(
   ["/usr/local/lib/mados_installer/"]="0:0:755"
   ["/usr/local/bin/setup-opencode.sh"]="0:0:755"
   ["/usr/local/bin/setup-ollama.sh"]="0:0:755"
+  ["/usr/local/bin/setup-onlyoffice.sh"]="0:0:755"
   ["/usr/local/bin/setup-ohmyzsh.sh"]="0:0:755"
   ["/usr/local/bin/toggle-demo-mode.sh"]="0:0:755"
   ["/usr/local/bin/mados-photo-viewer"]="0:0:755"

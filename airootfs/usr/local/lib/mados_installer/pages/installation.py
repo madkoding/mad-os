@@ -356,6 +356,7 @@ def _step_copy_scripts(app):
 
     scripts = [
         "setup-ohmyzsh.sh",
+        "setup-onlyoffice.sh",
         "detect-legacy-hardware",
         "cage-greeter",
         "sway-session",
@@ -1794,7 +1795,97 @@ WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-ollama.service 2>/dev/null || true
 
-# ── Step 7: Cleanup ─────────────────────────────────────────────────────
+# ── Step 7: Install ONLYOFFICE Desktop Editors ──────────────────────
+log "Installing ONLYOFFICE Desktop Editors..."
+
+ONLYOFFICE_APPIMAGE="/opt/onlyoffice/DesktopEditors-x86_64.AppImage"
+ONLYOFFICE_URL="https://github.com/ONLYOFFICE/DesktopEditors/releases/latest/download/DesktopEditors-x86_64.AppImage"
+
+if [[ -x "$ONLYOFFICE_APPIMAGE" ]]; then
+    log "ONLYOFFICE already present"
+else
+    mkdir -p /opt/onlyoffice
+    if curl -fSL --progress-bar -o "$ONLYOFFICE_APPIMAGE" "$ONLYOFFICE_URL"; then
+        chmod +x "$ONLYOFFICE_APPIMAGE"
+        log "ONLYOFFICE AppImage downloaded"
+    else
+        log "Warning: ONLYOFFICE download failed (will install at boot)"
+        rm -f "$ONLYOFFICE_APPIMAGE"
+    fi
+fi
+
+# Create wrapper script
+cat > /usr/local/bin/onlyoffice <<'EOFWRAPPER'
+#!/bin/bash
+exec /opt/onlyoffice/DesktopEditors-x86_64.AppImage --no-sandbox "$@"
+EOFWRAPPER
+chmod 755 /usr/local/bin/onlyoffice
+
+# Create .desktop entry
+cat > /usr/share/applications/onlyoffice-desktopeditors.desktop <<'EOFDESKTOP'
+[Desktop Entry]
+Name=ONLYOFFICE Desktop Editors
+Comment=Edit office documents (text, spreadsheets, presentations)
+Comment[es]=Editar documentos de oficina (texto, hojas de cálculo, presentaciones)
+Exec=/usr/local/bin/onlyoffice %U
+Icon=onlyoffice-desktopeditors
+Terminal=false
+Type=Application
+Categories=Office;WordProcessor;Spreadsheet;Presentation;
+MimeType=application/vnd.oasis.opendocument.text;application/vnd.oasis.opendocument.spreadsheet;application/vnd.oasis.opendocument.presentation;application/vnd.openxmlformats-officedocument.wordprocessingml.document;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.openxmlformats-officedocument.presentationml.presentation;application/msword;application/vnd.ms-excel;application/vnd.ms-powerpoint;
+StartupWMClass=DesktopEditors
+EOFDESKTOP
+
+# Copy setup script for manual retry
+cat > /usr/local/bin/setup-onlyoffice.sh <<'EOFSETUP'
+#!/bin/bash
+set -euo pipefail
+APPIMAGE_PATH="/opt/onlyoffice/DesktopEditors-x86_64.AppImage"
+if [[ -x "$APPIMAGE_PATH" ]]; then
+    echo "✓ ONLYOFFICE Desktop Editors ya está instalado."
+    exit 0
+fi
+if ! curl -sf --connect-timeout 5 https://github.com/ >/dev/null 2>&1; then
+    echo "⚠ No hay conexión a Internet."
+    echo "  Conecta a la red y ejecuta de nuevo: sudo setup-onlyoffice.sh"
+    exit 0
+fi
+echo "Instalando ONLYOFFICE Desktop Editors..."
+mkdir -p /opt/onlyoffice
+if curl -fSL --progress-bar -o "$APPIMAGE_PATH" "https://github.com/ONLYOFFICE/DesktopEditors/releases/latest/download/DesktopEditors-x86_64.AppImage"; then
+    chmod +x "$APPIMAGE_PATH"
+    echo "✓ ONLYOFFICE Desktop Editors instalado correctamente."
+    exit 0
+fi
+echo "⚠ No se pudo instalar ONLYOFFICE."
+rm -f "$APPIMAGE_PATH"
+exit 0
+EOFSETUP
+chmod 755 /usr/local/bin/setup-onlyoffice.sh
+
+# ONLYOFFICE fallback service
+cat > /etc/systemd/system/setup-onlyoffice.service <<'EOFSVC'
+[Unit]
+Description=Install ONLYOFFICE Desktop Editors if not already present
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=HOME=/root
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+ExecStart=/usr/local/bin/setup-onlyoffice.sh
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target
+EOFSVC
+systemctl enable setup-onlyoffice.service 2>/dev/null || true
+
+# ── Step 8: Cleanup ─────────────────────────────────────────────────────
 log "Phase 2 setup complete! Disabling first-boot service..."
 systemctl disable mados-first-boot.service 2>/dev/null || true
 rm -f /usr/local/bin/mados-first-boot.sh
