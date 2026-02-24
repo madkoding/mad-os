@@ -33,11 +33,15 @@ def load_logo(size=160):
     return None
 
 
-LOG_FILE = "/tmp/mados-install.log"
+LOG_FILE = "/var/log/mados-install.log"
 
 
 def save_log_to_file(app, path=None):
     """Save the installer log buffer contents to a file.
+
+    Uses os.open with O_NOFOLLOW to prevent symlink attacks, since the
+    installer runs as root.  Permissions are set to 0o644 so that the
+    user can read the log from a terminal after the installer closes.
 
     Returns the path written to, or *None* on failure.
     """
@@ -46,7 +50,12 @@ def save_log_to_file(app, path=None):
     try:
         buf = app.log_buffer
         text = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), True)
-        with open(path, "w") as fh:
+        fd = os.open(
+            path,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW,
+            0o644,
+        )
+        with os.fdopen(fd, "w") as fh:
             fh.write(text)
         return path
     except Exception as exc:

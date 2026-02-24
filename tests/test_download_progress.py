@@ -625,9 +625,25 @@ class TestSaveLogToFile(unittest.TestCase):
         result = save_log_to_file(app, path="/nonexistent_dir/impossible.log")
         self.assertIsNone(result)
 
-    def test_default_log_path_is_tmp(self):
-        """LOG_FILE should be in /tmp so user can read it after installer closes."""
-        self.assertTrue(LOG_FILE.startswith("/tmp/"))
+    def test_rejects_symlink(self):
+        """save_log_to_file should refuse to follow symlinks (O_NOFOLLOW)."""
+        app = MockApp()
+        app.log_buffer = MockLogBuffer()
+        app.log_buffer.insert_at_cursor("symlink test\n")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = os.path.join(tmpdir, "target.log")
+            link = os.path.join(tmpdir, "link.log")
+            os.symlink(target, link)
+            # Writing through a symlink should fail due to O_NOFOLLOW
+            result = save_log_to_file(app, path=link)
+            self.assertIsNone(result)
+            # Target file should NOT have been created
+            self.assertFalse(os.path.exists(target))
+
+    def test_default_log_path_is_var_log(self):
+        """LOG_FILE should be in /var/log/ (not /tmp/) for safe root-owned logging."""
+        self.assertTrue(LOG_FILE.startswith("/var/log/"))
 
 
 class TestHandleInstallationError(unittest.TestCase):
