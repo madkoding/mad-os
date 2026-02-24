@@ -9,6 +9,8 @@ These tests mock subprocess and GTK to run in a headless CI environment.
 """
 
 import sys
+import subprocess
+import tempfile
 import types
 import unittest
 from unittest.mock import patch, MagicMock, call
@@ -65,7 +67,10 @@ sys.path.insert(
 from mados_installer.pages.installation import (
     _download_packages_with_progress,
     _run_pacstrap_with_progress,
+    _run_single_pacstrap,
+    _handle_installation_error,
 )
+from mados_installer.utils import save_log_to_file, LOG_FILE
 from mados_installer.config import PACKAGES
 
 
@@ -379,6 +384,352 @@ class TestDemoModeProgressMath(unittest.TestCase):
         self.assertLess(
             first_progress, 0.36, "First demo download progress should be < 0.36"
         )
+
+
+class TestPacstrapRetryLogic(unittest.TestCase):
+    """Verify pacstrap retries on transient failures."""
+
+    def test_succeeds_on_first_attempt(self):
+        """pacstrap should succeed without retrying when exit code is 0."""
+        app = MockApp()
+
+        mock_proc = MagicMock()
+        mock_proc.stdout.readline.return_value = ""
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = None
+
+        popen_calls = []
+
+        def capture_popen(cmd, **kwargs):
+            popen_calls.append(cmd)
+            return mock_proc
+
+        with (
+            patch(
+                "mados_installer.pages.installation.subprocess.Popen",
+                side_effect=capture_popen,
+            ),
+            patch("mados_installer.pages.installation.set_progress"),
+            patch("mados_installer.pages.installation.log_message"),
+        ):
+            _run_pacstrap_with_progress(app, ["base", "linux"])
+
+        # Should only call pacstrap once
+        self.assertEqual(len(popen_calls), 1)
+
+    def test_retries_on_failure_then_succeeds(self):
+        """pacstrap should retry after failure and succeed on second attempt."""
+        app = MockApp()
+        log_messages = []
+        attempt = [0]
+
+        def make_proc():
+            mock_proc = MagicMock()
+            mock_proc.stdout.readline.return_value = ""
+            mock_proc.wait.return_value = None
+            attempt[0] += 1
+            # First attempt fails, second succeeds
+            mock_proc.returncode = 1 if attempt[0] == 1 else 0
+            return mock_proc
+
+        def capture_log(app_arg, msg):
+            log_messages.append(msg)
+
+        with (
+            patch(
+                "mados_installer.pages.installation.subprocess.Popen",
+                side_effect=lambda cmd, **kw: make_proc(),
+            ),
+            patch(
+                "mados_installer.pages.installation.subprocess.run",
+                return_value=MagicMock(returncode=0),
+            ),
+            patch("mados_installer.pages.installation.set_progress"),
+            patch(
+                "mados_installer.pages.installation.log_message",
+                side_effect=capture_log,
+            ),
+        ):
+            _run_pacstrap_with_progress(app, ["base", "linux"])
+
+        # Verify retry message was logged
+        retry_msgs = [m for m in log_messages if "retrying" in m.lower()]
+        self.assertEqual(len(retry_msgs), 1)
+
+    def test_raises_after_all_retries_exhausted(self):
+        """pacstrap should raise CalledProcessError after max retries."""
+        app = MockApp()
+
+        mock_proc = MagicMock()
+        mock_proc.stdout.readline.return_value = ""
+        mock_proc.returncode = 1
+        mock_proc.wait.return_value = None
+
+        with (
+            patch(
+                "mados_installer.pages.installation.subprocess.Popen",
+                return_value=mock_proc,
+            ),
+            patch(
+                "mados_installer.pages.installation.subprocess.run",
+                return_value=MagicMock(returncode=0),
+            ),
+            patch("mados_installer.pages.installation.set_progress"),
+            patch("mados_installer.pages.installation.log_message"),
+        ):
+            with self.assertRaises(subprocess.CalledProcessError) as ctx:
+                _run_pacstrap_with_progress(app, ["base", "linux"], max_retries=3)
+            self.assertEqual(ctx.exception.returncode, 1)
+
+    def test_refreshes_databases_between_retries(self):
+        """pacman -Sy should be called between retry attempts."""
+        app = MockApp()
+        run_calls = []
+        attempt = [0]
+
+        def make_proc():
+            mock_proc = MagicMock()
+            mock_proc.stdout.readline.return_value = ""
+            mock_proc.wait.return_value = None
+            attempt[0] += 1
+            # All attempts fail except the last
+            mock_proc.returncode = 1 if attempt[0] < 3 else 0
+            return mock_proc
+
+        def capture_run(cmd, **kwargs):
+            run_calls.append(cmd)
+            return MagicMock(returncode=0)
+
+        with (
+            patch(
+                "mados_installer.pages.installation.subprocess.Popen",
+                side_effect=lambda cmd, **kw: make_proc(),
+            ),
+            patch(
+                "mados_installer.pages.installation.subprocess.run",
+                side_effect=capture_run,
+            ),
+            patch("mados_installer.pages.installation.set_progress"),
+            patch("mados_installer.pages.installation.log_message"),
+        ):
+            _run_pacstrap_with_progress(app, ["base"], max_retries=3)
+
+        # Should have called pacman -Sy twice (between attempt 1→2 and 2→3)
+        pacman_sy_calls = [
+            c for c in run_calls if c == ["pacman", "-Sy", "--noconfirm"]
+        ]
+        self.assertEqual(len(pacman_sy_calls), 2)
+
+    def test_max_retries_parameter(self):
+        """max_retries parameter should control number of attempts."""
+        app = MockApp()
+        popen_count = [0]
+
+        mock_proc = MagicMock()
+        mock_proc.stdout.readline.return_value = ""
+        mock_proc.returncode = 1
+        mock_proc.wait.return_value = None
+
+        def count_popen(cmd, **kwargs):
+            popen_count[0] += 1
+            return mock_proc
+
+        with (
+            patch(
+                "mados_installer.pages.installation.subprocess.Popen",
+                side_effect=count_popen,
+            ),
+            patch(
+                "mados_installer.pages.installation.subprocess.run",
+                return_value=MagicMock(returncode=0),
+            ),
+            patch("mados_installer.pages.installation.set_progress"),
+            patch("mados_installer.pages.installation.log_message"),
+        ):
+            with self.assertRaises(subprocess.CalledProcessError):
+                _run_pacstrap_with_progress(app, ["base"], max_retries=2)
+
+        # Should have attempted exactly 2 times
+        self.assertEqual(popen_count[0], 2)
+
+
+
+class MockLogBuffer:
+    """Minimal mock of Gtk.TextBuffer with real text storage for testing."""
+
+    def __init__(self):
+        self._text = ""
+
+    def insert_at_cursor(self, text):
+        self._text += text
+
+    def get_text(self, start, end, include_hidden):
+        return self._text
+
+    def get_start_iter(self):
+        return None
+
+    def get_end_iter(self):
+        return None
+
+    def get_insert(self):
+        return MagicMock()
+
+
+class TestSaveLogToFile(unittest.TestCase):
+    """Verify installer log is persisted to a file on error."""
+
+    def test_log_saved_to_default_path(self):
+        """save_log_to_file writes log buffer content to LOG_FILE."""
+        app = MockApp()
+        app.log_buffer = MockLogBuffer()
+        app.log_buffer.insert_at_cursor("line 1\n")
+        app.log_buffer.insert_at_cursor("line 2\n")
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
+            tmp_path = f.name
+
+        try:
+            result = save_log_to_file(app, path=tmp_path)
+            self.assertEqual(result, tmp_path)
+            with open(tmp_path) as f:
+                content = f.read()
+            self.assertIn("line 1", content)
+            self.assertIn("line 2", content)
+        finally:
+            os.unlink(tmp_path)
+
+    def test_log_saved_to_custom_path(self):
+        """save_log_to_file accepts a custom path argument."""
+        app = MockApp()
+        app.log_buffer = MockLogBuffer()
+        app.log_buffer.insert_at_cursor("custom log content\n")
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
+            tmp_path = f.name
+
+        try:
+            result = save_log_to_file(app, path=tmp_path)
+            self.assertEqual(result, tmp_path)
+            with open(tmp_path) as f:
+                content = f.read()
+            self.assertIn("custom log content", content)
+        finally:
+            os.unlink(tmp_path)
+
+    def test_returns_none_on_failure(self):
+        """save_log_to_file returns None when writing fails."""
+        app = MockApp()
+        app.log_buffer = MockLogBuffer()
+        # Use an impossible path to trigger failure
+        result = save_log_to_file(app, path="/nonexistent_dir/impossible.log")
+        self.assertIsNone(result)
+
+    def test_rejects_symlink(self):
+        """save_log_to_file should refuse to follow symlinks (O_NOFOLLOW)."""
+        app = MockApp()
+        app.log_buffer = MockLogBuffer()
+        app.log_buffer.insert_at_cursor("symlink test\n")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = os.path.join(tmpdir, "target.log")
+            link = os.path.join(tmpdir, "link.log")
+            os.symlink(target, link)
+            # Writing through a symlink should fail due to O_NOFOLLOW
+            result = save_log_to_file(app, path=link)
+            self.assertIsNone(result)
+            # Target file should NOT have been created
+            self.assertFalse(os.path.exists(target))
+
+    def test_default_log_path_is_var_log(self):
+        """LOG_FILE should be in /var/log/ (not /tmp/) for safe root-owned logging."""
+        self.assertTrue(LOG_FILE.startswith("/var/log/"))
+
+
+class TestHandleInstallationError(unittest.TestCase):
+    """Verify error handler saves log, shows error, then quits."""
+
+    def test_error_handler_saves_log_and_quits(self):
+        """_handle_installation_error should save log, show dialog, and quit."""
+        app = MockApp()
+        app.log_buffer = MockLogBuffer()
+        app.log_buffer.insert_at_cursor("Some install log\n")
+        app.log_buffer.insert_at_cursor("[ERROR] pacstrap failed\n")
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
+            tmp_path = f.name
+
+        show_error_calls = []
+        quit_called = [False]
+
+        def mock_show_error(parent, title, message):
+            show_error_calls.append((title, message))
+
+        def mock_quit():
+            quit_called[0] = True
+
+        with (
+            patch(
+                "mados_installer.pages.installation.save_log_to_file",
+                return_value=tmp_path,
+            ),
+            patch(
+                "mados_installer.pages.installation.show_error",
+                side_effect=mock_show_error,
+            ),
+            patch(
+                "mados_installer.pages.installation.Gtk.main_quit",
+                side_effect=mock_quit,
+            ),
+        ):
+            _handle_installation_error(app, "pacstrap failed")
+
+        # Verify error dialog was shown with log path info
+        self.assertEqual(len(show_error_calls), 1)
+        title, message = show_error_calls[0]
+        self.assertEqual(title, "Installation Failed")
+        self.assertIn("pacstrap failed", message)
+        self.assertIn(tmp_path, message)
+        self.assertIn("log has been saved", message)
+
+        # Verify installer quit was called
+        self.assertTrue(quit_called[0])
+
+    def test_error_handler_without_log_file(self):
+        """When log save fails, error dialog should still show and quit."""
+        app = MockApp()
+        app.log_buffer = MockLogBuffer()
+
+        show_error_calls = []
+        quit_called = [False]
+
+        def mock_show_error(parent, title, message):
+            show_error_calls.append((title, message))
+
+        def mock_quit():
+            quit_called[0] = True
+
+        with (
+            patch(
+                "mados_installer.pages.installation.save_log_to_file",
+                return_value=None,
+            ),
+            patch(
+                "mados_installer.pages.installation.show_error",
+                side_effect=mock_show_error,
+            ),
+            patch(
+                "mados_installer.pages.installation.Gtk.main_quit",
+                side_effect=mock_quit,
+            ),
+        ):
+            _handle_installation_error(app, "some error")
+
+        self.assertEqual(len(show_error_calls), 1)
+        title, message = show_error_calls[0]
+        self.assertNotIn("log has been saved", message)
+        self.assertIn("will now close", message)
+        self.assertTrue(quit_called[0])
 
 
 if __name__ == "__main__":

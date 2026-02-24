@@ -582,7 +582,7 @@ class TestCompositorSelection(unittest.TestCase):
         )
         with open(install_py) as f:
             content = f.read()
-        for script in ['hyprland-session', 'select-compositor']:
+        for script in ['hyprland-session', 'start-hyprland', 'select-compositor']:
             with self.subTest(script=script):
                 self.assertIn(script, content,
                                f"Installer must copy {script}")
