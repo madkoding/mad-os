@@ -32,11 +32,13 @@ class _StubMeta(type):
 
 
 class _StubWidget(metaclass=_StubMeta):
+    """No-op GTK widget stub for headless CI — all methods intentionally empty."""
+
     def __init__(self, *a, **kw):
-        pass
+        pass  # Intentionally empty: absorb any GTK constructor arguments
 
     def __init_subclass__(cls, **kw):
-        pass
+        pass  # Intentionally empty: allow subclassing without GTK side-effects
 
     def __getattr__(self, name):
         return _stub_func
