@@ -129,8 +129,8 @@ RSYNC_EXCLUDES = [
     '/dev/*',
     '/proc/*',
     '/sys/*',
-    '/run/*',
-    '/tmp/*',  # noqa: S5443 — exclude pattern, not directory access
+    '/run/*',  # NOSONAR - rsync exclude pattern, not directory access
+    '/tmp/*',  # NOSONAR - rsync exclude pattern, not directory access  # noqa: S5443
     '/mnt/*',
     '/var/cache/pacman/pkg/*',
     '/var/log/*',

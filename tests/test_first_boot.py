@@ -601,12 +601,16 @@ class TestGpuDetection(unittest.TestCase):
             "lspci", self.content,
             "Must use lspci to detect GPU hardware",
         )
-        # Verify it filters for VGA/3D/Display controllers
-        pattern = r'lspci[^\n]*grep[^\n]*-iE[^\n]*"VGA\|3D\|Display"'
-        self.assertIsNotNone(
-            re.search(pattern, self.content),
-            "Must filter lspci output for VGA/3D/Display controllers",
-        )
+        # Verify it filters for VGA/3D/Display controllers.
+        # Check that a single line contains the full lspci | grep pipeline.
+        for line in self.content.splitlines():
+            if "lspci" in line and "grep" in line and "-iE" in line:
+                if "VGA" in line and "3D" in line and "Display" in line:
+                    break
+        else:
+            self.fail(
+                "Must filter lspci output for VGA/3D/Display controllers"
+            )
 
     def test_nvidia_detection(self):
         """Script must check for NVIDIA GPUs via case-insensitive grep."""
@@ -661,10 +665,22 @@ class TestGpuDetection(unittest.TestCase):
     def test_nvidia_packages_conditional(self):
         """NVIDIA packages must only be installed when NVIDIA GPU is detected."""
         # The NVIDIA install block should be inside the nvidia grep conditional
-        # (grep and pacman may be separated by log lines)
-        pattern = r'grep[^\n]*nvidia[^\n]*(?:\n[^\n]*){0,5}\n[^\n]*pacman -S[^\n]*--noconfirm[^\n]*--needed'
+        # (grep and pacman may be separated by log lines).
+        # Walk lines: find the nvidia grep, then within 6 lines find pacman.
+        lines = self.content.splitlines()
+        grep_idx = None
+        for i, line in enumerate(lines):
+            if "grep" in line.lower() and "nvidia" in line.lower():
+                grep_idx = i
+                break
         self.assertIsNotNone(
-            re.search(pattern, self.content, re.IGNORECASE),
+            grep_idx,
+            "Must have a grep for nvidia",
+        )
+        window = "\n".join(lines[grep_idx:grep_idx + 6])
+        self.assertRegex(
+            window.lower(),
+            r"pacman -s.*--noconfirm.*--needed",
             "NVIDIA packages must be installed conditionally after detection",
         )
 
