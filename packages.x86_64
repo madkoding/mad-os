@@ -1,5 +1,6 @@
 # Sistema base
 base
+base-devel
 linux
 linux-firmware
 mkinitcpio-archiso
@@ -8,6 +9,7 @@ amd-ucode
 grub
 efibootmgr
 os-prober
+sbctl
 syslinux
 sudo
 zsh

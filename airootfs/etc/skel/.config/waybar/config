@@ -18,6 +18,7 @@
     ],
     "modules-right": [
         "tray",
+        "network",
         "cpu",
         "memory",
         "pulseaudio",
@@ -88,6 +89,13 @@
     "tray": {
         "icon-size": 18,
         "spacing": 10
+    },
+    "network": {
+        "format-wifi": "<span size='x-large'>󰤨</span>  {essid}",
+        "format-ethernet": "<span size='x-large'>󰈀</span>  {ipaddr}",
+        "format-disconnected": "<span size='x-large'>󰤭</span>  Disconnected",
+        "tooltip-format": "{ifname}: {ipaddr}/{cidr}",
+        "on-click": "nm-connection-editor"
     },
     "pulseaudio": {
         "format": "<span size='x-large'>{icon}</span>  {volume}%",
