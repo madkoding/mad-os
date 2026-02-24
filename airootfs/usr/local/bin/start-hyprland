@@ -44,13 +44,22 @@ if [ -x /usr/local/bin/detect-legacy-hardware ]; then
     fi
 fi
 
+# Create a watchdog fd for Hyprland's session monitoring
+# Hyprland expects --watchdog-fd to signal it was started through a proper session wrapper.
+# Without this, Hyprland shows a "started without start-hyprland" notification on every boot.
+# We open /dev/null as a writable fd — Hyprland writes "vax" (ready) and "end" (exiting) to it.
+exec {WATCHDOG_FD}>/dev/null
+
 # Launch Hyprland and measure runtime
-logger -p user.info -t "$LOG_TAG" "Launching Hyprland compositor"
+logger -p user.info -t "$LOG_TAG" "Launching Hyprland compositor (watchdog fd=$WATCHDOG_FD)"
 start_time=$(date +%s)
-Hyprland
+Hyprland --watchdog-fd "$WATCHDOG_FD"
 exit_code=$?
 end_time=$(date +%s)
 runtime=$((end_time - start_time))
+
+# Close the watchdog fd
+exec {WATCHDOG_FD}>&-
 
 # If Hyprland exited too quickly, treat as a failure regardless of exit code
 # Hyprland can exit with code 0 even when it fails to render (no GPU, no display, etc.)
