@@ -9,6 +9,7 @@ These tests mock subprocess and GTK to run in a headless CI environment.
 """
 
 import sys
+import subprocess
 import types
 import unittest
 from unittest.mock import patch, MagicMock, call
@@ -65,6 +66,7 @@ sys.path.insert(
 from mados_installer.pages.installation import (
     _download_packages_with_progress,
     _run_pacstrap_with_progress,
+    _run_single_pacstrap,
 )
 from mados_installer.config import PACKAGES
 
@@ -379,6 +381,173 @@ class TestDemoModeProgressMath(unittest.TestCase):
         self.assertLess(
             first_progress, 0.36, "First demo download progress should be < 0.36"
         )
+
+
+class TestPacstrapRetryLogic(unittest.TestCase):
+    """Verify pacstrap retries on transient failures."""
+
+    def test_succeeds_on_first_attempt(self):
+        """pacstrap should succeed without retrying when exit code is 0."""
+        app = MockApp()
+
+        mock_proc = MagicMock()
+        mock_proc.stdout.readline.return_value = ""
+        mock_proc.returncode = 0
+        mock_proc.wait.return_value = None
+
+        popen_calls = []
+
+        def capture_popen(cmd, **kwargs):
+            popen_calls.append(cmd)
+            return mock_proc
+
+        with (
+            patch(
+                "mados_installer.pages.installation.subprocess.Popen",
+                side_effect=capture_popen,
+            ),
+            patch("mados_installer.pages.installation.set_progress"),
+            patch("mados_installer.pages.installation.log_message"),
+        ):
+            _run_pacstrap_with_progress(app, ["base", "linux"])
+
+        # Should only call pacstrap once
+        self.assertEqual(len(popen_calls), 1)
+
+    def test_retries_on_failure_then_succeeds(self):
+        """pacstrap should retry after failure and succeed on second attempt."""
+        app = MockApp()
+        log_messages = []
+        attempt = [0]
+
+        def make_proc():
+            mock_proc = MagicMock()
+            mock_proc.stdout.readline.return_value = ""
+            mock_proc.wait.return_value = None
+            attempt[0] += 1
+            # First attempt fails, second succeeds
+            mock_proc.returncode = 1 if attempt[0] == 1 else 0
+            return mock_proc
+
+        def capture_log(app_arg, msg):
+            log_messages.append(msg)
+
+        with (
+            patch(
+                "mados_installer.pages.installation.subprocess.Popen",
+                side_effect=lambda cmd, **kw: make_proc(),
+            ),
+            patch(
+                "mados_installer.pages.installation.subprocess.run",
+                return_value=MagicMock(returncode=0),
+            ),
+            patch("mados_installer.pages.installation.set_progress"),
+            patch(
+                "mados_installer.pages.installation.log_message",
+                side_effect=capture_log,
+            ),
+        ):
+            _run_pacstrap_with_progress(app, ["base", "linux"])
+
+        # Verify retry message was logged
+        retry_msgs = [m for m in log_messages if "retrying" in m.lower()]
+        self.assertEqual(len(retry_msgs), 1)
+
+    def test_raises_after_all_retries_exhausted(self):
+        """pacstrap should raise CalledProcessError after max retries."""
+        app = MockApp()
+
+        mock_proc = MagicMock()
+        mock_proc.stdout.readline.return_value = ""
+        mock_proc.returncode = 1
+        mock_proc.wait.return_value = None
+
+        with (
+            patch(
+                "mados_installer.pages.installation.subprocess.Popen",
+                return_value=mock_proc,
+            ),
+            patch(
+                "mados_installer.pages.installation.subprocess.run",
+                return_value=MagicMock(returncode=0),
+            ),
+            patch("mados_installer.pages.installation.set_progress"),
+            patch("mados_installer.pages.installation.log_message"),
+        ):
+            with self.assertRaises(subprocess.CalledProcessError) as ctx:
+                _run_pacstrap_with_progress(app, ["base", "linux"], max_retries=3)
+            self.assertEqual(ctx.exception.returncode, 1)
+
+    def test_refreshes_databases_between_retries(self):
+        """pacman -Sy should be called between retry attempts."""
+        app = MockApp()
+        run_calls = []
+        attempt = [0]
+
+        def make_proc():
+            mock_proc = MagicMock()
+            mock_proc.stdout.readline.return_value = ""
+            mock_proc.wait.return_value = None
+            attempt[0] += 1
+            # All attempts fail except the last
+            mock_proc.returncode = 1 if attempt[0] < 3 else 0
+            return mock_proc
+
+        def capture_run(cmd, **kwargs):
+            run_calls.append(cmd)
+            return MagicMock(returncode=0)
+
+        with (
+            patch(
+                "mados_installer.pages.installation.subprocess.Popen",
+                side_effect=lambda cmd, **kw: make_proc(),
+            ),
+            patch(
+                "mados_installer.pages.installation.subprocess.run",
+                side_effect=capture_run,
+            ),
+            patch("mados_installer.pages.installation.set_progress"),
+            patch("mados_installer.pages.installation.log_message"),
+        ):
+            _run_pacstrap_with_progress(app, ["base"], max_retries=3)
+
+        # Should have called pacman -Sy twice (between attempt 1→2 and 2→3)
+        pacman_sy_calls = [
+            c for c in run_calls if c == ["pacman", "-Sy", "--noconfirm"]
+        ]
+        self.assertEqual(len(pacman_sy_calls), 2)
+
+    def test_max_retries_parameter(self):
+        """max_retries parameter should control number of attempts."""
+        app = MockApp()
+        popen_count = [0]
+
+        mock_proc = MagicMock()
+        mock_proc.stdout.readline.return_value = ""
+        mock_proc.returncode = 1
+        mock_proc.wait.return_value = None
+
+        def count_popen(cmd, **kwargs):
+            popen_count[0] += 1
+            return mock_proc
+
+        with (
+            patch(
+                "mados_installer.pages.installation.subprocess.Popen",
+                side_effect=count_popen,
+            ),
+            patch(
+                "mados_installer.pages.installation.subprocess.run",
+                return_value=MagicMock(returncode=0),
+            ),
+            patch("mados_installer.pages.installation.set_progress"),
+            patch("mados_installer.pages.installation.log_message"),
+        ):
+            with self.assertRaises(subprocess.CalledProcessError):
+                _run_pacstrap_with_progress(app, ["base"], max_retries=2)
+
+        # Should have attempted exactly 2 times
+        self.assertEqual(popen_count[0], 2)
 
 
 if __name__ == "__main__":

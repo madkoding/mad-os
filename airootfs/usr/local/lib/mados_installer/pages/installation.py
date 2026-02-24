@@ -746,8 +746,45 @@ def _download_packages_with_progress(app, packages):
     log_message(app, f"  All {total} packages downloaded to cache")
 
 
-def _run_pacstrap_with_progress(app, packages):
-    """Run pacstrap while parsing output to update progress bar and log"""
+def _run_pacstrap_with_progress(app, packages, max_retries=3):
+    """Run pacstrap while parsing output to update progress bar and log.
+
+    Retries up to *max_retries* times on failure, refreshing the package
+    databases between attempts so that transient mirror / keyring / network
+    errors do not immediately abort the installation.
+    """
+    last_error = None
+
+    for attempt in range(1, max_retries + 1):
+        returncode, installed_count = _run_single_pacstrap(app, packages)
+
+        if returncode == 0:
+            set_progress(app, 0.48, "Base system installed")
+            log_message(app, f"Base system installed ({installed_count} packages)")
+            return
+
+        last_error = subprocess.CalledProcessError(returncode, "pacstrap")
+        if attempt < max_retries:
+            log_message(
+                app,
+                f"  pacstrap failed (exit code {returncode}), "
+                f"retrying ({attempt}/{max_retries})...",
+            )
+            set_progress(
+                app, 0.36, f"Retrying installation (attempt {attempt + 1}/{max_retries})..."
+            )
+            # Refresh databases before retrying
+            subprocess.run(
+                ["pacman", "-Sy", "--noconfirm"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+    raise last_error
+
+
+def _run_single_pacstrap(app, packages):
+    """Execute one pacstrap invocation and return (returncode, installed_count)."""
     total_packages = len(packages)
     installed_count = 0
 
@@ -878,11 +915,7 @@ def _run_pacstrap_with_progress(app, packages):
         log_message(app, f"  {line.strip()}")
 
     proc.wait()
-    if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, "pacstrap")
-
-    set_progress(app, progress_end, "Base system installed")
-    log_message(app, f"Base system installed ({installed_count} packages)")
+    return proc.returncode, installed_count
 
 
 def _run_chroot_with_progress(app):
