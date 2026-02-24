@@ -27,6 +27,11 @@ BIN_DIR = os.path.join(AIROOTFS, "usr", "local", "bin")
 # Add lib dir to path for imports
 sys.path.insert(0, LIB_DIR)
 
+# Install GTK mocks so that importing mados_installer works headlessly
+sys.path.insert(0, os.path.dirname(__file__))
+from test_helpers import install_gtk_mocks
+install_gtk_mocks()
+
 
 class TestBluetoothPackages(unittest.TestCase):
     """Verify Bluetooth packages are included in the ISO package list."""
