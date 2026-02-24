@@ -718,8 +718,11 @@ def _prepare_pacman(app):
                     app, f"  Still initializing keyring... ({elapsed}s elapsed)"
                 )
 
-    if status == "failed":
-        log_message(app, "  Keyring service failed, re-initializing manually...")
+    if status in ("failed", "inactive", "unknown"):
+        log_message(app, f"  Keyring service status: {status}, initializing manually...")
+        # Ensure the gnupg directory exists and is writable before pacman-key
+        gnupg_dir = "/etc/pacman.d/gnupg"
+        os.makedirs(gnupg_dir, mode=0o700, exist_ok=True)
         subprocess.run(["pacman-key", "--init"], check=True)
         subprocess.run(["pacman-key", "--populate"], check=True)
 

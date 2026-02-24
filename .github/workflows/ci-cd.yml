@@ -441,6 +441,7 @@ jobs:
               echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
               echo 'nameserver ${{ env.DNS_SECONDARY }}' >> /etc/resolv.conf
               pacman-key --init
+              pacman-key --populate
               pacman -Syu --noconfirm archiso
               cd /build
               mkarchiso -v -w /tmp/work -o /build/out .

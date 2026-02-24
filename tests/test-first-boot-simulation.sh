@@ -59,6 +59,7 @@ if ! command -v python3 &>/dev/null; then
     
     info "Initializing pacman keyring..."
     pacman-key --init
+    pacman-key --populate
     
     info "Installing Python..."
     pacman -Syu --noconfirm python
