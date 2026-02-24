@@ -49,7 +49,8 @@ def save_log_to_file(app, path=None):
         with open(path, "w") as fh:
             fh.write(text)
         return path
-    except Exception:
+    except Exception as exc:
+        print(f"Warning: could not save install log to {path}: {exc}")
         return None
 
 

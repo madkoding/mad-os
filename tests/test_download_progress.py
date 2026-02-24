@@ -10,6 +10,7 @@ These tests mock subprocess and GTK to run in a headless CI environment.
 
 import sys
 import subprocess
+import tempfile
 import types
 import unittest
 from unittest.mock import patch, MagicMock, call
@@ -551,8 +552,6 @@ class TestPacstrapRetryLogic(unittest.TestCase):
         # Should have attempted exactly 2 times
         self.assertEqual(popen_count[0], 2)
 
-
-import tempfile
 
 
 class MockLogBuffer:
