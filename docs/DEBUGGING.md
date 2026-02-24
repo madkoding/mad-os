@@ -151,7 +151,7 @@ systemctl list-units --type=service --state=failed
 
 ```bash
 # Installer logs are written during installation
-cat /tmp/mados-install.log 2>/dev/null
+cat /var/log/mados-install.log 2>/dev/null
 
 # Run installer manually with verbose output
 sudo /usr/local/bin/install-mados-gtk.py 2>&1 | tee /tmp/installer-debug.log

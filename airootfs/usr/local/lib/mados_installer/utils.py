@@ -2,6 +2,7 @@
 madOS Installer - Shared utility functions
 """
 
+import errno
 import os
 import random
 import string
@@ -31,6 +32,42 @@ def load_logo(size=160):
         except Exception as e:
             print(f"Could not load logo from {logo_path}: {e}")
     return None
+
+
+LOG_FILE = "/var/log/mados-install.log"
+
+
+def save_log_to_file(app, path=None):
+    """Save the installer log buffer contents to a file.
+
+    Uses os.open with O_NOFOLLOW to prevent symlink attacks, since the
+    installer runs as root.  Permissions are set to 0o644 so that the
+    user can read the log from a terminal after the installer closes.
+
+    Returns the path written to, or *None* on failure.
+    """
+    if path is None:
+        path = LOG_FILE
+    try:
+        buf = app.log_buffer
+        text = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), True)
+        fd = os.open(
+            path,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW,
+            0o644,
+        )
+        with os.fdopen(fd, "w") as fh:
+            fh.write(text)
+        return path
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            print(f"Warning: refusing to follow symlink at {path}")
+        else:
+            print(f"Warning: could not save install log to {path}: {exc}")
+        return None
+    except Exception as exc:
+        print(f"Warning: could not save install log to {path}: {exc}")
+        return None
 
 
 def show_error(parent, title, message):

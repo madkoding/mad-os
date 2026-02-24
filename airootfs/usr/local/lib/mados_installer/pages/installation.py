@@ -21,7 +21,7 @@ from ..config import (
     TIMEZONES,
     LOCALE_MAP,
 )
-from ..utils import log_message, set_progress, show_error
+from ..utils import log_message, set_progress, show_error, save_log_to_file, LOG_FILE
 
 MNT_USR_LOCAL_BIN = "/mnt/usr/local/bin/"
 
@@ -590,7 +590,23 @@ def _run_installation(app):
             log_message(app, "Cleaning up after error...")
             subprocess.run(["umount", "-R", "/mnt"], capture_output=True)
         GLib.idle_add(app.install_spinner.stop)
-        GLib.idle_add(show_error, app, "Installation Failed", str(e))
+        GLib.idle_add(_handle_installation_error, app, str(e))
+
+
+def _handle_installation_error(app, error_msg):
+    """Save log to file, show error dialog, then quit the installer."""
+    log_path = save_log_to_file(app)
+    if log_path:
+        message = (
+            f"{error_msg}\n\n"
+            f"The installation log has been saved to:\n{log_path}\n\n"
+            "The installer will now close."
+        )
+    else:
+        message = f"{error_msg}\n\nThe installer will now close."
+    show_error(app, "Installation Failed", message)
+    Gtk.main_quit()
+    return False
 
 
 def _finish_installation(app):
@@ -747,8 +763,51 @@ def _download_packages_with_progress(app, packages):
     log_message(app, f"  All {total} packages downloaded to cache")
 
 
-def _run_pacstrap_with_progress(app, packages):
-    """Run pacstrap while parsing output to update progress bar and log"""
+def _run_pacstrap_with_progress(app, packages, max_retries=3):
+    """Run pacstrap while parsing output to update progress bar and log.
+
+    Retries up to *max_retries* times on failure, refreshing the package
+    databases between attempts so that transient mirror / keyring / network
+    errors do not immediately abort the installation.
+    """
+    last_error = None
+
+    for attempt in range(1, max_retries + 1):
+        returncode, installed_count = _run_single_pacstrap(app, packages)
+
+        if returncode == 0:
+            set_progress(app, 0.48, "Base system installed")
+            log_message(app, f"Base system installed ({installed_count} packages)")
+            return
+
+        last_error = subprocess.CalledProcessError(returncode, "pacstrap")
+        if attempt < max_retries:
+            log_message(
+                app,
+                f"  pacstrap failed (exit code {returncode}), "
+                f"retrying ({attempt}/{max_retries})...",
+            )
+            # Progress 0.36 = pacstrap phase start (see _run_single_pacstrap)
+            set_progress(
+                app, 0.36, f"Retrying installation (attempt {attempt + 1}/{max_retries})..."
+            )
+            # Refresh databases before retrying
+            refresh = subprocess.run(
+                ["pacman", "-Sy", "--noconfirm"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if refresh.returncode != 0:
+                log_message(
+                    app,
+                    "  Warning: database refresh failed, retrying pacstrap anyway...",
+                )
+
+    raise last_error
+
+
+def _run_single_pacstrap(app, packages):
+    """Execute one pacstrap invocation and return (returncode, installed_count)."""
     total_packages = len(packages)
     installed_count = 0
 
@@ -879,11 +938,7 @@ def _run_pacstrap_with_progress(app, packages):
         log_message(app, f"  {line.strip()}")
 
     proc.wait()
-    if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, "pacstrap")
-
-    set_progress(app, progress_end, "Base system installed")
-    log_message(app, f"Base system installed ({installed_count} packages)")
+    return proc.returncode, installed_count
 
 
 def _run_chroot_with_progress(app):

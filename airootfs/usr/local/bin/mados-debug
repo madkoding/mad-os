@@ -41,7 +41,7 @@ Log Locations Quick Reference:
   Sway:               journalctl -b | grep -i sway
   Audio:              journalctl --user -u pipewire -b
   Network:            journalctl -u NetworkManager -b
-  Installer:          /tmp/mados-install.log
+  Installer:          /var/log/mados-install.log
   Chromium flags:     /etc/chromium-flags.conf
 
 Full documentation: /usr/share/doc/madOS/DEBUGGING.md
@@ -184,11 +184,11 @@ debug_boot() {
 
 debug_installer() {
     header "Installer Diagnostics"
-    if [ -f /tmp/mados-install.log ]; then
+    if [ -f /var/log/mados-install.log ]; then
         echo -e "${YELLOW}Installer log (last 30 lines):${NC}"
-        tail -n 30 /tmp/mados-install.log
+        tail -n 30 /var/log/mados-install.log
     else
-        echo "(no installer log found at /tmp/mados-install.log)"
+        echo "(no installer log found at /var/log/mados-install.log)"
     fi
 }
 
