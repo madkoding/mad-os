@@ -32,7 +32,7 @@ window#waybar {
     border-radius: 6px;
     font-family: "DSEG14 Classic", "JetBrainsMono Nerd Font", monospace;
     font-weight: 700;
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 1.5px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     text-shadow:
@@ -93,7 +93,7 @@ window#waybar {
     color: #ff3366;
     font-family: "DSEG14 Classic", "JetBrainsMono Nerd Font", monospace;
     font-weight: 700;
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 1.5px;
     background: linear-gradient(135deg, rgba(255, 51, 102, 0.15), rgba(220, 30, 80, 0.1));
     border-radius: 8px;
@@ -132,7 +132,7 @@ window#waybar {
     border-radius: 6px;
     font-family: "DSEG14 Classic", "JetBrainsMono Nerd Font", monospace;
     font-weight: 700;
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 1.5px;
     transition: all 0.3s ease;
     text-shadow:
@@ -160,7 +160,7 @@ window#waybar {
     border-radius: 6px;
     font-family: "DSEG14 Classic", "JetBrainsMono Nerd Font", monospace;
     font-weight: 700;
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 1.5px;
     transition: all 0.3s ease;
     text-shadow:
@@ -186,7 +186,10 @@ window#waybar {
     color: #00ffaa;
     background: linear-gradient(135deg, rgba(0, 255, 170, 0.12), rgba(0, 200, 140, 0.08));
     border-radius: 6px;
-    font-size: 16px;
+    font-family: "DSEG14 Classic", "JetBrainsMono Nerd Font", monospace;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 1.5px;
     transition: all 0.3s ease;
     text-shadow:
         0 0 8px #00ffaa,
@@ -219,7 +222,7 @@ window#waybar {
     border-radius: 6px;
     font-family: "DSEG14 Classic", "JetBrainsMono Nerd Font", monospace;
     font-weight: 700;
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 1.5px;
     transition: all 0.3s ease;
     text-shadow:
@@ -253,7 +256,7 @@ window#waybar {
     border-radius: 6px;
     font-family: "DSEG14 Classic", "JetBrainsMono Nerd Font", monospace;
     font-weight: 700;
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 1.5px;
     transition: all 0.3s ease;
     text-shadow:
@@ -281,7 +284,7 @@ window#waybar {
     border-radius: 6px;
     font-family: "DSEG14 Classic", "JetBrainsMono Nerd Font", monospace;
     font-weight: 700;
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 1.5px;
     transition: all 0.3s ease;
     text-shadow:
