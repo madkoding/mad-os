@@ -370,5 +370,33 @@ class TestRandomSuffix(unittest.TestCase):
         self.assertGreater(len(suffixes), 1)
 
 
+class TestCreatePageHeader(unittest.TestCase):
+    """Verify create_page_header accepts (app, title, step_num) arguments."""
+
+    def test_signature_accepts_app_title_step(self):
+        """create_page_header must accept (app, title, step_num) to match callers."""
+        import inspect
+        from mados_installer.pages.base import create_page_header
+
+        sig = inspect.signature(create_page_header)
+        params = list(sig.parameters.keys())
+        self.assertEqual(params[0], "app", "First parameter must be 'app'")
+        self.assertEqual(params[1], "title", "Second parameter must be 'title'")
+        self.assertEqual(params[2], "step_num", "Third parameter must be 'step_num'")
+
+    def test_callable_with_app_title_step(self):
+        """create_page_header(app, title, step_num) must not raise TypeError."""
+        from mados_installer.pages.base import create_page_header
+
+        # Should not raise when called with (app_object, str, int)
+        class FakeApp:
+            pass
+
+        try:
+            create_page_header(FakeApp(), "Test Title", 3)
+        except TypeError as e:
+            self.fail(f"create_page_header raised TypeError: {e}")
+
+
 if __name__ == "__main__":
     unittest.main()
