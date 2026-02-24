@@ -1517,7 +1517,7 @@ def _build_first_boot_script(data):
             '\n# CJK fonts for Asian locale\n'
             'if ! pacman -Q noto-fonts-cjk &>/dev/null; then\n'
             '    log "Installing CJK fonts for locale..."\n'
-            '    pacman -S --noconfirm --needed noto-fonts-cjk 2>&1 || true\n'
+            '    pacman -Syu --noconfirm --needed noto-fonts-cjk 2>&1 || true\n'
             'fi\n'
         )
 
@@ -1541,7 +1541,7 @@ GPU_FOUND=false
 # NVIDIA CUDA support
 if echo "$GPU_LINES" | grep -qi nvidia; then
     log "NVIDIA GPU detected – installing CUDA compute packages..."
-    if pacman -S --noconfirm --needed {nvidia_pkgs} 2>&1; then
+    if pacman -Syu --noconfirm --needed {nvidia_pkgs} 2>&1; then
         log "NVIDIA CUDA packages installed"
     else
         log "Warning: some NVIDIA packages failed to install"
@@ -1557,7 +1557,7 @@ if [ -n "$AMD_GPU" ]; then
         log "Legacy AMD GPU detected – skipping ROCm (unsupported)"
     else
         log "AMD GPU with ROCm support detected – installing compute packages..."
-        if pacman -S --noconfirm --needed {amd_pkgs} 2>&1; then
+        if pacman -Syu --noconfirm --needed {amd_pkgs} 2>&1; then
             log "AMD ROCm packages installed"
         else
             log "Warning: some AMD ROCm packages failed to install"
@@ -1568,7 +1568,7 @@ fi
 
 # Common OpenCL headers (only when a compute GPU was found)
 if [ "$GPU_FOUND" = true ]; then
-    pacman -S --noconfirm --needed {common_pkgs} 2>&1 || true
+    pacman -Syu --noconfirm --needed {common_pkgs} 2>&1 || true
     log "GPU compute driver setup complete"
 else
     log "No compute-capable GPU detected – skipping GPU driver download"
