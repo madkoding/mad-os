@@ -79,8 +79,24 @@ def _patched_rsync_run(app, *, popen_kw, run_kw,
                        open_kw=None):
     """Execute ``_rsync_rootfs_with_progress`` with standard patches applied.
 
-    The six mandatory patch targets are always installed; only the keyword
-    arguments forwarded to each ``patch()`` call vary between tests.
+    Five configurable patch targets and one fixed target (``log_message``)
+    are always installed.
+
+    Parameters
+    ----------
+    app : MockApp
+        The mock application object passed to the function under test.
+    popen_kw : dict
+        Keyword arguments forwarded to ``patch(subprocess.Popen, ...)``.
+    run_kw : dict
+        Keyword arguments forwarded to ``patch(subprocess.run, ...)``.
+    set_progress_kw : dict | None
+        Optional kwargs for ``patch(set_progress, ...)``.
+    os_remove_kw : dict | None
+        Optional kwargs for ``patch(os.remove, ...)``.
+    open_kw : dict | None
+        Optional kwargs for ``patch(builtins.open, ...)``.
+        When *None*, ``builtins.open`` is replaced with a plain ``MagicMock()``.
     """
     open_patch = (patch("builtins.open", **open_kw) if open_kw is not None
                   else patch("builtins.open", MagicMock()))
