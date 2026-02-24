@@ -100,6 +100,21 @@ class TestConfig(unittest.TestCase):
     def test_excluded_desktop_contains_self(self):
         self.assertIn("mados-launcher.desktop", EXCLUDED_DESKTOP)
 
+    def test_excluded_desktop_hides_unwanted_apps(self):
+        """Apps that should not appear in the launcher must be excluded."""
+        for fname in (
+            "nm-connection-editor.desktop",
+            "blueman-adapters.desktop",
+            "blueman-manager.desktop",
+            "foot.desktop",
+            "foot-server.desktop",
+            "footclient.desktop",
+            "htop.desktop",
+            "mados-equalizer.desktop",
+            "vim.desktop",
+        ):
+            self.assertIn(fname, EXCLUDED_DESKTOP, f"{fname} should be excluded")
+
     def test_icon_zoom_size_larger_than_icon(self):
         self.assertGreater(ICON_ZOOM_SIZE, ICON_SIZE)
 
