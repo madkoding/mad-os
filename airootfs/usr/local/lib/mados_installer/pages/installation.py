@@ -321,7 +321,7 @@ def _ensure_kernel_in_target(app):
     the kernel image.  This helper copies it from the live system's
     ``/usr/lib/modules/*/vmlinuz`` (the canonical location installed by
     the ``linux`` package) so that both ``grub-mkconfig`` and
-    ``grub-mkconfig`` and ``mkinitcpio`` (with ``-P``) find it without needing a network download.
+    ``mkinitcpio`` (with ``-P``) find it without needing a network download.
     """
     target_kernel = "/mnt/boot/vmlinuz-linux"
 
