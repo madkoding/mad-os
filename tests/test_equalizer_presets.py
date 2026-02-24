@@ -11,49 +11,15 @@ These tests run in CI without requiring PipeWire or audio hardware.
 import sys
 import os
 import json
-import types
 import tempfile
 import unittest
 
 # ---------------------------------------------------------------------------
 # Mock gi / gi.repository so equalizer modules can be imported headlessly.
 # ---------------------------------------------------------------------------
-gi_mock = types.ModuleType("gi")
-gi_mock.require_version = lambda *a, **kw: None
-
-repo_mock = types.ModuleType("gi.repository")
-
-
-class _StubMeta(type):
-    def __getattr__(cls, name):
-        return _StubWidget
-
-
-class _StubWidget(metaclass=_StubMeta):
-    def __init__(self, *a, **kw):
-        pass
-
-    def __init_subclass__(cls, **kw):
-        pass
-
-    def __getattr__(self, name):
-        return _stub_func
-
-
-def _stub_func(*a, **kw):
-    return _StubWidget()
-
-
-class _StubModule:
-    def __getattr__(self, name):
-        return _StubWidget
-
-
-for name in ("Gtk", "GLib", "GdkPixbuf", "Gdk", "Pango"):
-    setattr(repo_mock, name, _StubModule())
-
-sys.modules["gi"] = gi_mock
-sys.modules["gi.repository"] = repo_mock
+sys.path.insert(0, os.path.dirname(__file__))
+from test_helpers import install_gtk_mocks
+install_gtk_mocks()
 
 # ---------------------------------------------------------------------------
 # Paths

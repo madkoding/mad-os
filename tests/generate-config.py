@@ -8,56 +8,16 @@ captures it to validate bash syntax and run it inside an arch-chroot.
 """
 
 import argparse
+import os
 import sys
-import types
 
 # ---------------------------------------------------------------------------
 # Mock gi / gi.repository so the installer modules can be imported without
 # a display server or GTK libraries installed.
 # ---------------------------------------------------------------------------
-
-gi_mock = types.ModuleType("gi")
-gi_mock.require_version = lambda *a, **kw: None
-
-repo_mock = types.ModuleType("gi.repository")
-
-
-class _StubMeta(type):
-    """Metaclass that makes every attribute access return a stub."""
-
-    def __getattr__(cls, name):
-        return _StubWidget
-
-
-class _StubWidget(metaclass=_StubMeta):
-    """Stub that can be used as a base class and swallows any call."""
-
-    def __init__(self, *a, **kw):
-        pass
-
-    def __init_subclass__(cls, **kw):
-        pass
-
-    def __getattr__(self, name):
-        return _stub_func
-
-
-def _stub_func(*a, **kw):
-    return _StubWidget()
-
-
-class _StubModule:
-    """Module-level stub: attributes are always _StubWidget (a usable class)."""
-
-    def __getattr__(self, name):
-        return _StubWidget
-
-
-for name in ("Gtk", "GLib", "GdkPixbuf", "Gdk"):
-    setattr(repo_mock, name, _StubModule())
-
-sys.modules["gi"] = gi_mock
-sys.modules["gi.repository"] = repo_mock
+sys.path.insert(0, os.path.dirname(__file__))
+from test_helpers import install_gtk_mocks
+install_gtk_mocks()
 
 # ---------------------------------------------------------------------------
 # Now safe to import the installer's config-script builder.

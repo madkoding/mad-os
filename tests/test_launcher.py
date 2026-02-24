@@ -5,7 +5,6 @@ import os
 import sys
 import tempfile
 import textwrap
-import types
 import unittest
 
 # ---- Determine REPO_DIR relative to this test file ----
@@ -14,46 +13,19 @@ LAUNCHER_LIB = os.path.join(
     REPO_DIR, "airootfs", "usr", "local", "lib"
 )
 
-
 # ======================================================================
 # GTK / GI Mock Setup — allows headless testing without GTK or Wayland
 # ======================================================================
+sys.path.insert(0, os.path.dirname(__file__))
+from test_helpers import install_gtk_mocks
 
 def _setup_gi_mocks():
     """Install mock gi modules so we can import mados_launcher headlessly."""
-    gi_mock = types.ModuleType("gi")
-    gi_mock.require_version = lambda *a, **kw: None
-
-    repo_mock = types.ModuleType("gi.repository")
-
-    class _StubMeta(type):
-        def __getattr__(cls, name):
-            return _StubWidget
-
-    class _StubWidget(metaclass=_StubMeta):
-        def __init__(self, *a, **kw):
-            pass
-        def __init_subclass__(cls, **kw):
-            pass
-        def __getattr__(self, name):
-            return _stub_func
-
-    def _stub_func(*a, **kw):
-        return _StubWidget()
-
-    class _StubModule:
-        def __getattr__(self, name):
-            return _StubWidget
-
-    for name in ("Gtk", "GLib", "GdkPixbuf", "Gdk", "Pango", "GtkLayerShell"):
-        setattr(repo_mock, name, _StubModule())
-
-    sys.modules["gi"] = gi_mock
-    sys.modules["gi.repository"] = repo_mock
-
+    gi_mock, repo_mock = install_gtk_mocks(extra_modules=("GtkLayerShell",))
     # Also add submodules that might be imported directly
+    import sys as _sys
     for name in ("Gtk", "GLib", "GdkPixbuf", "Gdk", "Pango", "GtkLayerShell"):
-        sys.modules[f"gi.repository.{name}"] = getattr(repo_mock, name)
+        _sys.modules[f"gi.repository.{name}"] = getattr(repo_mock, name)
 
 
 # Install mocks before importing mados_launcher
