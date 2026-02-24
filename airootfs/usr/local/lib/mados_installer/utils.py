@@ -2,6 +2,7 @@
 madOS Installer - Shared utility functions
 """
 
+import errno
 import os
 import random
 import string
@@ -58,6 +59,12 @@ def save_log_to_file(app, path=None):
         with os.fdopen(fd, "w") as fh:
             fh.write(text)
         return path
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            print(f"Warning: refusing to follow symlink at {path}")
+        else:
+            print(f"Warning: could not save install log to {path}: {exc}")
+        return None
     except Exception as exc:
         print(f"Warning: could not save install log to {path}: {exc}")
         return None
