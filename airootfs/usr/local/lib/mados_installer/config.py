@@ -112,6 +112,36 @@ PACKAGES_PHASE2 = [
 # Combined package list (all packages for both phases)
 PACKAGES = PACKAGES_PHASE1 + PACKAGES_PHASE2
 
+# GPU Compute packages: NOT included in the live ISO to save ~3-5 GB.
+# Only installed during Phase 2 first-boot when the corresponding GPU
+# hardware is detected via lspci.  Keyed by vendor for conditional install.
+GPU_COMPUTE_PACKAGES = {
+    'nvidia': ['nvidia-utils', 'opencl-nvidia', 'cuda'],
+    'amd':    ['rocm-hip-runtime', 'rocm-opencl-runtime'],
+    'common': ['opencl-headers'],  # installed when any compute GPU is found
+}
+
+# Paths to exclude when copying the live rootfs to the target via rsync.
+# Virtual filesystems, caches, and archiso-specific content are skipped.
+# Note: /tmp/* and /run/* are publicly writable directories excluded
+# intentionally — they must not be copied to the installed system.
+RSYNC_EXCLUDES = [
+    '/dev/*',
+    '/proc/*',
+    '/sys/*',
+    '/run/*',  # NOSONAR - rsync exclude pattern, not directory access
+    '/tmp/*',  # NOSONAR - rsync exclude pattern, not directory access  # noqa: S5443
+    '/mnt/*',
+    '/var/cache/pacman/pkg/*',
+    '/var/log/*',
+    '/etc/fstab',
+    '/etc/machine-id',
+]
+
+# Archiso-specific packages to remove after copying the live rootfs.
+# These provide initcpio hooks and configs only needed for the live ISO.
+ARCHISO_PACKAGES = ['mkinitcpio-archiso']
+
 # Locale to keyboard layout mapping for Sway/Hyprland
 LOCALE_KB_MAP = {
     'en_US.UTF-8': 'us',

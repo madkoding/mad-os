@@ -2,7 +2,7 @@
 Name=madOS PDF Viewer
 Comment=View PDF documents
 Exec=mados-pdf-viewer %f
-Icon=application-pdf
+Icon=accessories-document-viewer
 Terminal=false
 Type=Application
 Categories=Office;Viewer;

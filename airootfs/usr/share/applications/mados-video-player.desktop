@@ -2,7 +2,7 @@
 Name=madOS Video Player
 Comment=Play video files
 Exec=mados-video-player %f
-Icon=video-x-generic
+Icon=multimedia-video-player
 Terminal=false
 Type=Application
 Categories=AudioVideo;Video;Player;

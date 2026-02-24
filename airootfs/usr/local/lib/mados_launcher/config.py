@@ -63,6 +63,15 @@ DESKTOP_DIRS = [
 ]
 EXCLUDED_DESKTOP = {
     "mados-launcher.desktop",
+    "nm-connection-editor.desktop",
+    "blueman-adapters.desktop",
+    "blueman-manager.desktop",
+    "foot.desktop",
+    "foot-server.desktop",
+    "footclient.desktop",
+    "htop.desktop",
+    "mados-equalizer.desktop",
+    "vim.desktop",
 }
 
 # --- State Persistence ---

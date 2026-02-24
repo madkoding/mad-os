@@ -138,7 +138,7 @@ class TestFirstBootScriptGeneration(unittest.TestCase):
     def test_script_uses_strict_mode(self):
         """Generated script must use bash strict mode."""
         # Look for set -euo pipefail or similar
-        pattern = r"set -[euo]+.*pipefail"
+        pattern = r"set -[euo]+[^\n]*pipefail"
         self.assertIsNotNone(
             re.search(pattern, self.content),
             "First-boot script must use 'set -euo pipefail' for safety",
@@ -172,10 +172,10 @@ class TestPhase2Packages(unittest.TestCase):
             self.content = f.read()
 
     def test_installs_packages_with_pacman(self):
-        """Script must install packages using pacman."""
+        """Script must install GPU compute packages using pacman."""
         self.assertIn(
-            "pacman -Syu", self.content,
-            "Must use 'pacman -Syu' to install Phase 2 packages",
+            "pacman -S", self.content,
+            "Must use 'pacman -S' to install GPU compute packages",
         )
 
     def test_uses_noconfirm_flag(self):
@@ -500,7 +500,7 @@ class TestFirstBootSelfCleanup(unittest.TestCase):
             "Script must remove itself",
         )
         # Check it removes the script file
-        pattern = r"rm.*mados-first-boot\.sh"
+        pattern = r"rm[^\n]*mados-first-boot\.sh"
         self.assertIsNotNone(
             re.search(pattern, self.content),
             "Script must remove mados-first-boot.sh file",
@@ -578,6 +578,153 @@ class TestXDGUserDirectories(unittest.TestCase):
             "xdg-user-dirs", packages,
             "xdg-user-dirs package must be in packages.x86_64",
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GPU detection in first-boot script
+# ═══════════════════════════════════════════════════════════════════════════
+class TestGpuDetection(unittest.TestCase):
+    """Verify the first-boot script detects GPUs and installs compute drivers."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_uses_lspci_for_gpu_detection(self):
+        """Script must use lspci to detect GPU hardware."""
+        self.assertIn(
+            "lspci", self.content,
+            "Must use lspci to detect GPU hardware",
+        )
+        # Verify it filters for VGA/3D/Display controllers.
+        # Check that a single line contains the full lspci | grep pipeline.
+        for line in self.content.splitlines():
+            if "lspci" in line and "grep" in line and "-iE" in line:
+                if "VGA" in line and "3D" in line and "Display" in line:
+                    break
+        else:
+            self.fail(
+                "Must filter lspci output for VGA/3D/Display controllers"
+            )
+
+    def test_nvidia_detection(self):
+        """Script must check for NVIDIA GPUs via case-insensitive grep."""
+        pattern = r'grep\s+-qi\s+nvidia'
+        self.assertIsNotNone(
+            re.search(pattern, self.content),
+            "Must detect NVIDIA GPUs with case-insensitive grep",
+        )
+
+    def test_amd_detection_checks_amd_ati_radeon(self):
+        """Script must detect AMD GPUs by checking AMD, ATI, and Radeon strings."""
+        for keyword in ("AMD", "ATI", "Radeon"):
+            with self.subTest(keyword=keyword):
+                self.assertIn(
+                    keyword, self.content,
+                    f"AMD detection must check for '{keyword}' string",
+                )
+
+    def test_legacy_amd_exclusion(self):
+        """Script must skip pre-GCN legacy AMD GPUs for ROCm."""
+        # Verify it checks legacy Radeon series (e.g., HD 2xxx-6xxx, Rage)
+        self.assertIn(
+            "Radeon HD", self.content,
+            "Must check for Radeon HD legacy series",
+        )
+        self.assertIn(
+            "Rage", self.content,
+            "Must check for ATI Rage legacy GPUs",
+        )
+        self.assertIn(
+            "Legacy AMD GPU detected", self.content,
+            "Must log when a legacy AMD GPU is skipped",
+        )
+
+    def test_gpu_found_controls_common_packages(self):
+        """GPU_FOUND variable must gate common package installation."""
+        self.assertIn(
+            'GPU_FOUND=false', self.content,
+            "Must initialize GPU_FOUND to false",
+        )
+        self.assertIn(
+            'GPU_FOUND=true', self.content,
+            "Must set GPU_FOUND to true when a GPU is detected",
+        )
+        # Verify common packages are only installed when GPU_FOUND is true
+        self.assertIn(
+            '"$GPU_FOUND" = true',
+            self.content,
+            "Must check $GPU_FOUND before installing common packages",
+        )
+
+    def test_nvidia_packages_conditional(self):
+        """NVIDIA packages must only be installed when NVIDIA GPU is detected."""
+        # The NVIDIA install block should be inside the nvidia grep conditional
+        # (grep and pacman may be separated by log lines).
+        # Walk lines: find the nvidia grep, then within 6 lines find pacman.
+        lines = self.content.splitlines()
+        grep_idx = None
+        for i, line in enumerate(lines):
+            if "grep" in line.lower() and "nvidia" in line.lower():
+                grep_idx = i
+                break
+        self.assertIsNotNone(
+            grep_idx,
+            "Must have a grep for nvidia",
+        )
+        window = "\n".join(lines[grep_idx:grep_idx + 7])
+        self.assertRegex(
+            window.lower(),
+            r"pacman -s.*--noconfirm.*--needed",
+            "NVIDIA packages must be installed conditionally after detection",
+        )
+
+    def test_amd_rocm_packages_conditional(self):
+        """AMD ROCm packages must only be installed when AMD GPU is detected."""
+        # Should reference ROCm packages conditionally
+        self.assertIn(
+            "rocm", self.content.lower(),
+            "Must reference ROCm packages for AMD GPUs",
+        )
+        # ROCm install is gated by the legacy GPU check
+        self.assertIn(
+            "Legacy AMD GPU detected",
+            self.content,
+            "Must handle legacy AMD GPUs that don't support ROCm",
+        )
+        # Verify the script mentions ROCm support detection
+        self.assertIn(
+            "AMD GPU with ROCm support detected",
+            self.content,
+            "Must log ROCm-capable AMD GPU detection",
+        )
+
+    def test_gpu_compute_packages_from_config(self):
+        """Script must use GPU_COMPUTE_PACKAGES config via f-string variables."""
+        from mados_installer.config import GPU_COMPUTE_PACKAGES
+        # The installation.py uses f-string variables like {nvidia_pkgs} and
+        # {amd_pkgs} that expand at runtime.  Verify the variables are present.
+        self.assertIn(
+            "{nvidia_pkgs}", self.content,
+            "Must reference {nvidia_pkgs} f-string variable for NVIDIA packages",
+        )
+        self.assertIn(
+            "{amd_pkgs}", self.content,
+            "Must reference {amd_pkgs} f-string variable for AMD packages",
+        )
+        self.assertIn(
+            "{common_pkgs}", self.content,
+            "Must reference {common_pkgs} f-string variable for common packages",
+        )
+        # Also verify the config dict has the expected packages
+        self.assertGreater(len(GPU_COMPUTE_PACKAGES["nvidia"]), 0)
+        self.assertGreater(len(GPU_COMPUTE_PACKAGES["amd"]), 0)
+        self.assertGreater(len(GPU_COMPUTE_PACKAGES["common"]), 0)
 
 
 if __name__ == "__main__":

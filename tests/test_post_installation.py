@@ -14,48 +14,14 @@ import os
 import re
 import subprocess
 import sys
-import types
 import unittest
 
 # ---------------------------------------------------------------------------
 # Mock gi / gi.repository so installer modules can be imported headlessly.
 # ---------------------------------------------------------------------------
-gi_mock = types.ModuleType("gi")
-gi_mock.require_version = lambda *a, **kw: None
-
-repo_mock = types.ModuleType("gi.repository")
-
-
-class _StubMeta(type):
-    def __getattr__(cls, name):
-        return _StubWidget
-
-
-class _StubWidget(metaclass=_StubMeta):
-    def __init__(self, *a, **kw):
-        pass
-
-    def __init_subclass__(cls, **kw):
-        pass
-
-    def __getattr__(self, name):
-        return _stub_func
-
-
-def _stub_func(*a, **kw):
-    return _StubWidget()
-
-
-class _StubModule:
-    def __getattr__(self, name):
-        return _StubWidget
-
-
-for name in ("Gtk", "GLib", "GdkPixbuf", "Gdk", "Pango"):
-    setattr(repo_mock, name, _StubModule())
-
-sys.modules["gi"] = gi_mock
-sys.modules["gi.repository"] = repo_mock
+sys.path.insert(0, os.path.dirname(__file__))
+from test_helpers import install_gtk_mocks
+install_gtk_mocks()
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -432,6 +398,67 @@ class TestPostInstallServices(unittest.TestCase):
         self.assertIn(
             "greetd", self.content,
             "Installer must enable greetd for graphical login",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Initramfs / mkinitcpio preset restoration
+# ═══════════════════════════════════════════════════════════════════════════
+class TestInitramfsPresetRestoration(unittest.TestCase):
+    """Verify the installer restores the standard linux.preset before mkinitcpio."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_restores_standard_linux_preset(self):
+        """Installer must restore standard linux.preset with default/fallback presets."""
+        self.assertIn(
+            "PRESETS=('default' 'fallback')", self.content,
+            "Installer must restore standard PRESETS=('default' 'fallback') in linux.preset",
+        )
+
+    def test_removes_archiso_mkinitcpio_conf(self):
+        """Installer must remove archiso-specific mkinitcpio config."""
+        self.assertIn(
+            "rm -f /etc/mkinitcpio.conf.d/archiso.conf", self.content,
+            "Installer must remove archiso.conf before mkinitcpio -P",
+        )
+
+    def test_preset_written_before_mkinitcpio(self):
+        """linux.preset must be restored before mkinitcpio -P runs."""
+        preset_pos = self.content.find("PRESETS=('default' 'fallback')")
+        mkinitcpio_pos = self.content.find("mkinitcpio -P")
+        self.assertNotEqual(preset_pos, -1, "Must contain preset restoration")
+        self.assertNotEqual(mkinitcpio_pos, -1, "Must contain mkinitcpio -P")
+        self.assertLess(
+            preset_pos, mkinitcpio_pos,
+            "linux.preset must be written before mkinitcpio -P is called",
+        )
+
+    def test_kernel_recovery_before_mkinitcpio(self):
+        """Installer must recover kernel from modules dir if /boot/vmlinuz-linux is missing."""
+        self.assertIn(
+            "/usr/lib/modules/", self.content,
+            "Installer must recover kernel from /usr/lib/modules/*/vmlinuz",
+        )
+        recovery_pos = self.content.find("/usr/lib/modules/")
+        mkinitcpio_pos = self.content.find("mkinitcpio -P")
+        self.assertLess(
+            recovery_pos, mkinitcpio_pos,
+            "Kernel recovery must happen before mkinitcpio -P is called",
+        )
+
+    def test_kernel_recovery_fallback_reinstall(self):
+        """Installer must have fallback to reinstall linux package if kernel not found."""
+        self.assertIn(
+            "pacman -S --noconfirm linux", self.content,
+            "Installer must fallback to reinstalling linux package if kernel still missing",
         )
 
 
