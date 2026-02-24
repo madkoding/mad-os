@@ -664,7 +664,7 @@ class TestGpuDetection(unittest.TestCase):
         # (grep and pacman may be separated by log lines)
         pattern = r'grep[^\n]*nvidia[^\n]*(?:\n[^\n]*){0,5}\n[^\n]*pacman -S[^\n]*--noconfirm[^\n]*--needed'
         self.assertIsNotNone(
-            re.search(pattern, self.content, re.IGNORECASE | re.DOTALL),
+            re.search(pattern, self.content, re.IGNORECASE),
             "NVIDIA packages must be installed conditionally after detection",
         )
 
