@@ -513,8 +513,13 @@ class TestSwayWindowRules(unittest.TestCase):
         """Criteria keys in for_window must be valid Sway criteria."""
         rules = self._get_for_window_rules()
         for criteria, _, line in rules:
-            # Parse key=value pairs from criteria
-            keys = re.findall(r"(\w+)\s*=", criteria)
+            # Parse key=value pairs from criteria (string split to avoid
+            # backtracking-vulnerable regex)
+            keys = [
+                tok.split("=")[0]
+                for tok in criteria.split()
+                if "=" in tok
+            ]
             for key in keys:
                 with self.subTest(line=line[:80], key=key):
                     self.assertIn(
@@ -527,7 +532,11 @@ class TestSwayWindowRules(unittest.TestCase):
         """Criteria keys in no_focus must be valid Sway criteria."""
         rules = self._get_no_focus_rules()
         for criteria, line in rules:
-            keys = re.findall(r"(\w+)\s*=", criteria)
+            keys = [
+                tok.split("=")[0]
+                for tok in criteria.split()
+                if "=" in tok
+            ]
             for key in keys:
                 with self.subTest(line=line[:80], key=key):
                     self.assertIn(
