@@ -9,7 +9,7 @@
 # reboots and can be read/edited by a future wallpaper-settings GUI.
 
 WALLPAPER_DIR="/usr/share/backgrounds"
-MAX_WORKSPACES=10
+MAX_WORKSPACES=5
 LOG_TAG="mados-wallpaper-glitch"
 DB_DIR="${HOME}/.local/share/mados"
 DB_PATH="${DB_DIR}/wallpapers.db"
@@ -247,8 +247,8 @@ last_ws="$current_ws"
 log "starting workspace event subscription"
 while IFS= read -r event; do
     case "$event" in
-        workspace\>*)
-            ws_num="${event#workspace>}"
+        workspace\>\>*)
+            ws_num="${event#workspace>>}"
             # Only change if workspace actually changed
             if [[ -n "$ws_num" && "$ws_num" =~ ^[0-9]+$ && "$ws_num" != "$last_ws" ]]; then
                 wp="$(get_wallpaper_for_ws "$ws_num")"

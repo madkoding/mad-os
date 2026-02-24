@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# mados-hyprland-wallpaper-set - Set wallpaper for the current (or specified) workspace
+#
+# Usage: mados-hyprland-wallpaper-set [WORKSPACE_NUMBER]
+#
+# Reads wallpaper assignments from the SQLite database managed by
+# mados-wallpaper-glitch (~/.local/share/mados/wallpapers.db) and applies
+# the correct wallpaper via swww.
+#
+# Called from Hyprland key bindings as a reliable fallback in addition
+# to the event subscription daemon.
+#
+# If no workspace number is provided, it queries Hyprland for the current
+# focused workspace.
+
+DB_PATH="${HOME}/.local/share/mados/wallpapers.db"
+
+ws="${1:-}"
+
+# If no workspace number given, add a brief delay to allow Hyprland to finish
+# switching (needed when called from workspace prev/next bindings where
+# the exec runs concurrently with the workspace switch).
+if [[ -z "$ws" ]]; then
+    sleep 0.05
+    ws="$(hyprctl activeworkspace -j 2>/dev/null \
+        | jq -r '.id // empty' 2>/dev/null)" || true
+fi
+
+[[ -z "$ws" || "$ws" == "null" ]] && exit 0
+
+# Read wallpaper path from SQLite database
+if [[ -f "$DB_PATH" ]] && command -v sqlite3 >/dev/null 2>&1; then
+    wallpaper="$(sqlite3 "$DB_PATH" \
+        "SELECT w.path FROM assignments a JOIN wallpapers w ON a.wallpaper_id=w.id WHERE a.workspace=$ws LIMIT 1;" 2>/dev/null)"
+    if [[ -n "$wallpaper" && -f "$wallpaper" ]]; then
+        # Use swww for glitch transition (consistent with mados-wallpaper-glitch)
+        if command -v swww >/dev/null 2>&1 && swww query >/dev/null 2>&1; then
+            swww img "$wallpaper" \
+                --transition-type pixelate \
+                --transition-duration 0.4 \
+                --transition-fps 60 \
+                --transition-step 90 2>/dev/null || true
+        fi
+    fi
+fi

@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# mados-hyprland-workspace-cycle - Cycle through workspaces 1-5 with wrap-around
+#
+# Usage: mados-hyprland-workspace-cycle prev|next
+#
+# Unlike Hyprland's 'workspace e-1/e+1' which only cycles through existing
+# workspaces, this script explicitly switches to the next/previous workspace
+# number in the 1-5 range, creating it if necessary.  This ensures
+# Super+Alt+Arrow keybindings always move between workspaces even when
+# only one exists.
+
+MAX_WS=5
+
+direction="${1:-next}"
+
+# Get current focused workspace number
+current="$(hyprctl activeworkspace -j 2>/dev/null \
+    | jq -r '.id // empty' 2>/dev/null)" || true
+[[ -z "$current" || "$current" == "null" ]] && current=1
+
+# Calculate target workspace with wrap-around
+if [[ "$direction" == "prev" ]]; then
+    target=$(( current - 1 ))
+    (( target < 1 )) && target=$MAX_WS
+else
+    target=$(( current + 1 ))
+    (( target > MAX_WS )) && target=1
+fi
+
+# Switch to the target workspace
+hyprctl dispatch workspace "$target" 2>/dev/null || true
+
+# Set the wallpaper for the new workspace
+exec mados-hyprland-wallpaper-set "$target"
