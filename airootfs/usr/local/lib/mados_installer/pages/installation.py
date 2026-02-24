@@ -1534,6 +1534,8 @@ log() {{ echo "[Phase 2] $1"; systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/d
 log "Starting madOS Phase 2 setup..."
 
 # ── Step 0: Refresh package databases and update system ─────────────────
+# --- Package section: failures are warnings, not blockers ---
+set +e
 log "Refreshing package databases and updating system..."
 pacman -Syu --noconfirm 2>&1 || log "Warning: system update returned non-zero (may be OK)"
 
@@ -1548,7 +1550,7 @@ if echo "$GPU_LINES" | grep -qi nvidia; then
     if pacman -S --noconfirm --needed {nvidia_pkgs} 2>&1; then
         log "NVIDIA CUDA packages installed"
     else
-        log "Warning: some NVIDIA packages failed to install"
+        log "Warning: some NVIDIA packages failed to install (can retry later with pacman)"
     fi
     GPU_FOUND=true
 fi
@@ -1564,7 +1566,7 @@ if [ -n "$AMD_GPU" ]; then
         if pacman -S --noconfirm --needed {amd_pkgs} 2>&1; then
             log "AMD ROCm packages installed"
         else
-            log "Warning: some AMD ROCm packages failed to install"
+            log "Warning: some AMD ROCm packages failed to install (can retry later with pacman)"
         fi
         GPU_FOUND=true
     fi
@@ -1578,6 +1580,7 @@ else
     log "No compute-capable GPU detected – skipping GPU driver download"
 fi
 {cjk_line}
+set -e
 # ── Step 2: Enable additional services ──────────────────────────────────
 log "Enabling additional services..."
 systemctl enable bluetooth 2>/dev/null || true
@@ -1732,6 +1735,8 @@ cat > /etc/chromium/policies/managed/mados-homepage.json <<'EOFPOLICY'
 EOFPOLICY
 
 # ── Step 3b: Install Nordic GTK Theme ──────────────────────────────────
+# --- Download section: failures are warnings, not blockers ---
+set +e
 if [ -d /usr/share/themes/Nordic ]; then
     log "Nordic GTK theme already installed"
 else
@@ -1943,6 +1948,7 @@ TimeoutStartSec=300
 WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-ollama.service 2>/dev/null || true
+set -e
 
 # ── Step 7: Cleanup ─────────────────────────────────────────────────────
 log "Phase 2 setup complete! Disabling first-boot service..."
