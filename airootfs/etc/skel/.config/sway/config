@@ -254,6 +254,7 @@ for_window [app_id="mados-equalizer"] resize set 750 450
 
 # Squeekboard on-screen keyboard — keep at bottom, no focus steal
 for_window [app_id="sm.puri.Squeekboard"] floating enable
+no_focus [app_id="sm.puri.Squeekboard"]
 
 ### System includes
 include /etc/sway/config.d/*
