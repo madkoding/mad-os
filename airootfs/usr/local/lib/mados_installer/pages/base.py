@@ -8,7 +8,14 @@ from ..config import NORD_POLAR_NIGHT, NORD_SNOW_STORM, NORD_FROST, NORD_AURORA
 
 
 def create_page_header(app, title, step_num, total_steps=7):
-    """Create consistent page header with step indicator dots"""
+    """Create consistent page header with step indicator dots.
+
+    Args:
+        app: MadOSInstaller instance (unused, kept for API consistency with callers).
+        title: Translated page title string.
+        step_num: Current step number (1-based).
+        total_steps: Total number of steps for the indicator dots.
+    """
     header = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
     header.get_style_context().add_class("page-header")
 
