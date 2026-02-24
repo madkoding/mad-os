@@ -223,6 +223,18 @@ class TestSqueekboardHyprlandIntegration(unittest.TestCase):
             "Hyprland should have window rules for squeekboard class",
         )
 
+    def test_hyprland_has_no_initial_focus_rule(self):
+        with open(HYPRLAND_CONFIG) as f:
+            content = f.read()
+        self.assertIn(
+            "no_initial_focus", content,
+            "Hyprland should use no_initial_focus for squeekboard (not nofocus)",
+        )
+        self.assertNotIn(
+            "nofocus", content,
+            "Hyprland config must not use invalid 'nofocus' field type",
+        )
+
     def test_hyprland_has_toggle_keybinding(self):
         with open(HYPRLAND_CONFIG) as f:
             content = f.read()
