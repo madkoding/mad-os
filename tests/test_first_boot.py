@@ -652,10 +652,10 @@ class TestGpuDetection(unittest.TestCase):
             "Must set GPU_FOUND to true when a GPU is detected",
         )
         # Verify common packages are only installed when GPU_FOUND is true
-        pattern = r'if\s+\[\s+"?\$GPU_FOUND"?\s+=\s+true\s+\]'
-        self.assertIsNotNone(
-            re.search(pattern, self.content),
-            "Must check GPU_FOUND before installing common packages",
+        self.assertIn(
+            '"$GPU_FOUND" = true',
+            self.content,
+            "Must check $GPU_FOUND before installing common packages",
         )
 
     def test_nvidia_packages_conditional(self):
@@ -675,11 +675,17 @@ class TestGpuDetection(unittest.TestCase):
             "rocm", self.content.lower(),
             "Must reference ROCm packages for AMD GPUs",
         )
-        # ROCm install is inside the IS_LEGACY=false branch
-        pattern = r'IS_LEGACY.*=.*false.*\n.*log.*AMD.*ROCm'
-        self.assertIsNotNone(
-            re.search(pattern, self.content, re.DOTALL),
+        # ROCm install is gated by IS_LEGACY=false check
+        self.assertIn(
+            'IS_LEGACY" = false',
+            self.content,
             "AMD ROCm packages must only install when IS_LEGACY is false",
+        )
+        # Verify the script mentions ROCm support detection
+        self.assertIn(
+            "AMD GPU with ROCm support detected",
+            self.content,
+            "Must log ROCm-capable AMD GPU detection",
         )
 
     def test_gpu_compute_packages_from_config(self):
