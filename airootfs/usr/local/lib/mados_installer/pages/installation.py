@@ -360,6 +360,7 @@ def _step_copy_scripts(app):
         "cage-greeter",
         "sway-session",
         "hyprland-session",
+        "start-hyprland",
         "select-compositor",
         "mados-audio-quality.sh",
     ]

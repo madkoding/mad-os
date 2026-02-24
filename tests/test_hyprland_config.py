@@ -1177,6 +1177,10 @@ class TestHyprlandConfigVariables(unittest.TestCase):
         "cursor:hide_on_key_press",
         "cursor:hide_on_touch",
         "cursor:allow_dumb_copy",
+        # ecosystem section
+        "ecosystem:no_update_news",
+        "ecosystem:no_donation_nag",
+        "ecosystem:enforce_permissions",
     }
 
     def _get_section_variables(self):
