@@ -1809,7 +1809,7 @@ if [[ -x "$ONLYOFFICE_APPIMAGE" ]]; then
 else
     mkdir -p /opt/onlyoffice
     # Try copying from live ISO first (pre-installed in ISO build)
-    if [[ -x "$ONLYOFFICE_LIVE" ]]; then
+    if [[ -f "$ONLYOFFICE_LIVE" ]]; then
         cp "$ONLYOFFICE_LIVE" "$ONLYOFFICE_APPIMAGE"
         chmod +x "$ONLYOFFICE_APPIMAGE"
         log "ONLYOFFICE AppImage copied from live environment"
