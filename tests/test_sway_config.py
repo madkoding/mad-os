@@ -531,11 +531,11 @@ class TestSwayWindowRules(unittest.TestCase):
             unquoted = re.findall(r'(\w+)=([^"\s\]]+)', criteria)
             for key, val in unquoted:
                 with self.subTest(line=line[:80], key=key, value=val):
-                    # Values should be quoted for robustness
-                    self.fail(
-                        f"Criteria value for '{key}' should be quoted: "
-                        f'{key}="{val}" in: {line}'
-                    ) if not val.startswith('"') else None
+                    if not val.startswith('"'):
+                        self.fail(
+                            f"Criteria value for '{key}' should be quoted: "
+                            f'{key}="{val}" in: {line}'
+                        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -576,11 +576,11 @@ class TestSwayColors(unittest.TestCase):
     def test_client_focused_has_five_colors(self):
         """client.focused must have 5 color arguments."""
         lines = _config_lines()
+        found = False
         for line in lines:
-            if line.startswith("client.focused ") and not line.startswith(
-                "client.focused_"
-            ):
-                # Split into keyword and color arguments
+            # Match "client.focused " but not "client.focused_inactive" etc.
+            if re.match(r"^client\.focused\s+(?!_)", line):
+                found = True
                 parts = line.split()
                 # client.focused + 5 colors = 6 parts
                 self.assertEqual(
@@ -588,8 +588,8 @@ class TestSwayColors(unittest.TestCase):
                     6,
                     f"client.focused needs 5 colors (border bg text indicator child_border): {line}",
                 )
-                return
-        self.fail("client.focused directive not found in config")
+                break
+        self.assertTrue(found, "client.focused directive not found in config")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
