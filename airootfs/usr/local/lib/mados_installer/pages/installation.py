@@ -21,7 +21,7 @@ from ..config import (
     TIMEZONES,
     LOCALE_MAP,
 )
-from ..utils import log_message, set_progress, show_error
+from ..utils import log_message, set_progress, show_error, save_log_to_file, LOG_FILE
 
 MNT_USR_LOCAL_BIN = "/mnt/usr/local/bin/"
 
@@ -589,7 +589,23 @@ def _run_installation(app):
             log_message(app, "Cleaning up after error...")
             subprocess.run(["umount", "-R", "/mnt"], capture_output=True)
         GLib.idle_add(app.install_spinner.stop)
-        GLib.idle_add(show_error, app, "Installation Failed", str(e))
+        GLib.idle_add(_handle_installation_error, app, str(e))
+
+
+def _handle_installation_error(app, error_msg):
+    """Save log to file, show error dialog, then quit the installer."""
+    log_path = save_log_to_file(app)
+    if log_path:
+        message = (
+            f"{error_msg}\n\n"
+            f"The installation log has been saved to:\n{log_path}\n\n"
+            "The installer will now close."
+        )
+    else:
+        message = f"{error_msg}\n\nThe installer will now close."
+    show_error(app, "Installation Failed", message)
+    Gtk.main_quit()
+    return False
 
 
 def _finish_installation(app):

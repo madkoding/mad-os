@@ -33,6 +33,26 @@ def load_logo(size=160):
     return None
 
 
+LOG_FILE = "/tmp/mados-install.log"
+
+
+def save_log_to_file(app, path=None):
+    """Save the installer log buffer contents to a file.
+
+    Returns the path written to, or *None* on failure.
+    """
+    if path is None:
+        path = LOG_FILE
+    try:
+        buf = app.log_buffer
+        text = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), True)
+        with open(path, "w") as fh:
+            fh.write(text)
+        return path
+    except Exception:
+        return None
+
+
 def show_error(parent, title, message):
     """Show error dialog with dark theme"""
     dialog = Gtk.MessageDialog(

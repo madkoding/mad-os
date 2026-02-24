@@ -67,7 +67,9 @@ from mados_installer.pages.installation import (
     _download_packages_with_progress,
     _run_pacstrap_with_progress,
     _run_single_pacstrap,
+    _handle_installation_error,
 )
+from mados_installer.utils import save_log_to_file, LOG_FILE
 from mados_installer.config import PACKAGES
 
 
@@ -548,6 +550,171 @@ class TestPacstrapRetryLogic(unittest.TestCase):
 
         # Should have attempted exactly 2 times
         self.assertEqual(popen_count[0], 2)
+
+
+import tempfile
+
+
+class MockLogBuffer:
+    """Minimal mock of Gtk.TextBuffer with real text storage for testing."""
+
+    def __init__(self):
+        self._text = ""
+
+    def insert_at_cursor(self, text):
+        self._text += text
+
+    def get_text(self, start, end, include_hidden):
+        return self._text
+
+    def get_start_iter(self):
+        return None
+
+    def get_end_iter(self):
+        return None
+
+    def get_insert(self):
+        return MagicMock()
+
+
+class TestSaveLogToFile(unittest.TestCase):
+    """Verify installer log is persisted to a file on error."""
+
+    def test_log_saved_to_default_path(self):
+        """save_log_to_file writes log buffer content to LOG_FILE."""
+        app = MockApp()
+        app.log_buffer = MockLogBuffer()
+        app.log_buffer.insert_at_cursor("line 1\n")
+        app.log_buffer.insert_at_cursor("line 2\n")
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
+            tmp_path = f.name
+
+        try:
+            result = save_log_to_file(app, path=tmp_path)
+            self.assertEqual(result, tmp_path)
+            with open(tmp_path) as f:
+                content = f.read()
+            self.assertIn("line 1", content)
+            self.assertIn("line 2", content)
+        finally:
+            os.unlink(tmp_path)
+
+    def test_log_saved_to_custom_path(self):
+        """save_log_to_file accepts a custom path argument."""
+        app = MockApp()
+        app.log_buffer = MockLogBuffer()
+        app.log_buffer.insert_at_cursor("custom log content\n")
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
+            tmp_path = f.name
+
+        try:
+            result = save_log_to_file(app, path=tmp_path)
+            self.assertEqual(result, tmp_path)
+            with open(tmp_path) as f:
+                content = f.read()
+            self.assertIn("custom log content", content)
+        finally:
+            os.unlink(tmp_path)
+
+    def test_returns_none_on_failure(self):
+        """save_log_to_file returns None when writing fails."""
+        app = MockApp()
+        app.log_buffer = MockLogBuffer()
+        # Use an impossible path to trigger failure
+        result = save_log_to_file(app, path="/nonexistent_dir/impossible.log")
+        self.assertIsNone(result)
+
+    def test_default_log_path_is_tmp(self):
+        """LOG_FILE should be in /tmp so user can read it after installer closes."""
+        self.assertTrue(LOG_FILE.startswith("/tmp/"))
+
+
+class TestHandleInstallationError(unittest.TestCase):
+    """Verify error handler saves log, shows error, then quits."""
+
+    def test_error_handler_saves_log_and_quits(self):
+        """_handle_installation_error should save log, show dialog, and quit."""
+        app = MockApp()
+        app.log_buffer = MockLogBuffer()
+        app.log_buffer.insert_at_cursor("Some install log\n")
+        app.log_buffer.insert_at_cursor("[ERROR] pacstrap failed\n")
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
+            tmp_path = f.name
+
+        show_error_calls = []
+        quit_called = [False]
+
+        def mock_show_error(parent, title, message):
+            show_error_calls.append((title, message))
+
+        def mock_quit():
+            quit_called[0] = True
+
+        with (
+            patch(
+                "mados_installer.pages.installation.save_log_to_file",
+                return_value=tmp_path,
+            ),
+            patch(
+                "mados_installer.pages.installation.show_error",
+                side_effect=mock_show_error,
+            ),
+            patch(
+                "mados_installer.pages.installation.Gtk.main_quit",
+                side_effect=mock_quit,
+            ),
+        ):
+            _handle_installation_error(app, "pacstrap failed")
+
+        # Verify error dialog was shown with log path info
+        self.assertEqual(len(show_error_calls), 1)
+        title, message = show_error_calls[0]
+        self.assertEqual(title, "Installation Failed")
+        self.assertIn("pacstrap failed", message)
+        self.assertIn(tmp_path, message)
+        self.assertIn("log has been saved", message)
+
+        # Verify installer quit was called
+        self.assertTrue(quit_called[0])
+
+    def test_error_handler_without_log_file(self):
+        """When log save fails, error dialog should still show and quit."""
+        app = MockApp()
+        app.log_buffer = MockLogBuffer()
+
+        show_error_calls = []
+        quit_called = [False]
+
+        def mock_show_error(parent, title, message):
+            show_error_calls.append((title, message))
+
+        def mock_quit():
+            quit_called[0] = True
+
+        with (
+            patch(
+                "mados_installer.pages.installation.save_log_to_file",
+                return_value=None,
+            ),
+            patch(
+                "mados_installer.pages.installation.show_error",
+                side_effect=mock_show_error,
+            ),
+            patch(
+                "mados_installer.pages.installation.Gtk.main_quit",
+                side_effect=mock_quit,
+            ),
+        ):
+            _handle_installation_error(app, "some error")
+
+        self.assertEqual(len(show_error_calls), 1)
+        title, message = show_error_calls[0]
+        self.assertNotIn("log has been saved", message)
+        self.assertIn("will now close", message)
+        self.assertTrue(quit_called[0])
 
 
 if __name__ == "__main__":
