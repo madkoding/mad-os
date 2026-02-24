@@ -73,6 +73,9 @@ from mados_installer.config import (
     PACKAGES_PHASE1,
     PACKAGES_PHASE2,
     PACKAGES,
+    PACKAGES_EXTRA,
+    GPU_COMPUTE_PACKAGES,
+    RSYNC_EXCLUDES,
     LOCALE_KB_MAP,
 )
 from mados_installer.translations import TRANSLATIONS
@@ -396,6 +399,143 @@ class TestCreatePageHeader(unittest.TestCase):
             create_page_header(FakeApp(), "Test Title", 3)
         except TypeError as e:
             self.fail(f"create_page_header raised TypeError: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Rsync installation configuration
+# ═══════════════════════════════════════════════════════════════════════════
+class TestRsyncConfig(unittest.TestCase):
+    """Verify rsync-based installation configuration constants."""
+
+    PKG_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._+-]*$")
+
+    # -- PACKAGES_EXTRA ------------------------------------------------
+
+    def test_packages_extra_not_empty(self):
+        """PACKAGES_EXTRA must be a non-empty list."""
+        self.assertIsInstance(PACKAGES_EXTRA, list)
+        self.assertGreater(
+            len(PACKAGES_EXTRA), 0, "PACKAGES_EXTRA must not be empty"
+        )
+
+    def test_packages_extra_valid_names(self):
+        """Every entry in PACKAGES_EXTRA must be a valid Arch package name."""
+        for pkg in PACKAGES_EXTRA:
+            with self.subTest(package=pkg):
+                self.assertRegex(
+                    pkg,
+                    self.PKG_NAME_PATTERN,
+                    f"PACKAGES_EXTRA entry '{pkg}' is not a valid package name",
+                )
+
+    def test_packages_extra_subset_of_phase1(self):
+        """PACKAGES_EXTRA should only contain packages from PACKAGES_PHASE1."""
+        for pkg in PACKAGES_EXTRA:
+            with self.subTest(package=pkg):
+                self.assertIn(
+                    pkg,
+                    PACKAGES_PHASE1,
+                    f"PACKAGES_EXTRA entry '{pkg}' not found in PACKAGES_PHASE1",
+                )
+
+    # -- GPU_COMPUTE_PACKAGES ------------------------------------------
+
+    def test_gpu_compute_packages_is_dict(self):
+        """GPU_COMPUTE_PACKAGES must be a dict."""
+        self.assertIsInstance(GPU_COMPUTE_PACKAGES, dict)
+
+    def test_gpu_compute_packages_has_required_keys(self):
+        """GPU_COMPUTE_PACKAGES must have 'nvidia', 'amd', and 'common' keys."""
+        for key in ("nvidia", "amd", "common"):
+            with self.subTest(key=key):
+                self.assertIn(
+                    key,
+                    GPU_COMPUTE_PACKAGES,
+                    f"GPU_COMPUTE_PACKAGES missing required key '{key}'",
+                )
+
+    def test_gpu_compute_packages_values_non_empty(self):
+        """Each GPU_COMPUTE_PACKAGES value must be a non-empty list."""
+        for key, pkgs in GPU_COMPUTE_PACKAGES.items():
+            with self.subTest(key=key):
+                self.assertIsInstance(
+                    pkgs, list, f"GPU_COMPUTE_PACKAGES['{key}'] must be a list"
+                )
+                self.assertGreater(
+                    len(pkgs), 0, f"GPU_COMPUTE_PACKAGES['{key}'] must not be empty"
+                )
+
+    def test_gpu_compute_packages_valid_names(self):
+        """All GPU compute package names must be valid Arch package names."""
+        for key, pkgs in GPU_COMPUTE_PACKAGES.items():
+            for pkg in pkgs:
+                with self.subTest(key=key, package=pkg):
+                    self.assertRegex(
+                        pkg,
+                        self.PKG_NAME_PATTERN,
+                        f"GPU_COMPUTE_PACKAGES['{key}'] entry '{pkg}' is invalid",
+                    )
+
+    def test_nvidia_has_cuda(self):
+        """NVIDIA GPU compute packages must include CUDA."""
+        self.assertIn("cuda", GPU_COMPUTE_PACKAGES["nvidia"])
+
+    def test_amd_has_rocm(self):
+        """AMD GPU compute packages must include ROCm."""
+        rocm_pkgs = GPU_COMPUTE_PACKAGES["amd"]
+        has_rocm = any("rocm" in p for p in rocm_pkgs)
+        self.assertTrue(has_rocm, "AMD packages must include ROCm runtime")
+
+    def test_common_has_opencl_headers(self):
+        """Common GPU compute packages must include opencl-headers."""
+        self.assertIn("opencl-headers", GPU_COMPUTE_PACKAGES["common"])
+
+    # -- RSYNC_EXCLUDES ------------------------------------------------
+
+    def test_rsync_excludes_not_empty(self):
+        """RSYNC_EXCLUDES must be a non-empty list."""
+        self.assertIsInstance(RSYNC_EXCLUDES, list)
+        self.assertGreater(
+            len(RSYNC_EXCLUDES), 0, "RSYNC_EXCLUDES must not be empty"
+        )
+
+    def test_rsync_excludes_start_with_slash(self):
+        """All RSYNC_EXCLUDES entries must start with '/'."""
+        for exc in RSYNC_EXCLUDES:
+            with self.subTest(exclude=exc):
+                self.assertTrue(
+                    exc.startswith("/"),
+                    f"RSYNC_EXCLUDES entry '{exc}' must start with '/'",
+                )
+
+    def test_rsync_excludes_critical_entries(self):
+        """Critical virtual filesystems and mount points must be excluded."""
+        critical = ["/dev/*", "/proc/*", "/sys/*", "/mnt/*"]
+        for entry in critical:
+            with self.subTest(exclude=entry):
+                self.assertIn(
+                    entry,
+                    RSYNC_EXCLUDES,
+                    f"Critical exclude '{entry}' missing from RSYNC_EXCLUDES",
+                )
+
+    def test_rsync_excludes_run_and_tmp(self):
+        """Transient directories /run/* and /tmp/* must be excluded."""
+        for entry in ("/run/*", "/tmp/*"):
+            with self.subTest(exclude=entry):
+                self.assertIn(entry, RSYNC_EXCLUDES)
+
+    def test_rsync_excludes_machine_id(self):
+        """machine-id must be excluded so it can be regenerated on first boot."""
+        self.assertIn("/etc/machine-id", RSYNC_EXCLUDES)
+
+    def test_rsync_excludes_fstab(self):
+        """fstab must be excluded so genfstab can generate a fresh one."""
+        self.assertIn("/etc/fstab", RSYNC_EXCLUDES)
+
+    def test_rsync_excludes_pacman_cache(self):
+        """Pacman package cache must be excluded to save disk space."""
+        self.assertIn("/var/cache/pacman/pkg/*", RSYNC_EXCLUDES)
 
 
 if __name__ == "__main__":
