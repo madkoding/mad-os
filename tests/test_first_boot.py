@@ -489,10 +489,10 @@ class TestOhMyZshFallbackService(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# OpenCode fallback service
+# OpenCode setup script (program, not a service)
 # ═══════════════════════════════════════════════════════════════════════════
-class TestOpenCodeFallbackService(unittest.TestCase):
-    """Verify the first-boot script creates OpenCode setup script and fallback service."""
+class TestOpenCodeSetupScript(unittest.TestCase):
+    """Verify the first-boot script creates OpenCode setup script (no service)."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -510,18 +510,11 @@ class TestOpenCodeFallbackService(unittest.TestCase):
             "Must create setup-opencode.sh on the installed system",
         )
 
-    def test_creates_fallback_service(self):
-        """Must create setup-opencode.service for boot-time retry."""
-        self.assertIn(
-            "setup-opencode.service", self.content,
-            "Must create setup-opencode.service on the installed system",
-        )
-
-    def test_does_not_enable_fallback_service(self):
-        """Must NOT enable setup-opencode.service (not run as a service)."""
+    def test_does_not_create_service(self):
+        """Must NOT create setup-opencode.service (opencode is a program)."""
         self.assertNotIn(
-            "systemctl enable setup-opencode.service", self.content,
-            "Must NOT enable setup-opencode.service — opencode should be installed manually",
+            "setup-opencode.service", self.content,
+            "Must NOT create setup-opencode.service — opencode is a program, not a service",
         )
 
 
@@ -1013,13 +1006,13 @@ class TestPhase2ScriptGeneration(unittest.TestCase):
                         "would crash Phase 2 if the service doesn't exist: {stripped}",
                     )
 
-    # ── Ollama fallback service ─────────────────────────────────────────
-    def test_ollama_fallback_service_is_created(self):
-        """Phase 2 must create setup-ollama.service but NOT enable it."""
-        self.assertIn("setup-ollama.service", self.script,
-                       "Phase 2 must create setup-ollama.service")
-        self.assertNotIn("systemctl enable setup-ollama.service", self.script,
-                         "Phase 2 must NOT enable setup-ollama.service — ollama should be installed manually")
+    # ── Ollama setup script (program, not a service) ──────────────────────
+    def test_ollama_setup_script_is_created(self):
+        """Phase 2 must create setup-ollama.sh but NOT a service file."""
+        self.assertIn("setup-ollama.sh", self.script,
+                       "Phase 2 must create setup-ollama.sh")
+        self.assertNotIn("setup-ollama.service", self.script,
+                         "Phase 2 must NOT create setup-ollama.service — ollama is a program, not a service")
 
     # ── Audio init script ───────────────────────────────────────────────
     def test_audio_init_script_is_valid_bash(self):

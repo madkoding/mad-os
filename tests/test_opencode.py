@@ -4,11 +4,11 @@ Tests for OpenCode availability in both the live USB and post-installation.
 
 Validates that the opencode command will be discoverable and functional by
 verifying:
-  - Live USB: systemd service is enabled (symlinked), script is correct,
-    PATH includes /usr/local/bin, and install methods are present.
-  - Post-installation: the installer generates a setup script, enables the
-    fallback service, configures sudoers, and installs OpenCode via
-    curl + npm fallback.
+  - Live USB: setup script is correct, PATH includes /usr/local/bin,
+    and install methods are present.  No systemd service exists (opencode
+    is a program, not a service).
+  - Post-installation: the installer generates a setup script, configures
+    sudoers, and installs OpenCode via curl + npm fallback.
 """
 
 import os
@@ -38,18 +38,24 @@ sys.path.insert(0, LIB_DIR)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Live USB – OpenCode service enablement
+# Live USB – OpenCode is a program, not a service
 # ═══════════════════════════════════════════════════════════════════════════
-class TestLiveUSBOpenCodeServiceNotEnabled(unittest.TestCase):
-    """Verify setup-opencode.service is NOT enabled (no symlink) for the live USB."""
+class TestLiveUSBOpenCodeNoService(unittest.TestCase):
+    """Verify opencode has NO systemd service (it is a program, not a service)."""
 
-    def test_symlink_not_in_multi_user_wants(self):
+    def test_no_service_file(self):
+        """setup-opencode.service must NOT exist — opencode is a program."""
+        self.assertFalse(
+            os.path.isfile(os.path.join(SYSTEMD_DIR, "setup-opencode.service")),
+            "setup-opencode.service must NOT exist — opencode is a program, not a service",
+        )
+
+    def test_no_symlink_in_multi_user_wants(self):
         """setup-opencode.service must NOT be symlinked in multi-user.target.wants/."""
         symlink_path = os.path.join(MULTI_USER_WANTS, "setup-opencode.service")
         self.assertFalse(
             os.path.lexists(symlink_path),
-            "setup-opencode.service symlink must NOT exist in multi-user.target.wants/ "
-            "– opencode should be installed manually, not run as a service",
+            "setup-opencode.service symlink must NOT exist in multi-user.target.wants/",
         )
 
     def test_no_broken_claude_code_symlink(self):
@@ -58,15 +64,7 @@ class TestLiveUSBOpenCodeServiceNotEnabled(unittest.TestCase):
         self.assertFalse(
             os.path.lexists(stale),
             "Stale setup-claude-code.service symlink found in "
-            "multi-user.target.wants/ – this should have been replaced "
-            "by setup-opencode.service",
-        )
-
-    def test_service_file_exists(self):
-        """The actual setup-opencode.service unit file must still exist for manual use."""
-        self.assertTrue(
-            os.path.isfile(os.path.join(SYSTEMD_DIR, "setup-opencode.service")),
-            "setup-opencode.service unit file is missing from systemd/system/",
+            "multi-user.target.wants/ – this should have been removed",
         )
 
 
@@ -112,49 +110,14 @@ class TestLiveUSBOpenCodeScript(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Live USB – systemd service PATH configuration
-# ═══════════════════════════════════════════════════════════════════════════
-class TestLiveUSBOpenCodeServiceConfig(unittest.TestCase):
-    """Verify the systemd service has the right PATH so opencode is found."""
-
-    def setUp(self):
-        service_path = os.path.join(SYSTEMD_DIR, "setup-opencode.service")
-        with open(service_path) as f:
-            self.content = f.read()
-
-    def test_path_includes_usr_local_bin(self):
-        """Service PATH must include /usr/local/bin where opencode is installed."""
-        path_match = re.search(r'Environment=PATH=(.*)', self.content)
-        self.assertIsNotNone(path_match, "Service must set PATH environment")
-        self.assertIn(
-            "/usr/local/bin", path_match.group(1),
-            "Service PATH must include /usr/local/bin",
-        )
-
-    def test_runs_after_network(self):
-        """Service must run after network is available (needs internet to install)."""
-        self.assertIn(
-            "network-online.target", self.content,
-            "Service must start after network-online.target",
-        )
-
-    def test_runs_after_pacman_init(self):
-        """Service must run after pacman-init to ensure keyrings are ready."""
-        self.assertIn(
-            "pacman-init.service", self.content,
-            "Service must start after pacman-init.service",
-        )
-
-
-# ═══════════════════════════════════════════════════════════════════════════
 # Post-installation – OpenCode setup in first-boot script
 # ═══════════════════════════════════════════════════════════════════════════
 class TestPostInstallOpenCode(unittest.TestCase):
     """Verify the installer configures OpenCode for the installed system.
 
     Phase 2 is 100% offline — it does NOT download OpenCode.  Instead it
-    creates a setup script and fallback systemd service for manual or
-    boot-time installation when the binary wasn't already on the live USB.
+    creates a setup script for manual installation when the binary
+    wasn't already on the live USB.
     """
 
     def setUp(self):
@@ -173,18 +136,11 @@ class TestPostInstallOpenCode(unittest.TestCase):
             "Installer must create setup-opencode.sh on the installed system",
         )
 
-    def test_installer_creates_fallback_service(self):
-        """Installer must create setup-opencode.service for boot-time retry."""
-        self.assertIn(
-            "setup-opencode.service", self.content,
-            "Installer must create setup-opencode.service on the installed system",
-        )
-
-    def test_installer_does_not_enable_fallback_service(self):
-        """Installer must NOT enable setup-opencode.service (not run as a service)."""
+    def test_installer_does_not_create_service(self):
+        """Installer must NOT create setup-opencode.service (opencode is a program)."""
         self.assertNotIn(
-            "systemctl enable setup-opencode.service", self.content,
-            "Installer must NOT enable setup-opencode.service — opencode should be installed manually",
+            "setup-opencode.service", self.content,
+            "Installer must NOT create setup-opencode.service — opencode is a program, not a service",
         )
 
     def test_installer_configures_sudoers_for_opencode(self):

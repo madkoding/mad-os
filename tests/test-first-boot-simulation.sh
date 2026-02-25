@@ -301,11 +301,9 @@ step "Phase 8 – Verifying fallback services"
 check_content "Oh My Zsh fallback service" "setup-ohmyzsh.service"
 check_content "Oh My Zsh service enabled" "systemctl enable setup-ohmyzsh.service"
 check_content "OpenCode setup script" "setup-opencode.sh"
-check_content "OpenCode fallback service" "setup-opencode.service"
-check_content "OpenCode service enabled" "systemctl enable setup-opencode.service"
+check_not_content "OpenCode service file" "setup-opencode.service"
 check_content "Ollama setup script" "setup-ollama.sh"
-check_content "Ollama fallback service" "setup-ollama.service"
-check_content "Ollama service enabled" "systemctl enable setup-ollama.service"
+check_not_content "Ollama service file" "setup-ollama.service"
 
 # Verify setup scripts have chmod 755
 info "Checking script permissions..."

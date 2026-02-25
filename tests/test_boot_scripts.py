@@ -2,9 +2,10 @@
 """
 Tests for madOS boot-time scripts and services.
 
-Validates that boot scripts (setup-ohmyzsh.sh, setup-opencode.sh) and their
-corresponding systemd service units are properly configured for the live USB
-environment.
+Validates that boot scripts (setup-ohmyzsh.sh, setup-opencode.sh, setup-ollama.sh)
+and the Oh My Zsh systemd service unit are properly configured for the live USB
+environment.  OpenCode and Ollama are programs (not services) and only have
+setup scripts for manual installation.
 
 These tests catch configuration errors like the 'chown: invalid group'
 issue where setup-ohmyzsh.sh used the username as the group name instead
@@ -261,16 +262,6 @@ class TestSystemdServices(unittest.TestCase):
     SERVICES = {
         "setup-ohmyzsh.service": {
             "exec": "/usr/local/bin/setup-ohmyzsh.sh",
-            "after": "network-online.target",
-            "type": "oneshot",
-        },
-        "setup-opencode.service": {
-            "exec": "/usr/local/bin/setup-opencode.sh",
-            "after": "network-online.target",
-            "type": "oneshot",
-        },
-        "setup-ollama.service": {
-            "exec": "/usr/local/bin/setup-ollama.sh",
             "after": "network-online.target",
             "type": "oneshot",
         },

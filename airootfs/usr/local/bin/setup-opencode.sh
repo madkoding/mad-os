@@ -32,7 +32,6 @@ if ! curl -sf --connect-timeout 5 https://opencode.ai/ >/dev/null 2>&1; then
     echo "    Ethernet: debería conectarse automáticamente"
     echo ""
     echo "  Luego ejecuta de nuevo: setup-opencode.sh"
-    # Exit 0 to not fail the systemd service when run at boot without network
     exit 0
 fi
 
@@ -58,5 +57,4 @@ fi
 
 echo "⚠ No se pudo instalar OpenCode."
 echo "  Intenta manualmente: setup-opencode.sh"
-# Exit 0 to not fail the service
 exit 0

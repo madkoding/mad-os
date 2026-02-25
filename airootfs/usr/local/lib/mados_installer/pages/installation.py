@@ -1858,12 +1858,10 @@ cat > /etc/chromium/policies/managed/mados-homepage.json <<'EOFPOLICY'
 }}
 EOFPOLICY
 
-# ── Step 4: Create fallback services for optional tools ─────────────────
-# These fallback services install optional tools on subsequent boots if
-# they were not already present on the live USB (e.g. no internet at live boot).
-# All tools are already copied from the live ISO via rsync during Phase 1,
-# so these services only run when the tools are genuinely missing.
-log "Creating fallback services for optional tools..."
+# ── Step 4: Create fallback service and setup scripts for optional tools ──
+# Oh My Zsh uses a fallback systemd service. OpenCode and Ollama are
+# programs (not services) — their setup scripts are provided for manual use.
+log "Creating fallback services and setup scripts for optional tools..."
 
 # Oh My Zsh fallback service
 cat > /etc/systemd/system/setup-ohmyzsh.service <<'EOFSVC'
@@ -1925,28 +1923,6 @@ exit 0
 EOFSETUP
 chmod 755 /usr/local/bin/setup-opencode.sh
 
-# OpenCode fallback service
-cat > /etc/systemd/system/setup-opencode.service <<'EOFSVC'
-[Unit]
-Description=Install OpenCode if not already present
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-Environment=HOME=/root
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
-ExecStart=/usr/local/bin/setup-opencode.sh
-StandardOutput=journal+console
-StandardError=journal+console
-TimeoutStartSec=300
-
-[Install]
-WantedBy=multi-user.target
-EOFSVC
-# Note: setup-opencode.service is NOT enabled — user can run setup-opencode.sh manually
-
 # Ollama: setup script for manual install/retry
 cat > /usr/local/bin/setup-ollama.sh <<'EOFSETUP'
 #!/bin/bash
@@ -1973,28 +1949,6 @@ echo "⚠ No se pudo instalar Ollama."
 exit 0
 EOFSETUP
 chmod 755 /usr/local/bin/setup-ollama.sh
-
-# Ollama fallback service
-cat > /etc/systemd/system/setup-ollama.service <<'EOFSVC'
-[Unit]
-Description=Install Ollama if not already present
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-Environment=HOME=/root
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
-ExecStart=/usr/local/bin/setup-ollama.sh
-StandardOutput=journal+console
-StandardError=journal+console
-TimeoutStartSec=300
-
-[Install]
-WantedBy=multi-user.target
-EOFSVC
-# Note: setup-ollama.service is NOT enabled — user can run setup-ollama.sh manually
 
 # ── Step 5: Verify graphical environment components ─────────────────────
 log "Verifying graphical environment components..."
