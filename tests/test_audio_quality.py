@@ -510,7 +510,11 @@ INSTALLATION_PY = os.path.join(INSTALLER_DIR, "pages", "installation.py")
 
 
 class TestInstallerAudioQualityIntegration(unittest.TestCase):
-    """Verify the installer sets up audio quality for the installed system."""
+    """Verify the installer copies audio quality assets to the installed system.
+
+    Audio services and user-level config are pre-installed on the live USB
+    and copied via rsync.  The installer only explicitly copies the script.
+    """
 
     def setUp(self):
         with open(INSTALLATION_PY) as f:
@@ -526,38 +530,53 @@ class TestInstallerAudioQualityIntegration(unittest.TestCase):
         )
 
     def test_installer_creates_system_service(self):
-        """First-boot script must create mados-audio-quality.service."""
-        self.assertIn("mados-audio-quality.service", self.content)
-        self.assertIn(
-            "systemctl enable mados-audio-quality.service",
-            self.content,
-            "Installer must enable mados-audio-quality.service",
+        """System service must be pre-installed on the live USB."""
+        service = os.path.join(
+            AIROOTFS, "etc", "systemd", "system",
+            "mados-audio-quality.service",
+        )
+        self.assertTrue(
+            os.path.isfile(service),
+            "mados-audio-quality.service must be pre-installed on live USB",
         )
 
     def test_installer_creates_user_service(self):
-        """First-boot script must set up user-level audio quality service."""
-        self.assertIn(
+        """User-level audio quality service must be in /etc/skel."""
+        skel_svc = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "systemd", "user",
             "mados-audio-quality.service",
-            self.content,
         )
-        self.assertIn(
-            "default.target.wants/mados-audio-quality.service",
-            self.content,
-            "Installer must enable user audio quality service via symlink",
+        self.assertTrue(
+            os.path.isfile(skel_svc),
+            "User-level audio quality service must be in /etc/skel on live USB",
         )
 
     def test_system_service_runs_after_audio_init(self):
-        """System service in installer must depend on mados-audio-init."""
+        """System service must depend on mados-audio-init."""
+        service = os.path.join(
+            AIROOTFS, "etc", "systemd", "system",
+            "mados-audio-quality.service",
+        )
+        with open(service) as f:
+            content = f.read()
         self.assertIn(
-            "After=systemd-udev-settle.service sound.target mados-audio-init.service",
-            self.content,
+            "mados-audio-init.service",
+            content,
+            "System service must run after mados-audio-init.service",
         )
 
     def test_user_service_runs_before_pipewire(self):
         """User service must run before PipeWire starts."""
+        skel_svc = os.path.join(
+            AIROOTFS, "etc", "skel", ".config", "systemd", "user",
+            "mados-audio-quality.service",
+        )
+        with open(skel_svc) as f:
+            content = f.read()
         self.assertIn(
-            "Before=pipewire.service pipewire-pulse.service wireplumber.service",
-            self.content,
+            "Before=pipewire.service",
+            content,
+            "User service must run before PipeWire",
         )
 
 

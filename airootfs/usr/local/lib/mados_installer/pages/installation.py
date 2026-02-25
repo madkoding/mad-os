@@ -15,6 +15,7 @@ from ..config import (
     DEMO_MODE,
     PACKAGES,
     RSYNC_EXCLUDES,
+    POST_COPY_CLEANUP,
     ARCHISO_PACKAGES,
     NORD_FROST,
     LOCALE_KB_MAP,
@@ -481,13 +482,10 @@ def _step_copy_desktop_files(app):
 
 
 def _run_installation(app):
-    """Perform Phase 1 installation (runs in background thread).
+    """Perform installation (runs in background thread).
 
-    Phase 1 (from USB): partition, format, install minimal packages, configure
-    bootloader and essential services, set up first-boot service for Phase 2.
-
-    Phase 2 (first boot from installed disk): handled by mados-first-boot.sh
-    which installs remaining packages, desktop config, and services.
+    Partition, format, install packages via rsync, configure bootloader and
+    essential services, verify graphical environment — all in a single pass.
     """
     try:
         data = app.install_data
@@ -561,7 +559,7 @@ def _run_installation(app):
             log_message(app, "[DEMO]   - Hostname configuration")
             log_message(app, "[DEMO]   - User creation")
             log_message(app, "[DEMO]   - GRUB bootloader")
-            log_message(app, "[DEMO]   - First-boot service for Phase 2")
+            log_message(app, "[DEMO]   - Graphical environment verification")
             time.sleep(1)
         else:
             fd = os.open(
@@ -572,16 +570,15 @@ def _run_installation(app):
 
             _step_copy_live_files(app)
 
-        # Step 7: Run Phase 1 chroot configuration
+        # Step 7: Run chroot configuration
         set_progress(app, 0.55, "Applying configurations...")
-        log_message(app, "Running Phase 1 configuration...")
+        log_message(app, "Running chroot configuration...")
         if DEMO_MODE:
             demo_steps = [
                 (0.58, "Installing GRUB bootloader"),
                 (0.64, "Enabling essential services..."),
                 (0.70, "Rebuilding initramfs..."),
-                (0.76, "Setting up first-boot service..."),
-                (0.82, "Preparing Phase 2 setup..."),
+                (0.76, "Verifying graphical environment..."),
             ]
             log_message(app, "[DEMO] Simulating arch-chroot configuration...")
             for progress, desc in demo_steps:
@@ -607,15 +604,12 @@ def _run_installation(app):
 
         set_progress(app, 1.0, "Installation complete!")
         if DEMO_MODE:
-            log_message(app, "\n[OK] Demo Phase 1 installation completed successfully!")
+            log_message(app, "\n[OK] Demo installation completed successfully!")
             log_message(app, "\n[DEMO] No actual changes were made to your system.")
             log_message(app, "[DEMO] Set DEMO_MODE = False for real installation.")
         else:
-            log_message(app, "\n[OK] Phase 1 installation completed successfully!")
-            log_message(
-                app,
-                "Remaining packages and configuration will be installed on first boot.",
-            )
+            log_message(app, "\n[OK] Installation completed successfully!")
+            log_message(app, "madOS is fully configured and ready to use.")
 
         GLib.idle_add(_finish_installation, app)
 
@@ -650,6 +644,27 @@ def _finish_installation(app):
     app.install_spinner.stop()
     app.notebook.next_page()
     return False
+
+
+def _post_rsync_cleanup(app):
+    """Remove bulky files from the target after rsync to reclaim disk space.
+
+    Expands glob patterns from ``POST_COPY_CLEANUP`` (relative to ``/mnt``)
+    and removes matching paths.  Also sweeps for scattered ``__pycache__``
+    directories.  Errors are silently ignored so a missing path never aborts
+    the installation.
+    """
+    for pattern in POST_COPY_CLEANUP:
+        full = os.path.join("/mnt", pattern)
+        for path in globmod.glob(full):
+            subprocess.run(["rm", "-rf", path], check=False)
+    # Remove scattered __pycache__ directories
+    subprocess.run(
+        ["find", "/mnt/usr", "-type", "d", "-name", "__pycache__",
+         "-exec", "rm", "-rf", "{}", "+"],
+        check=False, capture_output=True,
+    )
+    log_message(app, "  Disk footprint reduced")
 
 
 def _rsync_rootfs_with_progress(app):
@@ -714,8 +729,13 @@ def _rsync_rootfs_with_progress(app):
 
     log_message(app, "  System files copied successfully")
 
-    # --- Archiso cleanup (0.43 → 0.48) ---
-    set_progress(app, 0.43, "Cleaning archiso artifacts...")
+    # --- Post-copy cleanup (0.43 → 0.45) ---
+    set_progress(app, 0.43, "Reducing disk footprint...")
+    log_message(app, "Removing unnecessary files to save disk space...")
+    _post_rsync_cleanup(app)
+
+    # --- Archiso cleanup (0.45 → 0.48) ---
+    set_progress(app, 0.45, "Cleaning archiso artifacts...")
     log_message(app, "Removing archiso-specific packages...")
     subprocess.run(
         ["arch-chroot", "/mnt", "pacman", "-Rdd", "--noconfirm"]
@@ -1132,11 +1152,11 @@ def _run_chroot_with_progress(app):
 
 
 def _build_config_script(data):
-    """Build the Phase 1 chroot configuration shell script.
+    """Build the chroot configuration shell script.
 
-    Phase 1 handles: timezone, locale, hostname, user account, GRUB bootloader,
+    Handles: timezone, locale, hostname, user account, GRUB bootloader,
     Plymouth, initramfs, essential services, system optimizations, desktop
-    environment basics, and sets up the first-boot service for Phase 2.
+    environment basics, and graphical environment verification.
     """
     disk = data["disk"]
 
@@ -1160,13 +1180,10 @@ def _build_config_script(data):
     if not re.match(r"^[a-z_][a-z0-9_-]*$", username):
         raise ValueError(f"Invalid username: {username}")
 
-    # Build the Phase 2 first-boot script content
-    first_boot_script = _build_first_boot_script(data)
-
     return f'''#!/bin/bash
 set -e
 
-echo "[PROGRESS 1/9] Setting timezone and locale..."
+echo "[PROGRESS 1/8] Setting timezone and locale..."
 # Timezone
 ln -sf /usr/share/zoneinfo/{timezone} /etc/localtime
 hwclock --systohc 2>/dev/null || true
@@ -1177,7 +1194,7 @@ echo "{locale} UTF-8" >> /etc/locale.gen
 locale-gen
 echo "LANG={locale}" > /etc/locale.conf
 
-echo '[PROGRESS 2/9] Creating user account...'
+echo '[PROGRESS 2/8] Creating user account...'
 # Hostname
 echo '{_escape_shell(data["hostname"])}' > /etc/hostname
 cat > /etc/hosts <<EOF
@@ -1221,7 +1238,7 @@ if [ ! -s /boot/vmlinuz-linux ] || [ ! -r /boot/vmlinuz-linux ]; then
     exit 1
 fi
 
-echo '[PROGRESS 3/9] Installing GRUB bootloader...'
+echo '[PROGRESS 3/8] Installing GRUB bootloader...'
 # GRUB - Auto-detect UEFI or BIOS
 if [ -d /sys/firmware/efi ]; then
     echo "==> Detected UEFI boot mode"
@@ -1316,7 +1333,7 @@ else
     fi
 fi
 
-echo '[PROGRESS 4/9] Configuring GRUB...'
+echo '[PROGRESS 4/8] Configuring GRUB...'
 # Configure GRUB
 sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="zswap.enabled=0 splash quiet"/' /etc/default/grub
 sed -i 's/GRUB_DISTRIBUTOR="Arch"/GRUB_DISTRIBUTOR="madOS"/' /etc/default/grub
@@ -1327,7 +1344,7 @@ if [ ! -f /boot/grub/grub.cfg ]; then
     exit 1
 fi
 
-echo '[PROGRESS 5/9] Setting up Plymouth boot splash...'
+echo '[PROGRESS 5/8] Setting up Plymouth boot splash...'
 # Plymouth theme
 mkdir -p /usr/share/plymouth/themes/mados
 cat > /usr/share/plymouth/themes/mados/mados.plymouth <<EOFPLY
@@ -1402,7 +1419,7 @@ ShowDelay=0
 DeviceTimeout=5
 EOFPLYCONF
 
-echo '[PROGRESS 6/9] Rebuilding initramfs (this takes a while)...'
+echo '[PROGRESS 6/8] Rebuilding initramfs (this takes a while)...'
 # Rebuild initramfs with plymouth and microcode hooks
 # KMS must come before plymouth so GPU drivers are loaded before the splash starts
 sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode modconf kms plymouth block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
@@ -1441,11 +1458,12 @@ fi
 
 mkinitcpio -P
 
-echo '[PROGRESS 7/9] Enabling essential services...'
+echo '[PROGRESS 7/8] Enabling essential services...'
 # Lock root account (security: users should use sudo)
 passwd -l root
 
-# Essential services only (remaining services enabled by first-boot)
+# Essential services — all pre-installed on the live USB and copied by rsync.
+# Audio, Chromium, Oh My Zsh services are also pre-installed.
 systemctl enable NetworkManager
 systemctl enable systemd-resolved
 systemctl enable earlyoom
@@ -1454,7 +1472,10 @@ systemctl enable greetd
 systemctl enable iwd
 systemctl enable bluetooth
 
-echo '[PROGRESS 8/9] Applying system configuration...'
+# Audio: PipeWire socket activation for all user sessions
+systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true
+
+echo '[PROGRESS 8/8] Applying system configuration...'
 # --- Non-critical section: errors below should not abort installation ---
 set +e
 
@@ -1613,397 +1634,43 @@ MIN_FREE_SPACE_MB=512
 EOFVENTOY
 chmod 644 /etc/mados/ventoy-persist.conf
 
-echo '[PROGRESS 9/9] Setting up first-boot service for Phase 2...'
-# Write the Phase 2 first-boot script
-mkdir -p /usr/local/bin
-cat > /usr/local/bin/mados-first-boot.sh <<'EOFFIRSTBOOT'
-{first_boot_script}
-EOFFIRSTBOOT
-chmod 755 /usr/local/bin/mados-first-boot.sh
-
-# Create the systemd service for Phase 2 first-boot setup
-# Phase 2 is 100% offline — no network dependency needed
-# Must run before greetd so graphical config is ready before login screen
-cat > /etc/systemd/system/mados-first-boot.service <<'EOFSVC'
-[Unit]
-Description=madOS First Boot Setup (Phase 2) - Configure services (offline)
-After=local-fs.target
-Before=greetd.service
-ConditionPathExists=/usr/local/bin/mados-first-boot.sh
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/mados-first-boot.sh
-StandardOutput=journal+console
-StandardError=journal+console
-TimeoutStartSec=600
-
-[Install]
-WantedBy=multi-user.target
-EOFSVC
-systemctl enable mados-first-boot.service
-echo "Phase 2 first-boot service installed and enabled"
-'''
-
-
-def _build_first_boot_script(data):
-    """Build the Phase 2 first-boot shell script.
-
-    This script runs on the first boot from the installed disk.  All packages
-    and tools from the ISO are already present (copied via rsync during
-    Phase 1).  Phase 2 is 100 % offline — it only configures services,
-    creates fallback systemd services for optional tools that may not have
-    been available on the live USB, then disables itself.
-    """
-    username = data["username"]
-
-    return f"""#!/bin/bash
-# madOS First Boot Setup (Phase 2)
-# All packages and tools from the ISO are already installed (copied via
-# rsync during Phase 1).  This script is 100% offline — it only configures
-# services and creates fallback services, then disables itself.
-
-# Use -e for initial setup, then switch to +e for non-critical operations
-set -e
-
-LOG_FILE="/var/log/mados-first-boot.log"
-LOG_TAG="mados-first-boot"
-log() {{
-    local msg="[Phase 2] $1"
-    echo "$msg"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') $msg" >> "$LOG_FILE" 2>/dev/null || true
-    systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/dev/null || true
-}}
-
-log "Starting madOS Phase 2 setup..."
-
-# --- Non-critical operations: failures are warnings, not blockers ---
-set +e
-
-# ── Step 1: Enable additional services ──────────────────────────────────
-log "Enabling additional services..."
-systemctl enable bluetooth 2>/dev/null || true
-
-# Audio: Enable PipeWire for all user sessions (socket-activated)
-systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true
-
-# Audio: Create and enable ALSA unmute service
-cat > /usr/local/bin/mados-audio-init.sh <<'EOFAUDIO'
-#!/usr/bin/env bash
-# mados-audio-init.sh - Unmute ALSA controls and set default volumes
-set -euo pipefail
-LOG_TAG="mados-audio-init"
-log() {{ systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1"; }}
-get_card_indices() {{
-    if [[ -f /proc/asound/cards ]]; then
-        sed -n -e 's/^[[:space:]]*\\([0-9]\\+\\)[[:space:]].*/\\1/p' /proc/asound/cards
-    fi
-}}
-set_control() {{ amixer -c "$1" set "$2" "$3" unmute 2>/dev/null || true; }}
-mute_control() {{ amixer -c "$1" set "$2" "0%" mute 2>/dev/null || true; }}
-switch_control() {{ amixer -c "$1" set "$2" "$3" 2>/dev/null || true; }}
-init_card() {{
-    local card="$1"
-    log "Initializing audio on card $card"
-    set_control "$card" "Master" "80%"
-    set_control "$card" "Front" "80%"
-    set_control "$card" "Master Mono" "80%"
-    set_control "$card" "Master Digital" "80%"
-    set_control "$card" "Playback" "80%"
-    set_control "$card" "Headphone" "100%"
-    set_control "$card" "Speaker" "80%"
-    set_control "$card" "PCM" "80%"
-    set_control "$card" "PCM,1" "80%"
-    set_control "$card" "DAC" "80%"
-    set_control "$card" "DAC,0" "80%"
-    set_control "$card" "DAC,1" "80%"
-    set_control "$card" "Digital" "80%"
-    set_control "$card" "Wave" "80%"
-    set_control "$card" "Music" "80%"
-    set_control "$card" "AC97" "80%"
-    set_control "$card" "Analog Front" "80%"
-    set_control "$card" "Synth" "80%"
-    switch_control "$card" "Master Playback Switch" "on"
-    switch_control "$card" "Master Surround" "on"
-    switch_control "$card" "Speaker" "on"
-    switch_control "$card" "Headphone" "on"
-    set_control "$card" "VIA DXS,0" "80%"
-    set_control "$card" "VIA DXS,1" "80%"
-    set_control "$card" "VIA DXS,2" "80%"
-    set_control "$card" "VIA DXS,3" "80%"
-    set_control "$card" "Dynamic Range Compression" "80%"
-    mute_control "$card" "Mic"
-    mute_control "$card" "Internal Mic"
-    mute_control "$card" "Rear Mic"
-    mute_control "$card" "IEC958"
-    switch_control "$card" "IEC958 Capture Monitor" "off"
-    switch_control "$card" "Headphone Jack Sense" "off"
-    switch_control "$card" "Line Jack Sense" "off"
-}}
-log "Starting madOS audio initialization"
-cards=$(get_card_indices)
-if [[ -z "$cards" ]]; then log "No sound cards detected"; exit 0; fi
-for card in $cards; do init_card "$card"; done
-if command -v alsactl &>/dev/null && alsactl store 2>/dev/null; then log "ALSA state saved"; fi
-log "Audio initialization complete"
-EOFAUDIO
-chmod 755 /usr/local/bin/mados-audio-init.sh
-
-cat > /etc/systemd/system/mados-audio-init.service <<'EOFSVC'
-[Unit]
-Description=madOS Audio Initialization - Unmute ALSA Controls
-Wants=systemd-udev-settle.service
-After=systemd-udev-settle.service sound.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/mados-audio-init.sh
-
-[Install]
-WantedBy=multi-user.target
-EOFSVC
-systemctl enable mados-audio-init.service 2>/dev/null || true
-
-# Audio: Create and enable high-quality audio auto-detection service
-cat > /etc/systemd/system/mados-audio-quality.service <<'EOFSVC'
-[Unit]
-Description=madOS Audio Quality Auto-Configuration
-Documentation=man:pipewire(1)
-Wants=systemd-udev-settle.service sound.target
-After=systemd-udev-settle.service sound.target mados-audio-init.service
-Before=multi-user.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/mados-audio-quality.sh
-Nice=-5
-
-[Install]
-WantedBy=multi-user.target
-EOFSVC
-systemctl enable mados-audio-quality.service 2>/dev/null || true
-
-# Audio: Set up user-level audio quality service
-mkdir -p /home/{username}/.config/systemd/user/default.target.wants
-cat > /home/{username}/.config/systemd/user/mados-audio-quality.service <<'EOFUSRSVC'
-[Unit]
-Description=madOS Audio Quality User Configuration
-Documentation=man:pipewire(1)
-Before=pipewire.service pipewire-pulse.service wireplumber.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/mados-audio-quality.sh
-
-[Install]
-WantedBy=default.target
-EOFUSRSVC
-ln -sf ../mados-audio-quality.service /home/{username}/.config/systemd/user/default.target.wants/mados-audio-quality.service
-chown -R {username}:{username} /home/{username}/.config/systemd
-
-# ── Step 3: Configure Chromium ──────────────────────────────────────────
-log "Configuring Chromium..."
-cat > /etc/chromium-flags.conf <<'EOFCHROMIUM'
-# Wayland native support
---ozone-platform-hint=auto
---enable-features=WaylandWindowDecorations
-# Disable Vulkan (not supported on Intel Atom / legacy GPUs)
---disable-vulkan
-# Disable VA-API hardware video decode/encode (fails on Intel Atom)
---disable-features=VaapiVideoDecoder,VaapiVideoEncoder,UseChromeOSDirectVideoDecoder
-# Memory optimizations for low-RAM systems
---renderer-process-limit=3
---disable-gpu-memory-buffer-compositor-resources
-EOFCHROMIUM
-
-# Chromium homepage policy
-mkdir -p /etc/chromium/policies/managed
-cat > /etc/chromium/policies/managed/mados-homepage.json <<'EOFPOLICY'
-{{
-  "HomepageLocation": "https://www.kodingvibes.com",
-  "HomepageIsNewTabPage": true,
-  "RestoreOnStartup": 4,
-  "RestoreOnStartupURLs": ["https://www.kodingvibes.com"]
-}}
-EOFPOLICY
-
-# ── Step 4: Create fallback services for optional tools ─────────────────
-# These fallback services install optional tools on subsequent boots if
-# they were not already present on the live USB (e.g. no internet at live boot).
-# All tools are already copied from the live ISO via rsync during Phase 1,
-# so these services only run when the tools are genuinely missing.
-log "Creating fallback services for optional tools..."
-
-# Oh My Zsh fallback service
-cat > /etc/systemd/system/setup-ohmyzsh.service <<'EOFSVC'
-[Unit]
-Description=Install Oh My Zsh if not already present
-After=network-online.target
-Wants=network-online.target
-ConditionPathExists=!/etc/skel/.oh-my-zsh
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-Environment=HOME=/root
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
-ExecStart=/usr/local/bin/setup-ohmyzsh.sh
-StandardOutput=journal+console
-StandardError=journal+console
-TimeoutStartSec=120
-
-[Install]
-WantedBy=multi-user.target
-EOFSVC
-systemctl enable setup-ohmyzsh.service 2>/dev/null || true
-
-# OpenCode: setup script for manual install/retry
-cat > /usr/local/bin/setup-opencode.sh <<'EOFSETUP'
-#!/bin/bash
-OPENCODE_CMD="opencode"
-INSTALL_DIR="/usr/local/bin"
-if command -v "$OPENCODE_CMD" &>/dev/null; then
-    echo "✓ OpenCode ya está instalado:"
-    "$OPENCODE_CMD" --version 2>/dev/null || true
-    exit 0
-fi
-if ! curl -sf --connect-timeout 5 https://opencode.ai/ >/dev/null 2>&1; then
-    echo "⚠ No hay conexión a Internet."
-    echo "  Conecta a la red y ejecuta de nuevo: sudo setup-opencode.sh"
-    exit 0
-fi
-echo "Instalando OpenCode..."
-if curl -fsSL https://opencode.ai/install | OPENCODE_INSTALL_DIR="$INSTALL_DIR" bash; then
-    if command -v "$OPENCODE_CMD" &>/dev/null; then
-        echo "✓ OpenCode instalado correctamente."
-        "$OPENCODE_CMD" --version 2>/dev/null || true
-        exit 0
-    fi
-fi
-echo "⚠ Método curl falló, intentando con npm..."
-if command -v npm &>/dev/null; then
-    if npm install -g --unsafe-perm opencode-ai; then
-        if command -v "$OPENCODE_CMD" &>/dev/null; then
-            echo "✓ OpenCode instalado correctamente via npm."
-            exit 0
-        fi
-    fi
-fi
-echo "⚠ No se pudo instalar OpenCode."
-exit 0
-EOFSETUP
-chmod 755 /usr/local/bin/setup-opencode.sh
-
-# OpenCode fallback service
-cat > /etc/systemd/system/setup-opencode.service <<'EOFSVC'
-[Unit]
-Description=Install OpenCode if not already present
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-Environment=HOME=/root
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
-ExecStart=/usr/local/bin/setup-opencode.sh
-StandardOutput=journal+console
-StandardError=journal+console
-TimeoutStartSec=300
-
-[Install]
-WantedBy=multi-user.target
-EOFSVC
-systemctl enable setup-opencode.service 2>/dev/null || true
-
-# Ollama: setup script for manual install/retry
-cat > /usr/local/bin/setup-ollama.sh <<'EOFSETUP'
-#!/bin/bash
-OLLAMA_CMD="ollama"
-if command -v "$OLLAMA_CMD" &>/dev/null; then
-    echo "✓ Ollama ya está instalado:"
-    "$OLLAMA_CMD" --version 2>/dev/null || true
-    exit 0
-fi
-if ! curl -sf --connect-timeout 5 https://ollama.com/ >/dev/null 2>&1; then
-    echo "⚠ No hay conexión a Internet."
-    echo "  Conecta a la red y ejecuta de nuevo: sudo setup-ollama.sh"
-    exit 0
-fi
-echo "Instalando Ollama..."
-if curl -fsSL https://ollama.com/install.sh | sh; then
-    if command -v "$OLLAMA_CMD" &>/dev/null; then
-        echo "✓ Ollama instalado correctamente."
-        "$OLLAMA_CMD" --version 2>/dev/null || true
-        exit 0
-    fi
-fi
-echo "⚠ No se pudo instalar Ollama."
-exit 0
-EOFSETUP
-chmod 755 /usr/local/bin/setup-ollama.sh
-
-# Ollama fallback service
-cat > /etc/systemd/system/setup-ollama.service <<'EOFSVC'
-[Unit]
-Description=Install Ollama if not already present
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-Environment=HOME=/root
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
-ExecStart=/usr/local/bin/setup-ollama.sh
-StandardOutput=journal+console
-StandardError=journal+console
-TimeoutStartSec=300
-
-[Install]
-WantedBy=multi-user.target
-EOFSVC
-systemctl enable setup-ollama.service 2>/dev/null || true
-
-# ── Step 5: Verify graphical environment components ─────────────────────
-log "Verifying graphical environment components..."
+# ── Graphical environment verification ──────────────────────────────────
+# Verify graphical environment components and set up TTY fallbacks.
+# All packages, scripts, and configs are already installed via rsync + chroot.
+echo "Verifying graphical environment components..."
 GRAPHICAL_OK=1
 for bin in cage regreet sway; do
     if command -v "$bin" &>/dev/null; then
-        log "  ✓ $bin found: $(command -v "$bin")"
+        echo "  ✓ $bin found: $(command -v "$bin")"
     else
-        log "  ✗ $bin NOT found — graphical login may fail"
+        echo "  ✗ $bin NOT found — graphical login may fail"
         GRAPHICAL_OK=0
     fi
 done
 
 for script in /usr/local/bin/cage-greeter /usr/local/bin/sway-session /usr/local/bin/hyprland-session /usr/local/bin/start-hyprland /usr/local/bin/select-compositor; do
     if [ -x "$script" ]; then
-        log "  ✓ $script is executable"
+        echo "  ✓ $script is executable"
     elif [ -f "$script" ]; then
-        log "  ✗ $script exists but is not executable — fixing..."
+        echo "  ✗ $script exists but is not executable — fixing..."
         chmod +x "$script"
     else
-        log "  ✗ $script NOT found — graphical login may fail"
+        echo "  ✗ $script NOT found — graphical login may fail"
         GRAPHICAL_OK=0
     fi
 done
 
 if [ -f /etc/greetd/config.toml ]; then
-    log "  ✓ greetd config exists"
+    echo "  ✓ greetd config exists"
 else
-    log "  ✗ greetd config NOT found — graphical login may fail"
+    echo "  ✗ greetd config NOT found — graphical login may fail"
     GRAPHICAL_OK=0
 fi
 
 if [ -f /etc/greetd/regreet.toml ]; then
-    log "  ✓ regreet config exists"
+    echo "  ✓ regreet config exists"
 else
-    log "  ✗ regreet.toml NOT found — greeter UI may fail"
+    echo "  ✗ regreet.toml NOT found — greeter UI may fail"
     GRAPHICAL_OK=0
 fi
 
@@ -2011,24 +1678,24 @@ fi
 for session_file in /usr/share/wayland-sessions/sway.desktop /usr/share/wayland-sessions/hyprland.desktop; do
     if [ -f "$session_file" ]; then
         if grep -q "/usr/local/bin/" "$session_file"; then
-            log "  ✓ $session_file has madOS session script"
+            echo "  ✓ $session_file has madOS session script"
         else
-            log "  ⚠ $session_file exists but Exec= may not point to madOS script — fixing..."
+            echo "  ⚠ $session_file exists but Exec= may not point to madOS script — fixing..."
             session_name=$(basename "$session_file" .desktop)
             if [ -x "/usr/local/bin/${{session_name}}-session" ]; then
                 sed -i "s|^Exec=.*|Exec=/usr/local/bin/${{session_name}}-session|" "$session_file"
-                log "    Fixed: Exec=/usr/local/bin/${{session_name}}-session"
+                echo "    Fixed: Exec=/usr/local/bin/${{session_name}}-session"
             fi
         fi
     else
-        log "  ✗ $session_file NOT found — session may not appear in greeter"
+        echo "  ✗ $session_file NOT found — session may not appear in greeter"
     fi
 done
 
 if systemctl is-enabled greetd.service &>/dev/null; then
-    log "  ✓ greetd.service is enabled"
+    echo "  ✓ greetd.service is enabled"
 else
-    log "  ✗ greetd.service is NOT enabled — enabling..."
+    echo "  ✗ greetd.service is NOT enabled — enabling..."
     systemctl enable greetd.service 2>/dev/null || true
 fi
 
@@ -2037,29 +1704,11 @@ fi
 systemctl enable getty@tty2.service 2>/dev/null || true
 
 if [ "$GRAPHICAL_OK" -eq 0 ]; then
-    log "  ⚠ Some graphical components are missing. Enabling getty@tty1 as fallback..."
+    echo "  ⚠ Some graphical components are missing. Enabling getty@tty1 as fallback..."
     systemctl enable getty@tty1.service 2>/dev/null || true
 fi
 
-# ── Step 6: Verify Ollama and OpenCode status ───────────────────────────
-log "Checking Ollama and OpenCode status..."
-if command -v ollama &>/dev/null; then
-    log "  ✓ Ollama binary found: $(command -v ollama)"
-else
-    log "  ⚠ Ollama not found — fallback service will attempt install on next boot with network"
-fi
+echo "Graphical environment verification complete."
+'''
 
-if command -v opencode &>/dev/null; then
-    log "  ✓ OpenCode binary found: $(command -v opencode)"
-else
-    log "  ⚠ OpenCode not found — fallback service will attempt install on next boot with network"
-fi
 
-# ── Step 7: Cleanup ─────────────────────────────────────────────────────
-log "Phase 2 setup complete! Disabling first-boot service..."
-systemctl disable mados-first-boot.service 2>/dev/null || true
-rm -f /usr/local/bin/mados-first-boot.sh
-
-log "madOS is fully configured. Enjoy!"
-log "Log saved to: $LOG_FILE"
-"""

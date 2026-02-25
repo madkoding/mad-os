@@ -31,8 +31,9 @@ sys.path.insert(
 )
 
 from mados_installer.pages.installation import _rsync_rootfs_with_progress
+from mados_installer.pages.installation import _post_rsync_cleanup
 from mados_installer.pages.installation import _ensure_kernel_in_target
-from mados_installer.config import RSYNC_EXCLUDES
+from mados_installer.config import RSYNC_EXCLUDES, POST_COPY_CLEANUP
 
 # ---------------------------------------------------------------------------
 # Shared test helpers — extracted to reduce code duplication.
@@ -467,6 +468,109 @@ class TestKernelPlacement(unittest.TestCase):
             ["cp", "/boot/vmlinuz-linux", "/mnt/boot/vmlinuz-linux"],
             check=True,
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Rsync excludes for small disk support
+# ═══════════════════════════════════════════════════════════════════════════
+class TestRsyncExcludes8GB(unittest.TestCase):
+    """Verify rsync excludes include entries needed for small disk installs."""
+
+    def test_documentation_excluded(self):
+        """Documentation directories must be excluded to save disk space."""
+        for path in ['/usr/share/doc/*', '/usr/share/man/*',
+                     '/usr/share/info/*', '/usr/share/gtk-doc/*',
+                     '/usr/share/help/*']:
+            with self.subTest(path=path):
+                self.assertIn(path, RSYNC_EXCLUDES)
+
+    def test_gpu_firmware_not_excluded(self):
+        """AMD and NVIDIA GPU firmware must NOT be excluded (broad hardware support)."""
+        self.assertNotIn('/usr/lib/firmware/amdgpu/*', RSYNC_EXCLUDES)
+        self.assertNotIn('/usr/lib/firmware/nvidia/*', RSYNC_EXCLUDES)
+
+    def test_archiso_initcpio_excluded(self):
+        """Archiso-only initcpio configuration must be excluded."""
+        self.assertIn('/etc/initcpio/*', RSYNC_EXCLUDES)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Post-copy cleanup
+# ═══════════════════════════════════════════════════════════════════════════
+class TestPostCopyCleanup(unittest.TestCase):
+    """Verify _post_rsync_cleanup removes bulky files from the target."""
+
+    def test_config_has_cleanup_patterns(self):
+        """POST_COPY_CLEANUP must define at least one pattern."""
+        self.assertGreater(len(POST_COPY_CLEANUP), 0)
+
+    def test_cleanup_expands_globs_and_calls_rm(self):
+        """Each glob match must trigger an rm -rf call."""
+        app = MockApp()
+        run_calls = []
+
+        def capture_run(cmd, **kwargs):
+            run_calls.append(cmd)
+            return MagicMock(returncode=0)
+
+        fake_matches = ["/mnt/usr/include"]
+        with (
+            patch(f"{_MOD}.globmod.glob", return_value=fake_matches),
+            patch(f"{_MOD}.subprocess.run", side_effect=capture_run),
+            patch(f"{_MOD}.log_message"),
+        ):
+            _post_rsync_cleanup(app)
+
+        rm_calls = [c for c in run_calls if c[:2] == ["rm", "-rf"]]
+        self.assertTrue(
+            any("/mnt/usr/include" in c for c in rm_calls),
+            "rm -rf must be called for each glob match",
+        )
+
+    def test_cleanup_runs_find_for_pycache(self):
+        """A find command must sweep for __pycache__ directories."""
+        app = MockApp()
+        run_calls = []
+
+        def capture_run(cmd, **kwargs):
+            run_calls.append(cmd)
+            return MagicMock(returncode=0)
+
+        with (
+            patch(f"{_MOD}.globmod.glob", return_value=[]),
+            patch(f"{_MOD}.subprocess.run", side_effect=capture_run),
+            patch(f"{_MOD}.log_message"),
+        ):
+            _post_rsync_cleanup(app)
+
+        find_calls = [c for c in run_calls if c[0] == "find"]
+        self.assertEqual(len(find_calls), 1, "Must run exactly one find command")
+        cmd = find_calls[0]
+        self.assertIn("__pycache__", cmd)
+        self.assertIn("/mnt/usr", cmd)
+
+    def test_cleanup_called_during_rsync_flow(self):
+        """_post_rsync_cleanup must be invoked inside _rsync_rootfs_with_progress."""
+        app = MockApp()
+        cleanup_called = [False]
+        original_cleanup = _post_rsync_cleanup
+
+        def spy_cleanup(a):
+            cleanup_called[0] = True
+
+        dispatcher = _make_popen_dispatcher(_make_mock_proc(), _make_mock_proc())
+        with (
+            patch(f"{_MOD}._post_rsync_cleanup", side_effect=spy_cleanup),
+            patch(f"{_MOD}.subprocess.Popen", side_effect=dispatcher),
+            patch(f"{_MOD}.subprocess.run", return_value=MagicMock(returncode=0)),
+            patch(f"{_MOD}.set_progress"),
+            patch(f"{_MOD}.log_message"),
+            patch(f"{_MOD}.os.remove"),
+            patch("builtins.open", MagicMock()),
+        ):
+            _rsync_rootfs_with_progress(app)
+
+        self.assertTrue(cleanup_called[0], "_post_rsync_cleanup must be called")
 
 
 if __name__ == "__main__":

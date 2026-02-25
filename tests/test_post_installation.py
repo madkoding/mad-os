@@ -130,16 +130,16 @@ class TestInstallerPackages(unittest.TestCase):
             "PACKAGES must equal PACKAGES_PHASE1 + PACKAGES_PHASE2",
         )
 
-    def test_first_boot_script_in_installation(self):
-        """installation.py must contain first-boot service setup."""
+    def test_no_first_boot_service_in_installation(self):
+        """installation.py must NOT contain mados-first-boot references."""
         install_py = os.path.join(
             LIB_DIR, "mados_installer", "pages", "installation.py"
         )
         with open(install_py) as f:
             content = f.read()
-        self.assertIn(
+        self.assertNotIn(
             "mados-first-boot", content,
-            "installation.py must set up the mados-first-boot service",
+            "installation.py must not reference mados-first-boot — no Phase 2",
         )
 
 

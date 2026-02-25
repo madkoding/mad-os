@@ -4,11 +4,11 @@ Tests for OpenCode availability in both the live USB and post-installation.
 
 Validates that the opencode command will be discoverable and functional by
 verifying:
-  - Live USB: systemd service is enabled (symlinked), script is correct,
-    PATH includes /usr/local/bin, and install methods are present.
-  - Post-installation: the installer generates a setup script, enables the
-    fallback service, configures sudoers, and installs OpenCode via
-    curl + npm fallback.
+  - Live USB: setup script is correct, PATH includes /usr/local/bin,
+    and install methods are present.  No systemd service exists (opencode
+    is a program, not a service).
+  - Post-installation: the installer generates a setup script, configures
+    sudoers, and installs OpenCode via curl + npm fallback.
 """
 
 import os
@@ -38,31 +38,24 @@ sys.path.insert(0, LIB_DIR)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Live USB – OpenCode service enablement
+# Live USB – OpenCode is a program, not a service
 # ═══════════════════════════════════════════════════════════════════════════
-class TestLiveUSBOpenCodeServiceEnabled(unittest.TestCase):
-    """Verify setup-opencode.service is enabled (symlinked) for the live USB."""
+class TestLiveUSBOpenCodeNoService(unittest.TestCase):
+    """Verify opencode has NO systemd service (it is a program, not a service)."""
 
-    def test_symlink_exists_in_multi_user_wants(self):
-        """setup-opencode.service must be symlinked in multi-user.target.wants/."""
-        symlink_path = os.path.join(MULTI_USER_WANTS, "setup-opencode.service")
-        self.assertTrue(
-            os.path.lexists(symlink_path),
-            "setup-opencode.service symlink missing from multi-user.target.wants/ "
-            "– the service will never run at boot and opencode won't be installed",
+    def test_no_service_file(self):
+        """setup-opencode.service must NOT exist — opencode is a program."""
+        self.assertFalse(
+            os.path.isfile(os.path.join(SYSTEMD_DIR, "setup-opencode.service")),
+            "setup-opencode.service must NOT exist — opencode is a program, not a service",
         )
 
-    def test_symlink_points_to_correct_service(self):
-        """The symlink must point to /etc/systemd/system/setup-opencode.service."""
+    def test_no_symlink_in_multi_user_wants(self):
+        """setup-opencode.service must NOT be symlinked in multi-user.target.wants/."""
         symlink_path = os.path.join(MULTI_USER_WANTS, "setup-opencode.service")
-        if not os.path.lexists(symlink_path):
-            self.skipTest("symlink does not exist")
-        target = os.readlink(symlink_path)
-        self.assertEqual(
-            target,
-            "/etc/systemd/system/setup-opencode.service",
-            f"Symlink points to '{target}' instead of "
-            "'/etc/systemd/system/setup-opencode.service'",
+        self.assertFalse(
+            os.path.lexists(symlink_path),
+            "setup-opencode.service symlink must NOT exist in multi-user.target.wants/",
         )
 
     def test_no_broken_claude_code_symlink(self):
@@ -71,15 +64,7 @@ class TestLiveUSBOpenCodeServiceEnabled(unittest.TestCase):
         self.assertFalse(
             os.path.lexists(stale),
             "Stale setup-claude-code.service symlink found in "
-            "multi-user.target.wants/ – this should have been replaced "
-            "by setup-opencode.service",
-        )
-
-    def test_service_file_exists(self):
-        """The actual setup-opencode.service unit file must exist."""
-        self.assertTrue(
-            os.path.isfile(os.path.join(SYSTEMD_DIR, "setup-opencode.service")),
-            "setup-opencode.service unit file is missing from systemd/system/",
+            "multi-user.target.wants/ – this should have been removed",
         )
 
 
@@ -125,49 +110,14 @@ class TestLiveUSBOpenCodeScript(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Live USB – systemd service PATH configuration
-# ═══════════════════════════════════════════════════════════════════════════
-class TestLiveUSBOpenCodeServiceConfig(unittest.TestCase):
-    """Verify the systemd service has the right PATH so opencode is found."""
-
-    def setUp(self):
-        service_path = os.path.join(SYSTEMD_DIR, "setup-opencode.service")
-        with open(service_path) as f:
-            self.content = f.read()
-
-    def test_path_includes_usr_local_bin(self):
-        """Service PATH must include /usr/local/bin where opencode is installed."""
-        path_match = re.search(r'Environment=PATH=(.*)', self.content)
-        self.assertIsNotNone(path_match, "Service must set PATH environment")
-        self.assertIn(
-            "/usr/local/bin", path_match.group(1),
-            "Service PATH must include /usr/local/bin",
-        )
-
-    def test_runs_after_network(self):
-        """Service must run after network is available (needs internet to install)."""
-        self.assertIn(
-            "network-online.target", self.content,
-            "Service must start after network-online.target",
-        )
-
-    def test_runs_after_pacman_init(self):
-        """Service must run after pacman-init to ensure keyrings are ready."""
-        self.assertIn(
-            "pacman-init.service", self.content,
-            "Service must start after pacman-init.service",
-        )
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Post-installation – OpenCode setup in first-boot script
+# Post-installation – OpenCode is copied by rsync from live USB
 # ═══════════════════════════════════════════════════════════════════════════
 class TestPostInstallOpenCode(unittest.TestCase):
-    """Verify the installer configures OpenCode for the installed system.
+    """Verify the installer copies OpenCode from the live USB via rsync.
 
-    Phase 2 is 100% offline — it does NOT download OpenCode.  Instead it
-    creates a setup script and fallback systemd service for manual or
-    boot-time installation when the binary wasn't already on the live USB.
+    OpenCode is a pre-installed program on the live USB.  The installer rsync
+    copies everything (binaries + setup scripts) to the installed system.
+    The installer does NOT need to create scripts or install anything for OpenCode.
     """
 
     def setUp(self):
@@ -179,25 +129,11 @@ class TestPostInstallOpenCode(unittest.TestCase):
         with open(install_py) as f:
             self.content = f.read()
 
-    def test_installer_creates_setup_script(self):
-        """Installer must create setup-opencode.sh for manual retry."""
-        self.assertIn(
-            "setup-opencode.sh", self.content,
-            "Installer must create setup-opencode.sh on the installed system",
-        )
-
-    def test_installer_creates_fallback_service(self):
-        """Installer must create setup-opencode.service for boot-time retry."""
-        self.assertIn(
+    def test_installer_does_not_create_service(self):
+        """Installer must NOT create setup-opencode.service (opencode is a program)."""
+        self.assertNotIn(
             "setup-opencode.service", self.content,
-            "Installer must create setup-opencode.service on the installed system",
-        )
-
-    def test_installer_enables_fallback_service(self):
-        """Installer must enable setup-opencode.service on the installed system."""
-        self.assertIn(
-            "systemctl enable setup-opencode.service", self.content,
-            "Installer must enable setup-opencode.service",
+            "Installer must NOT create setup-opencode.service — opencode is a program, not a service",
         )
 
     def test_installer_configures_sudoers_for_opencode(self):
@@ -212,9 +148,7 @@ class TestPostInstallOpenCode(unittest.TestCase):
         )
 
     def test_no_inline_opencode_download(self):
-        """Phase 2 must NOT directly download OpenCode (binary is copied from ISO)."""
-        # The setup script (heredoc) legitimately contains curl/opencode.ai refs.
-        # Verify no INLINE install outside of heredocs.
+        """Installer must NOT directly download OpenCode (binary is copied from ISO)."""
         lines = self.content.splitlines()
         in_heredoc = False
         for line in lines:
@@ -226,7 +160,7 @@ class TestPostInstallOpenCode(unittest.TestCase):
                 continue
             if not in_heredoc and "opencode.ai/install" in stripped:
                 self.fail(
-                    "Phase 2 must not directly download OpenCode — "
+                    "Installer must not directly download OpenCode — "
                     "the binary should already be on disk from Phase 1 rsync"
                 )
 

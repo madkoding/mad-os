@@ -8,6 +8,11 @@ madOS Installer - Configuration constants
 DEMO_MODE = False
 # ================================
 
+# Minimum disk size (GB) for installation.  The live rootfs with rsync
+# excludes and post-copy cleanup fits in ~5-7 GB plus 1 GB EFI, so 10 GB
+# is the practical lower bound.
+MIN_DISK_SIZE_GB = 10
+
 # Language to locale mapping
 LOCALE_MAP = {
     'English': 'en_US.UTF-8',
@@ -131,6 +136,29 @@ RSYNC_EXCLUDES = [
     '/swapfile',
     '/etc/fstab',
     '/etc/machine-id',
+    # Documentation — saves ~200-400 MB (reinstallable via pacman)
+    '/usr/share/doc/*',
+    '/usr/share/man/*',
+    '/usr/share/info/*',
+    '/usr/share/gtk-doc/*',
+    '/usr/share/help/*',
+    # Archiso live-only initcpio configuration
+    '/etc/initcpio/*',
+]
+
+# Paths (relative to /mnt) to remove after the rsync copy to reclaim
+# additional disk space on small (10 GB) installations.  Glob wildcards
+# are expanded at cleanup time.
+POST_COPY_CLEANUP = [
+    # Python test suites — not needed at runtime
+    'usr/lib/python*/test',
+    'usr/lib/python*/*/test',
+    # C/C++ header files — only needed for compilation
+    'usr/include',
+    # Static libraries — only needed for static linking
+    'usr/lib/*.a',
+    # Go standard library object files
+    'usr/lib/go',
 ]
 
 # Archiso-specific packages to remove after copying the live rootfs.

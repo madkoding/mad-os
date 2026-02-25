@@ -30,6 +30,7 @@ sys.path.insert(0, LIB_DIR)
 
 from mados_installer.config import (
     DEMO_MODE,
+    MIN_DISK_SIZE_GB,
     LOCALE_MAP,
     TIMEZONES,
     NORD_POLAR_NIGHT,
@@ -183,9 +184,9 @@ class TestPackageLists(unittest.TestCase):
         self.assertEqual(PACKAGES, PACKAGES_PHASE1 + PACKAGES_PHASE2)
 
     def test_no_duplicate_packages(self):
-        """No package should appear in both Phase 1 and Phase 2."""
+        """No package should appear in both Phase 1 and Phase 2 lists."""
         overlap = set(PACKAGES_PHASE1) & set(PACKAGES_PHASE2)
-        self.assertEqual(overlap, set(), f"Packages in both phases: {overlap}")
+        self.assertEqual(overlap, set(), f"Packages in both lists: {overlap}")
 
     def test_essential_phase1_packages(self):
         essential = [
@@ -420,6 +421,19 @@ class TestRsyncConfig(unittest.TestCase):
     def test_rsync_excludes_pacman_cache(self):
         """Pacman package cache must be excluded to save disk space."""
         self.assertIn("/var/cache/pacman/pkg/*", RSYNC_EXCLUDES)
+
+
+class TestMinDiskSize(unittest.TestCase):
+    """Verify minimum disk size constant is sane."""
+
+    def test_min_disk_size_is_10(self):
+        """MIN_DISK_SIZE_GB must be 10 (the target for small-disk support)."""
+        self.assertEqual(MIN_DISK_SIZE_GB, 10)
+
+    def test_min_disk_size_is_positive_int(self):
+        """MIN_DISK_SIZE_GB must be a positive integer."""
+        self.assertIsInstance(MIN_DISK_SIZE_GB, int)
+        self.assertGreater(MIN_DISK_SIZE_GB, 0)
 
 
 if __name__ == "__main__":

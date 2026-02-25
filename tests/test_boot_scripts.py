@@ -2,9 +2,10 @@
 """
 Tests for madOS boot-time scripts and services.
 
-Validates that boot scripts (setup-ohmyzsh.sh, setup-opencode.sh) and their
-corresponding systemd service units are properly configured for the live USB
-environment.
+Validates that boot scripts (setup-ohmyzsh.sh, setup-opencode.sh, setup-ollama.sh)
+and the Oh My Zsh systemd service unit are properly configured for the live USB
+environment.  OpenCode and Ollama are programs (not services) and only have
+setup scripts for manual installation.
 
 These tests catch configuration errors like the 'chown: invalid group'
 issue where setup-ohmyzsh.sh used the username as the group name instead
@@ -239,11 +240,11 @@ class TestSetupClaudeCode(unittest.TestCase):
         self.assertIn("--unsafe-perm", self.content)
 
     def test_no_strict_mode(self):
-        """setup-opencode.sh must NOT use set -euo pipefail (must never crash service)."""
+        """setup-opencode.sh must NOT use set -euo pipefail (could prevent graceful exit)."""
         self.assertNotIn("set -euo pipefail", self.content)
 
     def test_always_exits_zero(self):
-        """setup-opencode.sh must always exit 0 to not crash the systemd service."""
+        """setup-opencode.sh must always exit 0 for graceful failure handling."""
         # All exit statements in the script should be exit 0
         import re
         exits = re.findall(r'exit\s+(\d+)', self.content)
@@ -261,16 +262,6 @@ class TestSystemdServices(unittest.TestCase):
     SERVICES = {
         "setup-ohmyzsh.service": {
             "exec": "/usr/local/bin/setup-ohmyzsh.sh",
-            "after": "network-online.target",
-            "type": "oneshot",
-        },
-        "setup-opencode.service": {
-            "exec": "/usr/local/bin/setup-opencode.sh",
-            "after": "network-online.target",
-            "type": "oneshot",
-        },
-        "setup-ollama.service": {
-            "exec": "/usr/local/bin/setup-ollama.sh",
             "after": "network-online.target",
             "type": "oneshot",
         },
