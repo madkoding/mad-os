@@ -426,9 +426,9 @@ class TestRsyncConfig(unittest.TestCase):
 class TestMinDiskSize(unittest.TestCase):
     """Verify minimum disk size constant is sane."""
 
-    def test_min_disk_size_is_8(self):
-        """MIN_DISK_SIZE_GB must be 8 (the target for small-disk support)."""
-        self.assertEqual(MIN_DISK_SIZE_GB, 8)
+    def test_min_disk_size_is_10(self):
+        """MIN_DISK_SIZE_GB must be 10 (the target for small-disk support)."""
+        self.assertEqual(MIN_DISK_SIZE_GB, 10)
 
     def test_min_disk_size_is_positive_int(self):
         """MIN_DISK_SIZE_GB must be a positive integer."""

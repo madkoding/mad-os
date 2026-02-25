@@ -471,10 +471,10 @@ class TestKernelPlacement(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Rsync excludes for 8 GB disk support
+# Rsync excludes for small disk support
 # ═══════════════════════════════════════════════════════════════════════════
 class TestRsyncExcludes8GB(unittest.TestCase):
-    """Verify rsync excludes include entries needed for 8 GB disk installs."""
+    """Verify rsync excludes include entries needed for small disk installs."""
 
     def test_documentation_excluded(self):
         """Documentation directories must be excluded to save disk space."""
@@ -484,10 +484,10 @@ class TestRsyncExcludes8GB(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertIn(path, RSYNC_EXCLUDES)
 
-    def test_non_intel_firmware_excluded(self):
-        """AMD and NVIDIA GPU firmware must be excluded (Intel Atom target)."""
-        self.assertIn('/usr/lib/firmware/amdgpu/*', RSYNC_EXCLUDES)
-        self.assertIn('/usr/lib/firmware/nvidia/*', RSYNC_EXCLUDES)
+    def test_gpu_firmware_not_excluded(self):
+        """AMD and NVIDIA GPU firmware must NOT be excluded (broad hardware support)."""
+        self.assertNotIn('/usr/lib/firmware/amdgpu/*', RSYNC_EXCLUDES)
+        self.assertNotIn('/usr/lib/firmware/nvidia/*', RSYNC_EXCLUDES)
 
     def test_archiso_initcpio_excluded(self):
         """Archiso-only initcpio configuration must be excluded."""
