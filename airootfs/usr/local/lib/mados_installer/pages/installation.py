@@ -1665,7 +1665,7 @@ else
     log "Online tools will be available on next boot with internet"
 fi
 
-# --- Package/download operations: failures are warnings, not blockers ---
+# --- Non-critical operations: failures are warnings, not blockers ---
 set +e
 {cjk_line}
 # ── Step 1: Enable additional services ──────────────────────────────────

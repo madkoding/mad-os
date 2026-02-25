@@ -85,10 +85,6 @@ PACKAGES_PHASE1 = [
 # Phase 2 packages: desktop and application packages (categorisation only —
 # these are also included in the live ISO and copied via rsync, so they are
 # already present on the installed system after Phase 1).
-# NOTE: GPU compute packages (nvidia-utils, cuda, rocm-*) are NOT here;
-# they are tracked separately in GPU_COMPUTE_PACKAGES because they are too
-# large for the ISO and are only downloaded on first boot when matching
-# hardware is detected.
 PACKAGES_PHASE2 = [
     'swayidle', 'swaylock', 'waybar', 'wofi', 'mako',
     'chromium', 'code', 'vim', 'nano', 'git', 'htop', 'fastfetch', 'openssh', 'wget', 'jq',
