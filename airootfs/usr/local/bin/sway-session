@@ -54,5 +54,33 @@ VMCONF
     fi
 fi
 
+apply_software_rendering() {
+    export WLR_RENDERER=pixman
+    export WLR_NO_HARDWARE_CURSORS=1
+    export LIBGL_ALWAYS_SOFTWARE=1
+    export MESA_GL_VERSION_OVERRIDE=3.3
+    export GSK_RENDERER=cairo
+    export CHROMIUM_FLAGS="${CHROMIUM_FLAGS:-} --disable-gpu"
+}
+
+# Launch sway with fallback to software rendering if hardware rendering fails.
+# If software rendering is already configured, exec sway directly.
+if [ "${WLR_RENDERER:-}" = "pixman" ]; then
+    logger -p user.info -t mados-sway "Launching sway compositor (software rendering)"
+    exec sway
+fi
+
+# Try hardware rendering first; if sway exits quickly (< 5s) it likely
+# failed during renderer initialisation — retry with pixman.
 logger -p user.info -t mados-sway "Launching sway compositor"
-exec sway
+START_TIME=$(date +%s)
+sway
+EXIT_CODE=$?
+END_TIME=$(date +%s)
+ELAPSED=$((END_TIME - START_TIME))
+
+if [ $EXIT_CODE -ne 0 ] && [ "$ELAPSED" -lt 5 ]; then
+    logger -p user.warning -t mados-sway "Sway failed in ${ELAPSED}s (exit $EXIT_CODE), retrying with software rendering"
+    apply_software_rendering
+    exec sway
+fi
