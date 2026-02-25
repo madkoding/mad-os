@@ -14,9 +14,6 @@ from gi.repository import Gtk, GLib
 from ..config import (
     DEMO_MODE,
     PACKAGES,
-    PACKAGES_PHASE1,
-    PACKAGES_PHASE2,
-    GPU_COMPUTE_PACKAGES,
     RSYNC_EXCLUDES,
     ARCHISO_PACKAGES,
     NORD_FROST,
@@ -1625,34 +1622,19 @@ echo "Phase 2 first-boot service installed and enabled"
 def _build_first_boot_script(data):
     """Build the Phase 2 first-boot shell script.
 
-    This script runs on the first boot from the installed disk.  Most packages
-    are already present (copied from the live ISO via rsync during Phase 1).
-    Phase 2 only downloads GPU compute drivers when the matching hardware is
-    detected, configures audio/bluetooth/desktop services, installs Oh My Zsh
-    and OpenCode, then disables itself.
+    This script runs on the first boot from the installed disk.  All packages
+    and tools from the ISO are already present (copied via rsync during
+    Phase 1).  Phase 2 is 100 % offline — it only configures services,
+    creates fallback systemd services for optional tools that may not have
+    been available on the live USB, then disables itself.
     """
     username = data["username"]
-    locale = data["locale"]
-
-    nvidia_pkgs = " ".join(GPU_COMPUTE_PACKAGES["nvidia"])
-    amd_pkgs = " ".join(GPU_COMPUTE_PACKAGES["amd"])
-    common_pkgs = " ".join(GPU_COMPUTE_PACKAGES["common"])
-
-    cjk_line = ""
-    if locale in ("zh_CN.UTF-8", "ja_JP.UTF-8"):
-        cjk_line = (
-            '\n# CJK fonts for Asian locale\n'
-            'if ! pacman -Q noto-fonts-cjk &>/dev/null; then\n'
-            '    log "Installing CJK fonts for locale..."\n'
-            '    pacman -S --noconfirm --needed noto-fonts-cjk 2>&1 || true\n'
-            'fi\n'
-        )
 
     return f"""#!/bin/bash
 # madOS First Boot Setup (Phase 2)
-# Most packages are already installed (copied from the live ISO).
-# This script installs GPU compute drivers when matching hardware is
-# detected, configures services, and sets up tools, then disables itself.
+# All packages and tools from the ISO are already installed (copied via
+# rsync during Phase 1).  This script is 100% offline — it only configures
+# services and creates fallback services, then disables itself.
 set -euo pipefail
 
 LOG_TAG="mados-first-boot"
@@ -1660,60 +1642,12 @@ log() {{ echo "[Phase 2] $1"; systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/d
 
 log "Starting madOS Phase 2 setup..."
 
-# ── Step 0: Refresh package databases and update system ─────────────────
-# --- Package/download operations: failures are warnings, not blockers ---
+# --- Non-critical operations: failures are warnings, not blockers ---
 set +e
-log "Refreshing package databases and updating system..."
-pacman -Syu --noconfirm 2>&1 || log "Warning: system update returned non-zero (may be OK)"
 
-# ── Step 1: Install GPU compute drivers (only for supported hardware) ───
-log "Detecting GPU compute capabilities..."
-GPU_LINES=$(lspci 2>/dev/null | grep -iE "VGA|3D|Display" || true)
-GPU_FOUND=false
-
-# NVIDIA CUDA support
-if echo "$GPU_LINES" | grep -qi nvidia; then
-    log "NVIDIA GPU detected – installing CUDA compute packages..."
-    if pacman -S --noconfirm --needed {nvidia_pkgs} 2>&1; then
-        log "NVIDIA CUDA packages installed"
-    else
-        log "Warning: some NVIDIA packages failed to install (can retry later with pacman)"
-    fi
-    GPU_FOUND=true
-fi
-
-# AMD ROCm support (skip pre-GCN legacy GPUs)
-AMD_GPU=$(echo "$GPU_LINES" | grep -iE "\\bAMD\\b|\\bATI\\b|Radeon" || true)
-if [ -n "$AMD_GPU" ]; then
-    # Single combined check for all legacy AMD GPUs (pre-GCN)
-    if echo "$AMD_GPU" | grep -qiE "Radeon (7[0-9]{{3}}|8[0-9]{{3}}|9[0-9]{{3}}|X[0-9]{{3,4}})|Radeon HD [2-6][0-9]{{3}}|Rage|Mach[0-9]"; then
-        log "Legacy AMD GPU detected – skipping ROCm (unsupported)"
-    else
-        log "AMD GPU with ROCm support detected – installing compute packages..."
-        if pacman -S --noconfirm --needed {amd_pkgs} 2>&1; then
-            log "AMD ROCm packages installed"
-        else
-            log "Warning: some AMD ROCm packages failed to install (can retry later with pacman)"
-        fi
-        GPU_FOUND=true
-    fi
-fi
-
-# Common OpenCL headers (only when a compute GPU was found)
-if [ "$GPU_FOUND" = true ]; then
-    pacman -S --noconfirm --needed {common_pkgs} 2>&1 || true
-    log "GPU compute driver setup complete"
-else
-    log "No compute-capable GPU detected – skipping GPU driver download"
-fi
-{cjk_line}
-set -e
-# ── Step 2: Enable additional services ──────────────────────────────────
+# ── Step 1: Enable additional services ──────────────────────────────────
 log "Enabling additional services..."
 systemctl enable bluetooth 2>/dev/null || true
-
-# GPU Compute: Enable auto-detection and activation of CUDA/ROCm drivers
-systemctl enable mados-gpu-compute.service 2>/dev/null || true
 
 # Audio: Enable PipeWire for all user sessions (socket-activated)
 systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true
@@ -1861,54 +1795,14 @@ cat > /etc/chromium/policies/managed/mados-homepage.json <<'EOFPOLICY'
 }}
 EOFPOLICY
 
-# ── Step 3b: Install Nordic GTK Theme ──────────────────────────────────
-# --- Package/download operations: failures are warnings, not blockers ---
-set +e
-if [ -d /usr/share/themes/Nordic ]; then
-    log "Nordic GTK theme already installed"
-else
-    log "Installing Nordic GTK theme..."
-    if command -v git &>/dev/null; then
-        if curl -sf --connect-timeout 5 https://github.com >/dev/null 2>&1; then
-            NORDIC_TMP=$(mktemp -d)
-            if git clone --depth=1 https://github.com/EliverLara/Nordic.git "$NORDIC_TMP/Nordic" 2>&1; then
-                mkdir -p /usr/share/themes
-                cp -a "$NORDIC_TMP/Nordic" /usr/share/themes/Nordic
-                rm -rf /usr/share/themes/Nordic/.git /usr/share/themes/Nordic/.gitignore /usr/share/themes/Nordic/Art /usr/share/themes/Nordic/LICENSE /usr/share/themes/Nordic/README.md /usr/share/themes/Nordic/KDE /usr/share/themes/Nordic/Wallpaper
-                log "Nordic GTK theme installed"
-            else
-                log "Warning: Failed to clone Nordic GTK theme"
-            fi
-            [ -n "$NORDIC_TMP" ] && rm -rf "$NORDIC_TMP"
-        else
-            log "No internet - Nordic GTK theme skipped"
-        fi
-    fi
-fi
+# ── Step 4: Create fallback services for optional tools ─────────────────
+# These fallback services install optional tools on subsequent boots if
+# they were not already present on the live USB (e.g. no internet at live boot).
+# All tools are already copied from the live ISO via rsync during Phase 1,
+# so these services only run when the tools are genuinely missing.
+log "Creating fallback services for optional tools..."
 
-# ── Step 4: Install Oh My Zsh ──────────────────────────────────────────
-log "Setting up Oh My Zsh..."
-if [ ! -d /etc/skel/.oh-my-zsh ]; then
-    if command -v git &>/dev/null; then
-        if curl -sf --connect-timeout 5 https://github.com >/dev/null 2>&1; then
-            git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git /etc/skel/.oh-my-zsh 2>&1 || true
-            if [ -d /etc/skel/.oh-my-zsh ]; then
-                log "Oh My Zsh installed to /etc/skel"
-            fi
-        else
-            log "No internet - Oh My Zsh skipped"
-        fi
-    fi
-fi
-
-# Copy to user home if available
-if [ -d /etc/skel/.oh-my-zsh ] && [ ! -d /home/{username}/.oh-my-zsh ]; then
-    cp -a /etc/skel/.oh-my-zsh /home/{username}/.oh-my-zsh
-    chown -R {username}:{username} /home/{username}/.oh-my-zsh
-    log "Oh My Zsh copied to {username} home"
-fi
-
-# Oh My Zsh fallback service (for future users or if clone failed)
+# Oh My Zsh fallback service
 cat > /etc/systemd/system/setup-ohmyzsh.service <<'EOFSVC'
 [Unit]
 Description=Install Oh My Zsh if not already present
@@ -1929,32 +1823,7 @@ WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-ohmyzsh.service 2>/dev/null || true
 
-# ── Step 5: Install OpenCode ─────────────────────────────────────────
-log "Installing OpenCode..."
-OPENCODE_INSTALL_DIR="/usr/local/bin"
-export OPENCODE_INSTALL_DIR
-# Method 1: curl install script (downloads binary directly, most reliable)
-if curl -fsSL https://opencode.ai/install | bash; then
-    if command -v opencode &>/dev/null; then
-        log "OpenCode installed successfully"
-    else
-        log "Warning: curl install completed but opencode not found in PATH"
-    fi
-else
-    log "Warning: curl install failed"
-fi
-# Method 2: npm fallback
-if ! command -v opencode &>/dev/null; then
-    if command -v npm &>/dev/null; then
-        if npm install -g --unsafe-perm opencode-ai 2>&1; then
-            log "OpenCode installed via npm"
-        else
-            log "Warning: npm install also failed"
-        fi
-    fi
-fi
-
-# Copy setup script for manual retry
+# OpenCode: setup script for manual install/retry
 cat > /usr/local/bin/setup-opencode.sh <<'EOFSETUP'
 #!/bin/bash
 OPENCODE_CMD="opencode"
@@ -2013,21 +1882,7 @@ WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-opencode.service 2>/dev/null || true
 
-# ── Step 6: Install Ollama ───────────────────────────────────────────
-log "Installing Ollama..."
-
-# Method: curl install script (official installer from ollama.com)
-if curl -fsSL https://ollama.com/install.sh | sh; then
-    if command -v ollama &>/dev/null; then
-        log "Ollama installed successfully"
-    else
-        log "Warning: curl install completed but ollama not found in PATH"
-    fi
-else
-    log "Warning: Ollama install failed"
-fi
-
-# Copy setup script for manual retry
+# Ollama: setup script for manual install/retry
 cat > /usr/local/bin/setup-ollama.sh <<'EOFSETUP'
 #!/bin/bash
 OLLAMA_CMD="ollama"
@@ -2077,7 +1932,7 @@ EOFSVC
 systemctl enable setup-ollama.service 2>/dev/null || true
 set -e
 
-# ── Step 7: Cleanup ─────────────────────────────────────────────────────
+# ── Step 5: Cleanup ─────────────────────────────────────────────────────
 log "Phase 2 setup complete! Disabling first-boot service..."
 systemctl disable mados-first-boot.service 2>/dev/null || true
 rm -f /usr/local/bin/mados-first-boot.sh

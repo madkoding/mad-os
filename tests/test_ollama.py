@@ -181,7 +181,12 @@ class TestLiveUSBOllamaServiceConfig(unittest.TestCase):
 # Post-installation – Ollama setup in first-boot script
 # ═══════════════════════════════════════════════════════════════════════════
 class TestPostInstallOllama(unittest.TestCase):
-    """Verify the installer configures Ollama for the installed system."""
+    """Verify the installer configures Ollama for the installed system.
+
+    Phase 2 is 100% offline — it does NOT download Ollama.  Instead it
+    creates a setup script and fallback systemd service for manual or
+    boot-time installation when the binary wasn't already on the live USB.
+    """
 
     def setUp(self):
         install_py = os.path.join(
@@ -191,14 +196,6 @@ class TestPostInstallOllama(unittest.TestCase):
             self.skipTest("installation.py not found")
         with open(install_py) as f:
             self.content = f.read()
-
-    def test_installer_installs_ollama_via_curl(self):
-        """Installer must attempt to install Ollama via curl (official)."""
-        self.assertIn(
-            "ollama.com/install.sh",
-            self.content,
-            "Installer must try curl install from ollama.com/install.sh",
-        )
 
     def test_installer_creates_setup_script(self):
         """Installer must create setup-ollama.sh for manual retry."""
@@ -224,14 +221,6 @@ class TestPostInstallOllama(unittest.TestCase):
             "Installer must enable setup-ollama.service",
         )
 
-    def test_installer_verifies_ollama_after_install(self):
-        """Installer should check if ollama is available after install."""
-        self.assertIn(
-            "command -v ollama",
-            self.content,
-            "Installer must verify ollama is available after install",
-        )
-
     def test_installer_copies_ollama_binary_from_live(self):
         """Installer should copy Ollama binary from live environment if available."""
         self.assertIn(
@@ -253,6 +242,23 @@ class TestPostInstallOllama(unittest.TestCase):
             pattern,
             "Installer must include /usr/local/bin/ollama in sudoers NOPASSWD line",
         )
+
+    def test_no_inline_ollama_download(self):
+        """Phase 2 must NOT directly download Ollama (binary is copied from ISO)."""
+        lines = self.content.splitlines()
+        in_heredoc = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("cat >") and "<<" in stripped:
+                in_heredoc = True
+            if in_heredoc and stripped in ("EOFSETUP", "EOFSVC"):
+                in_heredoc = False
+                continue
+            if not in_heredoc and "ollama.com/install.sh" in stripped:
+                self.fail(
+                    "Phase 2 must not directly download Ollama — "
+                    "the binary should already be on disk from Phase 1 rsync"
+                )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

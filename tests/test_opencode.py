@@ -163,7 +163,12 @@ class TestLiveUSBOpenCodeServiceConfig(unittest.TestCase):
 # Post-installation – OpenCode setup in first-boot script
 # ═══════════════════════════════════════════════════════════════════════════
 class TestPostInstallOpenCode(unittest.TestCase):
-    """Verify the installer configures OpenCode for the installed system."""
+    """Verify the installer configures OpenCode for the installed system.
+
+    Phase 2 is 100% offline — it does NOT download OpenCode.  Instead it
+    creates a setup script and fallback systemd service for manual or
+    boot-time installation when the binary wasn't already on the live USB.
+    """
 
     def setUp(self):
         install_py = os.path.join(
@@ -173,24 +178,6 @@ class TestPostInstallOpenCode(unittest.TestCase):
             self.skipTest("installation.py not found")
         with open(install_py) as f:
             self.content = f.read()
-
-    def test_installer_installs_opencode_via_curl(self):
-        """Installer must attempt to install OpenCode via curl (primary)."""
-        self.assertIn(
-            "opencode.ai/install", self.content,
-            "Installer must try curl install from opencode.ai",
-        )
-
-    def test_installer_installs_opencode_via_npm_fallback(self):
-        """Installer must fall back to npm if curl fails."""
-        self.assertIn(
-            "npm install -g", self.content,
-            "Installer must fall back to npm install -g",
-        )
-        self.assertIn(
-            "opencode-ai", self.content,
-            "Installer must install opencode-ai npm package",
-        )
 
     def test_installer_creates_setup_script(self):
         """Installer must create setup-opencode.sh for manual retry."""
@@ -224,12 +211,24 @@ class TestPostInstallOpenCode(unittest.TestCase):
             "Installer sudoers must include /usr/local/bin/opencode path",
         )
 
-    def test_installer_verifies_opencode_after_install(self):
-        """Installer should check if opencode is available after install."""
-        self.assertIn(
-            "command -v opencode", self.content,
-            "Installer must verify opencode is available after install",
-        )
+    def test_no_inline_opencode_download(self):
+        """Phase 2 must NOT directly download OpenCode (binary is copied from ISO)."""
+        # The setup script (heredoc) legitimately contains curl/opencode.ai refs.
+        # Verify no INLINE install outside of heredocs.
+        lines = self.content.splitlines()
+        in_heredoc = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("cat >") and "<<" in stripped:
+                in_heredoc = True
+            if in_heredoc and stripped in ("EOFSETUP", "EOFSVC"):
+                in_heredoc = False
+                continue
+            if not in_heredoc and "opencode.ai/install" in stripped:
+                self.fail(
+                    "Phase 2 must not directly download OpenCode — "
+                    "the binary should already be on disk from Phase 1 rsync"
+                )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
