@@ -23,7 +23,13 @@ detect_3d_acceleration() {
         done
         # Drivers que soportan aceleración 3D en VMs
         case "$drm_driver" in
-            vmwgfx|virtio-gpu|virgl|vboxvideo)
+            vmwgfx)
+                # vmwgfx loads even without 3D acceleration in VMware.
+                # Unlike other VM drivers, its presence alone does not
+                # guarantee 3D capability.  The eglinfo check above is
+                # the reliable test; if we reached here, 3D is unconfirmed.
+                ;;
+            virtio-gpu|virgl|vboxvideo)
                 return 0
                 ;;
         esac
