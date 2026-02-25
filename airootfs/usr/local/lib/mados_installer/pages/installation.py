@@ -304,9 +304,18 @@ def _step_mount_filesystems(app, boot_part, root_part, home_part, separate_home)
 
 
 def _copy_item(src, dst):
-    """Copy file or directory if it exists."""
-    if os.path.exists(src):
-        subprocess.run(["cp", "-a", src, dst], check=False)
+    """Copy file or directory if it exists.
+
+    Prints a warning when the source is missing or the copy command
+    fails, so installation issues are visible in stdout/stderr rather
+    than silently swallowed.
+    """
+    if not os.path.exists(src):
+        print(f"  WARNING: {src} not found, skipping copy")
+        return
+    result = subprocess.run(["cp", "-a", src, dst], capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"  WARNING: failed to copy {src} → {dst}: {result.stderr.strip()}")
 
 
 def _ensure_kernel_in_target(app):
@@ -696,8 +705,12 @@ def _rsync_rootfs_with_progress(app):
 
     proc.wait()
     if proc.returncode not in (0, 24):
-        # 24 = "vanished source files" which is normal on a live system
         raise subprocess.CalledProcessError(proc.returncode, "rsync")
+    if proc.returncode == 24:
+        log_message(
+            app,
+            "  WARNING: rsync reported vanished source files (normal on live system)",
+        )
 
     log_message(app, "  System files copied successfully")
 
@@ -1060,6 +1073,19 @@ def _run_chroot_with_progress(app):
     # Progress range: 0.55 to 0.90 for chroot configuration
     progress_start = 0.55
     progress_end = 0.90
+
+    # Validate that configure.sh was written before executing
+    script_path = "/mnt/root/configure.sh"
+    if not os.path.isfile(script_path):
+        raise FileNotFoundError(
+            f"Configuration script not found at {script_path} — "
+            "disk may be full or write failed"
+        )
+    if os.path.getsize(script_path) == 0:
+        raise ValueError(
+            f"Configuration script at {script_path} is empty — "
+            "write may have failed"
+        )
 
     proc = subprocess.Popen(
         ["arch-chroot", "/mnt", "/root/configure.sh"],

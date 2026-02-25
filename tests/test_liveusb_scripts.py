@@ -326,3 +326,50 @@ class TestServiceScriptsHavePermissions(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# livecd-sound pick_a_card array handling
+# ═══════════════════════════════════════════════════════════════════════════
+class TestLivecdSoundPickACard(unittest.TestCase):
+    """Verify livecd-sound pick_a_card uses proper bash array iteration."""
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, "livecd-sound")
+        if not os.path.isfile(self.script_path):
+            self.skipTest("livecd-sound script not found")
+        with open(self.script_path) as f:
+            self.content = f.read()
+
+    def test_usable_cards_is_array(self):
+        """usable_cards must be declared as a proper bash array.
+
+        Regression test: previously usable_cards was a plain string but
+        iterated with ${usable_cards[@]}, which treats the entire string
+        as one element instead of iterating per card index.
+        """
+        # Must use mapfile/readarray or declare -a to create a real array
+        self.assertRegex(
+            self.content,
+            r'(mapfile|readarray|local -a) .* usable_cards',
+            "usable_cards must be a proper bash array (mapfile or declare -a)",
+        )
+
+    def test_array_count_uses_hash(self):
+        """Card count must use ${#usable_cards[@]} (array length), not wc."""
+        self.assertIn(
+            "${#usable_cards[@]}",
+            self.content,
+            "Must use ${#usable_cards[@]} for array length",
+        )
+
+    def test_valid_bash_syntax(self):
+        """livecd-sound must have valid bash syntax after fix."""
+        result = subprocess.run(
+            ["bash", "-n", self.script_path],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(
+            result.returncode, 0,
+            f"Bash syntax error: {result.stderr}",
+        )
