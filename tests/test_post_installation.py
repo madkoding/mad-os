@@ -593,6 +593,162 @@ class TestLiveAutologin(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Live ISO cleanup in chroot config script
+# ═══════════════════════════════════════════════════════════════════════════
+class TestLiveISOCleanup(unittest.TestCase):
+    """Verify the installer's chroot config script removes live ISO artifacts.
+
+    When the system is installed via rsync from the live ISO, the live user,
+    autologin override, sudoers rule, and live-only services are copied into
+    the target.  The chroot config script must clean these up so the installed
+    system starts fresh with greetd and the user-created account.
+    """
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_removes_live_autologin_override(self):
+        """Config script must remove the live autologin getty override."""
+        self.assertIn(
+            "rm -rf /etc/systemd/system/getty@tty1.service.d",
+            self.content,
+            "Config script must remove getty@tty1 autologin override "
+            "(conflicts with greetd on the installed system)",
+        )
+
+    def test_removes_live_user_mados(self):
+        """Config script must remove the live 'mados' user."""
+        self.assertIn(
+            "userdel",
+            self.content,
+            "Config script must remove the live mados user with userdel",
+        )
+        self.assertRegex(
+            self.content,
+            r"userdel\b.*\bmados\b",
+            "userdel must target the 'mados' user",
+        )
+
+    def test_removes_live_sudoers(self):
+        """Config script must remove the live sudoers file before creating new one."""
+        self.assertIn(
+            "rm -f /etc/sudoers.d/99-opencode-nopasswd",
+            self.content,
+            "Config script must remove the live 99-opencode-nopasswd sudoers "
+            "file (gives mados unrestricted NOPASSWD ALL)",
+        )
+
+    def test_removes_live_only_services(self):
+        """Config script must remove live-only systemd services."""
+        live_services = [
+            "livecd-talk.service",
+            "livecd-alsa-unmuter.service",
+            "pacman-init.service",
+            "etc-pacman.d-gnupg.mount",
+            "choose-mirror.service",
+        ]
+        for svc in live_services:
+            with self.subTest(service=svc):
+                self.assertIn(
+                    svc, self.content,
+                    f"Config script must remove live-only service: {svc}",
+                )
+
+    def test_removes_persistence_services(self):
+        """Config script must remove persistence/Ventoy services (live-USB only)."""
+        persistence_services = [
+            "mados-persistence-detect.service",
+            "mados-persist-sync.service",
+            "mados-ventoy-setup.service",
+        ]
+        for svc in persistence_services:
+            with self.subTest(service=svc):
+                self.assertIn(
+                    svc, self.content,
+                    f"Config script must remove live-USB persistence "
+                    f"service: {svc}",
+                )
+
+    def test_live_cleanup_before_useradd(self):
+        """Live user cleanup (userdel) must happen BEFORE useradd.
+
+        The live mados user occupies UID 1000.  If the installer runs
+        useradd first, the new user may get a different UID or the command
+        could fail.  userdel must come first to free the UID.
+        """
+        userdel_pos = self.content.find("userdel")
+        useradd_pos = self.content.find("useradd")
+        self.assertNotEqual(userdel_pos, -1, "userdel not found in config script")
+        self.assertNotEqual(useradd_pos, -1, "useradd not found in config script")
+        self.assertLess(
+            userdel_pos, useradd_pos,
+            "userdel must appear before useradd so UID 1000 is freed "
+            "before the new user is created",
+        )
+
+    def test_config_script_valid_bash_syntax(self):
+        """Generated config script must pass bash -n syntax check."""
+        from mados_installer.pages.installation import _build_config_script
+
+        data = {
+            "disk": "/dev/sda",
+            "disk_size_gb": 60,
+            "separate_home": True,
+            "username": "testuser",
+            "password": "TestPass123!",
+            "hostname": "mados-test",
+            "timezone": "America/New_York",
+            "locale": "en_US.UTF-8",
+        }
+        script = _build_config_script(data)
+        result = subprocess.run(
+            ["bash", "-n"],
+            input=script, capture_output=True, text=True,
+        )
+        self.assertEqual(
+            result.returncode, 0,
+            f"Generated config script has bash syntax errors:\n"
+            f"{result.stderr}",
+        )
+
+    def test_config_script_syntax_with_mados_username(self):
+        """Config script must be valid bash even when username is 'mados'.
+
+        When the chosen username matches the live user the cleanup logic
+        (userdel mados → useradd mados) must still produce syntactically
+        valid bash.
+        """
+        from mados_installer.pages.installation import _build_config_script
+
+        data = {
+            "disk": "/dev/sda",
+            "disk_size_gb": 60,
+            "separate_home": True,
+            "username": "mados",
+            "password": "TestPass123!",
+            "hostname": "mados-test",
+            "timezone": "America/New_York",
+            "locale": "en_US.UTF-8",
+        }
+        script = _build_config_script(data)
+        result = subprocess.run(
+            ["bash", "-n"],
+            input=script, capture_output=True, text=True,
+        )
+        self.assertEqual(
+            result.returncode, 0,
+            f"Config script with username='mados' has bash syntax errors:\n"
+            f"{result.stderr}",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Sudoers configuration
 # ═══════════════════════════════════════════════════════════════════════════
 class TestSudoersConfig(unittest.TestCase):

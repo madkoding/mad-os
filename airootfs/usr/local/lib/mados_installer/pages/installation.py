@@ -1203,6 +1203,38 @@ cat > /etc/hosts <<EOF
 127.0.1.1   {_escape_shell(data["hostname"])}.localdomain {_escape_shell(data["hostname"])}
 EOF
 
+# ── Clean up live ISO artifacts ─────────────────────────────────────────
+# The system was installed via rsync from the live ISO, so the live user
+# (mados), autologin override, and live-only services are still present.
+
+# Remove live autologin override (conflicts with greetd graphical login)
+rm -rf /etc/systemd/system/getty@tty1.service.d
+
+# Remove live-only systemd services that should not run on installed system
+for svc in \
+    livecd-talk.service \
+    livecd-alsa-unmuter.service \
+    pacman-init.service \
+    etc-pacman.d-gnupg.mount \
+    choose-mirror.service \
+    mados-persistence-detect.service \
+    mados-persist-sync.service \
+    mados-ventoy-setup.service \
+    setup-meli-demo.service \
+    mados-installer-autostart.service; do
+    rm -f "/etc/systemd/system/$svc"
+    systemctl disable "$svc" 2>/dev/null || true
+done
+
+# Remove the live ISO user (mados) — the installer creates a fresh user below
+if id mados &>/dev/null; then
+    userdel -r mados 2>/dev/null || userdel mados 2>/dev/null || true
+    rm -rf /home/mados
+fi
+
+# Remove live ISO sudoers (gives mados unrestricted NOPASSWD ALL)
+rm -f /etc/sudoers.d/99-opencode-nopasswd
+
 # User
 useradd -m -G wheel,audio,video,storage -s /bin/zsh {username}
 echo '{username}:{_escape_shell(data["password"])}' | chpasswd
