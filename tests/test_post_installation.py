@@ -457,8 +457,33 @@ class TestInitramfsPresetRestoration(unittest.TestCase):
     def test_kernel_recovery_fallback_reinstall(self):
         """Installer must have fallback to reinstall linux package if kernel not found."""
         self.assertIn(
-            "pacman -S --noconfirm linux", self.content,
+            "pacman -Sy --noconfirm linux", self.content,
             "Installer must fallback to reinstalling linux package if kernel still missing",
+        )
+
+    def test_kernel_recovery_before_grub(self):
+        """Kernel recovery from /usr/lib/modules/ must appear before grub-mkconfig in the script."""
+        # Use the PROGRESS marker to anchor into the configure script, not docstrings.
+        recovery_pos = self.content.find(
+            "Kernel not found or unreadable at /boot/vmlinuz-linux"
+        )
+        grub_mkconfig_pos = self.content.find("grub-mkconfig -o /boot/grub/grub.cfg")
+        self.assertNotEqual(recovery_pos, -1, "Must contain kernel recovery message")
+        self.assertNotEqual(grub_mkconfig_pos, -1, "Must contain grub-mkconfig command")
+        self.assertLess(
+            recovery_pos, grub_mkconfig_pos,
+            "Kernel recovery must happen before grub-mkconfig is called",
+        )
+
+    def test_microcode_hook_in_mkinitcpio(self):
+        """The mkinitcpio HOOKS line must include the 'microcode' hook."""
+        hooks_match = re.search(r"HOOKS=\(([^)]+)\)", self.content)
+        self.assertIsNotNone(hooks_match, "Must contain a HOOKS=(...) line")
+        hooks_str = hooks_match.group(1)
+        hooks = hooks_str.split()
+        self.assertIn(
+            "microcode", hooks,
+            "mkinitcpio HOOKS must include 'microcode' for CPU microcode loading",
         )
 
 

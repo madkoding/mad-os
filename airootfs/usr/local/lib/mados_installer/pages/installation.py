@@ -312,6 +312,60 @@ def _copy_item(src, dst):
         subprocess.run(["cp", "-a", src, dst], check=False)
 
 
+def _ensure_kernel_in_target(app):
+    """Ensure /mnt/boot/vmlinuz-linux exists before entering the chroot.
+
+    The archiso live system stores the kernel in the ISO boot structure,
+    so ``/boot/vmlinuz-linux`` is typically absent from the live rootfs.
+    After rsync, the target ``/mnt/boot/`` (EFI partition) may be missing
+    the kernel image.  This helper copies it from the live system's
+    ``/usr/lib/modules/*/vmlinuz`` (the canonical location installed by
+    the ``linux`` package) so that both ``grub-mkconfig`` and
+    ``mkinitcpio`` (with ``-P``) find it without needing a network download.
+    """
+    target_kernel = "/mnt/boot/vmlinuz-linux"
+
+    # Already present and readable?
+    if (
+        os.path.isfile(target_kernel)
+        and os.access(target_kernel, os.R_OK)
+        and os.path.getsize(target_kernel) > 0
+    ):
+        return
+
+    log_message(app, "  Kernel not found in target /boot, copying from live system...")
+
+    # Try canonical location: /usr/lib/modules/<version>/vmlinuz
+    for vmlinuz in sorted(globmod.glob("/usr/lib/modules/*/vmlinuz"), reverse=True):
+        if os.path.isfile(vmlinuz) and os.access(vmlinuz, os.R_OK):
+            subprocess.run(["cp", vmlinuz, target_kernel], check=True)
+            log_message(app, f"  Copied kernel from {vmlinuz}")
+            return
+
+    # Fallback: try /boot/vmlinuz-linux from the live system
+    if os.path.isfile("/boot/vmlinuz-linux") and os.access(
+        "/boot/vmlinuz-linux", os.R_OK
+    ):
+        subprocess.run(["cp", "/boot/vmlinuz-linux", target_kernel], check=True)
+        log_message(app, "  Copied kernel from /boot/vmlinuz-linux")
+        return
+
+    # Also try inside the target's own modules (rsync may have copied them)
+    for vmlinuz in sorted(
+        globmod.glob("/mnt/usr/lib/modules/*/vmlinuz"), reverse=True
+    ):
+        if os.path.isfile(vmlinuz) and os.access(vmlinuz, os.R_OK):
+            subprocess.run(["cp", vmlinuz, target_kernel], check=True)
+            log_message(app, f"  Copied kernel from {vmlinuz}")
+            return
+
+    log_message(
+        app,
+        "  WARNING: Could not find kernel in live system, "
+        "chroot will attempt recovery",
+    )
+
+
 def _step_copy_live_files(app):
     """Step 6: Copy files from live ISO to installed system."""
     set_progress(app, 0.51, "Copying boot splash assets...")
@@ -463,6 +517,11 @@ def _run_installation(app):
             time.sleep(0.3)
         else:
             _rsync_rootfs_with_progress(app)
+
+        # Step 4b: Ensure kernel image exists in target /boot
+        # (archiso keeps the kernel in the ISO boot structure, not the rootfs)
+        if not DEMO_MODE:
+            _ensure_kernel_in_target(app)
 
         # Step 5: Generate fstab
         set_progress(app, 0.49, "Generating filesystem table...")
@@ -1112,6 +1171,32 @@ echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
 echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/opencode,/usr/local/bin/opencode,/usr/local/bin/ollama,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/opencode-nopasswd
 chmod 440 /etc/sudoers.d/opencode-nopasswd
 
+# Ensure kernel image exists at /boot/vmlinuz-linux BEFORE GRUB and mkinitcpio.
+# The pre-chroot step should have placed it, but verify inside the chroot too.
+# archiso keeps the kernel in the ISO boot structure, not the rootfs, so after
+# rsync /boot/vmlinuz-linux is usually absent.
+if [ ! -s /boot/vmlinuz-linux ] || [ ! -r /boot/vmlinuz-linux ]; then
+    echo '  Kernel not found or unreadable at /boot/vmlinuz-linux, recovering...'
+    KERN_FOUND=0
+    for kdir in /usr/lib/modules/*/; do
+        if [ -r "${{kdir}}vmlinuz" ]; then
+            cp "${{kdir}}vmlinuz" /boot/vmlinuz-linux
+            echo "  Recovered kernel from ${{kdir}}vmlinuz"
+            KERN_FOUND=1
+            break
+        fi
+    done
+    if [ "$KERN_FOUND" = "0" ]; then
+        echo '  Modules vmlinuz not found. Reinstalling linux package...'
+        pacman -Sy --noconfirm linux || {{ echo 'FATAL: Failed to install kernel'; exit 1; }}
+    fi
+fi
+# Final verification
+if [ ! -s /boot/vmlinuz-linux ] || [ ! -r /boot/vmlinuz-linux ]; then
+    echo 'FATAL: /boot/vmlinuz-linux is missing or unreadable after recovery!'
+    exit 1
+fi
+
 echo '[PROGRESS 3/9] Installing GRUB bootloader...'
 # GRUB - Auto-detect UEFI or BIOS
 if [ -d /sys/firmware/efi ]; then
@@ -1294,8 +1379,8 @@ DeviceTimeout=8
 EOFPLYCONF
 
 echo '[PROGRESS 6/9] Rebuilding initramfs (this takes a while)...'
-# Rebuild initramfs with plymouth hook
-sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect modconf kms block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
+# Rebuild initramfs with plymouth and microcode hooks
+sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect microcode modconf kms block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
 
 # Restore standard linux preset (archiso replaces it with an archiso-specific one)
 cat > /etc/mkinitcpio.d/linux.preset <<'EOFPRESET'
@@ -1313,21 +1398,20 @@ EOFPRESET
 # Remove archiso-specific mkinitcpio config (no longer needed on installed system)
 rm -f /etc/mkinitcpio.conf.d/archiso.conf
 
-# Ensure kernel image exists at /boot/vmlinuz-linux
-# (archiso may remove it from the rootfs during ISO build)
-if [ ! -f /boot/vmlinuz-linux ]; then
-    echo '  Kernel not found at /boot/vmlinuz-linux, recovering from modules directory...'
+# Verify kernel is still readable (should have been placed in step 3)
+if [ ! -s /boot/vmlinuz-linux ] || [ ! -r /boot/vmlinuz-linux ]; then
+    echo '  Kernel missing before mkinitcpio! Recovering...'
     for kdir in /usr/lib/modules/*/; do
-        if [ -f "${{kdir}}vmlinuz" ]; then
+        if [ -r "${{kdir}}vmlinuz" ]; then
             cp "${{kdir}}vmlinuz" /boot/vmlinuz-linux
             echo "  Recovered kernel from ${{kdir}}vmlinuz"
             break
         fi
     done
 fi
-if [ ! -f /boot/vmlinuz-linux ]; then
+if [ ! -s /boot/vmlinuz-linux ] || [ ! -r /boot/vmlinuz-linux ]; then
     echo '  ERROR: Could not find kernel image. Reinstalling linux package...'
-    pacman -S --noconfirm linux || {{ echo 'FATAL: Failed to install kernel'; exit 1; }}
+    pacman -Sy --noconfirm linux || {{ echo 'FATAL: Failed to install kernel'; exit 1; }}
 fi
 
 mkinitcpio -P
