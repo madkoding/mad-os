@@ -1981,7 +1981,7 @@ for bin in cage regreet sway; do
     fi
 done
 
-for script in /usr/local/bin/cage-greeter /usr/local/bin/sway-session; do
+for script in /usr/local/bin/cage-greeter /usr/local/bin/sway-session /usr/local/bin/hyprland-session /usr/local/bin/start-hyprland /usr/local/bin/select-compositor; do
     if [ -x "$script" ]; then
         log "  ✓ $script is executable"
     elif [ -f "$script" ]; then
@@ -1999,6 +1999,31 @@ else
     log "  ✗ greetd config NOT found — graphical login may fail"
     GRAPHICAL_OK=0
 fi
+
+if [ -f /etc/greetd/regreet.toml ]; then
+    log "  ✓ regreet config exists"
+else
+    log "  ✗ regreet.toml NOT found — greeter UI may fail"
+    GRAPHICAL_OK=0
+fi
+
+# Verify .desktop session files exist and point to madOS session scripts
+for session_file in /usr/share/wayland-sessions/sway.desktop /usr/share/wayland-sessions/hyprland.desktop; do
+    if [ -f "$session_file" ]; then
+        if grep -q "/usr/local/bin/" "$session_file"; then
+            log "  ✓ $session_file has madOS session script"
+        else
+            log "  ⚠ $session_file exists but Exec= may not point to madOS script — fixing..."
+            session_name=$(basename "$session_file" .desktop)
+            if [ -x "/usr/local/bin/${{session_name}}-session" ]; then
+                sed -i "s|^Exec=.*|Exec=/usr/local/bin/${{session_name}}-session|" "$session_file"
+                log "    Fixed: Exec=/usr/local/bin/${{session_name}}-session"
+            fi
+        fi
+    else
+        log "  ✗ $session_file NOT found — session may not appear in greeter"
+    fi
+done
 
 if systemctl is-enabled greetd.service &>/dev/null; then
     log "  ✓ greetd.service is enabled"

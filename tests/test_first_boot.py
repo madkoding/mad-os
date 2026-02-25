@@ -611,6 +611,52 @@ class TestGraphicalEnvironmentVerification(unittest.TestCase):
             "Phase 2 must enable getty@tty2 as fallback login",
         )
 
+    def test_checks_hyprland_session_script(self):
+        """Phase 2 must verify hyprland-session script is executable."""
+        self.assertIn(
+            "hyprland-session", self.content,
+            "Phase 2 must check hyprland-session script",
+        )
+
+    def test_checks_start_hyprland_script(self):
+        """Phase 2 must verify start-hyprland script is executable."""
+        self.assertIn(
+            "start-hyprland", self.content,
+            "Phase 2 must check start-hyprland script",
+        )
+
+    def test_checks_select_compositor_script(self):
+        """Phase 2 must verify select-compositor script is executable."""
+        self.assertIn(
+            "select-compositor", self.content,
+            "Phase 2 must check select-compositor script",
+        )
+
+    def test_checks_regreet_config(self):
+        """Phase 2 must verify regreet.toml config exists."""
+        self.assertIn(
+            "regreet.toml", self.content,
+            "Phase 2 must check regreet.toml config",
+        )
+
+    def test_checks_desktop_session_files(self):
+        """Phase 2 must verify wayland session .desktop files exist and have correct Exec."""
+        self.assertIn(
+            "wayland-sessions/sway.desktop", self.content,
+            "Phase 2 must check sway.desktop session file",
+        )
+        self.assertIn(
+            "wayland-sessions/hyprland.desktop", self.content,
+            "Phase 2 must check hyprland.desktop session file",
+        )
+
+    def test_fixes_desktop_exec_lines(self):
+        """Phase 2 must fix .desktop Exec= lines if they don't point to madOS scripts."""
+        self.assertIn(
+            "/usr/local/bin/", self.content,
+            "Phase 2 must verify Exec= points to /usr/local/bin/ session scripts",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Ollama and OpenCode status verification
@@ -889,6 +935,30 @@ class TestPhase2ScriptGeneration(unittest.TestCase):
         """Script must enable getty@tty2 as a login fallback."""
         self.assertIn("getty@tty2.service", self.script,
                        "Script must enable getty@tty2 as fallback login")
+
+    def test_verifies_hyprland_session_scripts(self):
+        """Script must verify hyprland-session and start-hyprland are executable."""
+        self.assertIn("hyprland-session", self.script,
+                       "Script must check hyprland-session script")
+        self.assertIn("start-hyprland", self.script,
+                       "Script must check start-hyprland script")
+
+    def test_verifies_select_compositor(self):
+        """Script must verify select-compositor script is executable."""
+        self.assertIn("select-compositor", self.script,
+                       "Script must check select-compositor script")
+
+    def test_verifies_regreet_config(self):
+        """Script must verify regreet.toml config exists."""
+        self.assertIn("regreet.toml", self.script,
+                       "Script must check regreet.toml config")
+
+    def test_verifies_desktop_session_files(self):
+        """Script must verify wayland session .desktop files."""
+        self.assertIn("sway.desktop", self.script,
+                       "Script must check sway.desktop session file")
+        self.assertIn("hyprland.desktop", self.script,
+                       "Script must check hyprland.desktop session file")
 
     # ── Ollama/OpenCode status ──────────────────────────────────────────
     def test_checks_ollama_binary_status(self):
