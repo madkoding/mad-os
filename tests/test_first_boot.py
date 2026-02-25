@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
 """
-Tests for madOS first-boot post-installation configuration.
+Tests for madOS post-installation configuration.
 
-Validates the first-boot script that runs after installation on the first reboot.
-This script is responsible for Phase 2 package installation, service configuration,
-and post-install setup (Oh My Zsh, OpenCode, audio, etc.).
+Validates the installer's chroot configuration script that runs during
+installation.  All packages, services, scripts, and config files are
+pre-installed on the live USB and copied via rsync.  The chroot script
+enables services and verifies the graphical environment.
+
+There is no Phase 2 / first-boot service — everything is done in a single
+installation pass.
 
 These tests verify:
-1. The first-boot service and script are properly created during installation
-2. The script has valid bash syntax
-3. The script contains all required configuration steps
-4. Phase 2 packages are correctly listed
-5. Services are enabled appropriately
+1. The config script has valid structure
+2. Services are enabled correctly
+3. Pre-installed files exist (audio, Chromium, Oh My Zsh)
+4. Graphical environment verification is present
+5. No internet downloads occur during installation
+6. No redundant setup services for pre-installed programs
 """
 
 import os
 import re
-import subprocess
 import sys
 import unittest
 
@@ -44,10 +48,10 @@ sys.path.insert(0, LIB_DIR)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# First-boot service setup
+# No Phase 2 / first-boot service should exist
 # ═══════════════════════════════════════════════════════════════════════════
-class TestFirstBootServiceSetup(unittest.TestCase):
-    """Verify the installer sets up the first-boot service correctly."""
+class TestNoFirstBootService(unittest.TestCase):
+    """Verify there is no Phase 2 / first-boot service in the installer."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -58,160 +62,40 @@ class TestFirstBootServiceSetup(unittest.TestCase):
         with open(install_py) as f:
             self.content = f.read()
 
-    def test_creates_first_boot_script(self):
-        """Installer must create /usr/local/bin/mados-first-boot.sh."""
-        self.assertIn(
-            "/usr/local/bin/mados-first-boot.sh", self.content,
-            "Installer must create mados-first-boot.sh script",
-        )
-
-    def test_creates_first_boot_service(self):
-        """Installer must create mados-first-boot.service."""
-        self.assertIn(
+    def test_no_first_boot_service(self):
+        """Installer must NOT create mados-first-boot.service."""
+        self.assertNotIn(
             "mados-first-boot.service", self.content,
-            "Installer must create mados-first-boot.service",
+            "No first-boot service should exist — all config is done in chroot",
         )
 
-    def test_enables_first_boot_service(self):
-        """Installer must enable the first-boot service."""
-        self.assertIn(
-            "systemctl enable mados-first-boot.service", self.content,
-            "Installer must enable mados-first-boot.service",
+    def test_no_first_boot_script(self):
+        """Installer must NOT create mados-first-boot.sh."""
+        self.assertNotIn(
+            "mados-first-boot.sh", self.content,
+            "No first-boot script should exist — all config is done in chroot",
         )
 
-    def test_service_runs_after_network(self):
-        """First-boot service must wait for network connectivity."""
-        self.assertIn(
-            "After=network-online.target", self.content,
-            "Service must run after network-online.target",
-        )
-        self.assertIn(
-            "Wants=network-online.target", self.content,
-            "Service must want network-online.target",
-        )
-
-    def test_service_is_oneshot(self):
-        """First-boot service must be Type=oneshot."""
-        self.assertIn(
-            "Type=oneshot", self.content,
-            "Service must be Type=oneshot (runs once)",
-        )
-
-    def test_service_has_timeout(self):
-        """First-boot service must have a reasonable timeout."""
-        # Phase 2 installs many packages, needs long timeout
-        self.assertIn(
-            "TimeoutStartSec", self.content,
-            "Service must have TimeoutStartSec for long package installs",
-        )
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# First-boot script generation
-# ═══════════════════════════════════════════════════════════════════════════
-class TestFirstBootScriptGeneration(unittest.TestCase):
-    """Verify the first-boot script is generated correctly."""
-
-    def setUp(self):
-        install_py = os.path.join(
-            LIB_DIR, "mados_installer", "pages", "installation.py"
-        )
-        if not os.path.isfile(install_py):
-            self.skipTest("installation.py not found")
-        with open(install_py) as f:
-            self.content = f.read()
-
-    def test_has_build_first_boot_script_function(self):
-        """Installer must have _build_first_boot_script function."""
-        self.assertIn(
+    def test_no_build_first_boot_function(self):
+        """Installer must NOT have _build_first_boot_script function."""
+        self.assertNotIn(
             "def _build_first_boot_script", self.content,
-            "Must have _build_first_boot_script function",
+            "No _build_first_boot_script function should exist",
         )
 
-    def test_script_has_shebang(self):
-        """Generated script must have bash shebang."""
-        self.assertIn(
-            "#!/bin/bash", self.content,
-            "First-boot script must have bash shebang",
-        )
-
-    def test_script_uses_strict_mode(self):
-        """Generated script must use bash strict mode."""
-        # Look for set -euo pipefail or similar
-        pattern = r"set -[euo]+[^\n]*pipefail"
-        self.assertIsNotNone(
-            re.search(pattern, self.content),
-            "First-boot script must use 'set -euo pipefail' for safety",
-        )
-
-    def test_script_has_logging(self):
-        """Generated script must have logging functionality."""
-        self.assertIn(
-            'LOG_TAG="mados-first-boot"', self.content,
-            "Script must define LOG_TAG for journald logging",
-        )
-        self.assertIn(
-            "log()", self.content,
-            "Script must have log() function",
+    def test_no_phase2_references(self):
+        """Installer must NOT reference 'Phase 2'."""
+        self.assertNotIn(
+            "Phase 2", self.content,
+            "No Phase 2 references should exist in the installer",
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Phase 2 package installation
-# ═══════════════════════════════════════════════════════════════════════════
-class TestPhase2Packages(unittest.TestCase):
-    """Verify Phase 2 packages are installed by first-boot script."""
-
-    def setUp(self):
-        install_py = os.path.join(
-            LIB_DIR, "mados_installer", "pages", "installation.py"
-        )
-        if not os.path.isfile(install_py):
-            self.skipTest("installation.py not found")
-        with open(install_py) as f:
-            self.content = f.read()
-
-    def test_installs_packages_with_pacman(self):
-        """Script must install GPU compute packages using pacman."""
-        self.assertIn(
-            "pacman -S", self.content,
-            "Must use 'pacman -S' to install GPU compute packages",
-        )
-
-    def test_uses_noconfirm_flag(self):
-        """Script must use --noconfirm for unattended installation."""
-        self.assertIn(
-            "--noconfirm", self.content,
-            "Must use --noconfirm for automated package installation",
-        )
-
-    def test_uses_needed_flag(self):
-        """Script must use --needed to skip already-installed packages."""
-        self.assertIn(
-            "--needed", self.content,
-            "Must use --needed to skip reinstalling existing packages",
-        )
-
-    def test_references_phase2_packages(self):
-        """Script must reference PACKAGES_PHASE2."""
-        # Import to verify it exists
-        from mados_installer.config import PACKAGES_PHASE2
-        self.assertIsInstance(PACKAGES_PHASE2, (list, tuple))
-        self.assertGreater(len(PACKAGES_PHASE2), 0, "PACKAGES_PHASE2 must not be empty")
-
-    def test_handles_cjk_fonts(self):
-        """Script must conditionally install CJK fonts for Asian locales."""
-        self.assertIn(
-            "noto-fonts-cjk", self.content,
-            "Must include noto-fonts-cjk for CJK locale support",
-        )
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Service enablement
+# Service enablement — in chroot config script
 # ═══════════════════════════════════════════════════════════════════════════
 class TestServiceEnablement(unittest.TestCase):
-    """Verify the first-boot script enables required services."""
+    """Verify services are enabled in the chroot config script."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -223,98 +107,142 @@ class TestServiceEnablement(unittest.TestCase):
             self.content = f.read()
 
     def test_enables_bluetooth(self):
-        """Script must enable bluetooth service."""
+        """Config script must enable bluetooth service."""
         self.assertIn(
             "systemctl enable bluetooth", self.content,
             "Must enable bluetooth service",
         )
 
     def test_enables_pipewire(self):
-        """Script must enable PipeWire audio."""
+        """Config script must enable PipeWire audio."""
         self.assertIn(
             "pipewire", self.content.lower(),
             "Must enable PipeWire audio system",
         )
 
     def test_enables_wireplumber(self):
-        """Script must enable WirePlumber (PipeWire session manager)."""
+        """Config script must enable WirePlumber (PipeWire session manager)."""
         self.assertIn(
             "wireplumber", self.content.lower(),
             "Must enable WirePlumber service",
         )
 
-    def test_enables_audio_init_service(self):
-        """Script must create and enable mados-audio-init service."""
-        self.assertIn(
-            "mados-audio-init.service", self.content,
-            "Must create mados-audio-init.service",
-        )
-        self.assertIn(
-            "systemctl enable mados-audio-init", self.content,
-            "Must enable mados-audio-init service",
-        )
-
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Audio configuration
+# Audio — pre-installed on live USB, copied by rsync
 # ═══════════════════════════════════════════════════════════════════════════
 class TestAudioConfiguration(unittest.TestCase):
-    """Verify the first-boot script configures audio correctly."""
+    """Verify audio scripts and services are pre-installed on the live USB."""
 
-    def setUp(self):
-        install_py = os.path.join(
-            LIB_DIR, "mados_installer", "pages", "installation.py"
-        )
-        if not os.path.isfile(install_py):
-            self.skipTest("installation.py not found")
-        with open(install_py) as f:
-            self.content = f.read()
+    def test_audio_init_script_exists(self):
+        """mados-audio-init.sh must exist on the live USB."""
+        script = os.path.join(REPO_DIR, "airootfs", "usr", "local", "bin",
+                              "mados-audio-init.sh")
+        self.assertTrue(os.path.isfile(script),
+                        "mados-audio-init.sh must be pre-installed on live USB")
 
-    def test_creates_audio_init_script(self):
-        """Script must create mados-audio-init.sh."""
-        self.assertIn(
-            "/usr/local/bin/mados-audio-init.sh", self.content,
-            "Must create mados-audio-init.sh script",
-        )
+    def test_audio_init_service_exists(self):
+        """mados-audio-init.service must exist on the live USB."""
+        service = os.path.join(REPO_DIR, "airootfs", "etc", "systemd",
+                               "system", "mados-audio-init.service")
+        self.assertTrue(os.path.isfile(service),
+                        "mados-audio-init.service must be pre-installed on live USB")
 
-    def test_audio_script_uses_amixer(self):
-        """Audio init script must use amixer to configure volumes."""
-        self.assertIn(
-            "amixer", self.content,
-            "Audio init script must use amixer",
-        )
+    def test_audio_init_service_is_enabled(self):
+        """mados-audio-init.service must be enabled via symlink on live USB."""
+        symlink = os.path.join(REPO_DIR, "airootfs", "etc", "systemd",
+                               "system", "multi-user.target.wants",
+                               "mados-audio-init.service")
+        self.assertTrue(os.path.islink(symlink),
+                        "mados-audio-init.service must be enabled on live USB")
 
-    def test_audio_script_unmutes_controls(self):
-        """Audio init script must unmute audio controls."""
-        self.assertIn(
-            "unmute", self.content,
-            "Audio script must unmute audio controls",
-        )
+    def test_audio_quality_service_exists(self):
+        """mados-audio-quality.service must exist on the live USB."""
+        service = os.path.join(REPO_DIR, "airootfs", "etc", "systemd",
+                               "system", "mados-audio-quality.service")
+        self.assertTrue(os.path.isfile(service),
+                        "mados-audio-quality.service must be pre-installed on live USB")
 
-    def test_audio_script_saves_state(self):
-        """Audio init script must save ALSA state."""
-        self.assertIn(
-            "alsactl store", self.content,
-            "Audio script must save ALSA state with alsactl",
-        )
-
-    def test_audio_service_runs_after_sound_target(self):
-        """Audio init service must run after sound.target."""
-        self.assertIn(
-            "After=", self.content,
-            "Audio init service must have After= directive",
-        )
-        self.assertIn(
-            "sound.target", self.content,
-            "Audio init service must run after sound.target",
-        )
+    def test_user_audio_quality_service_in_skel(self):
+        """User-level audio quality service must be in /etc/skel."""
+        skel_svc = os.path.join(REPO_DIR, "airootfs", "etc", "skel",
+                                ".config", "systemd", "user",
+                                "mados-audio-quality.service")
+        self.assertTrue(os.path.isfile(skel_svc),
+                        "User-level audio quality service must be in /etc/skel")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Chromium configuration
+# Chromium — pre-installed on live USB, copied by rsync
 # ═══════════════════════════════════════════════════════════════════════════
 class TestChromiumConfiguration(unittest.TestCase):
-    """Verify the first-boot script configures Chromium."""
+    """Verify Chromium config files are pre-installed on the live USB."""
+
+    def test_chromium_flags_exists(self):
+        """chromium-flags.conf must exist on the live USB."""
+        flags = os.path.join(REPO_DIR, "airootfs", "etc",
+                             "chromium-flags.conf")
+        self.assertTrue(os.path.isfile(flags),
+                        "chromium-flags.conf must be pre-installed on live USB")
+
+    def test_chromium_flags_has_content(self):
+        """chromium-flags.conf must contain Wayland flags."""
+        flags = os.path.join(REPO_DIR, "airootfs", "etc",
+                             "chromium-flags.conf")
+        if not os.path.isfile(flags):
+            self.skipTest("chromium-flags.conf not found")
+        with open(flags) as f:
+            content = f.read()
+        self.assertIn("--ozone-platform", content,
+                       "Chromium must use Wayland via --ozone-platform")
+
+    def test_chromium_homepage_policy_exists(self):
+        """Chromium homepage policy JSON must exist on the live USB."""
+        policy = os.path.join(REPO_DIR, "airootfs", "etc", "chromium",
+                              "policies", "managed", "mados-homepage.json")
+        self.assertTrue(os.path.isfile(policy),
+                        "Chromium homepage policy must be pre-installed on live USB")
+
+    def test_chromium_homepage_policy_is_valid_json(self):
+        """Chromium homepage policy must be valid JSON."""
+        import json
+        policy = os.path.join(REPO_DIR, "airootfs", "etc", "chromium",
+                              "policies", "managed", "mados-homepage.json")
+        if not os.path.isfile(policy):
+            self.skipTest("Chromium policy not found")
+        with open(policy) as f:
+            parsed = json.load(f)
+        self.assertIn("HomepageLocation", parsed,
+                       "Chromium policy must contain HomepageLocation")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Oh My Zsh fallback service — pre-installed on live USB
+# ═══════════════════════════════════════════════════════════════════════════
+class TestOhMyZshFallbackService(unittest.TestCase):
+    """Verify the Oh My Zsh fallback service is pre-installed on the live USB."""
+
+    def test_service_file_exists(self):
+        """setup-ohmyzsh.service must exist on the live USB."""
+        service = os.path.join(REPO_DIR, "airootfs", "etc", "systemd",
+                               "system", "setup-ohmyzsh.service")
+        self.assertTrue(os.path.isfile(service),
+                        "setup-ohmyzsh.service must be pre-installed on live USB")
+
+    def test_service_is_enabled(self):
+        """setup-ohmyzsh.service must be enabled via symlink on live USB."""
+        symlink = os.path.join(REPO_DIR, "airootfs", "etc", "systemd",
+                               "system", "multi-user.target.wants",
+                               "setup-ohmyzsh.service")
+        self.assertTrue(os.path.islink(symlink),
+                        "setup-ohmyzsh.service must be enabled on live USB")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# No redundant setup scripts for pre-installed programs
+# ═══════════════════════════════════════════════════════════════════════════
+class TestNoRedundantSetupScripts(unittest.TestCase):
+    """Verify installer does NOT create setup scripts for pre-installed programs."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -325,58 +253,26 @@ class TestChromiumConfiguration(unittest.TestCase):
         with open(install_py) as f:
             self.content = f.read()
 
-    def test_creates_chromium_flags(self):
-        """Script must create /etc/chromium-flags.conf."""
-        self.assertIn(
-            "/etc/chromium-flags.conf", self.content,
-            "Must create /etc/chromium-flags.conf",
+    def test_no_opencode_service(self):
+        """Must NOT create setup-opencode.service (opencode is a program)."""
+        self.assertNotIn(
+            "setup-opencode.service", self.content,
+            "Must NOT create setup-opencode.service — opencode is a program, not a service",
         )
 
-    def test_chromium_uses_wayland(self):
-        """Chromium must be configured for Wayland."""
-        self.assertIn(
-            "--ozone-platform", self.content,
-            "Chromium must use Wayland via --ozone-platform",
-        )
-
-    def test_chromium_disables_vulkan(self):
-        """Chromium must disable Vulkan (not supported on Intel Atom)."""
-        self.assertIn(
-            "--disable-vulkan", self.content,
-            "Chromium must disable Vulkan for Intel Atom compatibility",
-        )
-
-    def test_chromium_disables_vaapi(self):
-        """Chromium must disable VA-API (fails on Intel Atom)."""
-        self.assertIn(
-            "VaapiVideoDecoder", self.content,
-            "Chromium must disable VA-API video decoder",
-        )
-
-    def test_chromium_limits_renderer_processes(self):
-        """Chromium must limit renderer processes for low-RAM."""
-        self.assertIn(
-            "--renderer-process-limit", self.content,
-            "Chromium must limit renderer processes for RAM optimization",
-        )
-
-    def test_chromium_sets_homepage(self):
-        """Script must configure Chromium homepage policy."""
-        self.assertIn(
-            "/etc/chromium/policies/managed", self.content,
-            "Must create Chromium managed policies directory",
-        )
-        self.assertIn(
-            "HomepageLocation", self.content,
-            "Must set Chromium homepage via policy",
+    def test_no_ollama_service(self):
+        """Must NOT create setup-ollama.service (ollama is a program)."""
+        self.assertNotIn(
+            "setup-ollama.service", self.content,
+            "Must NOT create setup-ollama.service — ollama is a program, not a service",
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Oh My Zsh installation
+# Installer is fully offline (no downloads during installation)
 # ═══════════════════════════════════════════════════════════════════════════
-class TestOhMyZshInstallation(unittest.TestCase):
-    """Verify the first-boot script installs Oh My Zsh."""
+class TestInstallerFullyOffline(unittest.TestCase):
+    """Verify the installer does NOT download anything from the internet."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -387,51 +283,33 @@ class TestOhMyZshInstallation(unittest.TestCase):
         with open(install_py) as f:
             self.content = f.read()
 
-    def test_installs_to_skel(self):
-        """Oh My Zsh must be installed to /etc/skel."""
-        self.assertIn(
-            "/etc/skel/.oh-my-zsh", self.content,
-            "Must install Oh My Zsh to /etc/skel",
+    def test_no_redundant_system_update(self):
+        """Script must NOT run 'pacman -Syu' (packages are already installed from ISO)."""
+        self.assertNotIn(
+            "pacman -Syu", self.content,
+            "Must not run 'pacman -Syu' — all ISO packages are already installed via rsync",
         )
 
-    def test_clones_from_github(self):
-        """Must clone Oh My Zsh from GitHub."""
-        self.assertIn(
-            "github.com/ohmyzsh/ohmyzsh", self.content,
-            "Must clone Oh My Zsh from official GitHub repo",
+    def test_no_internet_check(self):
+        """Installer must NOT check internet availability."""
+        self.assertNotIn(
+            "INTERNET_AVAILABLE", self.content,
+            "Installer must not use INTERNET_AVAILABLE — it is 100% offline",
         )
 
-    def test_copies_to_user_home(self):
-        """Must copy Oh My Zsh to user's home directory."""
-        self.assertIn(
-            "cp", self.content,
-            "Must copy Oh My Zsh to user home",
-        )
-        self.assertIn(
-            "chown", self.content,
-            "Must chown Oh My Zsh files to user",
-        )
-
-    def test_creates_fallback_service(self):
-        """Must create setup-ohmyzsh.service as fallback."""
-        self.assertIn(
-            "setup-ohmyzsh.service", self.content,
-            "Must create setup-ohmyzsh.service fallback",
-        )
-
-    def test_handles_no_internet(self):
-        """Must handle case when internet is not available."""
-        self.assertIn(
-            "curl", self.content,
-            "Must check for internet connectivity",
+    def test_no_git_clone(self):
+        """Installer must NOT clone repos (everything comes from the ISO)."""
+        self.assertNotIn(
+            "git clone", self.content,
+            "Installer must not git clone anything — everything comes from the ISO",
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# OpenCode installation
+# Graphical environment verification (now in chroot config script)
 # ═══════════════════════════════════════════════════════════════════════════
-class TestOpenCodeInstallation(unittest.TestCase):
-    """Verify the first-boot script installs OpenCode."""
+class TestGraphicalEnvironmentVerification(unittest.TestCase):
+    """Verify the config script checks graphical environment components."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -442,40 +320,93 @@ class TestOpenCodeInstallation(unittest.TestCase):
         with open(install_py) as f:
             self.content = f.read()
 
-    def test_uses_opencode_install_script(self):
-        """Must use OpenCode official install script."""
+    def test_checks_cage_binary(self):
+        """Config script must verify cage binary exists."""
         self.assertIn(
-            "opencode.ai/install", self.content,
-            "Must use OpenCode install script from opencode.ai",
+            "cage", self.content,
+            "Config script must check for cage binary",
         )
 
-    def test_uses_curl_to_download(self):
-        """Must use curl to download install script."""
+    def test_checks_regreet_binary(self):
+        """Config script must verify regreet binary exists."""
         self.assertIn(
-            "curl", self.content,
-            "Must use curl to download OpenCode installer",
+            "regreet", self.content,
+            "Config script must check for regreet binary",
         )
 
-    def test_pipes_to_bash(self):
-        """Install script must be piped to bash."""
+    def test_checks_cage_greeter_script(self):
+        """Config script must verify cage-greeter script is executable."""
         self.assertIn(
-            "bash", self.content,
-            "Install script must be executed with bash",
+            "cage-greeter", self.content,
+            "Config script must check cage-greeter script",
         )
 
-    def test_checks_opencode_command(self):
-        """Must verify opencode command is available after install."""
+    def test_checks_greetd_service_enabled(self):
+        """Config script must verify greetd.service is enabled."""
         self.assertIn(
-            "opencode", self.content,
-            "Must verify opencode command exists",
+            "greetd.service", self.content,
+            "Config script must check greetd.service status",
+        )
+
+    def test_enables_getty_tty2_fallback(self):
+        """Config script must enable getty@tty2 as a fallback login."""
+        self.assertIn(
+            "getty@tty2.service", self.content,
+            "Config script must enable getty@tty2 as fallback login",
+        )
+
+    def test_checks_hyprland_session_script(self):
+        """Config script must verify hyprland-session script is executable."""
+        self.assertIn(
+            "hyprland-session", self.content,
+            "Config script must check hyprland-session script",
+        )
+
+    def test_checks_start_hyprland_script(self):
+        """Config script must verify start-hyprland script is executable."""
+        self.assertIn(
+            "start-hyprland", self.content,
+            "Config script must check start-hyprland script",
+        )
+
+    def test_checks_select_compositor_script(self):
+        """Config script must verify select-compositor script is executable."""
+        self.assertIn(
+            "select-compositor", self.content,
+            "Config script must check select-compositor script",
+        )
+
+    def test_checks_regreet_config(self):
+        """Config script must verify regreet.toml config exists."""
+        self.assertIn(
+            "regreet.toml", self.content,
+            "Config script must check regreet.toml config",
+        )
+
+    def test_checks_desktop_session_files(self):
+        """Config script must verify wayland session .desktop files exist."""
+        self.assertIn(
+            "wayland-sessions/sway.desktop", self.content,
+            "Config script must check sway.desktop session file",
+        )
+        self.assertIn(
+            "wayland-sessions/hyprland.desktop", self.content,
+            "Config script must check hyprland.desktop session file",
+        )
+
+    def test_fixes_desktop_exec_lines(self):
+        """Config script must fix .desktop Exec= lines if they don't point to madOS scripts."""
+        self.assertIn(
+            "/usr/local/bin/", self.content,
+            "Config script must verify Exec= points to /usr/local/bin/ session scripts",
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Self-cleanup
+# Ollama and OpenCode are pre-installed programs (rsync)
 # ═══════════════════════════════════════════════════════════════════════════
-class TestFirstBootSelfCleanup(unittest.TestCase):
-    """Verify the first-boot script disables itself after running."""
+class TestToolsCopiedByRsync(unittest.TestCase):
+    """Verify the installer copies Ollama and OpenCode binaries from live USB."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -486,24 +417,29 @@ class TestFirstBootSelfCleanup(unittest.TestCase):
         with open(install_py) as f:
             self.content = f.read()
 
-    def test_disables_service(self):
-        """Script must disable mados-first-boot.service after running."""
+    def test_copies_ollama_binary(self):
+        """Installer must copy Ollama binary from live USB."""
         self.assertIn(
-            "systemctl disable mados-first-boot", self.content,
-            "Script must disable itself after completion",
+            "/usr/local/bin/ollama", self.content,
+            "Installer must copy ollama binary from live USB",
         )
 
-    def test_removes_script(self):
-        """Script must remove itself after running."""
+    def test_copies_opencode_binary(self):
+        """Installer must copy OpenCode binary from live USB."""
         self.assertIn(
-            "rm", self.content,
-            "Script must remove itself",
+            "/usr/local/bin/opencode", self.content,
+            "Installer must copy opencode binary from live USB",
         )
-        # Check it removes the script file
-        pattern = r"rm[^\n]*mados-first-boot\.sh"
-        self.assertIsNotNone(
-            re.search(pattern, self.content),
-            "Script must remove mados-first-boot.sh file",
+
+    def test_no_ollama_opencode_service_references(self):
+        """Installer must NOT reference services for ollama/opencode."""
+        self.assertNotIn(
+            "setup-ollama.service", self.content,
+            "Installer must not create setup-ollama.service — ollama is a program",
+        )
+        self.assertNotIn(
+            "setup-opencode.service", self.content,
+            "Installer must not create setup-opencode.service — opencode is a program",
         )
 
 
@@ -581,10 +517,10 @@ class TestXDGUserDirectories(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# GPU detection in first-boot script
+# Config script structure validation
 # ═══════════════════════════════════════════════════════════════════════════
-class TestGpuDetection(unittest.TestCase):
-    """Verify the first-boot script detects GPUs and installs compute drivers."""
+class TestConfigScriptStructure(unittest.TestCase):
+    """Validate the config script has proper structure."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -595,136 +531,22 @@ class TestGpuDetection(unittest.TestCase):
         with open(install_py) as f:
             self.content = f.read()
 
-    def test_uses_lspci_for_gpu_detection(self):
-        """Script must use lspci to detect GPU hardware."""
-        self.assertIn(
-            "lspci", self.content,
-            "Must use lspci to detect GPU hardware",
-        )
-        # Verify it filters for VGA/3D/Display controllers.
-        # Check that a single line contains the full lspci | grep pipeline.
-        for line in self.content.splitlines():
-            if "lspci" in line and "grep" in line and "-iE" in line:
-                if "VGA" in line and "3D" in line and "Display" in line:
-                    break
-        else:
-            self.fail(
-                "Must filter lspci output for VGA/3D/Display controllers"
-            )
+    def test_progress_markers_use_8_steps(self):
+        """Config script must use 8 progress steps (no Phase 2)."""
+        # Find all PROGRESS markers
+        markers = re.findall(r'\[PROGRESS\s+(\d+)/(\d+)\]', self.content)
+        self.assertGreater(len(markers), 0, "Must have PROGRESS markers")
+        for step, total in markers:
+            with self.subTest(step=step):
+                self.assertEqual(total, "8",
+                                 f"PROGRESS {step}/{total} should be {step}/8")
 
-    def test_nvidia_detection(self):
-        """Script must check for NVIDIA GPUs via case-insensitive grep."""
-        pattern = r'grep\s+-qi\s+nvidia'
-        self.assertIsNotNone(
-            re.search(pattern, self.content),
-            "Must detect NVIDIA GPUs with case-insensitive grep",
+    def test_no_progress_9_of_9(self):
+        """Config script must NOT have a 9th progress step."""
+        self.assertNotIn(
+            "PROGRESS 9/", self.content,
+            "Config script must not have a 9th progress step",
         )
-
-    def test_amd_detection_checks_amd_ati_radeon(self):
-        """Script must detect AMD GPUs by checking AMD, ATI, and Radeon strings."""
-        for keyword in ("AMD", "ATI", "Radeon"):
-            with self.subTest(keyword=keyword):
-                self.assertIn(
-                    keyword, self.content,
-                    f"AMD detection must check for '{keyword}' string",
-                )
-
-    def test_legacy_amd_exclusion(self):
-        """Script must skip pre-GCN legacy AMD GPUs for ROCm."""
-        # Verify it checks legacy Radeon series (e.g., HD 2xxx-6xxx, Rage)
-        self.assertIn(
-            "Radeon HD", self.content,
-            "Must check for Radeon HD legacy series",
-        )
-        self.assertIn(
-            "Rage", self.content,
-            "Must check for ATI Rage legacy GPUs",
-        )
-        self.assertIn(
-            "Legacy AMD GPU detected", self.content,
-            "Must log when a legacy AMD GPU is skipped",
-        )
-
-    def test_gpu_found_controls_common_packages(self):
-        """GPU_FOUND variable must gate common package installation."""
-        self.assertIn(
-            'GPU_FOUND=false', self.content,
-            "Must initialize GPU_FOUND to false",
-        )
-        self.assertIn(
-            'GPU_FOUND=true', self.content,
-            "Must set GPU_FOUND to true when a GPU is detected",
-        )
-        # Verify common packages are only installed when GPU_FOUND is true
-        self.assertIn(
-            '"$GPU_FOUND" = true',
-            self.content,
-            "Must check $GPU_FOUND before installing common packages",
-        )
-
-    def test_nvidia_packages_conditional(self):
-        """NVIDIA packages must only be installed when NVIDIA GPU is detected."""
-        # The NVIDIA install block should be inside the nvidia grep conditional
-        # (grep and pacman may be separated by log lines).
-        # Walk lines: find the nvidia grep, then within 6 lines find pacman.
-        lines = self.content.splitlines()
-        grep_idx = None
-        for i, line in enumerate(lines):
-            if "grep" in line.lower() and "nvidia" in line.lower():
-                grep_idx = i
-                break
-        self.assertIsNotNone(
-            grep_idx,
-            "Must have a grep for nvidia",
-        )
-        window = "\n".join(lines[grep_idx:grep_idx + 7])
-        self.assertRegex(
-            window.lower(),
-            r"pacman -s.*--noconfirm.*--needed",
-            "NVIDIA packages must be installed conditionally after detection",
-        )
-
-    def test_amd_rocm_packages_conditional(self):
-        """AMD ROCm packages must only be installed when AMD GPU is detected."""
-        # Should reference ROCm packages conditionally
-        self.assertIn(
-            "rocm", self.content.lower(),
-            "Must reference ROCm packages for AMD GPUs",
-        )
-        # ROCm install is gated by the legacy GPU check
-        self.assertIn(
-            "Legacy AMD GPU detected",
-            self.content,
-            "Must handle legacy AMD GPUs that don't support ROCm",
-        )
-        # Verify the script mentions ROCm support detection
-        self.assertIn(
-            "AMD GPU with ROCm support detected",
-            self.content,
-            "Must log ROCm-capable AMD GPU detection",
-        )
-
-    def test_gpu_compute_packages_from_config(self):
-        """Script must use GPU_COMPUTE_PACKAGES config via f-string variables."""
-        from mados_installer.config import GPU_COMPUTE_PACKAGES
-        # The installation.py uses f-string variables like {nvidia_pkgs} and
-        # {amd_pkgs} that expand at runtime.  Verify the variables are present.
-        self.assertIn(
-            "{nvidia_pkgs}", self.content,
-            "Must reference {nvidia_pkgs} f-string variable for NVIDIA packages",
-        )
-        self.assertIn(
-            "{amd_pkgs}", self.content,
-            "Must reference {amd_pkgs} f-string variable for AMD packages",
-        )
-        self.assertIn(
-            "{common_pkgs}", self.content,
-            "Must reference {common_pkgs} f-string variable for common packages",
-        )
-        # Also verify the config dict has the expected packages
-        self.assertGreater(len(GPU_COMPUTE_PACKAGES["nvidia"]), 0)
-        self.assertGreater(len(GPU_COMPUTE_PACKAGES["amd"]), 0)
-        self.assertGreater(len(GPU_COMPUTE_PACKAGES["common"]), 0)
 
 
 if __name__ == "__main__":

@@ -2,9 +2,10 @@
 """
 Tests for madOS boot-time scripts and services.
 
-Validates that boot scripts (setup-ohmyzsh.sh, setup-opencode.sh) and their
-corresponding systemd service units are properly configured for the live USB
-environment.
+Validates that boot scripts (setup-ohmyzsh.sh, setup-opencode.sh, setup-ollama.sh)
+and the Oh My Zsh systemd service unit are properly configured for the live USB
+environment.  OpenCode and Ollama are programs (not services) and only have
+setup scripts for manual installation.
 
 These tests catch configuration errors like the 'chown: invalid group'
 issue where setup-ohmyzsh.sh used the username as the group name instead
@@ -76,11 +77,11 @@ class TestBootScriptSyntax(unittest.TestCase):
     def test_boot_scripts_use_strict_mode(self):
         """Boot scripts should use set -euo pipefail for safety.
 
-        Exception: setup-opencode.sh intentionally avoids strict mode
-        because it must never crash the systemd service – it uses its own
-        graceful error handling and always exits 0.
+        Exception: setup scripts that run as systemd services intentionally
+        avoid strict mode because they must never crash the service – they
+        use their own graceful error handling and always exit 0.
         """
-        STRICT_MODE_EXCEPTIONS = {"setup-opencode.sh", "setup-ollama.sh"}
+        STRICT_MODE_EXCEPTIONS = {"setup-opencode.sh", "setup-ollama.sh", "setup-ohmyzsh.sh"}
         for script in self.BOOT_SCRIPTS:
             if script in STRICT_MODE_EXCEPTIONS:
                 continue
@@ -191,6 +192,15 @@ class TestSetupOhmyzsh(unittest.TestCase):
             "Script must handle root user's Oh My Zsh installation",
         )
 
+    def test_no_strict_mode(self):
+        """setup-ohmyzsh.sh must NOT use set -euo pipefail (must never crash service)."""
+        self.assertNotIn("set -euo pipefail", self.content)
+
+    def test_always_exits_zero_on_failure(self):
+        """setup-ohmyzsh.sh must exit 0 on failure to not crash the systemd service."""
+        # Check that the git clone failure handler exits 0
+        self.assertIn("exit 0", self.content)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # setup-opencode.sh
@@ -230,11 +240,11 @@ class TestSetupClaudeCode(unittest.TestCase):
         self.assertIn("--unsafe-perm", self.content)
 
     def test_no_strict_mode(self):
-        """setup-opencode.sh must NOT use set -euo pipefail (must never crash service)."""
+        """setup-opencode.sh must NOT use set -euo pipefail (could prevent graceful exit)."""
         self.assertNotIn("set -euo pipefail", self.content)
 
     def test_always_exits_zero(self):
-        """setup-opencode.sh must always exit 0 to not crash the systemd service."""
+        """setup-opencode.sh must always exit 0 for graceful failure handling."""
         # All exit statements in the script should be exit 0
         import re
         exits = re.findall(r'exit\s+(\d+)', self.content)
@@ -252,16 +262,6 @@ class TestSystemdServices(unittest.TestCase):
     SERVICES = {
         "setup-ohmyzsh.service": {
             "exec": "/usr/local/bin/setup-ohmyzsh.sh",
-            "after": "network-online.target",
-            "type": "oneshot",
-        },
-        "setup-opencode.service": {
-            "exec": "/usr/local/bin/setup-opencode.sh",
-            "after": "network-online.target",
-            "type": "oneshot",
-        },
-        "setup-ollama.service": {
-            "exec": "/usr/local/bin/setup-ollama.sh",
             "after": "network-online.target",
             "type": "oneshot",
         },
@@ -345,6 +345,29 @@ class TestSystemdServices(unittest.TestCase):
                 self.assertIn(
                     "TimeoutStartSec=", content,
                     f"{service} must have a TimeoutStartSec",
+                )
+
+    def test_service_has_home_and_path(self):
+        """Boot setup services must set HOME and PATH environment variables.
+
+        Without these, tools like git (for ohmyzsh) and curl may fail because
+        HOME is unset in early-boot systemd services. PATH must include
+        /usr/local/bin where ollama and opencode are installed.
+        """
+        for service in self.SERVICES:
+            path = os.path.join(SYSTEMD_DIR, service)
+            if not os.path.isfile(path):
+                continue
+            with self.subTest(service=service):
+                with open(path) as f:
+                    content = f.read()
+                self.assertIn(
+                    "Environment=HOME=", content,
+                    f"{service} must set HOME environment",
+                )
+                self.assertIn(
+                    "Environment=PATH=", content,
+                    f"{service} must set PATH environment",
                 )
 
 

@@ -31,7 +31,6 @@ if ! curl -sf --connect-timeout 5 https://ollama.com/ >/dev/null 2>&1; then
     echo "    Ethernet: debería conectarse automáticamente"
     echo ""
     echo "  Luego ejecuta de nuevo: setup-ollama.sh"
-    # Exit 0 to not fail the systemd service when run at boot without network
     exit 0
 fi
 
@@ -47,5 +46,4 @@ fi
 
 echo "⚠ No se pudo instalar Ollama."
 echo "  Intenta manualmente: setup-ollama.sh"
-# Exit 0 to not fail the service
 exit 0

@@ -2,7 +2,9 @@
 # Setup Oh My Zsh - installs for all users with zsh as default shell
 # Used as a boot service similar to setup-opencode.sh
 
-set -euo pipefail
+# Note: Do NOT use strict mode (set -e/-u/-o pipefail) here — the script
+# must always exit 0 to not crash the systemd service.
+# Matches setup-ollama.sh/setup-opencode.sh pattern.
 
 OMZ_DIR="/etc/skel/.oh-my-zsh"
 MEDIA_HELPER="/usr/local/lib/mados-media-helper.sh"
@@ -27,8 +29,8 @@ fi
 
 # Check if git is available
 if ! command -v git &>/dev/null; then
-    echo "✗ Error: git is not installed." >&2
-    exit 1
+    echo "⚠ git is not installed. Oh My Zsh will be installed on next boot."
+    exit 0
 fi
 
 # Check connectivity

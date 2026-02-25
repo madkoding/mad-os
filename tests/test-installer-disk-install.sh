@@ -170,13 +170,13 @@ mount "$HOME_PART" "$MOUNT_POINT/home"
 ok "Filesystems mounted at ${MOUNT_POINT}"
 
 # =============================================================================
-# Phase 2: pacstrap – install the Phase 1 (essential) package list
+# Phase 2: pacstrap – install the essential package list
 # =============================================================================
-step "Phase 2 – Installing base system via pacstrap (Phase 1 packages)"
+step "Phase 2 – Installing base system via pacstrap"
 
-# Phase 1 package list from mados_installer/config.py (PACKAGES_PHASE1)
+# Essential package list from mados_installer/config.py (PACKAGES_PHASE1)
 # These are the essential packages installed during USB installation.
-# Phase 2 packages (desktop apps, dev tools) are installed on first boot.
+# Additional packages (desktop apps, dev tools) are also installed from ISO.
 PACKAGES=(
     base base-devel linux linux-firmware intel-ucode amd-ucode
     grub efibootmgr os-prober dosfstools sbctl
