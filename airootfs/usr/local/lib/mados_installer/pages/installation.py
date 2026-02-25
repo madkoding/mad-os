@@ -433,7 +433,7 @@ def _step_copy_scripts(app):
     for lib in ["mados_photo_viewer", "mados_pdf_viewer", "mados_equalizer"]:
         _copy_item(f"/usr/local/lib/{lib}", "/mnt/usr/local/lib/")
 
-    for script in scripts[1:] + [
+    for script in scripts + [
         "mados-photo-viewer",
         "mados-pdf-viewer",
         "mados-equalizer",
@@ -1597,10 +1597,12 @@ chmod 755 /usr/local/bin/mados-first-boot.sh
 
 # Create the systemd service for Phase 2 first-boot setup
 # Phase 2 is 100% offline — no network dependency needed
+# Must run before greetd so graphical config is ready before login screen
 cat > /etc/systemd/system/mados-first-boot.service <<'EOFSVC'
 [Unit]
 Description=madOS First Boot Setup (Phase 2) - Configure services (offline)
 After=local-fs.target
+Before=greetd.service
 ConditionPathExists=/usr/local/bin/mados-first-boot.sh
 
 [Service]
@@ -1821,6 +1823,8 @@ ConditionPathExists=!/etc/skel/.oh-my-zsh
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+Environment=HOME=/root
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 ExecStart=/usr/local/bin/setup-ohmyzsh.sh
 StandardOutput=journal+console
 StandardError=journal+console

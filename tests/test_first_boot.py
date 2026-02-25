@@ -129,6 +129,18 @@ class TestFirstBootServiceSetup(unittest.TestCase):
             "Service must have TimeoutStartSec for configuration steps",
         )
 
+    def test_service_runs_before_greetd(self):
+        """First-boot service must complete before greetd starts.
+
+        Phase 2 creates the greetd config and enables services. If greetd
+        starts before Phase 2 finishes, the login screen may fail due to
+        missing config files.
+        """
+        self.assertIn(
+            "Before=greetd.service", self.content,
+            "Service must run before greetd.service to ensure config is ready",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # First-boot script generation

@@ -398,6 +398,35 @@ class TestInstallerScripts(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Script copy and permissions
+# ═══════════════════════════════════════════════════════════════════════════
+class TestScriptCopyPermissions(unittest.TestCase):
+    """Verify all copied scripts are made executable."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_chmod_loop_includes_all_scripts(self):
+        """The chmod +x loop must cover all scripts, not skip the first one.
+
+        Regression test: previously scripts[1:] was used in the chmod loop,
+        which skipped the first script (setup-ohmyzsh.sh).
+        """
+        # The chmod loop should iterate over `scripts + [launchers]`
+        # and NOT `scripts[1:]` which would skip setup-ohmyzsh.sh.
+        self.assertNotIn(
+            "scripts[1:]", self.content,
+            "Must not use scripts[1:] — that skips the first script's chmod +x",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Post-install service enablement
 # ═══════════════════════════════════════════════════════════════════════════
 class TestPostInstallServices(unittest.TestCase):

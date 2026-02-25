@@ -7,6 +7,8 @@ ConditionPathExists=!/etc/skel/.oh-my-zsh
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+Environment=HOME=/root
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 ExecStart=/usr/local/bin/setup-ohmyzsh.sh
 StandardOutput=journal+console
 StandardError=journal+console
