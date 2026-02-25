@@ -206,6 +206,62 @@ class TestPhase2Packages(unittest.TestCase):
             "Must include noto-fonts-cjk for CJK locale support",
         )
 
+    def test_cleans_pacman_cache_after_update(self):
+        """Script must clean pacman cache after system update to free disk space."""
+        self.assertIn(
+            "pacman -Sc --noconfirm", self.content,
+            "Must run 'pacman -Sc --noconfirm' to clean cache after updates",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GPU compute packages not in PACKAGES_PHASE2
+# ═══════════════════════════════════════════════════════════════════════════
+class TestGpuComputeNotInPhase2(unittest.TestCase):
+    """GPU compute packages must NOT be in PACKAGES_PHASE2.
+
+    These large packages (cuda ~5GB, rocm ~3GB) are conditionally
+    installed on first boot via GPU_COMPUTE_PACKAGES only when
+    matching hardware is detected.  Including them unconditionally
+    in PACKAGES_PHASE2 wastes disk space.
+    """
+
+    def test_cuda_not_in_phase2(self):
+        from mados_installer.config import PACKAGES_PHASE2
+        self.assertNotIn(
+            'cuda', PACKAGES_PHASE2,
+            "cuda must NOT be in PACKAGES_PHASE2 (installed conditionally)",
+        )
+
+    def test_nvidia_utils_not_in_phase2(self):
+        from mados_installer.config import PACKAGES_PHASE2
+        self.assertNotIn(
+            'nvidia-utils', PACKAGES_PHASE2,
+            "nvidia-utils must NOT be in PACKAGES_PHASE2 (installed conditionally)",
+        )
+
+    def test_opencl_nvidia_not_in_phase2(self):
+        from mados_installer.config import PACKAGES_PHASE2
+        self.assertNotIn(
+            'opencl-nvidia', PACKAGES_PHASE2,
+            "opencl-nvidia must NOT be in PACKAGES_PHASE2 (installed conditionally)",
+        )
+
+    def test_rocm_not_in_phase2(self):
+        from mados_installer.config import PACKAGES_PHASE2
+        rocm_in_phase2 = [p for p in PACKAGES_PHASE2 if 'rocm' in p]
+        self.assertEqual(
+            rocm_in_phase2, [],
+            f"ROCm packages must NOT be in PACKAGES_PHASE2: {rocm_in_phase2}",
+        )
+
+    def test_opencl_headers_not_in_phase2(self):
+        from mados_installer.config import PACKAGES_PHASE2
+        self.assertNotIn(
+            'opencl-headers', PACKAGES_PHASE2,
+            "opencl-headers must NOT be in PACKAGES_PHASE2 (installed conditionally)",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Service enablement

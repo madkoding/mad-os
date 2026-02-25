@@ -97,40 +97,46 @@ class TestGPUComputePackages(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# GPU compute packages in installer Phase 2
+# GPU compute packages in installer configuration
 # ═══════════════════════════════════════════════════════════════════════════
 class TestGPUComputeInstallerPackages(unittest.TestCase):
-    """Verify GPU compute packages are in the installer Phase 2 package list."""
+    """Verify GPU compute packages are in GPU_COMPUTE_PACKAGES for conditional install.
 
-    def test_cuda_in_phase2(self):
-        """CUDA must be in PACKAGES_PHASE2."""
-        from mados_installer.config import PACKAGES_PHASE2
-        self.assertIn("cuda", PACKAGES_PHASE2,
-                       "cuda must be in PACKAGES_PHASE2")
+    GPU compute packages (CUDA, ROCm) are large (~3-5 GB) and only useful
+    when matching hardware is detected.  They must be in GPU_COMPUTE_PACKAGES
+    (conditionally installed on first boot) and NOT in PACKAGES_PHASE2
+    (which would install them unconditionally and waste disk space).
+    """
 
-    def test_nvidia_utils_in_phase2(self):
-        """nvidia-utils must be in PACKAGES_PHASE2."""
-        from mados_installer.config import PACKAGES_PHASE2
-        self.assertIn("nvidia-utils", PACKAGES_PHASE2,
-                       "nvidia-utils must be in PACKAGES_PHASE2")
+    def test_cuda_in_gpu_compute(self):
+        """CUDA must be in GPU_COMPUTE_PACKAGES['nvidia']."""
+        from mados_installer.config import GPU_COMPUTE_PACKAGES
+        self.assertIn("cuda", GPU_COMPUTE_PACKAGES["nvidia"],
+                       "cuda must be in GPU_COMPUTE_PACKAGES['nvidia']")
 
-    def test_opencl_nvidia_in_phase2(self):
-        """opencl-nvidia must be in PACKAGES_PHASE2."""
-        from mados_installer.config import PACKAGES_PHASE2
-        self.assertIn("opencl-nvidia", PACKAGES_PHASE2,
-                       "opencl-nvidia must be in PACKAGES_PHASE2")
+    def test_nvidia_utils_in_gpu_compute(self):
+        """nvidia-utils must be in GPU_COMPUTE_PACKAGES['nvidia']."""
+        from mados_installer.config import GPU_COMPUTE_PACKAGES
+        self.assertIn("nvidia-utils", GPU_COMPUTE_PACKAGES["nvidia"],
+                       "nvidia-utils must be in GPU_COMPUTE_PACKAGES['nvidia']")
 
-    def test_rocm_hip_runtime_in_phase2(self):
-        """rocm-hip-runtime must be in PACKAGES_PHASE2."""
-        from mados_installer.config import PACKAGES_PHASE2
-        self.assertIn("rocm-hip-runtime", PACKAGES_PHASE2,
-                       "rocm-hip-runtime must be in PACKAGES_PHASE2")
+    def test_opencl_nvidia_in_gpu_compute(self):
+        """opencl-nvidia must be in GPU_COMPUTE_PACKAGES['nvidia']."""
+        from mados_installer.config import GPU_COMPUTE_PACKAGES
+        self.assertIn("opencl-nvidia", GPU_COMPUTE_PACKAGES["nvidia"],
+                       "opencl-nvidia must be in GPU_COMPUTE_PACKAGES['nvidia']")
 
-    def test_rocm_opencl_runtime_in_phase2(self):
-        """rocm-opencl-runtime must be in PACKAGES_PHASE2."""
-        from mados_installer.config import PACKAGES_PHASE2
-        self.assertIn("rocm-opencl-runtime", PACKAGES_PHASE2,
-                       "rocm-opencl-runtime must be in PACKAGES_PHASE2")
+    def test_rocm_hip_runtime_in_gpu_compute(self):
+        """rocm-hip-runtime must be in GPU_COMPUTE_PACKAGES['amd']."""
+        from mados_installer.config import GPU_COMPUTE_PACKAGES
+        self.assertIn("rocm-hip-runtime", GPU_COMPUTE_PACKAGES["amd"],
+                       "rocm-hip-runtime must be in GPU_COMPUTE_PACKAGES['amd']")
+
+    def test_rocm_opencl_runtime_in_gpu_compute(self):
+        """rocm-opencl-runtime must be in GPU_COMPUTE_PACKAGES['amd']."""
+        from mados_installer.config import GPU_COMPUTE_PACKAGES
+        self.assertIn("rocm-opencl-runtime", GPU_COMPUTE_PACKAGES["amd"],
+                       "rocm-opencl-runtime must be in GPU_COMPUTE_PACKAGES['amd']")
 
     def test_ocl_icd_in_phase2(self):
         """ocl-icd must be in PACKAGES_PHASE2."""

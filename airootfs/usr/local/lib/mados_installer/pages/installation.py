@@ -1665,6 +1665,10 @@ set +e
 log "Refreshing package databases and updating system..."
 pacman -Syu --noconfirm 2>&1 || log "Warning: system update returned non-zero (may be OK)"
 
+# Free disk space: remove cached package files no longer installed
+log "Cleaning pacman cache to free disk space..."
+pacman -Sc --noconfirm 2>&1 || true
+
 # ── Step 1: Install GPU compute drivers (only for supported hardware) ───
 log "Detecting GPU compute capabilities..."
 GPU_LINES=$(lspci 2>/dev/null | grep -iE "VGA|3D|Display" || true)
@@ -1701,6 +1705,8 @@ fi
 # Common OpenCL headers (only when a compute GPU was found)
 if [ "$GPU_FOUND" = true ]; then
     pacman -S --noconfirm --needed {common_pkgs} 2>&1 || true
+    # Free disk space after GPU driver download
+    pacman -Sc --noconfirm 2>&1 || true
     log "GPU compute driver setup complete"
 else
     log "No compute-capable GPU detected – skipping GPU driver download"
