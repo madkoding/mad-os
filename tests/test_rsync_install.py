@@ -31,6 +31,7 @@ sys.path.insert(
 )
 
 from mados_installer.pages.installation import _rsync_rootfs_with_progress
+from mados_installer.pages.installation import _ensure_kernel_in_target
 from mados_installer.config import RSYNC_EXCLUDES
 
 # ---------------------------------------------------------------------------
@@ -148,13 +149,14 @@ class TestRsyncCommand(unittest.TestCase):
         return popen_calls, run_calls
 
     def test_rsync_invoked_with_correct_flags(self):
-        """rsync must be called with -aAXH --info=progress2 --no-inc-recursive."""
+        """rsync must be called with -aAXHWS --info=progress2 --no-inc-recursive --numeric-ids."""
         popen_calls, _ = self._run_rsync()
         rsync_cmd = popen_calls[0]
         self.assertEqual(rsync_cmd[0], "rsync")
-        self.assertIn("-aAXH", rsync_cmd)
+        self.assertIn("-aAXHWS", rsync_cmd)
         self.assertIn("--info=progress2", rsync_cmd)
         self.assertIn("--no-inc-recursive", rsync_cmd)
+        self.assertIn("--numeric-ids", rsync_cmd)
 
     def test_rsync_copies_root_to_mnt(self):
         """rsync must copy from '/' to '/mnt/'."""
@@ -377,6 +379,94 @@ class TestRsyncExitCodes(unittest.TestCase):
         with self.assertRaises(subprocess.CalledProcessError) as ctx:
             self._run_with_returncode(130)
         self.assertEqual(ctx.exception.returncode, 130)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Kernel placement in target
+# ═══════════════════════════════════════════════════════════════════════════
+class TestKernelPlacement(unittest.TestCase):
+    """Verify ``_ensure_kernel_in_target()`` places the kernel correctly."""
+
+    def setUp(self):
+        self.app = MockApp()
+
+    @patch(f"{_MOD}.log_message")
+    @patch(f"{_MOD}.subprocess.run")
+    @patch(f"{_MOD}.globmod.glob", return_value=[])
+    @patch(f"{_MOD}.os.path.getsize", return_value=8_000_000)
+    @patch(f"{_MOD}.os.access", return_value=True)
+    @patch(f"{_MOD}.os.path.isfile", return_value=True)
+    def test_kernel_already_present(
+        self, mock_isfile, mock_access, mock_getsize,
+        mock_glob, mock_run, mock_log,
+    ):
+        """When /mnt/boot/vmlinuz-linux exists and is readable, no copy occurs."""
+        _ensure_kernel_in_target(self.app)
+
+        mock_run.assert_not_called()
+        # Should not log anything about copying
+        for c in mock_log.call_args_list:
+            self.assertNotIn("Copied", str(c))
+
+    @patch(f"{_MOD}.log_message")
+    @patch(f"{_MOD}.subprocess.run", return_value=MagicMock(returncode=0))
+    @patch(
+        f"{_MOD}.globmod.glob",
+        return_value=[
+            "/usr/lib/modules/6.12.1-arch1/vmlinuz",
+            "/usr/lib/modules/6.11.5-arch1/vmlinuz",
+        ],
+    )
+    @patch(f"{_MOD}.os.path.getsize", return_value=0)
+    @patch(f"{_MOD}.os.access", return_value=True)
+    @patch(f"{_MOD}.os.path.isfile", return_value=True)
+    def test_kernel_copied_from_modules(
+        self, mock_isfile, mock_access, mock_getsize,
+        mock_glob, mock_run, mock_log,
+    ):
+        """When kernel is missing, copy from /usr/lib/modules/*/vmlinuz (newest first)."""
+        _ensure_kernel_in_target(self.app)
+
+        mock_run.assert_called_once_with(
+            ["cp", "/usr/lib/modules/6.12.1-arch1/vmlinuz",
+             "/mnt/boot/vmlinuz-linux"],
+            check=True,
+        )
+
+    @patch(f"{_MOD}.log_message")
+    @patch(f"{_MOD}.subprocess.run", return_value=MagicMock(returncode=0))
+    @patch(f"{_MOD}.globmod.glob", return_value=[])
+    @patch(f"{_MOD}.os.path.getsize", return_value=0)
+    @patch(f"{_MOD}.os.access")
+    @patch(f"{_MOD}.os.path.isfile")
+    def test_kernel_copied_from_boot(
+        self, mock_isfile, mock_access, mock_getsize,
+        mock_glob, mock_run, mock_log,
+    ):
+        """Fallback: copy from /boot/vmlinuz-linux when modules dir has no vmlinuz."""
+        def isfile_side_effect(path):
+            if path == "/mnt/boot/vmlinuz-linux":
+                return True   # exists but empty (getsize=0)
+            if path == "/boot/vmlinuz-linux":
+                return True
+            return False
+
+        def access_side_effect(path, mode):
+            if path == "/mnt/boot/vmlinuz-linux":
+                return True
+            if path == "/boot/vmlinuz-linux":
+                return True
+            return False
+
+        mock_isfile.side_effect = isfile_side_effect
+        mock_access.side_effect = access_side_effect
+
+        _ensure_kernel_in_target(self.app)
+
+        mock_run.assert_called_once_with(
+            ["cp", "/boot/vmlinuz-linux", "/mnt/boot/vmlinuz-linux"],
+            check=True,
+        )
 
 
 if __name__ == "__main__":
