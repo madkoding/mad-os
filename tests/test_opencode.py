@@ -110,14 +110,14 @@ class TestLiveUSBOpenCodeScript(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Post-installation – OpenCode setup in first-boot script
+# Post-installation – OpenCode is copied by rsync from live USB
 # ═══════════════════════════════════════════════════════════════════════════
 class TestPostInstallOpenCode(unittest.TestCase):
-    """Verify the installer configures OpenCode for the installed system.
+    """Verify the installer copies OpenCode from the live USB via rsync.
 
-    Phase 2 creates a setup script and attempts to install OpenCode as a
-    program on first boot.  The setup script remains for manual retry
-    if network was unavailable during first boot.
+    OpenCode is a pre-installed program on the live USB.  Phase 1 rsync
+    copies everything (binaries + setup scripts) to the installed system.
+    Phase 2 does NOT need to create scripts or install anything for OpenCode.
     """
 
     def setUp(self):
@@ -128,13 +128,6 @@ class TestPostInstallOpenCode(unittest.TestCase):
             self.skipTest("installation.py not found")
         with open(install_py) as f:
             self.content = f.read()
-
-    def test_installer_creates_setup_script(self):
-        """Installer must create setup-opencode.sh for install and manual retry."""
-        self.assertIn(
-            "setup-opencode.sh", self.content,
-            "Installer must create setup-opencode.sh on the installed system",
-        )
 
     def test_installer_does_not_create_service(self):
         """Installer must NOT create setup-opencode.service (opencode is a program)."""
@@ -154,18 +147,8 @@ class TestPostInstallOpenCode(unittest.TestCase):
             "Installer sudoers must include /usr/local/bin/opencode path",
         )
 
-    def test_installer_attempts_opencode_install(self):
-        """Installer must attempt to install OpenCode on first boot."""
-        self.assertIn(
-            "Attempting to install OpenCode",
-            self.content,
-            "Installer must attempt to run setup-opencode.sh on first boot",
-        )
-
     def test_no_inline_opencode_download(self):
-        """Phase 2 must NOT directly download OpenCode (binary is copied from ISO)."""
-        # The setup script (heredoc) legitimately contains curl/opencode.ai refs.
-        # Verify no INLINE install outside of heredocs.
+        """Installer must NOT directly download OpenCode (binary is copied from ISO)."""
         lines = self.content.splitlines()
         in_heredoc = False
         for line in lines:
@@ -177,7 +160,7 @@ class TestPostInstallOpenCode(unittest.TestCase):
                 continue
             if not in_heredoc and "opencode.ai/install" in stripped:
                 self.fail(
-                    "Phase 2 must not directly download OpenCode — "
+                    "Installer must not directly download OpenCode — "
                     "the binary should already be on disk from Phase 1 rsync"
                 )
 

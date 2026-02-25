@@ -490,10 +490,11 @@ class TestOhMyZshFallbackService(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# OpenCode setup script (program, not a service)
+# OpenCode and Ollama are programs copied by rsync (no Phase 2 action)
 # ═══════════════════════════════════════════════════════════════════════════
-class TestOpenCodeSetupScript(unittest.TestCase):
-    """Verify the first-boot script creates OpenCode setup script (no service)."""
+class TestOpenCodeOllamaNotInPhase2(unittest.TestCase):
+    """Verify Phase 2 does NOT redundantly create setup scripts for programs
+    that are already copied from the live USB via rsync."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -504,18 +505,18 @@ class TestOpenCodeSetupScript(unittest.TestCase):
         with open(install_py) as f:
             self.content = f.read()
 
-    def test_creates_setup_script(self):
-        """Must create setup-opencode.sh for manual retry."""
-        self.assertIn(
-            "setup-opencode.sh", self.content,
-            "Must create setup-opencode.sh on the installed system",
-        )
-
-    def test_does_not_create_service(self):
+    def test_no_opencode_service(self):
         """Must NOT create setup-opencode.service (opencode is a program)."""
         self.assertNotIn(
             "setup-opencode.service", self.content,
             "Must NOT create setup-opencode.service — opencode is a program, not a service",
+        )
+
+    def test_no_ollama_service(self):
+        """Must NOT create setup-ollama.service (ollama is a program)."""
+        self.assertNotIn(
+            "setup-ollama.service", self.content,
+            "Must NOT create setup-ollama.service — ollama is a program, not a service",
         )
 
 
@@ -653,10 +654,10 @@ class TestGraphicalEnvironmentVerification(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Ollama and OpenCode installation as programs
+# Ollama and OpenCode are pre-installed programs (Phase 1 rsync)
 # ═══════════════════════════════════════════════════════════════════════════
-class TestToolStatusVerification(unittest.TestCase):
-    """Verify Phase 2 installs Ollama and OpenCode as programs."""
+class TestToolsCopiedByRsync(unittest.TestCase):
+    """Verify Phase 1 copies Ollama and OpenCode binaries from live USB."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -667,39 +668,29 @@ class TestToolStatusVerification(unittest.TestCase):
         with open(install_py) as f:
             self.content = f.read()
 
-    def test_checks_ollama_status(self):
-        """Phase 2 must verify if Ollama binary exists."""
+    def test_copies_ollama_binary(self):
+        """Phase 1 must copy Ollama binary from live USB."""
         self.assertIn(
-            "command -v ollama", self.content,
-            "Phase 2 must check Ollama binary availability",
+            "/usr/local/bin/ollama", self.content,
+            "Phase 1 must copy ollama binary from live USB",
         )
 
-    def test_checks_opencode_status(self):
-        """Phase 2 must verify if OpenCode binary exists."""
+    def test_copies_opencode_binary(self):
+        """Phase 1 must copy OpenCode binary from live USB."""
         self.assertIn(
-            "command -v opencode", self.content,
-            "Phase 2 must check OpenCode binary availability",
+            "/usr/local/bin/opencode", self.content,
+            "Phase 1 must copy opencode binary from live USB",
         )
 
-    def test_runs_ollama_setup_script(self):
-        """Phase 2 must attempt to install Ollama by running setup-ollama.sh."""
-        self.assertIn(
-            "setup-ollama.sh", self.content,
-            "Phase 2 must run setup-ollama.sh to install Ollama as a program",
-        )
-
-    def test_runs_opencode_setup_script(self):
-        """Phase 2 must attempt to install OpenCode by running setup-opencode.sh."""
-        self.assertIn(
-            "setup-opencode.sh", self.content,
-            "Phase 2 must run setup-opencode.sh to install OpenCode as a program",
-        )
-
-    def test_no_fallback_service_references(self):
-        """Phase 2 must NOT reference 'fallback service' for ollama/opencode."""
+    def test_no_ollama_opencode_service_references(self):
+        """Installer must NOT reference services for ollama/opencode."""
         self.assertNotIn(
-            "fallback service", self.content,
-            "Phase 2 must not reference 'fallback service' — ollama/opencode are programs",
+            "setup-ollama.service", self.content,
+            "Installer must not create setup-ollama.service — ollama is a program",
+        )
+        self.assertNotIn(
+            "setup-opencode.service", self.content,
+            "Installer must not create setup-opencode.service — opencode is a program",
         )
 
 
@@ -975,16 +966,16 @@ class TestPhase2ScriptGeneration(unittest.TestCase):
         self.assertIn("hyprland.desktop", self.script,
                        "Script must check hyprland.desktop session file")
 
-    # ── Ollama/OpenCode status ──────────────────────────────────────────
-    def test_checks_ollama_binary_status(self):
-        """Script must check if Ollama binary exists."""
-        self.assertIn("command -v ollama", self.script,
-                       "Script must check Ollama binary with command -v")
+    # ── Ollama/OpenCode are NOT in Phase 2 (copied by rsync) ──────────────
+    def test_no_ollama_service_in_phase2(self):
+        """Phase 2 must NOT create setup-ollama.service — ollama is a program."""
+        self.assertNotIn("setup-ollama.service", self.script,
+                         "Phase 2 must NOT create setup-ollama.service — ollama is a program, not a service")
 
-    def test_checks_opencode_binary_status(self):
-        """Script must check if OpenCode binary exists."""
-        self.assertIn("command -v opencode", self.script,
-                       "Script must check OpenCode binary with command -v")
+    def test_no_opencode_service_in_phase2(self):
+        """Phase 2 must NOT create setup-opencode.service — opencode is a program."""
+        self.assertNotIn("setup-opencode.service", self.script,
+                         "Phase 2 must NOT create setup-opencode.service — opencode is a program, not a service")
 
     # ── Chromium JSON policy ────────────────────────────────────────────
     def test_chromium_json_policy_is_valid(self):
@@ -1027,29 +1018,6 @@ class TestPhase2ScriptGeneration(unittest.TestCase):
                         f"Line {i}: systemctl enable without '|| true' fallback — "
                         "would crash Phase 2 if the service doesn't exist: {stripped}",
                     )
-
-    # ── Ollama setup script (program, not a service) ──────────────────────
-    def test_ollama_setup_script_is_created(self):
-        """Phase 2 must create setup-ollama.sh but NOT a service file."""
-        self.assertIn("setup-ollama.sh", self.script,
-                       "Phase 2 must create setup-ollama.sh")
-        self.assertNotIn("setup-ollama.service", self.script,
-                         "Phase 2 must NOT create setup-ollama.service — ollama is a program, not a service")
-
-    # ── Programs are installed on first boot ─────────────────────────────
-    def test_ollama_install_attempted_on_first_boot(self):
-        """Phase 2 must attempt to install Ollama by running setup-ollama.sh."""
-        self.assertIn("setup-ollama.sh", self.script,
-                       "Phase 2 must run setup-ollama.sh to install Ollama")
-        self.assertIn("Attempting to install Ollama", self.script,
-                       "Phase 2 must log the Ollama install attempt")
-
-    def test_opencode_install_attempted_on_first_boot(self):
-        """Phase 2 must attempt to install OpenCode by running setup-opencode.sh."""
-        self.assertIn("setup-opencode.sh", self.script,
-                       "Phase 2 must run setup-opencode.sh to install OpenCode")
-        self.assertIn("Attempting to install OpenCode", self.script,
-                       "Phase 2 must log the OpenCode install attempt")
 
     # ── Audio init script ───────────────────────────────────────────────
     def test_audio_init_script_is_valid_bash(self):

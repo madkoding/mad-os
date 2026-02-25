@@ -1858,11 +1858,11 @@ cat > /etc/chromium/policies/managed/mados-homepage.json <<'EOFPOLICY'
 }}
 EOFPOLICY
 
-# ── Step 4: Create fallback service and setup scripts for optional tools ──
-# Oh My Zsh uses a fallback systemd service. OpenCode and Ollama are
-# programs (not services) — their setup scripts are used to install them
-# on first boot and can also be re-run manually if needed.
-log "Creating fallback services and setup scripts for optional tools..."
+# ── Step 4: Create Oh My Zsh fallback service ───────────────────────────
+# Oh My Zsh uses a fallback systemd service to install on first boot if
+# not already present.  OpenCode and Ollama are pre-installed programs
+# copied from the live USB via rsync — no Phase 2 action needed for them.
+log "Creating Oh My Zsh fallback service..."
 
 # Oh My Zsh fallback service
 cat > /etc/systemd/system/setup-ohmyzsh.service <<'EOFSVC'
@@ -1886,70 +1886,6 @@ TimeoutStartSec=120
 WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-ohmyzsh.service 2>/dev/null || true
-
-# OpenCode: setup script for first-boot install and manual retry
-cat > /usr/local/bin/setup-opencode.sh <<'EOFSETUP'
-#!/bin/bash
-OPENCODE_CMD="opencode"
-INSTALL_DIR="/usr/local/bin"
-if command -v "$OPENCODE_CMD" &>/dev/null; then
-    echo "✓ OpenCode ya está instalado:"
-    "$OPENCODE_CMD" --version 2>/dev/null || true
-    exit 0
-fi
-if ! curl -sf --connect-timeout 5 https://opencode.ai/ >/dev/null 2>&1; then
-    echo "⚠ No hay conexión a Internet."
-    echo "  Conecta a la red y ejecuta de nuevo: sudo setup-opencode.sh"
-    exit 0
-fi
-echo "Instalando OpenCode..."
-if curl -fsSL https://opencode.ai/install | OPENCODE_INSTALL_DIR="$INSTALL_DIR" bash; then
-    if command -v "$OPENCODE_CMD" &>/dev/null; then
-        echo "✓ OpenCode instalado correctamente."
-        "$OPENCODE_CMD" --version 2>/dev/null || true
-        exit 0
-    fi
-fi
-echo "⚠ Método curl falló, intentando con npm..."
-if command -v npm &>/dev/null; then
-    if npm install -g --unsafe-perm opencode-ai; then
-        if command -v "$OPENCODE_CMD" &>/dev/null; then
-            echo "✓ OpenCode instalado correctamente via npm."
-            exit 0
-        fi
-    fi
-fi
-echo "⚠ No se pudo instalar OpenCode."
-exit 0
-EOFSETUP
-chmod 755 /usr/local/bin/setup-opencode.sh
-
-# Ollama: setup script for first-boot install and manual retry
-cat > /usr/local/bin/setup-ollama.sh <<'EOFSETUP'
-#!/bin/bash
-OLLAMA_CMD="ollama"
-if command -v "$OLLAMA_CMD" &>/dev/null; then
-    echo "✓ Ollama ya está instalado:"
-    "$OLLAMA_CMD" --version 2>/dev/null || true
-    exit 0
-fi
-if ! curl -sf --connect-timeout 5 https://ollama.com/ >/dev/null 2>&1; then
-    echo "⚠ No hay conexión a Internet."
-    echo "  Conecta a la red y ejecuta de nuevo: sudo setup-ollama.sh"
-    exit 0
-fi
-echo "Instalando Ollama..."
-if curl -fsSL https://ollama.com/install.sh | sh; then
-    if command -v "$OLLAMA_CMD" &>/dev/null; then
-        echo "✓ Ollama instalado correctamente."
-        "$OLLAMA_CMD" --version 2>/dev/null || true
-        exit 0
-    fi
-fi
-echo "⚠ No se pudo instalar Ollama."
-exit 0
-EOFSETUP
-chmod 755 /usr/local/bin/setup-ollama.sh
 
 # ── Step 5: Verify graphical environment components ─────────────────────
 log "Verifying graphical environment components..."
@@ -2023,32 +1959,7 @@ if [ "$GRAPHICAL_OK" -eq 0 ]; then
     systemctl enable getty@tty1.service 2>/dev/null || true
 fi
 
-# ── Step 6: Install Ollama and OpenCode as programs ─────────────────────
-log "Installing Ollama and OpenCode..."
-
-if command -v ollama &>/dev/null; then
-    log "  ✓ Ollama already installed: $(command -v ollama)"
-else
-    log "  → Attempting to install Ollama..."
-    if /usr/local/bin/setup-ollama.sh 2>&1 | while IFS= read -r line; do log "    $line"; done && command -v ollama &>/dev/null; then
-        log "  ✓ Ollama installed successfully"
-    else
-        log "  ⚠ Ollama not installed — run setup-ollama.sh manually when network is available"
-    fi
-fi
-
-if command -v opencode &>/dev/null; then
-    log "  ✓ OpenCode already installed: $(command -v opencode)"
-else
-    log "  → Attempting to install OpenCode..."
-    if /usr/local/bin/setup-opencode.sh 2>&1 | while IFS= read -r line; do log "    $line"; done && command -v opencode &>/dev/null; then
-        log "  ✓ OpenCode installed successfully"
-    else
-        log "  ⚠ OpenCode not installed — run setup-opencode.sh manually when network is available"
-    fi
-fi
-
-# ── Step 7: Cleanup ─────────────────────────────────────────────────────
+# ── Step 6: Cleanup ─────────────────────────────────────────────────────
 log "Phase 2 setup complete! Disabling first-boot service..."
 systemctl disable mados-first-boot.service 2>/dev/null || true
 rm -f /usr/local/bin/mados-first-boot.sh

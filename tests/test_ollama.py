@@ -119,14 +119,14 @@ class TestLiveUSBOllamaScript(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Post-installation – Ollama setup in first-boot script
+# Post-installation – Ollama is copied by rsync from live USB
 # ═══════════════════════════════════════════════════════════════════════════
 class TestPostInstallOllama(unittest.TestCase):
-    """Verify the installer configures Ollama for the installed system.
+    """Verify the installer copies Ollama from the live USB via rsync.
 
-    Phase 2 creates a setup script and attempts to install Ollama as a
-    program on first boot.  The setup script remains for manual retry
-    if network was unavailable during first boot.
+    Ollama is a pre-installed program on the live USB.  Phase 1 rsync
+    copies everything (binaries + setup scripts) to the installed system.
+    Phase 2 does NOT need to create scripts or install anything for Ollama.
     """
 
     def setUp(self):
@@ -137,14 +137,6 @@ class TestPostInstallOllama(unittest.TestCase):
             self.skipTest("installation.py not found")
         with open(install_py) as f:
             self.content = f.read()
-
-    def test_installer_creates_setup_script(self):
-        """Installer must create setup-ollama.sh for install and manual retry."""
-        self.assertIn(
-            "setup-ollama.sh",
-            self.content,
-            "Installer must create setup-ollama.sh on the installed system",
-        )
 
     def test_installer_does_not_create_service(self):
         """Installer must NOT create setup-ollama.service (ollama is a program)."""
@@ -176,16 +168,8 @@ class TestPostInstallOllama(unittest.TestCase):
             "Installer must include /usr/local/bin/ollama in sudoers NOPASSWD line",
         )
 
-    def test_installer_attempts_ollama_install(self):
-        """Installer must attempt to install Ollama on first boot."""
-        self.assertIn(
-            "Attempting to install Ollama",
-            self.content,
-            "Installer must attempt to run setup-ollama.sh on first boot",
-        )
-
     def test_no_inline_ollama_download(self):
-        """Phase 2 must NOT directly download Ollama (binary is copied from ISO)."""
+        """Installer must NOT directly download Ollama (binary is copied from ISO)."""
         lines = self.content.splitlines()
         in_heredoc = False
         for line in lines:
@@ -197,7 +181,7 @@ class TestPostInstallOllama(unittest.TestCase):
                 continue
             if not in_heredoc and "ollama.com/install.sh" in stripped:
                 self.fail(
-                    "Phase 2 must not directly download Ollama — "
+                    "Installer must not directly download Ollama — "
                     "the binary should already be on disk from Phase 1 rsync"
                 )
 
