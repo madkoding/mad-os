@@ -8,6 +8,7 @@ from gi.repository import Gtk
 
 from ..config import (
     DEMO_MODE,
+    MIN_DISK_SIZE_GB,
     NORD_POLAR_NIGHT,
     NORD_SNOW_STORM,
     NORD_FROST,
@@ -260,6 +261,15 @@ def _on_disk_next(app):
             app.install_data["disk_size_gb"] = 120
     except ValueError:
         app.install_data["disk_size_gb"] = 120
+
+    if app.install_data["disk_size_gb"] < MIN_DISK_SIZE_GB:
+        show_error(
+            app,
+            "Disk Too Small",
+            f"madOS requires at least {MIN_DISK_SIZE_GB} GB. "
+            f"The selected disk is only {app.install_data['disk_size_gb']} GB.",
+        )
+        return
 
     if DEMO_MODE:
         dialog = Gtk.MessageDialog(

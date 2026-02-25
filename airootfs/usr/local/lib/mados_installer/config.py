@@ -8,6 +8,11 @@ madOS Installer - Configuration constants
 DEMO_MODE = False
 # ================================
 
+# Minimum disk size (GB) for installation.  The live rootfs with rsync
+# excludes and post-copy cleanup fits in ~4-5 GB plus 1 GB EFI, so 8 GB
+# is the practical lower bound.
+MIN_DISK_SIZE_GB = 8
+
 # Language to locale mapping
 LOCALE_MAP = {
     'English': 'en_US.UTF-8',

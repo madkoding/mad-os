@@ -30,6 +30,7 @@ sys.path.insert(0, LIB_DIR)
 
 from mados_installer.config import (
     DEMO_MODE,
+    MIN_DISK_SIZE_GB,
     LOCALE_MAP,
     TIMEZONES,
     NORD_POLAR_NIGHT,
@@ -420,6 +421,19 @@ class TestRsyncConfig(unittest.TestCase):
     def test_rsync_excludes_pacman_cache(self):
         """Pacman package cache must be excluded to save disk space."""
         self.assertIn("/var/cache/pacman/pkg/*", RSYNC_EXCLUDES)
+
+
+class TestMinDiskSize(unittest.TestCase):
+    """Verify minimum disk size constant is sane."""
+
+    def test_min_disk_size_is_8(self):
+        """MIN_DISK_SIZE_GB must be 8 (the target for small-disk support)."""
+        self.assertEqual(MIN_DISK_SIZE_GB, 8)
+
+    def test_min_disk_size_is_positive_int(self):
+        """MIN_DISK_SIZE_GB must be a positive integer."""
+        self.assertIsInstance(MIN_DISK_SIZE_GB, int)
+        self.assertGreater(MIN_DISK_SIZE_GB, 0)
 
 
 if __name__ == "__main__":
