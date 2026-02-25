@@ -593,6 +593,290 @@ class TestLiveAutologin(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Live ISO cleanup in chroot config script
+# ═══════════════════════════════════════════════════════════════════════════
+class TestLiveISOCleanup(unittest.TestCase):
+    """Verify the installer's chroot config script removes live ISO artifacts.
+
+    When the system is installed via rsync from the live ISO, the live user,
+    autologin override, sudoers rule, and live-only services are copied into
+    the target.  The chroot config script must clean these up so the installed
+    system starts fresh with greetd and the user-created account.
+    """
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_removes_live_autologin_override(self):
+        """Config script must remove the live autologin getty override."""
+        self.assertIn(
+            "rm -rf /etc/systemd/system/getty@tty1.service.d",
+            self.content,
+            "Config script must remove getty@tty1 autologin override "
+            "(conflicts with greetd on the installed system)",
+        )
+
+    def test_removes_live_user_mados(self):
+        """Config script must remove the live 'mados' user."""
+        self.assertIn(
+            "userdel",
+            self.content,
+            "Config script must remove the live mados user with userdel",
+        )
+        self.assertRegex(
+            self.content,
+            r"userdel\b.*\bmados\b",
+            "userdel must target the 'mados' user",
+        )
+
+    def test_removes_live_sudoers(self):
+        """Config script must remove the live sudoers file before creating new one."""
+        self.assertIn(
+            "rm -f /etc/sudoers.d/99-opencode-nopasswd",
+            self.content,
+            "Config script must remove the live 99-opencode-nopasswd sudoers "
+            "file (gives mados unrestricted NOPASSWD ALL)",
+        )
+
+    def test_removes_live_only_services(self):
+        """Config script must remove live-only systemd services."""
+        live_services = [
+            "livecd-talk.service",
+            "livecd-alsa-unmuter.service",
+            "pacman-init.service",
+            "etc-pacman.d-gnupg.mount",
+            "choose-mirror.service",
+        ]
+        for svc in live_services:
+            with self.subTest(service=svc):
+                self.assertIn(
+                    svc, self.content,
+                    f"Config script must remove live-only service: {svc}",
+                )
+
+    def test_removes_persistence_services(self):
+        """Config script must remove persistence/Ventoy services (live-USB only)."""
+        persistence_services = [
+            "mados-persistence-detect.service",
+            "mados-persist-sync.service",
+            "mados-ventoy-setup.service",
+        ]
+        for svc in persistence_services:
+            with self.subTest(service=svc):
+                self.assertIn(
+                    svc, self.content,
+                    f"Config script must remove live-USB persistence "
+                    f"service: {svc}",
+                )
+
+    def test_live_cleanup_before_useradd(self):
+        """Live user cleanup (userdel) must happen BEFORE useradd.
+
+        The live mados user occupies UID 1000.  If the installer runs
+        useradd first, the new user may get a different UID or the command
+        could fail.  userdel must come first to free the UID.
+        """
+        userdel_pos = self.content.find("userdel")
+        useradd_pos = self.content.find("useradd")
+        self.assertNotEqual(userdel_pos, -1, "userdel not found in config script")
+        self.assertNotEqual(useradd_pos, -1, "useradd not found in config script")
+        self.assertLess(
+            userdel_pos, useradd_pos,
+            "userdel must appear before useradd so UID 1000 is freed "
+            "before the new user is created",
+        )
+
+    def test_config_script_valid_bash_syntax(self):
+        """Generated config script must pass bash -n syntax check."""
+        from mados_installer.pages.installation import _build_config_script
+
+        data = {
+            "disk": "/dev/sda",
+            "disk_size_gb": 60,
+            "separate_home": True,
+            "username": "testuser",
+            "password": "TestPass123!",  # NOSONAR - test fixture, not a real credential
+            "hostname": "mados-test",
+            "timezone": "America/New_York",
+            "locale": "en_US.UTF-8",
+        }
+        script = _build_config_script(data)
+        result = subprocess.run(
+            ["bash", "-n"],
+            input=script, capture_output=True, text=True,
+        )
+        self.assertEqual(
+            result.returncode, 0,
+            f"Generated config script has bash syntax errors:\n"
+            f"{result.stderr}",
+        )
+
+    def test_config_script_syntax_with_mados_username(self):
+        """Config script must be valid bash even when username is 'mados'.
+
+        When the chosen username matches the live user the cleanup logic
+        (userdel mados → useradd mados) must still produce syntactically
+        valid bash.
+        """
+        from mados_installer.pages.installation import _build_config_script
+
+        data = {
+            "disk": "/dev/sda",
+            "disk_size_gb": 60,
+            "separate_home": True,
+            "username": "mados",
+            "password": "TestPass123!",  # NOSONAR - test fixture, not a real credential
+            "hostname": "mados-test",
+            "timezone": "America/New_York",
+            "locale": "en_US.UTF-8",
+        }
+        script = _build_config_script(data)
+        result = subprocess.run(
+            ["bash", "-n"],
+            input=script, capture_output=True, text=True,
+        )
+        self.assertEqual(
+            result.returncode, 0,
+            f"Config script with username='mados' has bash syntax errors:\n"
+            f"{result.stderr}",
+        )
+
+    def test_removes_archiso_root_scripts(self):
+        """Config script must remove archiso-specific scripts from /root/."""
+        self.assertIn(
+            "/root/.automated_script.sh",
+            self.content,
+            "Config script must remove archiso .automated_script.sh from /root",
+        )
+        self.assertIn(
+            "/root/.zlogin",
+            self.content,
+            "Config script must remove archiso .zlogin from /root",
+        )
+
+    def test_creates_sway_pacman_hook(self):
+        """Config script must create sway pacman hook for upgrade protection.
+
+        The sway hook is removed during ISO build (has 'remove from airootfs!'
+        marker).  The installed system needs it so future sway upgrades keep
+        the madOS session script in sway.desktop.
+        """
+        self.assertIn(
+            "sway-desktop-override.hook",
+            self.content,
+            "Config script must create sway pacman hook for session file "
+            "protection on upgrades",
+        )
+
+    def test_creates_hyprland_pacman_hook(self):
+        """Config script must ensure hyprland pacman hook exists."""
+        self.assertIn(
+            "hyprland-desktop-override.hook",
+            self.content,
+            "Config script must create hyprland pacman hook for session file "
+            "protection on upgrades",
+        )
+
+    def test_pacman_hooks_have_correct_exec(self):
+        """Pacman hooks must point to the madOS session scripts."""
+        self.assertIn(
+            "Exec=/usr/local/bin/sway-session",
+            self.content.replace("\\", ""),
+            "Sway hook must set Exec to /usr/local/bin/sway-session",
+        )
+        self.assertIn(
+            "Exec=/usr/local/bin/hyprland-session",
+            self.content.replace("\\", ""),
+            "Hyprland hook must set Exec to /usr/local/bin/hyprland-session",
+        )
+
+    def test_removes_timezone_service(self):
+        """Config script must remove mados-timezone.service.
+
+        The timezone auto-detect service runs on every boot and would
+        override the timezone the user selected during installation.
+        """
+        self.assertIn(
+            "mados-timezone.service",
+            self.content,
+            "Config script must remove mados-timezone.service "
+            "(overrides user-selected timezone on every boot)",
+        )
+
+    def test_removes_ohmyzsh_service(self):
+        """Config script must remove setup-ohmyzsh.service.
+
+        On the installed system Oh My Zsh is already pre-installed to
+        /etc/skel/.oh-my-zsh.  The service depends on the removed
+        pacman-init.service and is unnecessary.
+        """
+        self.assertIn(
+            "setup-ohmyzsh.service",
+            self.content,
+            "Config script must remove setup-ohmyzsh.service "
+            "(unnecessary on installed system, depends on removed pacman-init)",
+        )
+
+    def test_disable_before_rm(self):
+        """systemctl disable must run BEFORE rm -f for each service.
+
+        systemctl disable needs the unit file's [Install] section to
+        know which .wants/ symlinks to remove.  If the file is deleted
+        first, the symlinks become dangling.
+        """
+        from mados_installer.pages.installation import _build_config_script
+
+        data = {
+            "disk": "/dev/sda",
+            "disk_size_gb": 60,
+            "separate_home": True,
+            "username": "testuser",
+            "password": "TestPass123!",  # NOSONAR - test fixture, not a real credential
+            "hostname": "mados-test",
+            "timezone": "America/New_York",
+            "locale": "en_US.UTF-8",
+        }
+        script = _build_config_script(data)
+        disable_pos = script.find("systemctl disable")
+        rm_pos = script.find('rm -f "/etc/systemd/system/$svc"')
+        self.assertNotEqual(disable_pos, -1,
+                            "systemctl disable not found in script")
+        self.assertNotEqual(rm_pos, -1,
+                            "rm -f service file not found in script")
+        self.assertLess(
+            disable_pos, rm_pos,
+            "systemctl disable must appear BEFORE rm -f so that "
+            "the unit file is still present when systemctl reads "
+            "its [Install] section to find .wants/ symlinks",
+        )
+
+    def test_cleans_dangling_symlinks(self):
+        """Config script must clean dangling symlinks in systemd dirs.
+
+        After service removal, any leftover dangling symlinks in
+        /etc/systemd/system/*.wants/ directories should be removed
+        to prevent systemd warnings on every boot.
+        """
+        self.assertIn(
+            "dangling symlinks",
+            self.content.lower(),
+            "Config script must clean up dangling symlinks "
+            "in systemd .wants directories",
+        )
+        self.assertRegex(
+            self.content,
+            r"find\s+/etc/systemd/system.*-delete",
+            "Config script must use find to remove dangling symlinks",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Sudoers configuration
 # ═══════════════════════════════════════════════════════════════════════════
 class TestSudoersConfig(unittest.TestCase):

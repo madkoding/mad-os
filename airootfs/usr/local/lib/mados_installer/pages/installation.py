@@ -1203,6 +1203,45 @@ cat > /etc/hosts <<EOF
 127.0.1.1   {_escape_shell(data["hostname"])}.localdomain {_escape_shell(data["hostname"])}
 EOF
 
+# ── Clean up live ISO artifacts ─────────────────────────────────────────
+# The system was installed via rsync from the live ISO, so the live user
+# (mados), autologin override, and live-only services are still present.
+
+# Remove live autologin override (conflicts with greetd graphical login)
+rm -rf /etc/systemd/system/getty@tty1.service.d
+
+# Remove live-only systemd services that should not run on installed system.
+# IMPORTANT: disable BEFORE removing the unit file — systemctl needs the
+# [Install] section to know which .wants/ symlinks to clean up.
+for svc in \
+    livecd-talk.service \
+    livecd-alsa-unmuter.service \
+    pacman-init.service \
+    etc-pacman.d-gnupg.mount \
+    choose-mirror.service \
+    mados-persistence-detect.service \
+    mados-persist-sync.service \
+    mados-ventoy-setup.service \
+    setup-meli-demo.service \
+    setup-ohmyzsh.service \
+    mados-timezone.service \
+    mados-installer-autostart.service; do
+    systemctl disable "$svc" 2>/dev/null || true
+    rm -f "/etc/systemd/system/$svc"
+done
+
+# Remove any dangling symlinks left in systemd .wants directories
+find /etc/systemd/system -type l ! -exec test -e {{}} \; -delete 2>/dev/null || true
+
+# Remove the live ISO user (mados) — the installer creates a fresh user below
+if id mados &>/dev/null; then
+    userdel -r mados 2>/dev/null || userdel mados 2>/dev/null || true
+    rm -rf /home/mados
+fi
+
+# Remove live ISO sudoers (gives mados unrestricted NOPASSWD ALL)
+rm -f /etc/sudoers.d/99-opencode-nopasswd
+
 # User
 useradd -m -G wheel,audio,video,storage -s /bin/zsh {username}
 echo '{username}:{_escape_shell(data["password"])}' | chpasswd
@@ -1633,6 +1672,43 @@ VENTOY_PERSIST_SIZE_MB={data.get("ventoy_persist_size", 4096)}
 MIN_FREE_SPACE_MB=512
 EOFVENTOY
 chmod 644 /etc/mados/ventoy-persist.conf
+
+# ── Clean up archiso root directory artifacts ───────────────────────────
+# These files are archiso-specific and should not be on the installed system
+rm -f /root/.automated_script.sh /root/.zlogin
+
+# ── Pacman hooks for session file protection ────────────────────────────
+# The sway hook was removed during ISO build by the "remove from airootfs!"
+# mechanism; recreate it so future sway upgrades keep the madOS session script.
+mkdir -p /etc/pacman.d/hooks
+cat > /etc/pacman.d/hooks/sway-desktop-override.hook <<'EOFHOOK'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = sway
+
+[Action]
+Description = Customizing Sway session for madOS...
+When = PostTransaction
+Depends = sed
+Exec = /usr/bin/sed -i -e 's|^Exec=.*|Exec=/usr/local/bin/sway-session|' -e 's|^Comment=.*|Comment=madOS Sway session with hardware detection|' /usr/share/wayland-sessions/sway.desktop
+EOFHOOK
+
+# Ensure the hyprland hook also exists (may have been copied by rsync)
+cat > /etc/pacman.d/hooks/hyprland-desktop-override.hook <<'EOFHOOK2'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = hyprland
+
+[Action]
+Description = Customizing Hyprland session for madOS...
+When = PostTransaction
+Depends = sed
+Exec = /usr/bin/sed -i -e 's|^Exec=.*|Exec=/usr/local/bin/hyprland-session|' -e 's|^Comment=.*|Comment=madOS Hyprland session|' /usr/share/wayland-sessions/hyprland.desktop
+EOFHOOK2
 
 # ── Graphical environment verification ──────────────────────────────────
 # Verify graphical environment components and set up TTY fallbacks.
