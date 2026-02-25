@@ -1945,7 +1945,7 @@ TimeoutStartSec=300
 [Install]
 WantedBy=multi-user.target
 EOFSVC
-systemctl enable setup-opencode.service 2>/dev/null || true
+# Note: setup-opencode.service is NOT enabled — user can run setup-opencode.sh manually
 
 # Ollama: setup script for manual install/retry
 cat > /usr/local/bin/setup-ollama.sh <<'EOFSETUP'
@@ -1994,7 +1994,7 @@ TimeoutStartSec=300
 [Install]
 WantedBy=multi-user.target
 EOFSVC
-systemctl enable setup-ollama.service 2>/dev/null || true
+# Note: setup-ollama.service is NOT enabled — user can run setup-ollama.sh manually
 
 # ── Step 5: Verify graphical environment components ─────────────────────
 log "Verifying graphical environment components..."

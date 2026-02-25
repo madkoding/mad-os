@@ -238,6 +238,8 @@ class TestEnabledServicesValid(unittest.TestCase):
     OPTIONAL_SERVICES = {
         "mados-persist-sync.service",  # enabled at runtime if persistence detected
         "mados-persistence-detect.service",  # enabled at runtime if persistence detected
+        "setup-ollama.service",  # installed manually, not run as a service
+        "setup-opencode.service",  # installed manually, not run as a service
     }
 
     def test_custom_services_are_enabled(self):

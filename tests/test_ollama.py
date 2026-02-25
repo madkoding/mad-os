@@ -39,33 +39,20 @@ sys.path.insert(0, LIB_DIR)
 # ═══════════════════════════════════════════════════════════════════════════
 # Live USB – Ollama service enablement
 # ═══════════════════════════════════════════════════════════════════════════
-class TestLiveUSBOllamaServiceEnabled(unittest.TestCase):
-    """Verify setup-ollama.service is enabled (symlinked) for the live USB."""
+class TestLiveUSBOllamaServiceNotEnabled(unittest.TestCase):
+    """Verify setup-ollama.service is NOT enabled (no symlink) for the live USB."""
 
-    def test_symlink_exists_in_multi_user_wants(self):
-        """setup-ollama.service must be symlinked in multi-user.target.wants/."""
+    def test_symlink_not_in_multi_user_wants(self):
+        """setup-ollama.service must NOT be symlinked in multi-user.target.wants/."""
         symlink_path = os.path.join(MULTI_USER_WANTS, "setup-ollama.service")
-        self.assertTrue(
+        self.assertFalse(
             os.path.lexists(symlink_path),
-            "setup-ollama.service symlink missing from multi-user.target.wants/ "
-            "– the service will never run at boot and ollama won't be installed",
-        )
-
-    def test_symlink_points_to_correct_service(self):
-        """The symlink must point to /etc/systemd/system/setup-ollama.service."""
-        symlink_path = os.path.join(MULTI_USER_WANTS, "setup-ollama.service")
-        if not os.path.lexists(symlink_path):
-            self.skipTest("symlink does not exist")
-        target = os.readlink(symlink_path)
-        self.assertEqual(
-            target,
-            "/etc/systemd/system/setup-ollama.service",
-            f"Symlink points to '{target}' instead of "
-            "'/etc/systemd/system/setup-ollama.service'",
+            "setup-ollama.service symlink must NOT exist in multi-user.target.wants/ "
+            "– ollama should be installed manually, not run as a service",
         )
 
     def test_service_file_exists(self):
-        """The actual setup-ollama.service unit file must exist."""
+        """The actual setup-ollama.service unit file must still exist for manual use."""
         self.assertTrue(
             os.path.isfile(os.path.join(SYSTEMD_DIR, "setup-ollama.service")),
             "setup-ollama.service unit file is missing from systemd/system/",
@@ -213,12 +200,12 @@ class TestPostInstallOllama(unittest.TestCase):
             "Installer must create setup-ollama.service on the installed system",
         )
 
-    def test_installer_enables_fallback_service(self):
-        """Installer must enable setup-ollama.service on the installed system."""
-        self.assertIn(
+    def test_installer_does_not_enable_fallback_service(self):
+        """Installer must NOT enable setup-ollama.service (not run as a service)."""
+        self.assertNotIn(
             "systemctl enable setup-ollama.service",
             self.content,
-            "Installer must enable setup-ollama.service",
+            "Installer must NOT enable setup-ollama.service — ollama should be installed manually",
         )
 
     def test_installer_copies_ollama_binary_from_live(self):

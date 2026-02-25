@@ -40,29 +40,16 @@ sys.path.insert(0, LIB_DIR)
 # ═══════════════════════════════════════════════════════════════════════════
 # Live USB – OpenCode service enablement
 # ═══════════════════════════════════════════════════════════════════════════
-class TestLiveUSBOpenCodeServiceEnabled(unittest.TestCase):
-    """Verify setup-opencode.service is enabled (symlinked) for the live USB."""
+class TestLiveUSBOpenCodeServiceNotEnabled(unittest.TestCase):
+    """Verify setup-opencode.service is NOT enabled (no symlink) for the live USB."""
 
-    def test_symlink_exists_in_multi_user_wants(self):
-        """setup-opencode.service must be symlinked in multi-user.target.wants/."""
+    def test_symlink_not_in_multi_user_wants(self):
+        """setup-opencode.service must NOT be symlinked in multi-user.target.wants/."""
         symlink_path = os.path.join(MULTI_USER_WANTS, "setup-opencode.service")
-        self.assertTrue(
+        self.assertFalse(
             os.path.lexists(symlink_path),
-            "setup-opencode.service symlink missing from multi-user.target.wants/ "
-            "– the service will never run at boot and opencode won't be installed",
-        )
-
-    def test_symlink_points_to_correct_service(self):
-        """The symlink must point to /etc/systemd/system/setup-opencode.service."""
-        symlink_path = os.path.join(MULTI_USER_WANTS, "setup-opencode.service")
-        if not os.path.lexists(symlink_path):
-            self.skipTest("symlink does not exist")
-        target = os.readlink(symlink_path)
-        self.assertEqual(
-            target,
-            "/etc/systemd/system/setup-opencode.service",
-            f"Symlink points to '{target}' instead of "
-            "'/etc/systemd/system/setup-opencode.service'",
+            "setup-opencode.service symlink must NOT exist in multi-user.target.wants/ "
+            "– opencode should be installed manually, not run as a service",
         )
 
     def test_no_broken_claude_code_symlink(self):
@@ -76,7 +63,7 @@ class TestLiveUSBOpenCodeServiceEnabled(unittest.TestCase):
         )
 
     def test_service_file_exists(self):
-        """The actual setup-opencode.service unit file must exist."""
+        """The actual setup-opencode.service unit file must still exist for manual use."""
         self.assertTrue(
             os.path.isfile(os.path.join(SYSTEMD_DIR, "setup-opencode.service")),
             "setup-opencode.service unit file is missing from systemd/system/",
@@ -193,11 +180,11 @@ class TestPostInstallOpenCode(unittest.TestCase):
             "Installer must create setup-opencode.service on the installed system",
         )
 
-    def test_installer_enables_fallback_service(self):
-        """Installer must enable setup-opencode.service on the installed system."""
-        self.assertIn(
+    def test_installer_does_not_enable_fallback_service(self):
+        """Installer must NOT enable setup-opencode.service (not run as a service)."""
+        self.assertNotIn(
             "systemctl enable setup-opencode.service", self.content,
-            "Installer must enable setup-opencode.service",
+            "Installer must NOT enable setup-opencode.service — opencode should be installed manually",
         )
 
     def test_installer_configures_sudoers_for_opencode(self):

@@ -517,11 +517,11 @@ class TestOpenCodeFallbackService(unittest.TestCase):
             "Must create setup-opencode.service on the installed system",
         )
 
-    def test_enables_fallback_service(self):
-        """Must enable setup-opencode.service on the installed system."""
-        self.assertIn(
+    def test_does_not_enable_fallback_service(self):
+        """Must NOT enable setup-opencode.service (not run as a service)."""
+        self.assertNotIn(
             "systemctl enable setup-opencode.service", self.content,
-            "Must enable setup-opencode.service",
+            "Must NOT enable setup-opencode.service — opencode should be installed manually",
         )
 
 
@@ -1015,11 +1015,11 @@ class TestPhase2ScriptGeneration(unittest.TestCase):
 
     # ── Ollama fallback service ─────────────────────────────────────────
     def test_ollama_fallback_service_is_created(self):
-        """Phase 2 must create setup-ollama.service with proper structure."""
+        """Phase 2 must create setup-ollama.service but NOT enable it."""
         self.assertIn("setup-ollama.service", self.script,
                        "Phase 2 must create setup-ollama.service")
-        self.assertIn("systemctl enable setup-ollama.service", self.script,
-                       "Phase 2 must enable setup-ollama.service")
+        self.assertNotIn("systemctl enable setup-ollama.service", self.script,
+                         "Phase 2 must NOT enable setup-ollama.service — ollama should be installed manually")
 
     # ── Audio init script ───────────────────────────────────────────────
     def test_audio_init_script_is_valid_bash(self):
