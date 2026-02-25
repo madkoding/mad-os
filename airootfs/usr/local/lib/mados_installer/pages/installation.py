@@ -1376,12 +1376,13 @@ cat > /etc/plymouth/plymouthd.conf <<EOFPLYCONF
 [Daemon]
 Theme=mados
 ShowDelay=0
-DeviceTimeout=8
+DeviceTimeout=5
 EOFPLYCONF
 
 echo '[PROGRESS 6/9] Rebuilding initramfs (this takes a while)...'
 # Rebuild initramfs with plymouth and microcode hooks
-sed -i 's/^HOOKS=.*/HOOKS=(base udev plymouth autodetect microcode modconf kms block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
+# KMS must come before plymouth so GPU drivers are loaded before the splash starts
+sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode modconf kms plymouth block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
 
 # Restore standard linux preset (archiso replaces it with an archiso-specific one)
 cat > /etc/mkinitcpio.d/linux.preset <<'EOFPRESET'

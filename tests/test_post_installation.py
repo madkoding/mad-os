@@ -239,6 +239,41 @@ class TestSystemConfigFiles(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Live ISO initramfs configuration
+# ═══════════════════════════════════════════════════════════════════════════
+class TestLiveInitramfsConfig(unittest.TestCase):
+    """Verify the archiso mkinitcpio config for optimal boot splash timing."""
+
+    def setUp(self):
+        self.conf_path = os.path.join(
+            AIROOTFS, "etc", "mkinitcpio.conf.d", "archiso.conf"
+        )
+        if not os.path.isfile(self.conf_path):
+            self.skipTest("archiso.conf not found")
+        with open(self.conf_path) as f:
+            self.content = f.read()
+
+    def test_kms_before_plymouth_in_live_hooks(self):
+        """KMS must load before plymouth in live ISO for fast boot splash."""
+        hooks_match = re.search(r"HOOKS=\(([^)]+)\)", self.content)
+        self.assertIsNotNone(hooks_match, "Must contain a HOOKS=(...) line")
+        hooks = hooks_match.group(1).split()
+        self.assertIn("kms", hooks, "Live HOOKS must include 'kms'")
+        self.assertIn("plymouth", hooks, "Live HOOKS must include 'plymouth'")
+        self.assertLess(
+            hooks.index("kms"), hooks.index("plymouth"),
+            "kms must come before plymouth so GPU drivers are loaded before the splash",
+        )
+
+    def test_compression_is_zstd(self):
+        """Live initramfs must use zstd compression for fast decompression."""
+        self.assertIn(
+            'COMPRESSION="zstd"', self.content,
+            "Initramfs must use zstd for fast decompression during boot",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # User environment defaults (skel)
 # ═══════════════════════════════════════════════════════════════════════════
 class TestSkelConfig(unittest.TestCase):
@@ -484,6 +519,19 @@ class TestInitramfsPresetRestoration(unittest.TestCase):
         self.assertIn(
             "microcode", hooks,
             "mkinitcpio HOOKS must include 'microcode' for CPU microcode loading",
+        )
+
+    def test_kms_before_plymouth_in_mkinitcpio(self):
+        """KMS hook must come before plymouth so GPU drivers load before the splash starts."""
+        hooks_match = re.search(r"HOOKS=\(([^)]+)\)", self.content)
+        self.assertIsNotNone(hooks_match, "Must contain a HOOKS=(...) line")
+        hooks_str = hooks_match.group(1)
+        hooks = hooks_str.split()
+        self.assertIn("kms", hooks, "HOOKS must include 'kms'")
+        self.assertIn("plymouth", hooks, "HOOKS must include 'plymouth'")
+        self.assertLess(
+            hooks.index("kms"), hooks.index("plymouth"),
+            "kms must come before plymouth so GPU drivers are loaded before the splash",
         )
 
 
