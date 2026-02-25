@@ -158,18 +158,21 @@ check_content "Defines LOG_TAG" 'LOG_TAG="mados-first-boot"'
 check_content "Has log() function" "log()"
 
 # =============================================================================
-# Phase 4: Verify Phase 2 configuration
+# Phase 4: Verify Phase 2 configuration (100% offline)
 # =============================================================================
-step "Phase 4 – Verifying Phase 2 configuration"
+step "Phase 4 – Verifying Phase 2 configuration (offline)"
 
-check_content "Checks internet connectivity" "INTERNET_AVAILABLE"
-check_content "Uses --noconfirm flag" "noconfirm"
-
-# CJK fonts are only added for Asian locales, not for en_US
-if [[ "$TEST_LOCALE" =~ ^(zh_CN|ja_JP) ]]; then
-    check_content "Handles CJK fonts" "noto-fonts-cjk"
+# Phase 2 must NOT contain internet checks or downloads
+if echo "$SCRIPT_CONTENT" | grep -q "INTERNET_AVAILABLE"; then
+    fail "Phase 2 must not check INTERNET_AVAILABLE (it is 100% offline)"
 else
-    info "CJK fonts check skipped (not an Asian locale)"
+    ok "No INTERNET_AVAILABLE check (Phase 2 is offline)"
+fi
+
+if echo "$SCRIPT_CONTENT" | grep -q "pacman -Syu"; then
+    fail "Phase 2 must not run pacman -Syu"
+else
+    ok "No pacman -Syu (packages already installed from ISO)"
 fi
 
 # Verify essential services are referenced in the script

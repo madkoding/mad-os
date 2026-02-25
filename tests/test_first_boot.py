@@ -3,15 +3,19 @@
 Tests for madOS first-boot post-installation configuration.
 
 Validates the first-boot script that runs after installation on the first reboot.
-This script is responsible for Phase 2 package installation, service configuration,
-and post-install setup (Oh My Zsh, OpenCode, audio, etc.).
+This script is responsible for service configuration and post-install setup
+(audio, Chromium, fallback services for optional tools).
+
+Phase 2 is 100% offline — all packages and tools are already present from
+the ISO (copied via rsync during Phase 1).  Phase 2 only configures
+services and creates fallback systemd services for optional tools.
 
 These tests verify:
 1. The first-boot service and script are properly created during installation
 2. The script has valid bash syntax
 3. The script contains all required configuration steps
-4. Phase 2 packages are correctly listed
-5. Services are enabled appropriately
+4. Services are enabled appropriately
+5. No internet downloads occur during Phase 2
 """
 
 import os
@@ -99,10 +103,9 @@ class TestFirstBootServiceSetup(unittest.TestCase):
 
     def test_service_has_timeout(self):
         """First-boot service must have a reasonable timeout."""
-        # Phase 2 installs many packages, needs long timeout
         self.assertIn(
             "TimeoutStartSec", self.content,
-            "Service must have TimeoutStartSec for long package installs",
+            "Service must have TimeoutStartSec for configuration steps",
         )
 
 
@@ -157,10 +160,10 @@ class TestFirstBootScriptGeneration(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Internet connectivity check
+# Phase 2 is fully offline
 # ═══════════════════════════════════════════════════════════════════════════
-class TestInternetConnectivityCheck(unittest.TestCase):
-    """Verify the first-boot script checks internet before downloading."""
+class TestPhase2FullyOffline(unittest.TestCase):
+    """Verify Phase 2 does NOT download anything from the internet."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -171,26 +174,70 @@ class TestInternetConnectivityCheck(unittest.TestCase):
         with open(install_py) as f:
             self.content = f.read()
 
-    def test_checks_internet_before_downloads(self):
-        """Script must check internet connectivity before package downloads."""
-        self.assertIn(
-            "INTERNET_AVAILABLE", self.content,
-            "Must use INTERNET_AVAILABLE variable to track connectivity",
-        )
-
-    def test_uses_curl_for_connectivity_check(self):
-        """Script must use curl to verify internet connectivity."""
-        self.assertIn(
-            "curl -sf --connect-timeout", self.content,
-            "Must use curl with timeout for connectivity check",
-        )
-
     def test_no_redundant_system_update(self):
         """Script must NOT run 'pacman -Syu' (packages are already installed from ISO)."""
         self.assertNotIn(
             "pacman -Syu", self.content,
             "Must not run 'pacman -Syu' — all ISO packages are already installed via rsync",
         )
+
+    def test_no_internet_check_in_first_boot(self):
+        """Phase 2 must NOT check internet (it is 100% offline)."""
+        # The _build_first_boot_script generates the bash script inline.
+        # Extract just the generated script portion (inside the f-string).
+        self.assertNotIn(
+            "INTERNET_AVAILABLE", self.content,
+            "Phase 2 must not use INTERNET_AVAILABLE — it is 100% offline",
+        )
+
+    def test_no_inline_git_clone(self):
+        """Phase 2 must NOT clone repos (Nordic, Oh My Zsh are copied from ISO)."""
+        # Check the first-boot script template (f-string) does not contain git clone
+        self.assertNotIn(
+            "git clone", self.content,
+            "Phase 2 must not git clone anything — everything comes from the ISO",
+        )
+
+    def test_no_inline_opencode_install(self):
+        """Phase 2 must NOT download OpenCode (binary is copied from ISO)."""
+        # The setup script creation is fine (it's for manual retry),
+        # but the direct curl install should not be there.
+        # Look for the inline install pattern (curl | bash outside of heredoc)
+        lines = self.content.splitlines()
+        in_heredoc = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("cat >") and "<<" in stripped:
+                in_heredoc = True
+            if in_heredoc and stripped in ("EOFSETUP", "EOFSVC", "EOFAUDIO",
+                                           "EOFCHROMIUM", "EOFPOLICY",
+                                           "EOFUSRSVC"):
+                in_heredoc = False
+                continue
+            if not in_heredoc and "opencode.ai/install" in stripped:
+                self.fail(
+                    "Phase 2 must not directly download OpenCode — "
+                    "it should be copied from the ISO via rsync"
+                )
+
+    def test_no_inline_ollama_install(self):
+        """Phase 2 must NOT download Ollama (binary is copied from ISO)."""
+        lines = self.content.splitlines()
+        in_heredoc = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("cat >") and "<<" in stripped:
+                in_heredoc = True
+            if in_heredoc and stripped in ("EOFSETUP", "EOFSVC", "EOFAUDIO",
+                                           "EOFCHROMIUM", "EOFPOLICY",
+                                           "EOFUSRSVC"):
+                in_heredoc = False
+                continue
+            if not in_heredoc and "ollama.com/install.sh" in stripped:
+                self.fail(
+                    "Phase 2 must not directly download Ollama — "
+                    "it should be copied from the ISO via rsync"
+                )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -207,13 +254,6 @@ class TestPhase2Configuration(unittest.TestCase):
             self.skipTest("installation.py not found")
         with open(install_py) as f:
             self.content = f.read()
-
-    def test_handles_cjk_fonts(self):
-        """Script must conditionally install CJK fonts for Asian locales."""
-        self.assertIn(
-            "noto-fonts-cjk", self.content,
-            "Must include noto-fonts-cjk for CJK locale support",
-        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -382,10 +422,10 @@ class TestChromiumConfiguration(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Oh My Zsh installation
+# Oh My Zsh fallback service
 # ═══════════════════════════════════════════════════════════════════════════
-class TestOhMyZshInstallation(unittest.TestCase):
-    """Verify the first-boot script installs Oh My Zsh."""
+class TestOhMyZshFallbackService(unittest.TestCase):
+    """Verify the first-boot script creates Oh My Zsh fallback service."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -395,31 +435,6 @@ class TestOhMyZshInstallation(unittest.TestCase):
             self.skipTest("installation.py not found")
         with open(install_py) as f:
             self.content = f.read()
-
-    def test_installs_to_skel(self):
-        """Oh My Zsh must be installed to /etc/skel."""
-        self.assertIn(
-            "/etc/skel/.oh-my-zsh", self.content,
-            "Must install Oh My Zsh to /etc/skel",
-        )
-
-    def test_clones_from_github(self):
-        """Must clone Oh My Zsh from GitHub."""
-        self.assertIn(
-            "github.com/ohmyzsh/ohmyzsh", self.content,
-            "Must clone Oh My Zsh from official GitHub repo",
-        )
-
-    def test_copies_to_user_home(self):
-        """Must copy Oh My Zsh to user's home directory."""
-        self.assertIn(
-            "cp", self.content,
-            "Must copy Oh My Zsh to user home",
-        )
-        self.assertIn(
-            "chown", self.content,
-            "Must chown Oh My Zsh files to user",
-        )
 
     def test_creates_fallback_service(self):
         """Must create setup-ohmyzsh.service as fallback."""
@@ -428,19 +443,12 @@ class TestOhMyZshInstallation(unittest.TestCase):
             "Must create setup-ohmyzsh.service fallback",
         )
 
-    def test_handles_no_internet(self):
-        """Must handle case when internet is not available."""
-        self.assertIn(
-            "curl", self.content,
-            "Must check for internet connectivity",
-        )
-
 
 # ═══════════════════════════════════════════════════════════════════════════
-# OpenCode installation
+# OpenCode fallback service
 # ═══════════════════════════════════════════════════════════════════════════
-class TestOpenCodeInstallation(unittest.TestCase):
-    """Verify the first-boot script installs OpenCode."""
+class TestOpenCodeFallbackService(unittest.TestCase):
+    """Verify the first-boot script creates OpenCode setup script and fallback service."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -451,32 +459,25 @@ class TestOpenCodeInstallation(unittest.TestCase):
         with open(install_py) as f:
             self.content = f.read()
 
-    def test_uses_opencode_install_script(self):
-        """Must use OpenCode official install script."""
+    def test_creates_setup_script(self):
+        """Must create setup-opencode.sh for manual retry."""
         self.assertIn(
-            "opencode.ai/install", self.content,
-            "Must use OpenCode install script from opencode.ai",
+            "setup-opencode.sh", self.content,
+            "Must create setup-opencode.sh on the installed system",
         )
 
-    def test_uses_curl_to_download(self):
-        """Must use curl to download install script."""
+    def test_creates_fallback_service(self):
+        """Must create setup-opencode.service for boot-time retry."""
         self.assertIn(
-            "curl", self.content,
-            "Must use curl to download OpenCode installer",
+            "setup-opencode.service", self.content,
+            "Must create setup-opencode.service on the installed system",
         )
 
-    def test_pipes_to_bash(self):
-        """Install script must be piped to bash."""
+    def test_enables_fallback_service(self):
+        """Must enable setup-opencode.service on the installed system."""
         self.assertIn(
-            "bash", self.content,
-            "Install script must be executed with bash",
-        )
-
-    def test_checks_opencode_command(self):
-        """Must verify opencode command is available after install."""
-        self.assertIn(
-            "opencode", self.content,
-            "Must verify opencode command exists",
+            "systemctl enable setup-opencode.service", self.content,
+            "Must enable setup-opencode.service",
         )
 
 

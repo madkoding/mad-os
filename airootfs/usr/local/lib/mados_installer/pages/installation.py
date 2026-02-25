@@ -1622,31 +1622,18 @@ def _build_first_boot_script(data):
     """Build the Phase 2 first-boot shell script.
 
     This script runs on the first boot from the installed disk.  All packages
-    from the ISO are already present (copied via rsync during Phase 1).
-    Phase 2 checks for internet connectivity first, then configures
-    audio/bluetooth/desktop services, installs Oh My Zsh, OpenCode and Ollama
-    (when internet is available), then disables itself.
+    and tools from the ISO are already present (copied via rsync during
+    Phase 1).  Phase 2 is 100 % offline — it only configures services,
+    creates fallback systemd services for optional tools that may not have
+    been available on the live USB, then disables itself.
     """
     username = data["username"]
-    locale = data["locale"]
-
-    cjk_line = ""
-    if locale in ("zh_CN.UTF-8", "ja_JP.UTF-8"):
-        cjk_line = (
-            '\n# CJK fonts for Asian locale\n'
-            'if [ "$INTERNET_AVAILABLE" = true ]; then\n'
-            '    if ! pacman -Q noto-fonts-cjk &>/dev/null; then\n'
-            '        log "Installing CJK fonts for locale..."\n'
-            '        pacman -Sy --noconfirm --needed noto-fonts-cjk 2>&1 || true\n'
-            '    fi\n'
-            'fi\n'
-        )
 
     return f"""#!/bin/bash
 # madOS First Boot Setup (Phase 2)
-# All packages from the ISO are already installed (copied via rsync during
-# Phase 1).  This script configures services and desktop tools, then
-# disables itself.
+# All packages and tools from the ISO are already installed (copied via
+# rsync during Phase 1).  This script is 100% offline — it only configures
+# services and creates fallback services, then disables itself.
 set -euo pipefail
 
 LOG_TAG="mados-first-boot"
@@ -1654,20 +1641,9 @@ log() {{ echo "[Phase 2] $1"; systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/d
 
 log "Starting madOS Phase 2 setup..."
 
-# ── Step 0: Check internet connectivity ─────────────────────────────────
-INTERNET_AVAILABLE=false
-log "Checking internet connectivity..."
-if curl -sf --connect-timeout 5 https://archlinux.org >/dev/null 2>&1; then
-    INTERNET_AVAILABLE=true
-    log "Internet connection available"
-else
-    log "No internet connection detected — skipping package downloads"
-    log "Online tools will be available on next boot with internet"
-fi
-
 # --- Non-critical operations: failures are warnings, not blockers ---
 set +e
-{cjk_line}
+
 # ── Step 1: Enable additional services ──────────────────────────────────
 log "Enabling additional services..."
 systemctl enable bluetooth 2>/dev/null || true
@@ -1818,54 +1794,14 @@ cat > /etc/chromium/policies/managed/mados-homepage.json <<'EOFPOLICY'
 }}
 EOFPOLICY
 
-# ── Step 3b: Install Nordic GTK Theme ──────────────────────────────────
-# --- Package/download operations: failures are warnings, not blockers ---
-set +e
-if [ -d /usr/share/themes/Nordic ]; then
-    log "Nordic GTK theme already installed"
-else
-    log "Installing Nordic GTK theme..."
-    if command -v git &>/dev/null; then
-        if curl -sf --connect-timeout 5 https://github.com >/dev/null 2>&1; then
-            NORDIC_TMP=$(mktemp -d)
-            if git clone --depth=1 https://github.com/EliverLara/Nordic.git "$NORDIC_TMP/Nordic" 2>&1; then
-                mkdir -p /usr/share/themes
-                cp -a "$NORDIC_TMP/Nordic" /usr/share/themes/Nordic
-                rm -rf /usr/share/themes/Nordic/.git /usr/share/themes/Nordic/.gitignore /usr/share/themes/Nordic/Art /usr/share/themes/Nordic/LICENSE /usr/share/themes/Nordic/README.md /usr/share/themes/Nordic/KDE /usr/share/themes/Nordic/Wallpaper
-                log "Nordic GTK theme installed"
-            else
-                log "Warning: Failed to clone Nordic GTK theme"
-            fi
-            [ -n "$NORDIC_TMP" ] && rm -rf "$NORDIC_TMP"
-        else
-            log "No internet - Nordic GTK theme skipped"
-        fi
-    fi
-fi
+# ── Step 4: Create fallback services for optional tools ─────────────────
+# These fallback services install optional tools on subsequent boots if
+# they were not already present on the live USB (e.g. no internet at live boot).
+# All tools are already copied from the live ISO via rsync during Phase 1,
+# so these services only run when the tools are genuinely missing.
+log "Creating fallback services for optional tools..."
 
-# ── Step 4: Install Oh My Zsh ──────────────────────────────────────────
-log "Setting up Oh My Zsh..."
-if [ ! -d /etc/skel/.oh-my-zsh ]; then
-    if command -v git &>/dev/null; then
-        if curl -sf --connect-timeout 5 https://github.com >/dev/null 2>&1; then
-            git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git /etc/skel/.oh-my-zsh 2>&1 || true
-            if [ -d /etc/skel/.oh-my-zsh ]; then
-                log "Oh My Zsh installed to /etc/skel"
-            fi
-        else
-            log "No internet - Oh My Zsh skipped"
-        fi
-    fi
-fi
-
-# Copy to user home if available
-if [ -d /etc/skel/.oh-my-zsh ] && [ ! -d /home/{username}/.oh-my-zsh ]; then
-    cp -a /etc/skel/.oh-my-zsh /home/{username}/.oh-my-zsh
-    chown -R {username}:{username} /home/{username}/.oh-my-zsh
-    log "Oh My Zsh copied to {username} home"
-fi
-
-# Oh My Zsh fallback service (for future users or if clone failed)
+# Oh My Zsh fallback service
 cat > /etc/systemd/system/setup-ohmyzsh.service <<'EOFSVC'
 [Unit]
 Description=Install Oh My Zsh if not already present
@@ -1886,32 +1822,7 @@ WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-ohmyzsh.service 2>/dev/null || true
 
-# ── Step 5: Install OpenCode ─────────────────────────────────────────
-log "Installing OpenCode..."
-OPENCODE_INSTALL_DIR="/usr/local/bin"
-export OPENCODE_INSTALL_DIR
-# Method 1: curl install script (downloads binary directly, most reliable)
-if curl -fsSL https://opencode.ai/install | bash; then
-    if command -v opencode &>/dev/null; then
-        log "OpenCode installed successfully"
-    else
-        log "Warning: curl install completed but opencode not found in PATH"
-    fi
-else
-    log "Warning: curl install failed"
-fi
-# Method 2: npm fallback
-if ! command -v opencode &>/dev/null; then
-    if command -v npm &>/dev/null; then
-        if npm install -g --unsafe-perm opencode-ai 2>&1; then
-            log "OpenCode installed via npm"
-        else
-            log "Warning: npm install also failed"
-        fi
-    fi
-fi
-
-# Copy setup script for manual retry
+# OpenCode: setup script for manual install/retry
 cat > /usr/local/bin/setup-opencode.sh <<'EOFSETUP'
 #!/bin/bash
 OPENCODE_CMD="opencode"
@@ -1970,21 +1881,7 @@ WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-opencode.service 2>/dev/null || true
 
-# ── Step 6: Install Ollama ───────────────────────────────────────────
-log "Installing Ollama..."
-
-# Method: curl install script (official installer from ollama.com)
-if curl -fsSL https://ollama.com/install.sh | sh; then
-    if command -v ollama &>/dev/null; then
-        log "Ollama installed successfully"
-    else
-        log "Warning: curl install completed but ollama not found in PATH"
-    fi
-else
-    log "Warning: Ollama install failed"
-fi
-
-# Copy setup script for manual retry
+# Ollama: setup script for manual install/retry
 cat > /usr/local/bin/setup-ollama.sh <<'EOFSETUP'
 #!/bin/bash
 OLLAMA_CMD="ollama"
@@ -2034,7 +1931,7 @@ EOFSVC
 systemctl enable setup-ollama.service 2>/dev/null || true
 set -e
 
-# ── Step 7: Cleanup ─────────────────────────────────────────────────────
+# ── Step 5: Cleanup ─────────────────────────────────────────────────────
 log "Phase 2 setup complete! Disabling first-boot service..."
 systemctl disable mados-first-boot.service 2>/dev/null || true
 rm -f /usr/local/bin/mados-first-boot.sh
