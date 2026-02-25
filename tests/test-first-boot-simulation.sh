@@ -130,6 +130,7 @@ data = {
     'timezone': 'America/Santiago',
     'disk': '/dev/sda',
     'password': 'testpass',
+    'hostname': 'mados-test',
 }
 
 script = _build_config_script(data)
