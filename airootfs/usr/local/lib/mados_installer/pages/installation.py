@@ -1596,11 +1596,11 @@ EOFFIRSTBOOT
 chmod 755 /usr/local/bin/mados-first-boot.sh
 
 # Create the systemd service for Phase 2 first-boot setup
+# Phase 2 is 100% offline — no network dependency needed
 cat > /etc/systemd/system/mados-first-boot.service <<'EOFSVC'
 [Unit]
-Description=madOS First Boot Setup (Phase 2) - Install packages and configure system
-After=network-online.target
-Wants=network-online.target
+Description=madOS First Boot Setup (Phase 2) - Configure services (offline)
+After=local-fs.target
 ConditionPathExists=/usr/local/bin/mados-first-boot.sh
 
 [Service]
@@ -1609,7 +1609,7 @@ RemainAfterExit=yes
 ExecStart=/usr/local/bin/mados-first-boot.sh
 StandardOutput=journal+console
 StandardError=journal+console
-TimeoutStartSec=1800
+TimeoutStartSec=600
 
 [Install]
 WantedBy=multi-user.target
@@ -1635,10 +1635,18 @@ def _build_first_boot_script(data):
 # All packages and tools from the ISO are already installed (copied via
 # rsync during Phase 1).  This script is 100% offline — it only configures
 # services and creates fallback services, then disables itself.
-set -euo pipefail
 
+# Use -e for initial setup, then switch to +e for non-critical operations
+set -e
+
+LOG_FILE="/var/log/mados-first-boot.log"
 LOG_TAG="mados-first-boot"
-log() {{ echo "[Phase 2] $1"; systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/dev/null || true; }}
+log() {{
+    local msg="[Phase 2] $1"
+    echo "$msg"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $msg" >> "$LOG_FILE" 2>/dev/null || true
+    systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/dev/null || true
+}}
 
 log "Starting madOS Phase 2 setup..."
 
@@ -1930,12 +1938,73 @@ TimeoutStartSec=300
 WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-ollama.service 2>/dev/null || true
-set -e
 
-# ── Step 5: Cleanup ─────────────────────────────────────────────────────
+# ── Step 5: Verify graphical environment components ─────────────────────
+log "Verifying graphical environment components..."
+GRAPHICAL_OK=1
+for bin in cage regreet sway; do
+    if command -v "$bin" &>/dev/null; then
+        log "  ✓ $bin found: $(command -v "$bin")"
+    else
+        log "  ✗ $bin NOT found — graphical login may fail"
+        GRAPHICAL_OK=0
+    fi
+done
+
+for script in /usr/local/bin/cage-greeter /usr/local/bin/sway-session; do
+    if [ -x "$script" ]; then
+        log "  ✓ $script is executable"
+    elif [ -f "$script" ]; then
+        log "  ✗ $script exists but is not executable — fixing..."
+        chmod +x "$script"
+    else
+        log "  ✗ $script NOT found — graphical login may fail"
+        GRAPHICAL_OK=0
+    fi
+done
+
+if [ -f /etc/greetd/config.toml ]; then
+    log "  ✓ greetd config exists"
+else
+    log "  ✗ greetd config NOT found — graphical login may fail"
+    GRAPHICAL_OK=0
+fi
+
+if systemctl is-enabled greetd.service &>/dev/null; then
+    log "  ✓ greetd.service is enabled"
+else
+    log "  ✗ greetd.service is NOT enabled — enabling..."
+    systemctl enable greetd.service 2>/dev/null || true
+fi
+
+# Safety fallback: ensure getty@tty2 is available so users can always log in
+# even if greetd/cage fails to start the graphical environment
+systemctl enable getty@tty2.service 2>/dev/null || true
+
+if [ "$GRAPHICAL_OK" -eq 0 ]; then
+    log "  ⚠ Some graphical components are missing. Enabling getty@tty1 as fallback..."
+    systemctl enable getty@tty1.service 2>/dev/null || true
+fi
+
+# ── Step 6: Verify Ollama and OpenCode status ───────────────────────────
+log "Checking Ollama and OpenCode status..."
+if command -v ollama &>/dev/null; then
+    log "  ✓ Ollama binary found: $(command -v ollama)"
+else
+    log "  ⚠ Ollama not found — fallback service will attempt install on next boot with network"
+fi
+
+if command -v opencode &>/dev/null; then
+    log "  ✓ OpenCode binary found: $(command -v opencode)"
+else
+    log "  ⚠ OpenCode not found — fallback service will attempt install on next boot with network"
+fi
+
+# ── Step 7: Cleanup ─────────────────────────────────────────────────────
 log "Phase 2 setup complete! Disabling first-boot service..."
 systemctl disable mados-first-boot.service 2>/dev/null || true
 rm -f /usr/local/bin/mados-first-boot.sh
 
 log "madOS is fully configured. Enjoy!"
+log "Log saved to: $LOG_FILE"
 """

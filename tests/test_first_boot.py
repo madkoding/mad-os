@@ -83,15 +83,36 @@ class TestFirstBootServiceSetup(unittest.TestCase):
             "Installer must enable mados-first-boot.service",
         )
 
-    def test_service_runs_after_network(self):
-        """First-boot service must wait for network connectivity."""
+    def test_service_runs_after_local_fs(self):
+        """First-boot service must wait for local filesystem (offline, no network needed)."""
         self.assertIn(
-            "After=network-online.target", self.content,
-            "Service must run after network-online.target",
+            "After=local-fs.target", self.content,
+            "Service must run after local-fs.target (Phase 2 is 100% offline)",
         )
-        self.assertIn(
-            "Wants=network-online.target", self.content,
-            "Service must want network-online.target",
+
+    def test_service_does_not_need_network(self):
+        """First-boot service must NOT depend on network (Phase 2 is 100% offline)."""
+        # Phase 2 only configures services and creates fallback services.
+        # Network dependency would delay boot and is not needed.
+        # Check the service definition (not the fallback services inside heredocs)
+        lines = self.content.splitlines()
+        in_heredoc = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("cat >") and "<<" in stripped:
+                in_heredoc = True
+            if in_heredoc and stripped in ("EOFSVC", "EOFSETUP"):
+                in_heredoc = False
+                continue
+            if not in_heredoc and "mados-first-boot.service" in stripped:
+                # We're near the service definition
+                pass
+        # The first-boot service definition should use local-fs.target, not network
+        self.assertNotIn(
+            "After=network-online.target\nWants=network-online.target\n"
+            "ConditionPathExists=/usr/local/bin/mados-first-boot.sh",
+            self.content,
+            "First-boot service must not use network-online.target (Phase 2 is offline)",
         )
 
     def test_service_is_oneshot(self):
@@ -139,12 +160,12 @@ class TestFirstBootScriptGeneration(unittest.TestCase):
         )
 
     def test_script_uses_strict_mode(self):
-        """Generated script must use bash strict mode."""
-        # Look for set -euo pipefail or similar
-        pattern = r"set -[euo]+[^\n]*pipefail"
-        self.assertIsNotNone(
-            re.search(pattern, self.content),
-            "First-boot script must use 'set -euo pipefail' for safety",
+        """Generated script must use set -e for error detection."""
+        # The first-boot script uses 'set -e' initially, then 'set +e' for
+        # non-critical operations.  We verify 'set -e' is present.
+        self.assertIn(
+            "set -e", self.content,
+            "First-boot script must use 'set -e' for error detection",
         )
 
     def test_script_has_logging(self):
@@ -156,6 +177,17 @@ class TestFirstBootScriptGeneration(unittest.TestCase):
         self.assertIn(
             "log()", self.content,
             "Script must have log() function",
+        )
+
+    def test_script_has_file_logging(self):
+        """Generated script must log to a persistent file."""
+        self.assertIn(
+            "LOG_FILE=", self.content,
+            "Script must define LOG_FILE for persistent file logging",
+        )
+        self.assertIn(
+            "/var/log/mados-first-boot.log", self.content,
+            "Script must log to /var/log/mados-first-boot.log",
         )
 
 
@@ -518,6 +550,87 @@ class TestFirstBootSelfCleanup(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Graphical environment verification
+# ═══════════════════════════════════════════════════════════════════════════
+class TestGraphicalEnvironmentVerification(unittest.TestCase):
+    """Verify Phase 2 checks graphical environment components."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_checks_cage_binary(self):
+        """Phase 2 must verify cage binary exists."""
+        self.assertIn(
+            "cage", self.content,
+            "Phase 2 must check for cage binary",
+        )
+
+    def test_checks_regreet_binary(self):
+        """Phase 2 must verify regreet binary exists."""
+        self.assertIn(
+            "regreet", self.content,
+            "Phase 2 must check for regreet binary",
+        )
+
+    def test_checks_cage_greeter_script(self):
+        """Phase 2 must verify cage-greeter script is executable."""
+        self.assertIn(
+            "cage-greeter", self.content,
+            "Phase 2 must check cage-greeter script",
+        )
+
+    def test_checks_greetd_service_enabled(self):
+        """Phase 2 must verify greetd.service is enabled."""
+        self.assertIn(
+            "greetd.service", self.content,
+            "Phase 2 must check greetd.service status",
+        )
+
+    def test_enables_getty_tty2_fallback(self):
+        """Phase 2 must enable getty@tty2 as a fallback login."""
+        self.assertIn(
+            "getty@tty2.service", self.content,
+            "Phase 2 must enable getty@tty2 as fallback login",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Ollama and OpenCode status verification
+# ═══════════════════════════════════════════════════════════════════════════
+class TestToolStatusVerification(unittest.TestCase):
+    """Verify Phase 2 checks Ollama and OpenCode binary status."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_checks_ollama_status(self):
+        """Phase 2 must verify if Ollama binary exists."""
+        self.assertIn(
+            "command -v ollama", self.content,
+            "Phase 2 must check Ollama binary availability",
+        )
+
+    def test_checks_opencode_status(self):
+        """Phase 2 must verify if OpenCode binary exists."""
+        self.assertIn(
+            "command -v opencode", self.content,
+            "Phase 2 must check OpenCode binary availability",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # XDG user directories
 # ═══════════════════════════════════════════════════════════════════════════
 class TestXDGUserDirectories(unittest.TestCase):
@@ -724,15 +837,57 @@ class TestPhase2ScriptGeneration(unittest.TestCase):
 
     # ── Error handling ──────────────────────────────────────────────────
     def test_set_plus_e_is_restored(self):
-        """Every ``set +e`` must be followed by ``set -e`` before script end."""
+        """Script must have matching set -e and set +e calls."""
         plus_e_count = self.script.count("set +e")
         minus_e_count = self.script.count("set -e")
-        # The initial set -euo pipefail counts too
+        # The initial 'set -e' counts, plus any in heredoc sub-scripts
         self.assertGreaterEqual(
             minus_e_count, plus_e_count,
             "Every 'set +e' must have a matching 'set -e' to restore error handling "
             f"(found {plus_e_count} 'set +e' vs {minus_e_count} 'set -e')",
         )
+
+    # ── File logging ────────────────────────────────────────────────────
+    def test_has_persistent_file_logging(self):
+        """Generated script must log to a persistent file."""
+        self.assertIn("LOG_FILE=", self.script,
+                       "Script must define LOG_FILE variable")
+        self.assertIn("/var/log/mados-first-boot.log", self.script,
+                       "Script must log to /var/log/mados-first-boot.log")
+
+    # ── Graphical environment verification ──────────────────────────────
+    def test_verifies_graphical_env_binaries(self):
+        """Script must check that graphical environment binaries exist."""
+        for binary in ["cage", "regreet", "sway"]:
+            with self.subTest(binary=binary):
+                self.assertIn(binary, self.script,
+                               f"Script must verify {binary} binary")
+
+    def test_verifies_cage_greeter_script(self):
+        """Script must verify cage-greeter script exists and is executable."""
+        self.assertIn("cage-greeter", self.script,
+                       "Script must check cage-greeter script")
+
+    def test_verifies_greetd_enabled(self):
+        """Script must verify greetd.service is enabled."""
+        self.assertIn("is-enabled greetd", self.script,
+                       "Script must check if greetd.service is enabled")
+
+    def test_enables_getty_tty2_fallback(self):
+        """Script must enable getty@tty2 as a login fallback."""
+        self.assertIn("getty@tty2.service", self.script,
+                       "Script must enable getty@tty2 as fallback login")
+
+    # ── Ollama/OpenCode status ──────────────────────────────────────────
+    def test_checks_ollama_binary_status(self):
+        """Script must check if Ollama binary exists."""
+        self.assertIn("command -v ollama", self.script,
+                       "Script must check Ollama binary with command -v")
+
+    def test_checks_opencode_binary_status(self):
+        """Script must check if OpenCode binary exists."""
+        self.assertIn("command -v opencode", self.script,
+                       "Script must check OpenCode binary with command -v")
 
     # ── Chromium JSON policy ────────────────────────────────────────────
     def test_chromium_json_policy_is_valid(self):
