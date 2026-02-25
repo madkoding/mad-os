@@ -205,15 +205,17 @@ if ! $INLINE_DOWNLOAD_FOUND; then
 fi
 
 # =============================================================================
-# Phase 5: Verify service enablement
+# Phase 5: Verify Phase 2 is minimal (only graphical verification + cleanup)
 # =============================================================================
-step "Phase 5 – Verifying service enablement"
+step "Phase 5 – Verifying Phase 2 is minimal"
 
-check_content "Enables bluetooth service" "systemctl enable bluetooth"
-check_content "Enables PipeWire" "pipewire"
-check_content "Enables WirePlumber" "wireplumber"
-check_content "Creates audio init service" "mados-audio-init.service"
-check_content "Enables audio init service" "systemctl enable mados-audio-init"
+# Phase 2 should only have graphical verification and cleanup.
+# Services are enabled in Phase 1 chroot; files are pre-installed on live USB.
+check_content "Verifies graphical binaries" "command -v"
+check_content "Checks greetd is enabled" "is-enabled greetd"
+check_content "Enables getty@tty2 fallback" "getty@tty2"
+check_content "Disables first-boot service" "systemctl disable mados-first-boot"
+check_content "Removes first-boot script" "rm -f /usr/local/bin/mados-first-boot.sh"
 
 # Verify all systemctl enable calls have || true
 info "Checking systemctl enable fault tolerance..."
@@ -231,115 +233,31 @@ if [[ "$FAULT_INTOLERANT" -eq 0 ]]; then
     ok "All systemctl enable calls have || true fallback"
 fi
 
-# =============================================================================
-# Phase 6: Verify audio configuration
-# =============================================================================
-step "Phase 6 – Verifying audio configuration"
-
-check_content "Creates audio init script" "/usr/local/bin/mados-audio-init.sh"
-check_content "Audio script uses amixer" "amixer"
-check_content "Audio script unmutes controls" "unmute"
-check_content "Audio script saves ALSA state" "alsactl store"
-check_content "Audio service runs after sound.target" "sound.target"
-check_content "Audio quality service exists" "mados-audio-quality.service"
-check_content "User audio quality service" "/home/${TEST_USER}/.config/systemd/user"
-
-# Verify audio script unmutes common controls
-info "Checking audio controls..."
-for control in "Master" "Headphone" "Speaker" "PCM"; do
-    if echo "$SCRIPT_CONTENT" | grep -q "$control"; then
-        ok "Unmutes '$control' control"
-    else
-        warn "Audio control '$control' not found"
-    fi
-done
+# Phase 2 should NOT recreate files that are pre-installed on live USB
+check_not_content "No audio heredoc in Phase 2" "EOFAUDIO"
+check_not_content "No chromium heredoc in Phase 2" "EOFCHROMIUM"
+check_not_content "No ohmyzsh heredoc in Phase 2" "setup-ohmyzsh.service"
+check_not_content "No OpenCode service" "setup-opencode.service"
+check_not_content "No Ollama service" "setup-ollama.service"
 
 # =============================================================================
-# Phase 7: Verify Chromium configuration
+# Phase 6: Verify self-cleanup
 # =============================================================================
-step "Phase 7 – Verifying Chromium configuration"
-
-check_content "Creates Chromium flags file" "/etc/chromium-flags.conf"
-check_content "Configures Wayland support" "ozone-platform"
-check_content "Disables Vulkan" "disable-vulkan"
-check_content "Disables VA-API" "VaapiVideoDecoder"
-check_content "Limits renderer processes" "renderer-process-limit"
-check_content "Sets homepage policy" "/etc/chromium/policies/managed"
-check_content "Configures homepage location" "HomepageLocation"
-
-# Validate JSON policy
-info "Validating Chromium JSON policy..."
-JSON_BLOCK=""
-IN_JSON=false
-while IFS= read -r line; do
-    stripped="${line#"${line%%[![:space:]]*}"}"
-    if [[ "$stripped" == "EOFPOLICY" ]] && $IN_JSON; then
-        break
-    fi
-    if $IN_JSON; then
-        JSON_BLOCK+="$line"$'\n'
-    fi
-    if echo "$stripped" | grep -qF "<<'EOFPOLICY'"; then
-        IN_JSON=true
-    fi
-done <<< "$SCRIPT_CONTENT"
-if [[ -n "$JSON_BLOCK" ]]; then
-    if echo "$JSON_BLOCK" | python3 -c "import sys,json;json.load(sys.stdin)" 2>/dev/null; then
-        ok "Chromium JSON policy is valid JSON"
-    else
-        fail "Chromium JSON policy is NOT valid JSON"
-    fi
-else
-    fail "Could not extract Chromium JSON policy"
-fi
-
-# =============================================================================
-# Phase 8: Verify Oh My Zsh fallback service and no ollama/opencode services
-# =============================================================================
-step "Phase 8 – Verifying Oh My Zsh fallback service"
-
-check_content "Oh My Zsh fallback service" "setup-ohmyzsh.service"
-check_content "Oh My Zsh service enabled" "systemctl enable setup-ohmyzsh.service"
-# Ollama and OpenCode are pre-installed programs copied by rsync — no Phase 2 action
-check_not_content "OpenCode service file" "setup-opencode.service"
-check_not_content "Ollama service file" "setup-ollama.service"
-
-# =============================================================================
-# Phase 9: Verify heredoc termination
-# =============================================================================
-step "Phase 9 – Verifying heredoc termination"
-
-HEREDOC_TAGS=(EOFAUDIO EOFSVC EOFCHROMIUM EOFPOLICY EOFUSRSVC)
-for tag in "${HEREDOC_TAGS[@]}"; do
-    OPEN_COUNT=$(echo "$SCRIPT_CONTENT" | grep -cE "<<\s*'?${tag}'?" || true)
-    CLOSE_COUNT=$(echo "$SCRIPT_CONTENT" | grep -c "^${tag}$" || true)
-    if [[ "$OPEN_COUNT" -eq "$CLOSE_COUNT" ]]; then
-        ok "Heredoc '$tag': $OPEN_COUNT opens = $CLOSE_COUNT closes"
-    else
-        fail "Heredoc '$tag' mismatch: $OPEN_COUNT opens vs $CLOSE_COUNT closes"
-    fi
-done
-
-# =============================================================================
-# Phase 10: Verify self-cleanup
-# =============================================================================
-step "Phase 10 – Verifying self-cleanup"
+step "Phase 6 – Verifying self-cleanup"
 
 check_content "Disables first-boot service" "systemctl disable mados-first-boot"
 check_content "Removes first-boot script" "mados-first-boot.sh"
 
 # =============================================================================
-# Phase 11: Verify error handling
+# Phase 7: Verify error handling
 # =============================================================================
-step "Phase 11 – Verifying error handling"
+step "Phase 7 – Verifying error handling"
 
-PLUS_E=$(echo "$SCRIPT_CONTENT" | grep -c "set +e" || true)
-MINUS_E=$(echo "$SCRIPT_CONTENT" | grep -c "set -e" || true)
-info "Found $PLUS_E 'set +e' and $MINUS_E 'set -e'"
-if [[ "$MINUS_E" -ge "$PLUS_E" ]]; then
-    ok "Error handling is properly restored (set -e >= set +e)"
+# Phase 2 uses set +e since all operations are non-critical
+if echo "$SCRIPT_CONTENT" | grep -q "set +e"; then
+    ok "Uses set +e for non-critical operations"
 else
-    fail "Unbalanced error handling: $PLUS_E 'set +e' but only $MINUS_E 'set -e'"
+    fail "Phase 2 must use set +e"
 fi
 
 # Verify username substitution

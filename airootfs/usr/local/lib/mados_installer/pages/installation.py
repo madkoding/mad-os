@@ -1472,7 +1472,8 @@ echo '[PROGRESS 7/9] Enabling essential services...'
 # Lock root account (security: users should use sudo)
 passwd -l root
 
-# Essential services only (remaining services enabled by first-boot)
+# Essential services — all pre-installed on the live USB and copied by rsync.
+# Audio, Chromium, Oh My Zsh services are also pre-installed (no Phase 2 needed).
 systemctl enable NetworkManager
 systemctl enable systemd-resolved
 systemctl enable earlyoom
@@ -1480,6 +1481,9 @@ systemctl enable systemd-timesyncd
 systemctl enable greetd
 systemctl enable iwd
 systemctl enable bluetooth
+
+# Audio: PipeWire socket activation for all user sessions
+systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true
 
 echo '[PROGRESS 8/9] Applying system configuration...'
 # --- Non-critical section: errors below should not abort installation ---
@@ -1677,217 +1681,37 @@ echo "Phase 2 first-boot service installed and enabled"
 def _build_first_boot_script(data):
     """Build the Phase 2 first-boot shell script.
 
-    This script runs on the first boot from the installed disk.  All packages
-    and tools from the ISO are already present (copied via rsync during
-    Phase 1).  Phase 2 is 100 % offline — it only configures services,
-    creates fallback systemd services for optional tools that may not have
-    been available on the live USB, then disables itself.
+    This script runs on the first boot from the installed disk.  All packages,
+    tools, services, and configuration files from the ISO are already present
+    (copied via rsync during Phase 1, services enabled in chroot).
+
+    Phase 2 is a lightweight verification pass — it checks that the graphical
+    environment components are in place and enables fallback TTY login if
+    anything is missing, then disables itself.
     """
-    username = data["username"]
 
-    return f"""#!/bin/bash
+    return """#!/bin/bash
 # madOS First Boot Setup (Phase 2)
-# All packages and tools from the ISO are already installed (copied via
-# rsync during Phase 1).  This script is 100% offline — it only configures
-# services and creates fallback services, then disables itself.
+# All packages, services, and config are already installed via rsync + chroot.
+# This script only verifies the graphical environment and cleans up.
 
-# Use -e for initial setup, then switch to +e for non-critical operations
-set -e
+set +e
 
 LOG_FILE="/var/log/mados-first-boot.log"
 LOG_TAG="mados-first-boot"
-log() {{
+log() {
     local msg="[Phase 2] $1"
     echo "$msg"
     echo "$(date '+%Y-%m-%d %H:%M:%S') $msg" >> "$LOG_FILE" 2>/dev/null || true
     systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/dev/null || true
-}}
+}
 
-log "Starting madOS Phase 2 setup..."
+log "Starting madOS Phase 2 verification..."
 
-# --- Non-critical operations: failures are warnings, not blockers ---
-set +e
-
-# ── Step 1: Enable additional services ──────────────────────────────────
-log "Enabling additional services..."
-systemctl enable bluetooth 2>/dev/null || true
-
-# Audio: Enable PipeWire for all user sessions (socket-activated)
-systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true
-
-# Audio: Create and enable ALSA unmute service
-cat > /usr/local/bin/mados-audio-init.sh <<'EOFAUDIO'
-#!/usr/bin/env bash
-# mados-audio-init.sh - Unmute ALSA controls and set default volumes
-set -euo pipefail
-LOG_TAG="mados-audio-init"
-log() {{ systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1"; }}
-get_card_indices() {{
-    if [[ -f /proc/asound/cards ]]; then
-        sed -n -e 's/^[[:space:]]*\\([0-9]\\+\\)[[:space:]].*/\\1/p' /proc/asound/cards
-    fi
-}}
-set_control() {{ amixer -c "$1" set "$2" "$3" unmute 2>/dev/null || true; }}
-mute_control() {{ amixer -c "$1" set "$2" "0%" mute 2>/dev/null || true; }}
-switch_control() {{ amixer -c "$1" set "$2" "$3" 2>/dev/null || true; }}
-init_card() {{
-    local card="$1"
-    log "Initializing audio on card $card"
-    set_control "$card" "Master" "80%"
-    set_control "$card" "Front" "80%"
-    set_control "$card" "Master Mono" "80%"
-    set_control "$card" "Master Digital" "80%"
-    set_control "$card" "Playback" "80%"
-    set_control "$card" "Headphone" "100%"
-    set_control "$card" "Speaker" "80%"
-    set_control "$card" "PCM" "80%"
-    set_control "$card" "PCM,1" "80%"
-    set_control "$card" "DAC" "80%"
-    set_control "$card" "DAC,0" "80%"
-    set_control "$card" "DAC,1" "80%"
-    set_control "$card" "Digital" "80%"
-    set_control "$card" "Wave" "80%"
-    set_control "$card" "Music" "80%"
-    set_control "$card" "AC97" "80%"
-    set_control "$card" "Analog Front" "80%"
-    set_control "$card" "Synth" "80%"
-    switch_control "$card" "Master Playback Switch" "on"
-    switch_control "$card" "Master Surround" "on"
-    switch_control "$card" "Speaker" "on"
-    switch_control "$card" "Headphone" "on"
-    set_control "$card" "VIA DXS,0" "80%"
-    set_control "$card" "VIA DXS,1" "80%"
-    set_control "$card" "VIA DXS,2" "80%"
-    set_control "$card" "VIA DXS,3" "80%"
-    set_control "$card" "Dynamic Range Compression" "80%"
-    mute_control "$card" "Mic"
-    mute_control "$card" "Internal Mic"
-    mute_control "$card" "Rear Mic"
-    mute_control "$card" "IEC958"
-    switch_control "$card" "IEC958 Capture Monitor" "off"
-    switch_control "$card" "Headphone Jack Sense" "off"
-    switch_control "$card" "Line Jack Sense" "off"
-}}
-log "Starting madOS audio initialization"
-cards=$(get_card_indices)
-if [[ -z "$cards" ]]; then log "No sound cards detected"; exit 0; fi
-for card in $cards; do init_card "$card"; done
-if command -v alsactl &>/dev/null && alsactl store 2>/dev/null; then log "ALSA state saved"; fi
-log "Audio initialization complete"
-EOFAUDIO
-chmod 755 /usr/local/bin/mados-audio-init.sh
-
-cat > /etc/systemd/system/mados-audio-init.service <<'EOFSVC'
-[Unit]
-Description=madOS Audio Initialization - Unmute ALSA Controls
-Wants=systemd-udev-settle.service
-After=systemd-udev-settle.service sound.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/mados-audio-init.sh
-
-[Install]
-WantedBy=multi-user.target
-EOFSVC
-systemctl enable mados-audio-init.service 2>/dev/null || true
-
-# Audio: Create and enable high-quality audio auto-detection service
-cat > /etc/systemd/system/mados-audio-quality.service <<'EOFSVC'
-[Unit]
-Description=madOS Audio Quality Auto-Configuration
-Documentation=man:pipewire(1)
-Wants=systemd-udev-settle.service sound.target
-After=systemd-udev-settle.service sound.target mados-audio-init.service
-Before=multi-user.target
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/mados-audio-quality.sh
-Nice=-5
-
-[Install]
-WantedBy=multi-user.target
-EOFSVC
-systemctl enable mados-audio-quality.service 2>/dev/null || true
-
-# Audio: Set up user-level audio quality service
-mkdir -p /home/{username}/.config/systemd/user/default.target.wants
-cat > /home/{username}/.config/systemd/user/mados-audio-quality.service <<'EOFUSRSVC'
-[Unit]
-Description=madOS Audio Quality User Configuration
-Documentation=man:pipewire(1)
-Before=pipewire.service pipewire-pulse.service wireplumber.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/mados-audio-quality.sh
-
-[Install]
-WantedBy=default.target
-EOFUSRSVC
-ln -sf ../mados-audio-quality.service /home/{username}/.config/systemd/user/default.target.wants/mados-audio-quality.service
-chown -R {username}:{username} /home/{username}/.config/systemd
-
-# ── Step 3: Configure Chromium ──────────────────────────────────────────
-log "Configuring Chromium..."
-cat > /etc/chromium-flags.conf <<'EOFCHROMIUM'
-# Wayland native support
---ozone-platform-hint=auto
---enable-features=WaylandWindowDecorations
-# Disable Vulkan (not supported on Intel Atom / legacy GPUs)
---disable-vulkan
-# Disable VA-API hardware video decode/encode (fails on Intel Atom)
---disable-features=VaapiVideoDecoder,VaapiVideoEncoder,UseChromeOSDirectVideoDecoder
-# Memory optimizations for low-RAM systems
---renderer-process-limit=3
---disable-gpu-memory-buffer-compositor-resources
-EOFCHROMIUM
-
-# Chromium homepage policy
-mkdir -p /etc/chromium/policies/managed
-cat > /etc/chromium/policies/managed/mados-homepage.json <<'EOFPOLICY'
-{{
-  "HomepageLocation": "https://www.kodingvibes.com",
-  "HomepageIsNewTabPage": true,
-  "RestoreOnStartup": 4,
-  "RestoreOnStartupURLs": ["https://www.kodingvibes.com"]
-}}
-EOFPOLICY
-
-# ── Step 4: Create Oh My Zsh fallback service ───────────────────────────
-# Oh My Zsh uses a fallback systemd service to install on first boot if
-# not already present.  OpenCode and Ollama are pre-installed programs
-# copied from the live USB via rsync — no Phase 2 action needed for them.
-log "Creating Oh My Zsh fallback service..."
-
-# Oh My Zsh fallback service
-cat > /etc/systemd/system/setup-ohmyzsh.service <<'EOFSVC'
-[Unit]
-Description=Install Oh My Zsh if not already present
-After=network-online.target
-Wants=network-online.target
-ConditionPathExists=!/etc/skel/.oh-my-zsh
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-Environment=HOME=/root
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
-ExecStart=/usr/local/bin/setup-ohmyzsh.sh
-StandardOutput=journal+console
-StandardError=journal+console
-TimeoutStartSec=120
-
-[Install]
-WantedBy=multi-user.target
-EOFSVC
-systemctl enable setup-ohmyzsh.service 2>/dev/null || true
-
-# ── Step 5: Verify graphical environment components ─────────────────────
+# ── Step 1: Verify graphical environment components ─────────────────────
+# All services, scripts, and config files are pre-installed on the live USB
+# and copied via rsync.  Services are enabled in the Phase 1 chroot.
+# Phase 2 only verifies the graphical environment and enables fallbacks.
 log "Verifying graphical environment components..."
 GRAPHICAL_OK=1
 for bin in cage regreet sway; do
@@ -1933,9 +1757,9 @@ for session_file in /usr/share/wayland-sessions/sway.desktop /usr/share/wayland-
         else
             log "  ⚠ $session_file exists but Exec= may not point to madOS script — fixing..."
             session_name=$(basename "$session_file" .desktop)
-            if [ -x "/usr/local/bin/${{session_name}}-session" ]; then
-                sed -i "s|^Exec=.*|Exec=/usr/local/bin/${{session_name}}-session|" "$session_file"
-                log "    Fixed: Exec=/usr/local/bin/${{session_name}}-session"
+            if [ -x "/usr/local/bin/${session_name}-session" ]; then
+                sed -i "s|^Exec=.*|Exec=/usr/local/bin/${session_name}-session|" "$session_file"
+                log "    Fixed: Exec=/usr/local/bin/${session_name}-session"
             fi
         fi
     else
@@ -1959,8 +1783,8 @@ if [ "$GRAPHICAL_OK" -eq 0 ]; then
     systemctl enable getty@tty1.service 2>/dev/null || true
 fi
 
-# ── Step 6: Cleanup ─────────────────────────────────────────────────────
-log "Phase 2 setup complete! Disabling first-boot service..."
+# ── Step 2: Cleanup ─────────────────────────────────────────────────────
+log "Phase 2 verification complete! Disabling first-boot service..."
 systemctl disable mados-first-boot.service 2>/dev/null || true
 rm -f /usr/local/bin/mados-first-boot.sh
 
