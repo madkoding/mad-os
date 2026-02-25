@@ -1210,7 +1210,9 @@ EOF
 # Remove live autologin override (conflicts with greetd graphical login)
 rm -rf /etc/systemd/system/getty@tty1.service.d
 
-# Remove live-only systemd services that should not run on installed system
+# Remove live-only systemd services that should not run on installed system.
+# IMPORTANT: disable BEFORE removing the unit file — systemctl needs the
+# [Install] section to know which .wants/ symlinks to clean up.
 for svc in \
     livecd-talk.service \
     livecd-alsa-unmuter.service \
@@ -1221,10 +1223,15 @@ for svc in \
     mados-persist-sync.service \
     mados-ventoy-setup.service \
     setup-meli-demo.service \
+    setup-ohmyzsh.service \
+    mados-timezone.service \
     mados-installer-autostart.service; do
-    rm -f "/etc/systemd/system/$svc"
     systemctl disable "$svc" 2>/dev/null || true
+    rm -f "/etc/systemd/system/$svc"
 done
+
+# Remove any dangling symlinks left in systemd .wants directories
+find /etc/systemd/system -type l ! -exec test -e {{}} \; -delete 2>/dev/null || true
 
 # Remove the live ISO user (mados) — the installer creates a fresh user below
 if id mados &>/dev/null; then

@@ -796,6 +796,85 @@ class TestLiveISOCleanup(unittest.TestCase):
             "Hyprland hook must set Exec to /usr/local/bin/hyprland-session",
         )
 
+    def test_removes_timezone_service(self):
+        """Config script must remove mados-timezone.service.
+
+        The timezone auto-detect service runs on every boot and would
+        override the timezone the user selected during installation.
+        """
+        self.assertIn(
+            "mados-timezone.service",
+            self.content,
+            "Config script must remove mados-timezone.service "
+            "(overrides user-selected timezone on every boot)",
+        )
+
+    def test_removes_ohmyzsh_service(self):
+        """Config script must remove setup-ohmyzsh.service.
+
+        On the installed system Oh My Zsh is already pre-installed to
+        /etc/skel/.oh-my-zsh.  The service depends on the removed
+        pacman-init.service and is unnecessary.
+        """
+        self.assertIn(
+            "setup-ohmyzsh.service",
+            self.content,
+            "Config script must remove setup-ohmyzsh.service "
+            "(unnecessary on installed system, depends on removed pacman-init)",
+        )
+
+    def test_disable_before_rm(self):
+        """systemctl disable must run BEFORE rm -f for each service.
+
+        systemctl disable needs the unit file's [Install] section to
+        know which .wants/ symlinks to remove.  If the file is deleted
+        first, the symlinks become dangling.
+        """
+        from mados_installer.pages.installation import _build_config_script
+
+        data = {
+            "disk": "/dev/sda",
+            "disk_size_gb": 60,
+            "separate_home": True,
+            "username": "testuser",
+            "password": "TestPass123!",
+            "hostname": "mados-test",
+            "timezone": "America/New_York",
+            "locale": "en_US.UTF-8",
+        }
+        script = _build_config_script(data)
+        disable_pos = script.find("systemctl disable")
+        rm_pos = script.find('rm -f "/etc/systemd/system/$svc"')
+        self.assertNotEqual(disable_pos, -1,
+                            "systemctl disable not found in script")
+        self.assertNotEqual(rm_pos, -1,
+                            "rm -f service file not found in script")
+        self.assertLess(
+            disable_pos, rm_pos,
+            "systemctl disable must appear BEFORE rm -f so that "
+            "the unit file is still present when systemctl reads "
+            "its [Install] section to find .wants/ symlinks",
+        )
+
+    def test_cleans_dangling_symlinks(self):
+        """Config script must clean dangling symlinks in systemd dirs.
+
+        After service removal, any leftover dangling symlinks in
+        /etc/systemd/system/*.wants/ directories should be removed
+        to prevent systemd warnings on every boot.
+        """
+        self.assertIn(
+            "dangling symlinks",
+            self.content.lower(),
+            "Config script must clean up dangling symlinks "
+            "in systemd .wants directories",
+        )
+        self.assertRegex(
+            self.content,
+            r"find\s+/etc/systemd/system.*-delete",
+            "Config script must use find to remove dangling symlinks",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Sudoers configuration
