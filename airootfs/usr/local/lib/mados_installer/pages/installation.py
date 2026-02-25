@@ -14,9 +14,6 @@ from gi.repository import Gtk, GLib
 from ..config import (
     DEMO_MODE,
     PACKAGES,
-    PACKAGES_PHASE1,
-    PACKAGES_PHASE2,
-    GPU_COMPUTE_PACKAGES,
     RSYNC_EXCLUDES,
     ARCHISO_PACKAGES,
     NORD_FROST,
@@ -1624,34 +1621,32 @@ echo "Phase 2 first-boot service installed and enabled"
 def _build_first_boot_script(data):
     """Build the Phase 2 first-boot shell script.
 
-    This script runs on the first boot from the installed disk.  Most packages
-    are already present (copied from the live ISO via rsync during Phase 1).
-    Phase 2 only downloads GPU compute drivers when the matching hardware is
-    detected, configures audio/bluetooth/desktop services, installs Oh My Zsh
-    and OpenCode, then disables itself.
+    This script runs on the first boot from the installed disk.  All packages
+    from the ISO are already present (copied via rsync during Phase 1).
+    Phase 2 checks for internet connectivity first, then configures
+    audio/bluetooth/desktop services, installs Oh My Zsh, OpenCode and Ollama
+    (when internet is available), then disables itself.
     """
     username = data["username"]
     locale = data["locale"]
-
-    nvidia_pkgs = " ".join(GPU_COMPUTE_PACKAGES["nvidia"])
-    amd_pkgs = " ".join(GPU_COMPUTE_PACKAGES["amd"])
-    common_pkgs = " ".join(GPU_COMPUTE_PACKAGES["common"])
 
     cjk_line = ""
     if locale in ("zh_CN.UTF-8", "ja_JP.UTF-8"):
         cjk_line = (
             '\n# CJK fonts for Asian locale\n'
-            'if ! pacman -Q noto-fonts-cjk &>/dev/null; then\n'
-            '    log "Installing CJK fonts for locale..."\n'
-            '    pacman -S --noconfirm --needed noto-fonts-cjk 2>&1 || true\n'
+            'if [ "$INTERNET_AVAILABLE" = true ]; then\n'
+            '    if ! pacman -Q noto-fonts-cjk &>/dev/null; then\n'
+            '        log "Installing CJK fonts for locale..."\n'
+            '        pacman -Sy --noconfirm --needed noto-fonts-cjk 2>&1 || true\n'
+            '    fi\n'
             'fi\n'
         )
 
     return f"""#!/bin/bash
 # madOS First Boot Setup (Phase 2)
-# Most packages are already installed (copied from the live ISO).
-# This script installs GPU compute drivers when matching hardware is
-# detected, configures services, and sets up tools, then disables itself.
+# All packages from the ISO are already installed (copied via rsync during
+# Phase 1).  This script configures services and desktop tools, then
+# disables itself.
 set -euo pipefail
 
 LOG_TAG="mados-first-boot"
@@ -1659,60 +1654,23 @@ log() {{ echo "[Phase 2] $1"; systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/d
 
 log "Starting madOS Phase 2 setup..."
 
-# ── Step 0: Refresh package databases and update system ─────────────────
+# ── Step 0: Check internet connectivity ─────────────────────────────────
+INTERNET_AVAILABLE=false
+log "Checking internet connectivity..."
+if curl -sf --connect-timeout 5 https://archlinux.org >/dev/null 2>&1; then
+    INTERNET_AVAILABLE=true
+    log "Internet connection available"
+else
+    log "No internet connection detected — skipping package downloads"
+    log "Online tools will be available on next boot with internet"
+fi
+
 # --- Package/download operations: failures are warnings, not blockers ---
 set +e
-log "Refreshing package databases and updating system..."
-pacman -Syu --noconfirm 2>&1 || log "Warning: system update returned non-zero (may be OK)"
-
-# ── Step 1: Install GPU compute drivers (only for supported hardware) ───
-log "Detecting GPU compute capabilities..."
-GPU_LINES=$(lspci 2>/dev/null | grep -iE "VGA|3D|Display" || true)
-GPU_FOUND=false
-
-# NVIDIA CUDA support
-if echo "$GPU_LINES" | grep -qi nvidia; then
-    log "NVIDIA GPU detected – installing CUDA compute packages..."
-    if pacman -S --noconfirm --needed {nvidia_pkgs} 2>&1; then
-        log "NVIDIA CUDA packages installed"
-    else
-        log "Warning: some NVIDIA packages failed to install (can retry later with pacman)"
-    fi
-    GPU_FOUND=true
-fi
-
-# AMD ROCm support (skip pre-GCN legacy GPUs)
-AMD_GPU=$(echo "$GPU_LINES" | grep -iE "\\bAMD\\b|\\bATI\\b|Radeon" || true)
-if [ -n "$AMD_GPU" ]; then
-    # Single combined check for all legacy AMD GPUs (pre-GCN)
-    if echo "$AMD_GPU" | grep -qiE "Radeon (7[0-9]{{3}}|8[0-9]{{3}}|9[0-9]{{3}}|X[0-9]{{3,4}})|Radeon HD [2-6][0-9]{{3}}|Rage|Mach[0-9]"; then
-        log "Legacy AMD GPU detected – skipping ROCm (unsupported)"
-    else
-        log "AMD GPU with ROCm support detected – installing compute packages..."
-        if pacman -S --noconfirm --needed {amd_pkgs} 2>&1; then
-            log "AMD ROCm packages installed"
-        else
-            log "Warning: some AMD ROCm packages failed to install (can retry later with pacman)"
-        fi
-        GPU_FOUND=true
-    fi
-fi
-
-# Common OpenCL headers (only when a compute GPU was found)
-if [ "$GPU_FOUND" = true ]; then
-    pacman -S --noconfirm --needed {common_pkgs} 2>&1 || true
-    log "GPU compute driver setup complete"
-else
-    log "No compute-capable GPU detected – skipping GPU driver download"
-fi
 {cjk_line}
-set -e
-# ── Step 2: Enable additional services ──────────────────────────────────
+# ── Step 1: Enable additional services ──────────────────────────────────
 log "Enabling additional services..."
 systemctl enable bluetooth 2>/dev/null || true
-
-# GPU Compute: Enable auto-detection and activation of CUDA/ROCm drivers
-systemctl enable mados-gpu-compute.service 2>/dev/null || true
 
 # Audio: Enable PipeWire for all user sessions (socket-activated)
 systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true

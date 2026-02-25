@@ -99,7 +99,7 @@ jobs:
           - category: "AI & Desktop"
             files: "tests/test_opencode.py tests/test_ollama.py tests/test_hyprland_config.py"
           - category: "Hardware"
-            files: "tests/test_gpu_detection.py tests/test_gpu_compute.py tests/test_wifi_backend.py"
+            files: "tests/test_gpu_detection.py tests/test_wifi_backend.py"
           - category: "Apps & Media"
             files: "tests/test_equalizer_presets.py tests/test_photo_navigator.py tests/test_installer_config.py"
           - category: "Live USB"

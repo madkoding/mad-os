@@ -158,13 +158,12 @@ check_content "Defines LOG_TAG" 'LOG_TAG="mados-first-boot"'
 check_content "Has log() function" "log()"
 
 # =============================================================================
-# Phase 4: Verify Phase 2 package installation
+# Phase 4: Verify Phase 2 configuration
 # =============================================================================
-step "Phase 4 – Verifying Phase 2 package installation"
+step "Phase 4 – Verifying Phase 2 configuration"
 
-check_content "Installs packages with pacman" "pacman -Syu"
+check_content "Checks internet connectivity" "INTERNET_AVAILABLE"
 check_content "Uses --noconfirm flag" "noconfirm"
-check_content "Uses --needed flag" "needed"
 
 # CJK fonts are only added for Asian locales, not for en_US
 if [[ "$TEST_LOCALE" =~ ^(zh_CN|ja_JP) ]]; then
@@ -173,26 +172,19 @@ else
     info "CJK fonts check skipped (not an Asian locale)"
 fi
 
-# Verify some essential Phase 2 packages are in the list
-info "Checking for essential Phase 2 packages..."
-ESSENTIAL_PHASE2=(
-    "sway"
-    "hyprland"
-    "waybar"
-    "foot"
-    "chromium"
-    "code"
+# Verify essential services are referenced in the script
+info "Checking for essential services configuration..."
+ESSENTIAL_SERVICES=(
+    "bluetooth"
     "pipewire"
     "wireplumber"
-    "bluez"
-    "bluetooth"
 )
 
-for pkg in "${ESSENTIAL_PHASE2[@]}"; do
-    if echo "$SCRIPT_CONTENT" | grep -q "$pkg"; then
-        ok "Package '$pkg' is in Phase 2"
+for svc in "${ESSENTIAL_SERVICES[@]}"; do
+    if echo "$SCRIPT_CONTENT" | grep -q "$svc"; then
+        ok "Service '$svc' is referenced in Phase 2"
     else
-        warn "Package '$pkg' not found in Phase 2 list"
+        warn "Service '$svc' not found in Phase 2"
     fi
 done
 

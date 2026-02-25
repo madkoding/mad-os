@@ -39,7 +39,6 @@ from mados_installer.config import (
     PACKAGES_PHASE1,
     PACKAGES_PHASE2,
     PACKAGES,
-    GPU_COMPUTE_PACKAGES,
     RSYNC_EXCLUDES,
     LOCALE_KB_MAP,
 )
@@ -373,58 +372,6 @@ class TestRsyncConfig(unittest.TestCase):
     """Verify rsync-based installation configuration constants."""
 
     PKG_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._+-]*$")
-
-    # -- GPU_COMPUTE_PACKAGES ------------------------------------------
-
-    def test_gpu_compute_packages_is_dict(self):
-        """GPU_COMPUTE_PACKAGES must be a dict."""
-        self.assertIsInstance(GPU_COMPUTE_PACKAGES, dict)
-
-    def test_gpu_compute_packages_has_required_keys(self):
-        """GPU_COMPUTE_PACKAGES must have 'nvidia', 'amd', and 'common' keys."""
-        for key in ("nvidia", "amd", "common"):
-            with self.subTest(key=key):
-                self.assertIn(
-                    key,
-                    GPU_COMPUTE_PACKAGES,
-                    f"GPU_COMPUTE_PACKAGES missing required key '{key}'",
-                )
-
-    def test_gpu_compute_packages_values_non_empty(self):
-        """Each GPU_COMPUTE_PACKAGES value must be a non-empty list."""
-        for key, pkgs in GPU_COMPUTE_PACKAGES.items():
-            with self.subTest(key=key):
-                self.assertIsInstance(
-                    pkgs, list, f"GPU_COMPUTE_PACKAGES['{key}'] must be a list"
-                )
-                self.assertGreater(
-                    len(pkgs), 0, f"GPU_COMPUTE_PACKAGES['{key}'] must not be empty"
-                )
-
-    def test_gpu_compute_packages_valid_names(self):
-        """All GPU compute package names must be valid Arch package names."""
-        for key, pkgs in GPU_COMPUTE_PACKAGES.items():
-            for pkg in pkgs:
-                with self.subTest(key=key, package=pkg):
-                    self.assertRegex(
-                        pkg,
-                        self.PKG_NAME_PATTERN,
-                        f"GPU_COMPUTE_PACKAGES['{key}'] entry '{pkg}' is invalid",
-                    )
-
-    def test_nvidia_has_cuda(self):
-        """NVIDIA GPU compute packages must include CUDA."""
-        self.assertIn("cuda", GPU_COMPUTE_PACKAGES["nvidia"])
-
-    def test_amd_has_rocm(self):
-        """AMD GPU compute packages must include ROCm."""
-        rocm_pkgs = GPU_COMPUTE_PACKAGES["amd"]
-        has_rocm = any("rocm" in p for p in rocm_pkgs)
-        self.assertTrue(has_rocm, "AMD packages must include ROCm runtime")
-
-    def test_common_has_opencl_headers(self):
-        """Common GPU compute packages must include opencl-headers."""
-        self.assertIn("opencl-headers", GPU_COMPUTE_PACKAGES["common"])
 
     # -- RSYNC_EXCLUDES ------------------------------------------------
 

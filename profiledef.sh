@@ -62,7 +62,6 @@ file_permissions=(
   ["/usr/local/bin/hyprland-session"]="0:0:755"
   ["/usr/local/bin/start-hyprland"]="0:0:755"
   ["/usr/local/bin/select-compositor"]="0:0:755"
-  ["/usr/local/bin/setup-gpu-compute"]="0:0:755"
   ["/usr/local/bin/mados-logs"]="0:0:755"
   ["/usr/local/bin/mados-wallpaper-glitch"]="0:0:755"
   ["/usr/local/bin/mados-sway-wallpapers"]="0:0:755"

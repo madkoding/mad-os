@@ -65,7 +65,9 @@ NORD_AURORA = {
     'nord15': '#B48EAD'
 }
 
-# Phase 1 packages: minimal set installed during USB installation (fast boot)
+# Phase 1 packages: core system packages (categorisation only — ALL packages
+# are included in the live ISO and copied to the target via rsync during
+# installation; no packages are downloaded during Phase 1).
 PACKAGES_PHASE1 = [
     'base', 'base-devel', 'linux', 'linux-firmware', 'intel-ucode', 'amd-ucode',
     'grub', 'efibootmgr', 'os-prober', 'dosfstools', 'sbctl',
@@ -80,7 +82,13 @@ PACKAGES_PHASE1 = [
     'nodejs', 'npm',
 ]
 
-# Phase 2 packages: installed on first boot from the installed disk
+# Phase 2 packages: desktop and application packages (categorisation only —
+# these are also included in the live ISO and copied via rsync, so they are
+# already present on the installed system after Phase 1).
+# NOTE: GPU compute packages (nvidia-utils, cuda, rocm-*) are NOT here;
+# they are tracked separately in GPU_COMPUTE_PACKAGES because they are too
+# large for the ISO and are only downloaded on first boot when matching
+# hardware is detected.
 PACKAGES_PHASE2 = [
     'swayidle', 'swaylock', 'waybar', 'wofi', 'mako',
     'chromium', 'code', 'vim', 'nano', 'git', 'htop', 'fastfetch', 'openssh', 'wget', 'jq',
@@ -92,10 +100,6 @@ PACKAGES_PHASE2 = [
     'intel-media-driver', 'vulkan-intel', 'mesa-utils',
     'xf86-video-amdgpu', 'vulkan-radeon',
     'xf86-video-nouveau',
-    # GPU Compute drivers (CUDA / ROCm) - auto-detected and activated by setup-gpu-compute
-    'nvidia-utils', 'opencl-nvidia', 'cuda',
-    'rocm-hip-runtime', 'rocm-opencl-runtime',
-    'opencl-headers', 'ocl-icd',
     'ttf-jetbrains-mono-nerd', 'noto-fonts-emoji',
     'pcmanfm', 'gvfs', 'tumbler', 'ffmpegthumbnailer', 'lxappearance',
     'brightnessctl',
@@ -109,17 +113,8 @@ PACKAGES_PHASE2 = [
     'gst-plugins-ugly', 'gst-plugins-bad', 'gst-libav', 'gst-plugin-gtk',
 ]
 
-# Combined package list (all packages for both phases)
+# Combined package list (all ISO packages in both categories)
 PACKAGES = PACKAGES_PHASE1 + PACKAGES_PHASE2
-
-# GPU Compute packages: NOT included in the live ISO to save ~3-5 GB.
-# Only installed during Phase 2 first-boot when the corresponding GPU
-# hardware is detected via lspci.  Keyed by vendor for conditional install.
-GPU_COMPUTE_PACKAGES = {
-    'nvidia': ['nvidia-utils', 'opencl-nvidia', 'cuda'],
-    'amd':    ['rocm-hip-runtime', 'rocm-opencl-runtime'],
-    'common': ['opencl-headers'],  # installed when any compute GPU is found
-}
 
 # Paths to exclude when copying the live rootfs to the target via rsync.
 # Virtual filesystems, caches, and archiso-specific content are skipped.

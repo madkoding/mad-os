@@ -89,11 +89,6 @@ xf86-video-nouveau
 mesa
 mesa-utils
 
-# GPU Compute drivers (CUDA / ROCm) - NOT included in live ISO to save ~3-5GB
-# These are installed on first boot via PACKAGES_PHASE2 in the installer
-# and auto-detected/activated by setup-gpu-compute service
-ocl-icd
-
 # Bluetooth
 bluez
 bluez-utils

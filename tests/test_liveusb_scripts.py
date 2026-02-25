@@ -236,7 +236,6 @@ class TestEnabledServicesValid(unittest.TestCase):
 
     # Services intentionally not pre-enabled (enabled at runtime or conditionally)
     OPTIONAL_SERVICES = {
-        "mados-gpu-compute.service",  # enabled at runtime if GPU detected
         "mados-persist-sync.service",  # enabled at runtime if persistence detected
         "mados-persistence-detect.service",  # enabled at runtime if persistence detected
     }
