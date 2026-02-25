@@ -9,11 +9,13 @@ DEMO_MODE = False
 # ================================
 
 # Minimum disk size in GB required for installation.
-# The live ISO rootfs (all packages from packages.x86_64) occupies ~5-6 GB
-# after rsync.  The system also needs space for pacman operations, GRUB,
-# initramfs, first-boot updates, and user data.  20 GB is the practical
-# minimum for a comfortable installation.
-MIN_DISK_SIZE_GB = 20
+# The ISO is ~2 GB compressed (squashfs), but the live rootfs decompresses
+# to ~5-6 GB.  By excluding documentation, man pages, and other non-essential
+# files during rsync (see RSYNC_EXCLUDES) and aggressively cleaning caches
+# afterwards, the installed footprint is reduced to ~4-5 GB.  With a 512 MB
+# EFI partition, an 8 GB disk provides enough room for the system plus
+# first-boot updates and minimal user data.
+MIN_DISK_SIZE_GB = 8
 
 # EFI System Partition size.  512 MB is the standard recommendation for
 # single-OS installs and is used by most Linux distributions.
@@ -134,23 +136,38 @@ GPU_COMPUTE_PACKAGES = {
 
 # Paths to exclude when copying the live rootfs to the target via rsync.
 # Virtual filesystems, caches, and archiso-specific content are skipped.
+# Documentation, man pages, and other non-essential files are also excluded
+# to reduce the installed footprint (~500 MB savings), which is critical for
+# small disks (8-16 GB).  These can be reinstalled later with pacman.
 # Note: /tmp/* and /run/* are publicly writable directories excluded
 # intentionally — they must not be copied to the installed system.
 RSYNC_EXCLUDES = [
+    # Virtual / transient filesystems
     '/dev/*',
     '/proc/*',
     '/sys/*',
     '/run/*',  # NOSONAR - rsync exclude pattern, not directory access
     '/tmp/*',  # NOSONAR - rsync exclude pattern, not directory access  # noqa: S5443
     '/mnt/*',
+    # Package manager caches and databases
     '/var/cache/pacman/pkg/*',
     '/var/lib/pacman/sync/*',
     '/var/log/*',
     '/var/tmp/*',  # NOSONAR - rsync exclude pattern, not directory access
+    # Filesystem metadata
     '/lost+found',
     '/swapfile',
     '/etc/fstab',
     '/etc/machine-id',
+    # Documentation — saves ~300-500 MB on small disks.
+    # Can be reinstalled: pacman -S --overwrite <package>
+    '/usr/share/doc/*',
+    '/usr/share/man/*',
+    '/usr/share/info/*',
+    '/usr/share/gtk-doc/*',
+    # Development headers and static libraries — not needed at runtime
+    '/usr/include/*',
+    '/usr/share/pkgconfig/*',
 ]
 
 # Archiso-specific packages to remove after copying the live rootfs.

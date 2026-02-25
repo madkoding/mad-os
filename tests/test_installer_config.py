@@ -68,11 +68,11 @@ class TestDiskSizeConstants(unittest.TestCase):
     def test_min_disk_size_is_int(self):
         self.assertIsInstance(MIN_DISK_SIZE_GB, int)
 
-    def test_min_disk_size_at_least_20(self):
-        """Minimum disk must be at least 20 GB for the full ISO rootfs + updates."""
+    def test_min_disk_size_at_least_8(self):
+        """Minimum disk must be at least 8 GB for the compacted rootfs + updates."""
         self.assertGreaterEqual(
-            MIN_DISK_SIZE_GB, 20,
-            "MIN_DISK_SIZE_GB must be at least 20 for the full system",
+            MIN_DISK_SIZE_GB, 8,
+            "MIN_DISK_SIZE_GB must be at least 8 for the compact system",
         )
 
     def test_min_disk_size_less_than_separate_home(self):
@@ -513,6 +513,16 @@ class TestRsyncConfig(unittest.TestCase):
     def test_rsync_excludes_pacman_cache(self):
         """Pacman package cache must be excluded to save disk space."""
         self.assertIn("/var/cache/pacman/pkg/*", RSYNC_EXCLUDES)
+
+    def test_rsync_excludes_documentation(self):
+        """Documentation dirs must be excluded to reduce footprint on small disks."""
+        for entry in ("/usr/share/doc/*", "/usr/share/man/*", "/usr/share/info/*"):
+            with self.subTest(exclude=entry):
+                self.assertIn(entry, RSYNC_EXCLUDES)
+
+    def test_rsync_excludes_dev_headers(self):
+        """Development headers are not needed at runtime and save space."""
+        self.assertIn("/usr/include/*", RSYNC_EXCLUDES)
 
 
 if __name__ == "__main__":

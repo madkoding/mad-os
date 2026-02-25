@@ -727,6 +727,20 @@ def _rsync_rootfs_with_progress(app):
         capture_output=True,
     )
 
+    # Additional cleanup to minimise disk footprint on small drives.
+    # Python bytecode caches and __pycache__ dirs are regenerated on import.
+    set_progress(app, 0.45, "Removing temporary build artifacts...")
+    log_message(app, "Removing Python bytecode caches...")
+    subprocess.run(
+        ["find", "/mnt/usr", "-type", "d", "-name", "__pycache__",
+         "-exec", "rm", "-rf", "{}", "+"],
+        capture_output=True,
+    )
+    subprocess.run(
+        ["find", "/mnt/usr", "-name", "*.pyc", "-delete"],
+        capture_output=True,
+    )
+
     # Ensure machine-id is regenerated on first boot
     machine_id = "/mnt/etc/machine-id"
     try:
