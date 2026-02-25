@@ -1510,6 +1510,7 @@ systemctl enable systemd-timesyncd
 systemctl enable greetd
 systemctl enable iwd
 systemctl enable bluetooth
+systemctl enable plymouth-quit-wait.service 2>/dev/null || true
 
 # Audio: PipeWire socket activation for all user sessions
 systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true
@@ -1610,7 +1611,7 @@ chown greeter:greeter /var/lib/greetd
 mkdir -p /etc/systemd/system/greetd.service.d
 cat > /etc/systemd/system/greetd.service.d/override.conf <<'EOFOVERRIDE'
 [Unit]
-After=systemd-logind.service
+After=systemd-logind.service plymouth-quit-wait.service
 Wants=systemd-logind.service
 Conflicts=getty@tty1.service
 After=getty@tty1.service

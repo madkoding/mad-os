@@ -464,6 +464,72 @@ class TestPostInstallServices(unittest.TestCase):
             "Installer must enable greetd for graphical login",
         )
 
+    def test_enables_plymouth_quit_wait(self):
+        """Installer must enable plymouth-quit-wait.service so Plymouth exits at boot."""
+        self.assertIn(
+            "plymouth-quit-wait", self.content,
+            "Installer must enable plymouth-quit-wait.service to prevent Plymouth freeze",
+        )
+
+    def test_greetd_ordered_after_plymouth_quit(self):
+        """greetd override must order After plymouth-quit-wait.service."""
+        self.assertIn(
+            "plymouth-quit-wait.service", self.content,
+            "greetd override must include After=plymouth-quit-wait.service",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Profile scripts safety
+# ═══════════════════════════════════════════════════════════════════════════
+class TestProfileScriptsSafety(unittest.TestCase):
+    """Verify /etc/profile.d scripts use 'return' not 'exit' (they are sourced)."""
+
+    def test_welcome_script_uses_return_not_exit(self):
+        """mados-welcome.sh must use 'return' not 'exit' since it is sourced."""
+        path = os.path.join(AIROOTFS, "etc", "profile.d", "mados-welcome.sh")
+        with open(path) as f:
+            content = f.read()
+        # 'exit' inside a sourced script kills the calling shell
+        self.assertNotIn(
+            "exit 0", content,
+            "mados-welcome.sh must use 'return 0' instead of 'exit 0' — "
+            "scripts in /etc/profile.d/ are sourced, so 'exit' kills the login shell",
+        )
+
+    def test_welcome_script_has_return(self):
+        """mados-welcome.sh should use 'return 0' for early exit."""
+        path = os.path.join(AIROOTFS, "etc", "profile.d", "mados-welcome.sh")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn(
+            "return 0", content,
+            "mados-welcome.sh should use 'return 0' for safe early exit",
+        )
+
+    def test_all_profile_scripts_avoid_exit(self):
+        """No /etc/profile.d/ script should use bare 'exit' (they are all sourced)."""
+        profile_dir = os.path.join(AIROOTFS, "etc", "profile.d")
+        if not os.path.isdir(profile_dir):
+            self.skipTest("profile.d directory not found")
+        for fname in os.listdir(profile_dir):
+            if not fname.endswith(".sh"):
+                continue
+            fpath = os.path.join(profile_dir, fname)
+            with open(fpath) as f:
+                content = f.read()
+            with self.subTest(script=fname):
+                # Check for bare 'exit' statements that would kill the sourcing shell
+                for i, line in enumerate(content.splitlines(), 1):
+                    stripped = line.strip()
+                    if stripped.startswith("#"):
+                        continue
+                    self.assertNotRegex(
+                        stripped, r'\bexit\b',
+                        f"{fname}:{i} uses 'exit' — must use 'return' instead "
+                        f"(scripts in /etc/profile.d/ are sourced, not executed)",
+                    )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Initramfs / mkinitcpio preset restoration

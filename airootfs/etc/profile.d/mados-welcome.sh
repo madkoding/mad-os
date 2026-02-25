@@ -5,11 +5,11 @@ WELCOME_INFO_SHOWN="/tmp/.mados-welcome-info-shown"
 
 # Only show once per boot
 if [[ -f "$WELCOME_INFO_SHOWN" ]]; then
-    exit 0
+    return 0
 fi
 
 if [[ ! -d /run/archiso ]]; then
-    exit 0
+    return 0
 fi
 
 if [[ -t 0 && -t 1 ]]; then
