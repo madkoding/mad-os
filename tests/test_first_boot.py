@@ -1,27 +1,26 @@
 #!/usr/bin/env python3
 """
-Tests for madOS first-boot post-installation configuration.
+Tests for madOS post-installation configuration.
 
-Validates the first-boot script that runs after installation on the first reboot.
-Phase 2 is a lightweight verification pass — all packages, services, scripts,
-and config files are pre-installed on the live USB and copied via rsync during
-Phase 1.  Services are enabled in the Phase 1 chroot.
+Validates the installer's chroot configuration script that runs during
+installation.  All packages, services, scripts, and config files are
+pre-installed on the live USB and copied via rsync.  The chroot script
+enables services and verifies the graphical environment.
 
-Phase 2 only verifies the graphical environment (cage, regreet, sway,
-session scripts) and enables TTY fallbacks if anything is missing, then
-disables itself.
+There is no Phase 2 / first-boot service — everything is done in a single
+installation pass.
 
 These tests verify:
-1. The first-boot service and script are properly created during installation
-2. The script has valid bash syntax
-3. The script contains all required configuration steps
-4. Services are enabled appropriately
-5. No internet downloads occur during Phase 2
+1. The config script has valid structure
+2. Services are enabled correctly
+3. Pre-installed files exist (audio, Chromium, Oh My Zsh)
+4. Graphical environment verification is present
+5. No internet downloads occur during installation
+6. No redundant setup services for pre-installed programs
 """
 
 import os
 import re
-import subprocess
 import sys
 import unittest
 
@@ -49,10 +48,10 @@ sys.path.insert(0, LIB_DIR)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# First-boot service setup
+# No Phase 2 / first-boot service should exist
 # ═══════════════════════════════════════════════════════════════════════════
-class TestFirstBootServiceSetup(unittest.TestCase):
-    """Verify the installer sets up the first-boot service correctly."""
+class TestNoFirstBootService(unittest.TestCase):
+    """Verify there is no Phase 2 / first-boot service in the installer."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -63,249 +62,40 @@ class TestFirstBootServiceSetup(unittest.TestCase):
         with open(install_py) as f:
             self.content = f.read()
 
-    def test_creates_first_boot_script(self):
-        """Installer must create /usr/local/bin/mados-first-boot.sh."""
-        self.assertIn(
-            "/usr/local/bin/mados-first-boot.sh", self.content,
-            "Installer must create mados-first-boot.sh script",
-        )
-
-    def test_creates_first_boot_service(self):
-        """Installer must create mados-first-boot.service."""
-        self.assertIn(
+    def test_no_first_boot_service(self):
+        """Installer must NOT create mados-first-boot.service."""
+        self.assertNotIn(
             "mados-first-boot.service", self.content,
-            "Installer must create mados-first-boot.service",
+            "No first-boot service should exist — all config is done in chroot",
         )
 
-    def test_enables_first_boot_service(self):
-        """Installer must enable the first-boot service."""
-        self.assertIn(
-            "systemctl enable mados-first-boot.service", self.content,
-            "Installer must enable mados-first-boot.service",
-        )
-
-    def test_service_runs_after_local_fs(self):
-        """First-boot service must wait for local filesystem (offline, no network needed)."""
-        self.assertIn(
-            "After=local-fs.target", self.content,
-            "Service must run after local-fs.target (Phase 2 is 100% offline)",
-        )
-
-    def test_service_does_not_need_network(self):
-        """First-boot service must NOT depend on network (Phase 2 is 100% offline)."""
-        # Phase 2 only configures services and creates fallback services.
-        # Network dependency would delay boot and is not needed.
-        # Check the service definition (not the fallback services inside heredocs)
-        lines = self.content.splitlines()
-        in_heredoc = False
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("cat >") and "<<" in stripped:
-                in_heredoc = True
-            if in_heredoc and stripped in ("EOFSVC", "EOFSETUP"):
-                in_heredoc = False
-                continue
-            if not in_heredoc and "mados-first-boot.service" in stripped:
-                # We're near the service definition
-                pass
-        # The first-boot service definition should use local-fs.target, not network
+    def test_no_first_boot_script(self):
+        """Installer must NOT create mados-first-boot.sh."""
         self.assertNotIn(
-            "After=network-online.target\nWants=network-online.target\n"
-            "ConditionPathExists=/usr/local/bin/mados-first-boot.sh",
-            self.content,
-            "First-boot service must not use network-online.target (Phase 2 is offline)",
+            "mados-first-boot.sh", self.content,
+            "No first-boot script should exist — all config is done in chroot",
         )
 
-    def test_service_is_oneshot(self):
-        """First-boot service must be Type=oneshot."""
-        self.assertIn(
-            "Type=oneshot", self.content,
-            "Service must be Type=oneshot (runs once)",
-        )
-
-    def test_service_has_timeout(self):
-        """First-boot service must have a reasonable timeout."""
-        self.assertIn(
-            "TimeoutStartSec", self.content,
-            "Service must have TimeoutStartSec for configuration steps",
-        )
-
-    def test_service_runs_before_greetd(self):
-        """First-boot service must complete before greetd starts.
-
-        Phase 2 creates the greetd config and enables services. If greetd
-        starts before Phase 2 finishes, the login screen may fail due to
-        missing config files.
-        """
-        self.assertIn(
-            "Before=greetd.service", self.content,
-            "Service must run before greetd.service to ensure config is ready",
-        )
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# First-boot script generation
-# ═══════════════════════════════════════════════════════════════════════════
-class TestFirstBootScriptGeneration(unittest.TestCase):
-    """Verify the first-boot script is generated correctly."""
-
-    def setUp(self):
-        install_py = os.path.join(
-            LIB_DIR, "mados_installer", "pages", "installation.py"
-        )
-        if not os.path.isfile(install_py):
-            self.skipTest("installation.py not found")
-        with open(install_py) as f:
-            self.content = f.read()
-
-    def test_has_build_first_boot_script_function(self):
-        """Installer must have _build_first_boot_script function."""
-        self.assertIn(
+    def test_no_build_first_boot_function(self):
+        """Installer must NOT have _build_first_boot_script function."""
+        self.assertNotIn(
             "def _build_first_boot_script", self.content,
-            "Must have _build_first_boot_script function",
+            "No _build_first_boot_script function should exist",
         )
 
-    def test_script_has_shebang(self):
-        """Generated script must have bash shebang."""
-        self.assertIn(
-            "#!/bin/bash", self.content,
-            "First-boot script must have bash shebang",
-        )
-
-    def test_script_uses_strict_mode(self):
-        """Generated script must use set -e for error detection."""
-        # The first-boot script uses 'set -e' initially, then 'set +e' for
-        # non-critical operations.  We verify 'set -e' is present.
-        self.assertIn(
-            "set -e", self.content,
-            "First-boot script must use 'set -e' for error detection",
-        )
-
-    def test_script_has_logging(self):
-        """Generated script must have logging functionality."""
-        self.assertIn(
-            'LOG_TAG="mados-first-boot"', self.content,
-            "Script must define LOG_TAG for journald logging",
-        )
-        self.assertIn(
-            "log()", self.content,
-            "Script must have log() function",
-        )
-
-    def test_script_has_file_logging(self):
-        """Generated script must log to a persistent file."""
-        self.assertIn(
-            "LOG_FILE=", self.content,
-            "Script must define LOG_FILE for persistent file logging",
-        )
-        self.assertIn(
-            "/var/log/mados-first-boot.log", self.content,
-            "Script must log to /var/log/mados-first-boot.log",
-        )
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Phase 2 is fully offline
-# ═══════════════════════════════════════════════════════════════════════════
-class TestPhase2FullyOffline(unittest.TestCase):
-    """Verify Phase 2 does NOT download anything from the internet."""
-
-    def setUp(self):
-        install_py = os.path.join(
-            LIB_DIR, "mados_installer", "pages", "installation.py"
-        )
-        if not os.path.isfile(install_py):
-            self.skipTest("installation.py not found")
-        with open(install_py) as f:
-            self.content = f.read()
-
-    def test_no_redundant_system_update(self):
-        """Script must NOT run 'pacman -Syu' (packages are already installed from ISO)."""
+    def test_no_phase2_references(self):
+        """Installer must NOT reference 'Phase 2'."""
         self.assertNotIn(
-            "pacman -Syu", self.content,
-            "Must not run 'pacman -Syu' — all ISO packages are already installed via rsync",
+            "Phase 2", self.content,
+            "No Phase 2 references should exist in the installer",
         )
-
-    def test_no_internet_check_in_first_boot(self):
-        """Phase 2 must NOT check internet (it is 100% offline)."""
-        # The _build_first_boot_script generates the bash script inline.
-        # Extract just the generated script portion (inside the f-string).
-        self.assertNotIn(
-            "INTERNET_AVAILABLE", self.content,
-            "Phase 2 must not use INTERNET_AVAILABLE — it is 100% offline",
-        )
-
-    def test_no_inline_git_clone(self):
-        """Phase 2 must NOT clone repos (Nordic, Oh My Zsh are copied from ISO)."""
-        # Check the first-boot script template (f-string) does not contain git clone
-        self.assertNotIn(
-            "git clone", self.content,
-            "Phase 2 must not git clone anything — everything comes from the ISO",
-        )
-
-    def test_no_inline_opencode_install(self):
-        """Phase 2 must NOT download OpenCode (binary is copied from ISO)."""
-        # The setup script creation is fine (it's for manual retry),
-        # but the direct curl install should not be there.
-        # Look for the inline install pattern (curl | bash outside of heredoc)
-        lines = self.content.splitlines()
-        in_heredoc = False
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("cat >") and "<<" in stripped:
-                in_heredoc = True
-            if in_heredoc and stripped in ("EOFSETUP", "EOFSVC", "EOFAUDIO",
-                                           "EOFCHROMIUM", "EOFPOLICY",
-                                           "EOFUSRSVC"):
-                in_heredoc = False
-                continue
-            if not in_heredoc and "opencode.ai/install" in stripped:
-                self.fail(
-                    "Phase 2 must not directly download OpenCode — "
-                    "it should be copied from the ISO via rsync"
-                )
-
-    def test_no_inline_ollama_install(self):
-        """Phase 2 must NOT download Ollama (binary is copied from ISO)."""
-        lines = self.content.splitlines()
-        in_heredoc = False
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("cat >") and "<<" in stripped:
-                in_heredoc = True
-            if in_heredoc and stripped in ("EOFSETUP", "EOFSVC", "EOFAUDIO",
-                                           "EOFCHROMIUM", "EOFPOLICY",
-                                           "EOFUSRSVC"):
-                in_heredoc = False
-                continue
-            if not in_heredoc and "ollama.com/install.sh" in stripped:
-                self.fail(
-                    "Phase 2 must not directly download Ollama — "
-                    "it should be copied from the ISO via rsync"
-                )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Phase 2 is now minimal — only graphical verification + cleanup
-# ═══════════════════════════════════════════════════════════════════════════
-class TestPhase2Configuration(unittest.TestCase):
-    """Verify Phase 2 is a lightweight verification pass only."""
-
-    def setUp(self):
-        install_py = os.path.join(
-            LIB_DIR, "mados_installer", "pages", "installation.py"
-        )
-        if not os.path.isfile(install_py):
-            self.skipTest("installation.py not found")
-        with open(install_py) as f:
-            self.content = f.read()
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Service enablement — now in Phase 1 config script (chroot)
+# Service enablement — in chroot config script
 # ═══════════════════════════════════════════════════════════════════════════
 class TestServiceEnablement(unittest.TestCase):
-    """Verify services are enabled in the Phase 1 config script (chroot)."""
+    """Verify services are enabled in the chroot config script."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -449,11 +239,10 @@ class TestOhMyZshFallbackService(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# OpenCode and Ollama are programs copied by rsync (no Phase 2 action)
+# No redundant setup scripts for pre-installed programs
 # ═══════════════════════════════════════════════════════════════════════════
-class TestOpenCodeOllamaNotInPhase2(unittest.TestCase):
-    """Verify Phase 2 does NOT redundantly create setup scripts for programs
-    that are already copied from the live USB via rsync."""
+class TestNoRedundantSetupScripts(unittest.TestCase):
+    """Verify installer does NOT create setup scripts for pre-installed programs."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -480,10 +269,10 @@ class TestOpenCodeOllamaNotInPhase2(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Self-cleanup
+# Installer is fully offline (no downloads during installation)
 # ═══════════════════════════════════════════════════════════════════════════
-class TestFirstBootSelfCleanup(unittest.TestCase):
-    """Verify the first-boot script disables itself after running."""
+class TestInstallerFullyOffline(unittest.TestCase):
+    """Verify the installer does NOT download anything from the internet."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -494,32 +283,33 @@ class TestFirstBootSelfCleanup(unittest.TestCase):
         with open(install_py) as f:
             self.content = f.read()
 
-    def test_disables_service(self):
-        """Script must disable mados-first-boot.service after running."""
-        self.assertIn(
-            "systemctl disable mados-first-boot", self.content,
-            "Script must disable itself after completion",
+    def test_no_redundant_system_update(self):
+        """Script must NOT run 'pacman -Syu' (packages are already installed from ISO)."""
+        self.assertNotIn(
+            "pacman -Syu", self.content,
+            "Must not run 'pacman -Syu' — all ISO packages are already installed via rsync",
         )
 
-    def test_removes_script(self):
-        """Script must remove itself after running."""
-        self.assertIn(
-            "rm", self.content,
-            "Script must remove itself",
+    def test_no_internet_check(self):
+        """Installer must NOT check internet availability."""
+        self.assertNotIn(
+            "INTERNET_AVAILABLE", self.content,
+            "Installer must not use INTERNET_AVAILABLE — it is 100% offline",
         )
-        # Check it removes the script file
-        pattern = r"rm[^\n]*mados-first-boot\.sh"
-        self.assertIsNotNone(
-            re.search(pattern, self.content),
-            "Script must remove mados-first-boot.sh file",
+
+    def test_no_git_clone(self):
+        """Installer must NOT clone repos (everything comes from the ISO)."""
+        self.assertNotIn(
+            "git clone", self.content,
+            "Installer must not git clone anything — everything comes from the ISO",
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Graphical environment verification
+# Graphical environment verification (now in chroot config script)
 # ═══════════════════════════════════════════════════════════════════════════
 class TestGraphicalEnvironmentVerification(unittest.TestCase):
-    """Verify Phase 2 checks graphical environment components."""
+    """Verify the config script checks graphical environment components."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -531,92 +321,92 @@ class TestGraphicalEnvironmentVerification(unittest.TestCase):
             self.content = f.read()
 
     def test_checks_cage_binary(self):
-        """Phase 2 must verify cage binary exists."""
+        """Config script must verify cage binary exists."""
         self.assertIn(
             "cage", self.content,
-            "Phase 2 must check for cage binary",
+            "Config script must check for cage binary",
         )
 
     def test_checks_regreet_binary(self):
-        """Phase 2 must verify regreet binary exists."""
+        """Config script must verify regreet binary exists."""
         self.assertIn(
             "regreet", self.content,
-            "Phase 2 must check for regreet binary",
+            "Config script must check for regreet binary",
         )
 
     def test_checks_cage_greeter_script(self):
-        """Phase 2 must verify cage-greeter script is executable."""
+        """Config script must verify cage-greeter script is executable."""
         self.assertIn(
             "cage-greeter", self.content,
-            "Phase 2 must check cage-greeter script",
+            "Config script must check cage-greeter script",
         )
 
     def test_checks_greetd_service_enabled(self):
-        """Phase 2 must verify greetd.service is enabled."""
+        """Config script must verify greetd.service is enabled."""
         self.assertIn(
             "greetd.service", self.content,
-            "Phase 2 must check greetd.service status",
+            "Config script must check greetd.service status",
         )
 
     def test_enables_getty_tty2_fallback(self):
-        """Phase 2 must enable getty@tty2 as a fallback login."""
+        """Config script must enable getty@tty2 as a fallback login."""
         self.assertIn(
             "getty@tty2.service", self.content,
-            "Phase 2 must enable getty@tty2 as fallback login",
+            "Config script must enable getty@tty2 as fallback login",
         )
 
     def test_checks_hyprland_session_script(self):
-        """Phase 2 must verify hyprland-session script is executable."""
+        """Config script must verify hyprland-session script is executable."""
         self.assertIn(
             "hyprland-session", self.content,
-            "Phase 2 must check hyprland-session script",
+            "Config script must check hyprland-session script",
         )
 
     def test_checks_start_hyprland_script(self):
-        """Phase 2 must verify start-hyprland script is executable."""
+        """Config script must verify start-hyprland script is executable."""
         self.assertIn(
             "start-hyprland", self.content,
-            "Phase 2 must check start-hyprland script",
+            "Config script must check start-hyprland script",
         )
 
     def test_checks_select_compositor_script(self):
-        """Phase 2 must verify select-compositor script is executable."""
+        """Config script must verify select-compositor script is executable."""
         self.assertIn(
             "select-compositor", self.content,
-            "Phase 2 must check select-compositor script",
+            "Config script must check select-compositor script",
         )
 
     def test_checks_regreet_config(self):
-        """Phase 2 must verify regreet.toml config exists."""
+        """Config script must verify regreet.toml config exists."""
         self.assertIn(
             "regreet.toml", self.content,
-            "Phase 2 must check regreet.toml config",
+            "Config script must check regreet.toml config",
         )
 
     def test_checks_desktop_session_files(self):
-        """Phase 2 must verify wayland session .desktop files exist and have correct Exec."""
+        """Config script must verify wayland session .desktop files exist."""
         self.assertIn(
             "wayland-sessions/sway.desktop", self.content,
-            "Phase 2 must check sway.desktop session file",
+            "Config script must check sway.desktop session file",
         )
         self.assertIn(
             "wayland-sessions/hyprland.desktop", self.content,
-            "Phase 2 must check hyprland.desktop session file",
+            "Config script must check hyprland.desktop session file",
         )
 
     def test_fixes_desktop_exec_lines(self):
-        """Phase 2 must fix .desktop Exec= lines if they don't point to madOS scripts."""
+        """Config script must fix .desktop Exec= lines if they don't point to madOS scripts."""
         self.assertIn(
             "/usr/local/bin/", self.content,
-            "Phase 2 must verify Exec= points to /usr/local/bin/ session scripts",
+            "Config script must verify Exec= points to /usr/local/bin/ session scripts",
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Ollama and OpenCode are pre-installed programs (Phase 1 rsync)
+# Ollama and OpenCode are pre-installed programs (rsync)
 # ═══════════════════════════════════════════════════════════════════════════
 class TestToolsCopiedByRsync(unittest.TestCase):
-    """Verify Phase 1 copies Ollama and OpenCode binaries from live USB."""
+    """Verify the installer copies Ollama and OpenCode binaries from live USB."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -628,17 +418,17 @@ class TestToolsCopiedByRsync(unittest.TestCase):
             self.content = f.read()
 
     def test_copies_ollama_binary(self):
-        """Phase 1 must copy Ollama binary from live USB."""
+        """Installer must copy Ollama binary from live USB."""
         self.assertIn(
             "/usr/local/bin/ollama", self.content,
-            "Phase 1 must copy ollama binary from live USB",
+            "Installer must copy ollama binary from live USB",
         )
 
     def test_copies_opencode_binary(self):
-        """Phase 1 must copy OpenCode binary from live USB."""
+        """Installer must copy OpenCode binary from live USB."""
         self.assertIn(
             "/usr/local/bin/opencode", self.content,
-            "Phase 1 must copy opencode binary from live USB",
+            "Installer must copy opencode binary from live USB",
         )
 
     def test_no_ollama_opencode_service_references(self):
@@ -727,221 +517,36 @@ class TestXDGUserDirectories(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Phase 2 script runtime generation & validation
+# Config script structure validation
 # ═══════════════════════════════════════════════════════════════════════════
-class TestPhase2ScriptGeneration(unittest.TestCase):
-    """Generate the Phase 2 bash script and validate it structurally.
+class TestConfigScriptStructure(unittest.TestCase):
+    """Validate the config script has proper structure."""
 
-    Unlike the static tests above (which grep the Python source), these
-    tests actually call ``_build_first_boot_script()`` and inspect the
-    **generated** bash output to catch runtime issues.
-    """
-
-    @classmethod
-    def setUpClass(cls):
-        """Generate the Phase 2 script once for all tests in this class."""
-        try:
-            from mados_installer.pages.installation import _build_first_boot_script
-        except ImportError:
-            raise unittest.SkipTest("Cannot import _build_first_boot_script")
-        cls.script = _build_first_boot_script({
-            "username": "testuser",
-            "locale": "en_US.UTF-8",
-        })
-        cls.lines = cls.script.splitlines()
-
-    # ── Bash syntax ─────────────────────────────────────────────────────
-    def test_bash_syntax_is_valid(self):
-        """Generated script must pass ``bash -n`` syntax check."""
-        result = subprocess.run(
-            ["bash", "-n"],
-            input=self.script,
-            capture_output=True,
-            text=True,
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
         )
-        self.assertEqual(
-            result.returncode, 0,
-            f"bash -n failed:\n{result.stderr}",
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_progress_markers_use_8_steps(self):
+        """Config script must use 8 progress steps (no Phase 2)."""
+        # Find all PROGRESS markers
+        markers = re.findall(r'\[PROGRESS\s+(\d+)/(\d+)\]', self.content)
+        self.assertGreater(len(markers), 0, "Must have PROGRESS markers")
+        for step, total in markers:
+            with self.subTest(step=step):
+                self.assertEqual(total, "8",
+                                 f"PROGRESS {step}/{total} should be {step}/8")
+
+    def test_no_progress_9_of_9(self):
+        """Config script must NOT have a 9th progress step."""
+        self.assertNotIn(
+            "PROGRESS 9/", self.content,
+            "Config script must not have a 9th progress step",
         )
-
-    # ── Heredoc matching ────────────────────────────────────────────────
-    def test_all_heredocs_are_terminated(self):
-        """Every heredoc opener (<<'TAG') must have a matching terminator."""
-        heredoc_re = re.compile(r"<<\s*'?(\w+)'?")
-        open_tags = []
-        for i, line in enumerate(self.lines, 1):
-            m = heredoc_re.search(line)
-            if m:
-                open_tags.append((m.group(1), i))
-            for tag, _ in list(open_tags):
-                if line.strip() == tag:
-                    open_tags = [(t, ln) for t, ln in open_tags if t != tag]
-        self.assertEqual(
-            open_tags, [],
-            f"Unterminated heredocs: {open_tags}",
-        )
-
-    # ── No username needed in Phase 2 ──────────────────────────────────
-    def test_no_username_in_phase2(self):
-        """Phase 2 should not contain username-specific paths.
-
-        All user-specific config is handled by /etc/skel (copied by rsync)
-        and user creation in Phase 1.
-        """
-        self.assertNotIn("testuser", self.script,
-                          "Phase 2 should not reference specific usernames — "
-                          "user config is in /etc/skel")
-
-    def test_no_unresolved_fstring_placeholders(self):
-        """No stray Python f-string braces like {variable} should remain.
-
-        Legitimate bash braces (``${var}``, ``${{``, array expansions) are
-        excluded.
-        """
-        # Match {word} that is NOT preceded by $ (bash expansion) and NOT
-        # a doubled brace {{ }} (f-string escape).
-        stray = re.findall(r'(?<!\$)(?<!\{)\{([a-z_][a-z_0-9]*)\}(?!\})', self.script)
-        self.assertEqual(
-            stray, [],
-            f"Unresolved f-string placeholders: {stray}",
-        )
-
-    # ── Systemd unit structure ──────────────────────────────────────────
-    def _extract_heredoc_content(self, tag):
-        """Return the content between <<'TAG' and TAG."""
-        capture = False
-        content = []
-        heredoc_re = re.compile(r"<<\s*'?" + re.escape(tag) + r"'?")
-        for line in self.lines:
-            if capture:
-                if line.strip() == tag:
-                    break
-                content.append(line)
-            elif heredoc_re.search(line):
-                capture = True
-        return "\n".join(content)
-
-    def _get_all_heredoc_contents_for_tag(self, tag):
-        """Return list of all heredoc blocks for the given tag."""
-        blocks = []
-        capture = False
-        content = []
-        heredoc_re = re.compile(r"<<\s*'?" + re.escape(tag) + r"'?")
-        for line in self.lines:
-            if capture:
-                if line.strip() == tag:
-                    blocks.append("\n".join(content))
-                    content = []
-                    capture = False
-                else:
-                    content.append(line)
-            elif heredoc_re.search(line):
-                capture = True
-        return blocks
-
-    # ── Phase 2 no longer has heredocs for services/audio/chromium ─────
-    # All that content is pre-installed on the live USB.
-    # Phase 2 only verifies graphical environment + cleanup.
-
-    # ── Error handling ──────────────────────────────────────────────────
-    def test_uses_set_plus_e(self):
-        """Phase 2 script must use set +e (all operations are non-critical)."""
-        self.assertIn("set +e", self.script,
-                       "Phase 2 must use set +e since all operations are non-critical")
-
-    # ── File logging ────────────────────────────────────────────────────
-    def test_has_persistent_file_logging(self):
-        """Generated script must log to a persistent file."""
-        self.assertIn("LOG_FILE=", self.script,
-                       "Script must define LOG_FILE variable")
-        self.assertIn("/var/log/mados-first-boot.log", self.script,
-                       "Script must log to /var/log/mados-first-boot.log")
-
-    # ── Graphical environment verification ──────────────────────────────
-    def test_verifies_graphical_env_binaries(self):
-        """Script must check that graphical environment binaries exist."""
-        for binary in ["cage", "regreet", "sway"]:
-            with self.subTest(binary=binary):
-                self.assertIn(binary, self.script,
-                               f"Script must verify {binary} binary")
-
-    def test_verifies_cage_greeter_script(self):
-        """Script must verify cage-greeter script exists and is executable."""
-        self.assertIn("cage-greeter", self.script,
-                       "Script must check cage-greeter script")
-
-    def test_verifies_greetd_enabled(self):
-        """Script must verify greetd.service is enabled."""
-        self.assertIn("is-enabled greetd", self.script,
-                       "Script must check if greetd.service is enabled")
-
-    def test_enables_getty_tty2_fallback(self):
-        """Script must enable getty@tty2 as a login fallback."""
-        self.assertIn("getty@tty2.service", self.script,
-                       "Script must enable getty@tty2 as fallback login")
-
-    def test_verifies_hyprland_session_scripts(self):
-        """Script must verify hyprland-session and start-hyprland are executable."""
-        self.assertIn("hyprland-session", self.script,
-                       "Script must check hyprland-session script")
-        self.assertIn("start-hyprland", self.script,
-                       "Script must check start-hyprland script")
-
-    def test_verifies_select_compositor(self):
-        """Script must verify select-compositor script is executable."""
-        self.assertIn("select-compositor", self.script,
-                       "Script must check select-compositor script")
-
-    def test_verifies_regreet_config(self):
-        """Script must verify regreet.toml config exists."""
-        self.assertIn("regreet.toml", self.script,
-                       "Script must check regreet.toml config")
-
-    def test_verifies_desktop_session_files(self):
-        """Script must verify wayland session .desktop files."""
-        self.assertIn("sway.desktop", self.script,
-                       "Script must check sway.desktop session file")
-        self.assertIn("hyprland.desktop", self.script,
-                       "Script must check hyprland.desktop session file")
-
-    # ── Ollama/OpenCode are NOT in Phase 2 (copied by rsync) ──────────────
-    def test_no_ollama_service_in_phase2(self):
-        """Phase 2 must NOT create setup-ollama.service — ollama is a program."""
-        self.assertNotIn("setup-ollama.service", self.script,
-                         "Phase 2 must NOT create setup-ollama.service — ollama is a program, not a service")
-
-    def test_no_opencode_service_in_phase2(self):
-        """Phase 2 must NOT create setup-opencode.service — opencode is a program."""
-        self.assertNotIn("setup-opencode.service", self.script,
-                         "Phase 2 must NOT create setup-opencode.service — opencode is a program, not a service")
-
-    def test_no_heredocs_in_phase2(self):
-        """Phase 2 must NOT contain heredocs — all files are pre-installed."""
-        self.assertNotIn("<<'EOF", self.script,
-                         "Phase 2 must not create files via heredocs — they are pre-installed on the live USB")
-
-    # ── systemctl calls are fault-tolerant ──────────────────────────────
-    def test_systemctl_enable_calls_have_fallback(self):
-        """Every 'systemctl enable' must have '|| true' or '2>/dev/null || true'."""
-        for i, line in enumerate(self.lines, 1):
-            stripped = line.strip()
-            if "systemctl enable" in stripped or "systemctl --global enable" in stripped:
-                with self.subTest(line=i, text=stripped):
-                    self.assertTrue(
-                        "|| true" in stripped or "||true" in stripped,
-                        f"Line {i}: systemctl enable without '|| true' fallback — "
-                        "would crash Phase 2 if the service doesn't exist: {stripped}",
-                    )
-
-    # ── Self-cleanup ────────────────────────────────────────────────────
-    def test_script_disables_itself(self):
-        """Script must disable mados-first-boot.service at the end."""
-        self.assertIn("systemctl disable mados-first-boot", self.script)
-
-    def test_script_removes_itself(self):
-        """Script must rm the first-boot script file."""
-        self.assertRegex(self.script, r"rm[^\n]*mados-first-boot\.sh",
-                          "Script must remove mados-first-boot.sh")
 
 
 if __name__ == "__main__":

@@ -196,7 +196,7 @@ step "Phase 3 – Installing base system via pacstrap (Phase 1 packages)"
 
 # Phase 1 package list from mados_installer/config.py (PACKAGES_PHASE1)
 # These are the essential packages installed during USB installation.
-# Phase 2 packages (desktop apps, dev tools) are installed on first boot.
+# Additional packages (desktop apps, dev tools) are also installed from ISO.
 PACKAGES=(
     base base-devel linux linux-firmware intel-ucode amd-ucode
     grub efibootmgr os-prober dosfstools sbctl

@@ -124,9 +124,9 @@ class TestLiveUSBOllamaScript(unittest.TestCase):
 class TestPostInstallOllama(unittest.TestCase):
     """Verify the installer copies Ollama from the live USB via rsync.
 
-    Ollama is a pre-installed program on the live USB.  Phase 1 rsync
+    Ollama is a pre-installed program on the live USB.  The installer rsync
     copies everything (binaries + setup scripts) to the installed system.
-    Phase 2 does NOT need to create scripts or install anything for Ollama.
+    The installer does NOT need to create scripts or install anything for Ollama.
     """
 
     def setUp(self):

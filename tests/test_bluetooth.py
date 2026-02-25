@@ -109,9 +109,9 @@ class TestBluetoothService(unittest.TestCase):
         with open(install_py) as f:
             content = f.read()
         # bluetooth should be enabled alongside other essential services
-        # in Phase 1 (chroot), not just deferred to Phase 2 (first-boot)
+        # in the chroot config script
         essential_block_start = content.find("Essential services")
-        essential_block_end = content.find("PROGRESS 8/9", essential_block_start)
+        essential_block_end = content.find("PROGRESS 8/8", essential_block_start)
         self.assertGreater(essential_block_start, -1, "Essential services block not found")
         essential_block = content[essential_block_start:essential_block_end]
         self.assertIn(

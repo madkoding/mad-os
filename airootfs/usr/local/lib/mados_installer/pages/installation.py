@@ -482,13 +482,10 @@ def _step_copy_desktop_files(app):
 
 
 def _run_installation(app):
-    """Perform Phase 1 installation (runs in background thread).
+    """Perform installation (runs in background thread).
 
-    Phase 1 (from USB): partition, format, install minimal packages, configure
-    bootloader and essential services, set up first-boot service for Phase 2.
-
-    Phase 2 (first boot from installed disk): handled by mados-first-boot.sh
-    which installs remaining packages, desktop config, and services.
+    Partition, format, install packages via rsync, configure bootloader and
+    essential services, verify graphical environment — all in a single pass.
     """
     try:
         data = app.install_data
@@ -562,7 +559,7 @@ def _run_installation(app):
             log_message(app, "[DEMO]   - Hostname configuration")
             log_message(app, "[DEMO]   - User creation")
             log_message(app, "[DEMO]   - GRUB bootloader")
-            log_message(app, "[DEMO]   - First-boot service for Phase 2")
+            log_message(app, "[DEMO]   - Graphical environment verification")
             time.sleep(1)
         else:
             fd = os.open(
@@ -573,16 +570,15 @@ def _run_installation(app):
 
             _step_copy_live_files(app)
 
-        # Step 7: Run Phase 1 chroot configuration
+        # Step 7: Run chroot configuration
         set_progress(app, 0.55, "Applying configurations...")
-        log_message(app, "Running Phase 1 configuration...")
+        log_message(app, "Running chroot configuration...")
         if DEMO_MODE:
             demo_steps = [
                 (0.58, "Installing GRUB bootloader"),
                 (0.64, "Enabling essential services..."),
                 (0.70, "Rebuilding initramfs..."),
-                (0.76, "Setting up first-boot service..."),
-                (0.82, "Preparing Phase 2 setup..."),
+                (0.76, "Verifying graphical environment..."),
             ]
             log_message(app, "[DEMO] Simulating arch-chroot configuration...")
             for progress, desc in demo_steps:
@@ -608,15 +604,12 @@ def _run_installation(app):
 
         set_progress(app, 1.0, "Installation complete!")
         if DEMO_MODE:
-            log_message(app, "\n[OK] Demo Phase 1 installation completed successfully!")
+            log_message(app, "\n[OK] Demo installation completed successfully!")
             log_message(app, "\n[DEMO] No actual changes were made to your system.")
             log_message(app, "[DEMO] Set DEMO_MODE = False for real installation.")
         else:
-            log_message(app, "\n[OK] Phase 1 installation completed successfully!")
-            log_message(
-                app,
-                "Remaining packages and configuration will be installed on first boot.",
-            )
+            log_message(app, "\n[OK] Installation completed successfully!")
+            log_message(app, "madOS is fully configured and ready to use.")
 
         GLib.idle_add(_finish_installation, app)
 
@@ -1159,11 +1152,11 @@ def _run_chroot_with_progress(app):
 
 
 def _build_config_script(data):
-    """Build the Phase 1 chroot configuration shell script.
+    """Build the chroot configuration shell script.
 
-    Phase 1 handles: timezone, locale, hostname, user account, GRUB bootloader,
+    Handles: timezone, locale, hostname, user account, GRUB bootloader,
     Plymouth, initramfs, essential services, system optimizations, desktop
-    environment basics, and sets up the first-boot service for Phase 2.
+    environment basics, and graphical environment verification.
     """
     disk = data["disk"]
 
@@ -1187,13 +1180,10 @@ def _build_config_script(data):
     if not re.match(r"^[a-z_][a-z0-9_-]*$", username):
         raise ValueError(f"Invalid username: {username}")
 
-    # Build the Phase 2 first-boot script content
-    first_boot_script = _build_first_boot_script(data)
-
     return f'''#!/bin/bash
 set -e
 
-echo "[PROGRESS 1/9] Setting timezone and locale..."
+echo "[PROGRESS 1/8] Setting timezone and locale..."
 # Timezone
 ln -sf /usr/share/zoneinfo/{timezone} /etc/localtime
 hwclock --systohc 2>/dev/null || true
@@ -1204,7 +1194,7 @@ echo "{locale} UTF-8" >> /etc/locale.gen
 locale-gen
 echo "LANG={locale}" > /etc/locale.conf
 
-echo '[PROGRESS 2/9] Creating user account...'
+echo '[PROGRESS 2/8] Creating user account...'
 # Hostname
 echo '{_escape_shell(data["hostname"])}' > /etc/hostname
 cat > /etc/hosts <<EOF
@@ -1248,7 +1238,7 @@ if [ ! -s /boot/vmlinuz-linux ] || [ ! -r /boot/vmlinuz-linux ]; then
     exit 1
 fi
 
-echo '[PROGRESS 3/9] Installing GRUB bootloader...'
+echo '[PROGRESS 3/8] Installing GRUB bootloader...'
 # GRUB - Auto-detect UEFI or BIOS
 if [ -d /sys/firmware/efi ]; then
     echo "==> Detected UEFI boot mode"
@@ -1343,7 +1333,7 @@ else
     fi
 fi
 
-echo '[PROGRESS 4/9] Configuring GRUB...'
+echo '[PROGRESS 4/8] Configuring GRUB...'
 # Configure GRUB
 sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="zswap.enabled=0 splash quiet"/' /etc/default/grub
 sed -i 's/GRUB_DISTRIBUTOR="Arch"/GRUB_DISTRIBUTOR="madOS"/' /etc/default/grub
@@ -1354,7 +1344,7 @@ if [ ! -f /boot/grub/grub.cfg ]; then
     exit 1
 fi
 
-echo '[PROGRESS 5/9] Setting up Plymouth boot splash...'
+echo '[PROGRESS 5/8] Setting up Plymouth boot splash...'
 # Plymouth theme
 mkdir -p /usr/share/plymouth/themes/mados
 cat > /usr/share/plymouth/themes/mados/mados.plymouth <<EOFPLY
@@ -1429,7 +1419,7 @@ ShowDelay=0
 DeviceTimeout=5
 EOFPLYCONF
 
-echo '[PROGRESS 6/9] Rebuilding initramfs (this takes a while)...'
+echo '[PROGRESS 6/8] Rebuilding initramfs (this takes a while)...'
 # Rebuild initramfs with plymouth and microcode hooks
 # KMS must come before plymouth so GPU drivers are loaded before the splash starts
 sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode modconf kms plymouth block filesystems keyboard fsck)/' /etc/mkinitcpio.conf
@@ -1468,12 +1458,12 @@ fi
 
 mkinitcpio -P
 
-echo '[PROGRESS 7/9] Enabling essential services...'
+echo '[PROGRESS 7/8] Enabling essential services...'
 # Lock root account (security: users should use sudo)
 passwd -l root
 
 # Essential services — all pre-installed on the live USB and copied by rsync.
-# Audio, Chromium, Oh My Zsh services are also pre-installed (no Phase 2 needed).
+# Audio, Chromium, Oh My Zsh services are also pre-installed.
 systemctl enable NetworkManager
 systemctl enable systemd-resolved
 systemctl enable earlyoom
@@ -1485,7 +1475,7 @@ systemctl enable bluetooth
 # Audio: PipeWire socket activation for all user sessions
 systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true
 
-echo '[PROGRESS 8/9] Applying system configuration...'
+echo '[PROGRESS 8/8] Applying system configuration...'
 # --- Non-critical section: errors below should not abort installation ---
 set +e
 
@@ -1644,108 +1634,43 @@ MIN_FREE_SPACE_MB=512
 EOFVENTOY
 chmod 644 /etc/mados/ventoy-persist.conf
 
-echo '[PROGRESS 9/9] Setting up first-boot service for Phase 2...'
-# Write the Phase 2 first-boot script
-mkdir -p /usr/local/bin
-cat > /usr/local/bin/mados-first-boot.sh <<'EOFFIRSTBOOT'
-{first_boot_script}
-EOFFIRSTBOOT
-chmod 755 /usr/local/bin/mados-first-boot.sh
-
-# Create the systemd service for Phase 2 first-boot setup
-# Phase 2 is 100% offline — no network dependency needed
-# Must run before greetd so graphical config is ready before login screen
-cat > /etc/systemd/system/mados-first-boot.service <<'EOFSVC'
-[Unit]
-Description=madOS First Boot Setup (Phase 2) - Configure services (offline)
-After=local-fs.target
-Before=greetd.service
-ConditionPathExists=/usr/local/bin/mados-first-boot.sh
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/mados-first-boot.sh
-StandardOutput=journal+console
-StandardError=journal+console
-TimeoutStartSec=600
-
-[Install]
-WantedBy=multi-user.target
-EOFSVC
-systemctl enable mados-first-boot.service
-echo "Phase 2 first-boot service installed and enabled"
-'''
-
-
-def _build_first_boot_script(data):
-    """Build the Phase 2 first-boot shell script.
-
-    This script runs on the first boot from the installed disk.  All packages,
-    tools, services, and configuration files from the ISO are already present
-    (copied via rsync during Phase 1, services enabled in chroot).
-
-    Phase 2 is a lightweight verification pass — it checks that the graphical
-    environment components are in place and enables fallback TTY login if
-    anything is missing, then disables itself.
-    """
-
-    return """#!/bin/bash
-# madOS First Boot Setup (Phase 2)
-# All packages, services, and config are already installed via rsync + chroot.
-# This script only verifies the graphical environment and cleans up.
-
-set +e
-
-LOG_FILE="/var/log/mados-first-boot.log"
-LOG_TAG="mados-first-boot"
-log() {
-    local msg="[Phase 2] $1"
-    echo "$msg"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') $msg" >> "$LOG_FILE" 2>/dev/null || true
-    systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/dev/null || true
-}
-
-log "Starting madOS Phase 2 verification..."
-
-# ── Step 1: Verify graphical environment components ─────────────────────
-# All services, scripts, and config files are pre-installed on the live USB
-# and copied via rsync.  Services are enabled in the Phase 1 chroot.
-# Phase 2 only verifies the graphical environment and enables fallbacks.
-log "Verifying graphical environment components..."
+# ── Graphical environment verification ──────────────────────────────────
+# Verify graphical environment components and set up TTY fallbacks.
+# All packages, scripts, and configs are already installed via rsync + chroot.
+echo "Verifying graphical environment components..."
 GRAPHICAL_OK=1
 for bin in cage regreet sway; do
     if command -v "$bin" &>/dev/null; then
-        log "  ✓ $bin found: $(command -v "$bin")"
+        echo "  ✓ $bin found: $(command -v "$bin")"
     else
-        log "  ✗ $bin NOT found — graphical login may fail"
+        echo "  ✗ $bin NOT found — graphical login may fail"
         GRAPHICAL_OK=0
     fi
 done
 
 for script in /usr/local/bin/cage-greeter /usr/local/bin/sway-session /usr/local/bin/hyprland-session /usr/local/bin/start-hyprland /usr/local/bin/select-compositor; do
     if [ -x "$script" ]; then
-        log "  ✓ $script is executable"
+        echo "  ✓ $script is executable"
     elif [ -f "$script" ]; then
-        log "  ✗ $script exists but is not executable — fixing..."
+        echo "  ✗ $script exists but is not executable — fixing..."
         chmod +x "$script"
     else
-        log "  ✗ $script NOT found — graphical login may fail"
+        echo "  ✗ $script NOT found — graphical login may fail"
         GRAPHICAL_OK=0
     fi
 done
 
 if [ -f /etc/greetd/config.toml ]; then
-    log "  ✓ greetd config exists"
+    echo "  ✓ greetd config exists"
 else
-    log "  ✗ greetd config NOT found — graphical login may fail"
+    echo "  ✗ greetd config NOT found — graphical login may fail"
     GRAPHICAL_OK=0
 fi
 
 if [ -f /etc/greetd/regreet.toml ]; then
-    log "  ✓ regreet config exists"
+    echo "  ✓ regreet config exists"
 else
-    log "  ✗ regreet.toml NOT found — greeter UI may fail"
+    echo "  ✗ regreet.toml NOT found — greeter UI may fail"
     GRAPHICAL_OK=0
 fi
 
@@ -1753,24 +1678,24 @@ fi
 for session_file in /usr/share/wayland-sessions/sway.desktop /usr/share/wayland-sessions/hyprland.desktop; do
     if [ -f "$session_file" ]; then
         if grep -q "/usr/local/bin/" "$session_file"; then
-            log "  ✓ $session_file has madOS session script"
+            echo "  ✓ $session_file has madOS session script"
         else
-            log "  ⚠ $session_file exists but Exec= may not point to madOS script — fixing..."
+            echo "  ⚠ $session_file exists but Exec= may not point to madOS script — fixing..."
             session_name=$(basename "$session_file" .desktop)
-            if [ -x "/usr/local/bin/${session_name}-session" ]; then
-                sed -i "s|^Exec=.*|Exec=/usr/local/bin/${session_name}-session|" "$session_file"
-                log "    Fixed: Exec=/usr/local/bin/${session_name}-session"
+            if [ -x "/usr/local/bin/${{session_name}}-session" ]; then
+                sed -i "s|^Exec=.*|Exec=/usr/local/bin/${{session_name}}-session|" "$session_file"
+                echo "    Fixed: Exec=/usr/local/bin/${{session_name}}-session"
             fi
         fi
     else
-        log "  ✗ $session_file NOT found — session may not appear in greeter"
+        echo "  ✗ $session_file NOT found — session may not appear in greeter"
     fi
 done
 
 if systemctl is-enabled greetd.service &>/dev/null; then
-    log "  ✓ greetd.service is enabled"
+    echo "  ✓ greetd.service is enabled"
 else
-    log "  ✗ greetd.service is NOT enabled — enabling..."
+    echo "  ✗ greetd.service is NOT enabled — enabling..."
     systemctl enable greetd.service 2>/dev/null || true
 fi
 
@@ -1779,15 +1704,11 @@ fi
 systemctl enable getty@tty2.service 2>/dev/null || true
 
 if [ "$GRAPHICAL_OK" -eq 0 ]; then
-    log "  ⚠ Some graphical components are missing. Enabling getty@tty1 as fallback..."
+    echo "  ⚠ Some graphical components are missing. Enabling getty@tty1 as fallback..."
     systemctl enable getty@tty1.service 2>/dev/null || true
 fi
 
-# ── Step 2: Cleanup ─────────────────────────────────────────────────────
-log "Phase 2 verification complete! Disabling first-boot service..."
-systemctl disable mados-first-boot.service 2>/dev/null || true
-rm -f /usr/local/bin/mados-first-boot.sh
+echo "Graphical environment verification complete."
+'''
 
-log "madOS is fully configured. Enjoy!"
-log "Log saved to: $LOG_FILE"
-"""
+

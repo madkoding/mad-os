@@ -184,9 +184,9 @@ class TestPackageLists(unittest.TestCase):
         self.assertEqual(PACKAGES, PACKAGES_PHASE1 + PACKAGES_PHASE2)
 
     def test_no_duplicate_packages(self):
-        """No package should appear in both Phase 1 and Phase 2."""
+        """No package should appear in both Phase 1 and Phase 2 lists."""
         overlap = set(PACKAGES_PHASE1) & set(PACKAGES_PHASE2)
-        self.assertEqual(overlap, set(), f"Packages in both phases: {overlap}")
+        self.assertEqual(overlap, set(), f"Packages in both lists: {overlap}")
 
     def test_essential_phase1_packages(self):
         essential = [

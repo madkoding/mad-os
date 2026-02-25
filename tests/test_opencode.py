@@ -115,9 +115,9 @@ class TestLiveUSBOpenCodeScript(unittest.TestCase):
 class TestPostInstallOpenCode(unittest.TestCase):
     """Verify the installer copies OpenCode from the live USB via rsync.
 
-    OpenCode is a pre-installed program on the live USB.  Phase 1 rsync
+    OpenCode is a pre-installed program on the live USB.  The installer rsync
     copies everything (binaries + setup scripts) to the installed system.
-    Phase 2 does NOT need to create scripts or install anything for OpenCode.
+    The installer does NOT need to create scripts or install anything for OpenCode.
     """
 
     def setUp(self):
