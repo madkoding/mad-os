@@ -604,7 +604,8 @@ def _rsync_rootfs_with_progress(app):
     log_message(app, "Copying live system to target disk (rsync)...")
     log_message(app, "  (Packages already installed in the ISO – no download needed)")
 
-    cmd = ["rsync", "-aAXH", "--info=progress2", "--no-inc-recursive"]
+    cmd = ["rsync", "-aAXHWS", "--info=progress2", "--no-inc-recursive",
+           "--numeric-ids"]
     for exc in RSYNC_EXCLUDES:
         cmd.extend(["--exclude", exc])
     cmd.extend(["/", "/mnt/"])

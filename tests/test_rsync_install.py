@@ -148,13 +148,14 @@ class TestRsyncCommand(unittest.TestCase):
         return popen_calls, run_calls
 
     def test_rsync_invoked_with_correct_flags(self):
-        """rsync must be called with -aAXH --info=progress2 --no-inc-recursive."""
+        """rsync must be called with -aAXHWS --info=progress2 --no-inc-recursive --numeric-ids."""
         popen_calls, _ = self._run_rsync()
         rsync_cmd = popen_calls[0]
         self.assertEqual(rsync_cmd[0], "rsync")
-        self.assertIn("-aAXH", rsync_cmd)
+        self.assertIn("-aAXHWS", rsync_cmd)
         self.assertIn("--info=progress2", rsync_cmd)
         self.assertIn("--no-inc-recursive", rsync_cmd)
+        self.assertIn("--numeric-ids", rsync_cmd)
 
     def test_rsync_copies_root_to_mnt(self):
         """rsync must copy from '/' to '/mnt/'."""

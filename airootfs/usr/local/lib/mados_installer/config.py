@@ -133,7 +133,11 @@ RSYNC_EXCLUDES = [
     '/tmp/*',  # NOSONAR - rsync exclude pattern, not directory access  # noqa: S5443
     '/mnt/*',
     '/var/cache/pacman/pkg/*',
+    '/var/lib/pacman/sync/*',
     '/var/log/*',
+    '/var/tmp/*',  # NOSONAR - rsync exclude pattern, not directory access
+    '/lost+found',
+    '/swapfile',
     '/etc/fstab',
     '/etc/machine-id',
 ]
