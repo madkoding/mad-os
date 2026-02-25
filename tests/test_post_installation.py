@@ -701,7 +701,7 @@ class TestLiveISOCleanup(unittest.TestCase):
             "disk_size_gb": 60,
             "separate_home": True,
             "username": "testuser",
-            "password": "TestPass123!",
+            "password": "TestPass123!",  # NOSONAR - test fixture, not a real credential
             "hostname": "mados-test",
             "timezone": "America/New_York",
             "locale": "en_US.UTF-8",
@@ -731,7 +731,7 @@ class TestLiveISOCleanup(unittest.TestCase):
             "disk_size_gb": 60,
             "separate_home": True,
             "username": "mados",
-            "password": "TestPass123!",
+            "password": "TestPass123!",  # NOSONAR - test fixture, not a real credential
             "hostname": "mados-test",
             "timezone": "America/New_York",
             "locale": "en_US.UTF-8",
@@ -837,7 +837,7 @@ class TestLiveISOCleanup(unittest.TestCase):
             "disk_size_gb": 60,
             "separate_home": True,
             "username": "testuser",
-            "password": "TestPass123!",
+            "password": "TestPass123!",  # NOSONAR - test fixture, not a real credential
             "hostname": "mados-test",
             "timezone": "America/New_York",
             "locale": "en_US.UTF-8",
