@@ -15,6 +15,7 @@ from ..config import (
     DEMO_MODE,
     PACKAGES,
     RSYNC_EXCLUDES,
+    POST_COPY_CLEANUP,
     ARCHISO_PACKAGES,
     NORD_FROST,
     LOCALE_KB_MAP,
@@ -652,6 +653,27 @@ def _finish_installation(app):
     return False
 
 
+def _post_rsync_cleanup(app):
+    """Remove bulky files from the target after rsync to reclaim disk space.
+
+    Expands glob patterns from ``POST_COPY_CLEANUP`` (relative to ``/mnt``)
+    and removes matching paths.  Also sweeps for scattered ``__pycache__``
+    directories.  Errors are silently ignored so a missing path never aborts
+    the installation.
+    """
+    for pattern in POST_COPY_CLEANUP:
+        full = os.path.join("/mnt", pattern)
+        for path in globmod.glob(full):
+            subprocess.run(["rm", "-rf", path], check=False)
+    # Remove scattered __pycache__ directories
+    subprocess.run(
+        ["find", "/mnt/usr", "-type", "d", "-name", "__pycache__",
+         "-exec", "rm", "-rf", "{}", "+"],
+        check=False, capture_output=True,
+    )
+    log_message(app, "  Disk footprint reduced")
+
+
 def _rsync_rootfs_with_progress(app):
     """Copy the live root filesystem to /mnt using rsync.
 
@@ -714,8 +736,13 @@ def _rsync_rootfs_with_progress(app):
 
     log_message(app, "  System files copied successfully")
 
-    # --- Archiso cleanup (0.43 → 0.48) ---
-    set_progress(app, 0.43, "Cleaning archiso artifacts...")
+    # --- Post-copy cleanup (0.43 → 0.45) ---
+    set_progress(app, 0.43, "Reducing disk footprint...")
+    log_message(app, "Removing unnecessary files to save disk space...")
+    _post_rsync_cleanup(app)
+
+    # --- Archiso cleanup (0.45 → 0.48) ---
+    set_progress(app, 0.45, "Cleaning archiso artifacts...")
     log_message(app, "Removing archiso-specific packages...")
     subprocess.run(
         ["arch-chroot", "/mnt", "pacman", "-Rdd", "--noconfirm"]

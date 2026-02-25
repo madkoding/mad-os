@@ -131,6 +131,33 @@ RSYNC_EXCLUDES = [
     '/swapfile',
     '/etc/fstab',
     '/etc/machine-id',
+    # Documentation — saves ~200-400 MB (reinstallable via pacman)
+    '/usr/share/doc/*',
+    '/usr/share/man/*',
+    '/usr/share/info/*',
+    '/usr/share/gtk-doc/*',
+    '/usr/share/help/*',
+    # GPU firmware for non-Intel hardware — saves ~500-700 MB
+    # (madOS targets Intel Atom systems with integrated graphics)
+    '/usr/lib/firmware/amdgpu/*',
+    '/usr/lib/firmware/nvidia/*',
+    # Archiso live-only initcpio configuration
+    '/etc/initcpio/*',
+]
+
+# Paths (relative to /mnt) to remove after the rsync copy to reclaim
+# additional disk space on small (8 GB) installations.  Glob wildcards
+# are expanded at cleanup time.
+POST_COPY_CLEANUP = [
+    # Python test suites — not needed at runtime
+    'usr/lib/python*/test',
+    'usr/lib/python*/*/test',
+    # C/C++ header files — only needed for compilation
+    'usr/include',
+    # Static libraries — only needed for static linking
+    'usr/lib/*.a',
+    # Go standard library object files
+    'usr/lib/go',
 ]
 
 # Archiso-specific packages to remove after copying the live rootfs.
