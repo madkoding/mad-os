@@ -589,5 +589,256 @@ class TestXDGUserDirectories(unittest.TestCase):
             "xdg-user-dirs package must be in packages.x86_64",
         )
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Phase 2 script runtime generation & validation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestPhase2ScriptGeneration(unittest.TestCase):
+    """Generate the Phase 2 bash script and validate it structurally.
+
+    Unlike the static tests above (which grep the Python source), these
+    tests actually call ``_build_first_boot_script()`` and inspect the
+    **generated** bash output to catch runtime issues.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        """Generate the Phase 2 script once for all tests in this class."""
+        try:
+            from mados_installer.pages.installation import _build_first_boot_script
+        except ImportError:
+            raise unittest.SkipTest("Cannot import _build_first_boot_script")
+        cls.script = _build_first_boot_script({
+            "username": "testuser",
+            "locale": "en_US.UTF-8",
+        })
+        cls.lines = cls.script.splitlines()
+
+    # ── Bash syntax ─────────────────────────────────────────────────────
+    def test_bash_syntax_is_valid(self):
+        """Generated script must pass ``bash -n`` syntax check."""
+        result = subprocess.run(
+            ["bash", "-n"],
+            input=self.script,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(
+            result.returncode, 0,
+            f"bash -n failed:\n{result.stderr}",
+        )
+
+    # ── Heredoc matching ────────────────────────────────────────────────
+    def test_all_heredocs_are_terminated(self):
+        """Every heredoc opener (<<'TAG') must have a matching terminator."""
+        heredoc_re = re.compile(r"<<\s*'?(\w+)'?")
+        open_tags = []
+        for i, line in enumerate(self.lines, 1):
+            m = heredoc_re.search(line)
+            if m:
+                open_tags.append((m.group(1), i))
+            for tag, _ in list(open_tags):
+                if line.strip() == tag:
+                    open_tags = [(t, ln) for t, ln in open_tags if t != tag]
+        self.assertEqual(
+            open_tags, [],
+            f"Unterminated heredocs: {open_tags}",
+        )
+
+    # ── Username substitution ───────────────────────────────────────────
+    def test_username_is_substituted(self):
+        """All {username} placeholders must be resolved to 'testuser'."""
+        self.assertIn("testuser", self.script,
+                       "Script must contain the substituted username")
+        # No raw {username} should remain
+        self.assertNotIn("{username}", self.script,
+                          "Unresolved {username} placeholder found")
+
+    def test_no_unresolved_fstring_placeholders(self):
+        """No stray Python f-string braces like {variable} should remain.
+
+        Legitimate bash braces (``${var}``, ``${{``, array expansions) are
+        excluded.
+        """
+        # Match {word} that is NOT preceded by $ (bash expansion) and NOT
+        # a doubled brace {{ }} (f-string escape).
+        stray = re.findall(r'(?<!\$)(?<!\{)\{([a-z_][a-z_0-9]*)\}(?!\})', self.script)
+        self.assertEqual(
+            stray, [],
+            f"Unresolved f-string placeholders: {stray}",
+        )
+
+    # ── Systemd unit structure ──────────────────────────────────────────
+    def _extract_heredoc_content(self, tag):
+        """Return the content between <<'TAG' and TAG."""
+        capture = False
+        content = []
+        heredoc_re = re.compile(r"<<\s*'?" + re.escape(tag) + r"'?")
+        for line in self.lines:
+            if capture:
+                if line.strip() == tag:
+                    break
+                content.append(line)
+            elif heredoc_re.search(line):
+                capture = True
+        return "\n".join(content)
+
+    def _get_all_heredoc_contents_for_tag(self, tag):
+        """Return list of all heredoc blocks for the given tag."""
+        blocks = []
+        capture = False
+        content = []
+        heredoc_re = re.compile(r"<<\s*'?" + re.escape(tag) + r"'?")
+        for line in self.lines:
+            if capture:
+                if line.strip() == tag:
+                    blocks.append("\n".join(content))
+                    content = []
+                    capture = False
+                else:
+                    content.append(line)
+            elif heredoc_re.search(line):
+                capture = True
+        return blocks
+
+    def test_systemd_services_have_valid_structure(self):
+        """Every EOFSVC heredoc must contain [Unit], [Service], [Install]."""
+        blocks = self._get_all_heredoc_contents_for_tag("EOFSVC")
+        self.assertGreater(len(blocks), 0, "No EOFSVC heredocs found")
+        for i, block in enumerate(blocks):
+            with self.subTest(block_index=i):
+                self.assertIn("[Unit]", block,
+                              f"Service block {i} missing [Unit] section")
+                self.assertIn("[Service]", block,
+                              f"Service block {i} missing [Service] section")
+                self.assertIn("[Install]", block,
+                              f"Service block {i} missing [Install] section")
+
+    def test_systemd_services_have_exec_start(self):
+        """Every EOFSVC heredoc must have an ExecStart= directive."""
+        blocks = self._get_all_heredoc_contents_for_tag("EOFSVC")
+        for i, block in enumerate(blocks):
+            with self.subTest(block_index=i):
+                self.assertIn("ExecStart=", block,
+                              f"Service block {i} missing ExecStart=")
+
+    # ── Error handling ──────────────────────────────────────────────────
+    def test_set_plus_e_is_restored(self):
+        """Every ``set +e`` must be followed by ``set -e`` before script end."""
+        plus_e_count = self.script.count("set +e")
+        minus_e_count = self.script.count("set -e")
+        # The initial set -euo pipefail counts too
+        self.assertGreaterEqual(
+            minus_e_count, plus_e_count,
+            "Every 'set +e' must have a matching 'set -e' to restore error handling "
+            f"(found {plus_e_count} 'set +e' vs {minus_e_count} 'set -e')",
+        )
+
+    # ── Chromium JSON policy ────────────────────────────────────────────
+    def test_chromium_json_policy_is_valid(self):
+        """The Chromium homepage JSON policy must be valid JSON."""
+        import json
+        block = self._extract_heredoc_content("EOFPOLICY")
+        self.assertTrue(block, "EOFPOLICY heredoc not found")
+        try:
+            parsed = json.loads(block)
+        except json.JSONDecodeError as exc:
+            self.fail(f"Chromium JSON policy is invalid: {exc}\n{block}")
+        self.assertIn("HomepageLocation", parsed,
+                       "JSON policy must contain HomepageLocation")
+
+    # ── Script permissions ──────────────────────────────────────────────
+    def test_created_scripts_are_made_executable(self):
+        """Every script written to /usr/local/bin/*.sh must have chmod 755."""
+        # Find all "cat > /usr/local/bin/<name>.sh" lines
+        cat_re = re.compile(r'cat > (/usr/local/bin/[\w.-]+\.sh)')
+        created_scripts = cat_re.findall(self.script)
+        self.assertGreater(len(created_scripts), 0,
+                           "Expected at least one created script")
+        for script_path in created_scripts:
+            with self.subTest(script=script_path):
+                self.assertIn(
+                    f"chmod 755 {script_path}",
+                    self.script,
+                    f"Missing 'chmod 755 {script_path}' — script won't be executable",
+                )
+
+    # ── systemctl calls are fault-tolerant ──────────────────────────────
+    def test_systemctl_enable_calls_have_fallback(self):
+        """Every 'systemctl enable' must have '|| true' or '2>/dev/null || true'."""
+        for i, line in enumerate(self.lines, 1):
+            stripped = line.strip()
+            if "systemctl enable" in stripped or "systemctl --global enable" in stripped:
+                with self.subTest(line=i, text=stripped):
+                    self.assertTrue(
+                        "|| true" in stripped or "||true" in stripped,
+                        f"Line {i}: systemctl enable without '|| true' fallback — "
+                        "would crash Phase 2 if the service doesn't exist: {stripped}",
+                    )
+
+    # ── Ollama fallback service ─────────────────────────────────────────
+    def test_ollama_fallback_service_is_created(self):
+        """Phase 2 must create setup-ollama.service with proper structure."""
+        self.assertIn("setup-ollama.service", self.script,
+                       "Phase 2 must create setup-ollama.service")
+        self.assertIn("systemctl enable setup-ollama.service", self.script,
+                       "Phase 2 must enable setup-ollama.service")
+
+    # ── Audio init script ───────────────────────────────────────────────
+    def test_audio_init_script_is_valid_bash(self):
+        """The audio init heredoc must be valid bash."""
+        block = self._extract_heredoc_content("EOFAUDIO")
+        self.assertTrue(block, "EOFAUDIO heredoc not found")
+        result = subprocess.run(
+            ["bash", "-n"],
+            input=block,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(
+            result.returncode, 0,
+            f"Audio init script has bash errors:\n{result.stderr}",
+        )
+
+    # ── Chromium flags file ─────────────────────────────────────────────
+    def test_chromium_flags_not_empty(self):
+        """The Chromium flags heredoc must contain actual flags."""
+        block = self._extract_heredoc_content("EOFCHROMIUM")
+        self.assertTrue(block, "EOFCHROMIUM heredoc not found")
+        flags = [l.strip() for l in block.splitlines()
+                 if l.strip() and not l.strip().startswith("#")]
+        self.assertGreater(len(flags), 0,
+                           "Chromium flags file has no actual flags")
+
+    # ── Self-cleanup ────────────────────────────────────────────────────
+    def test_script_disables_itself(self):
+        """Script must disable mados-first-boot.service at the end."""
+        self.assertIn("systemctl disable mados-first-boot", self.script)
+
+    def test_script_removes_itself(self):
+        """Script must rm the first-boot script file."""
+        self.assertRegex(self.script, r"rm[^\n]*mados-first-boot\.sh",
+                          "Script must remove mados-first-boot.sh")
+
+    # ── User home directory ─────────────────────────────────────────────
+    def test_user_home_directory_references(self):
+        """Script must reference /home/testuser for user-level config."""
+        self.assertIn("/home/testuser", self.script,
+                       "Script must create user-level config in /home/testuser")
+
+    def test_user_audio_service_is_created(self):
+        """User-level audio quality service must be created."""
+        self.assertIn(
+            "/home/testuser/.config/systemd/user/mados-audio-quality.service",
+            self.script,
+            "Must create user-level audio quality service",
+        )
+
+    def test_user_config_ownership(self):
+        """Script must chown user config to the correct user."""
+        self.assertIn("chown -R testuser:testuser", self.script,
+                       "Must chown user config files to testuser")
+
+
 if __name__ == "__main__":
     unittest.main()

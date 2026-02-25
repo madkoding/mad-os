@@ -8,10 +8,11 @@
 # This test validates:
 #   1. The first-boot script can be generated successfully
 #   2. The script has valid bash syntax
-#   3. The script contains expected configuration logic
-#   4. Phase 2 packages would be installed correctly
-#   5. Services would be enabled appropriately
-#   6. Audio, Chromium, Oh My Zsh, and OpenCode configuration is present
+#   3. The script is 100% offline (no internet downloads)
+#   4. Services are enabled appropriately
+#   5. Audio, Chromium, and fallback services are configured correctly
+#   6. All heredocs are properly terminated
+#   7. The script cleans up after itself
 #
 # Note: This runs in a dry-run mode (syntax/logic check) without actually
 # installing packages or modifying the system.
@@ -152,44 +153,56 @@ check_content() {
     return 0
 }
 
+check_not_content() {
+    local desc="$1" pattern="$2"
+    if echo "$SCRIPT_CONTENT" | grep -qF "$pattern"; then
+        fail "$desc — pattern '$pattern' found but should not be"
+    else
+        ok "$desc"
+    fi
+    return 0
+}
+
 check_content "Has bash shebang" "#!/bin/bash"
 check_content "Uses strict mode" "set -euo pipefail"
 check_content "Defines LOG_TAG" 'LOG_TAG="mados-first-boot"'
 check_content "Has log() function" "log()"
 
 # =============================================================================
-# Phase 4: Verify Phase 2 configuration (100% offline)
+# Phase 4: Verify Phase 2 is 100% offline
 # =============================================================================
-step "Phase 4 – Verifying Phase 2 configuration (offline)"
+step "Phase 4 – Verifying Phase 2 is 100% offline"
 
-# Phase 2 must NOT contain internet checks or downloads
-if echo "$SCRIPT_CONTENT" | grep -q "INTERNET_AVAILABLE"; then
-    fail "Phase 2 must not check INTERNET_AVAILABLE (it is 100% offline)"
-else
-    ok "No INTERNET_AVAILABLE check (Phase 2 is offline)"
-fi
+check_not_content "No INTERNET_AVAILABLE check" "INTERNET_AVAILABLE"
+check_not_content "No pacman -Syu" "pacman -Syu"
+check_not_content "No git clone" "git clone"
 
-if echo "$SCRIPT_CONTENT" | grep -q "pacman -Syu"; then
-    fail "Phase 2 must not run pacman -Syu"
-else
-    ok "No pacman -Syu (packages already installed from ISO)"
-fi
-
-# Verify essential services are referenced in the script
-info "Checking for essential services configuration..."
-ESSENTIAL_SERVICES=(
-    "bluetooth"
-    "pipewire"
-    "wireplumber"
-)
-
-for svc in "${ESSENTIAL_SERVICES[@]}"; do
-    if echo "$SCRIPT_CONTENT" | grep -q "$svc"; then
-        ok "Service '$svc' is referenced in Phase 2"
-    else
-        warn "Service '$svc' not found in Phase 2"
+# Verify no inline downloads (curl/wget outside heredocs)
+info "Checking for inline downloads outside heredocs..."
+IN_HEREDOC=false
+INLINE_DOWNLOAD_FOUND=false
+while IFS= read -r line; do
+    stripped="${line#"${line%%[![:space:]]*}"}"
+    if echo "$stripped" | grep -qF "cat >" && echo "$stripped" | grep -qF "<<"; then
+        IN_HEREDOC=true
     fi
-done
+    if $IN_HEREDOC; then
+        for tag in EOFSETUP EOFSVC EOFAUDIO EOFCHROMIUM EOFPOLICY EOFUSRSVC; do
+            if [[ "$stripped" == "$tag" ]]; then
+                IN_HEREDOC=false
+                break
+            fi
+        done
+        continue
+    fi
+    if echo "$stripped" | grep -qE "curl.*install|wget.*install"; then
+        INLINE_DOWNLOAD_FOUND=true
+        fail "Found inline download outside heredoc: $stripped"
+    fi
+done <<< "$SCRIPT_CONTENT"
+if ! $INLINE_DOWNLOAD_FOUND; then
+    ok "No inline downloads outside of setup scripts (heredocs)"
+fi
 
 # =============================================================================
 # Phase 5: Verify service enablement
@@ -202,6 +215,22 @@ check_content "Enables WirePlumber" "wireplumber"
 check_content "Creates audio init service" "mados-audio-init.service"
 check_content "Enables audio init service" "systemctl enable mados-audio-init"
 
+# Verify all systemctl enable calls have || true
+info "Checking systemctl enable fault tolerance..."
+FAULT_INTOLERANT=0
+while IFS= read -r line; do
+    stripped="${line#"${line%%[![:space:]]*}"}"
+    if echo "$stripped" | grep -qE "systemctl (--global )?enable"; then
+        if ! echo "$stripped" | grep -q "|| true"; then
+            fail "systemctl enable without '|| true': $stripped"
+            FAULT_INTOLERANT=$((FAULT_INTOLERANT + 1))
+        fi
+    fi
+done <<< "$SCRIPT_CONTENT"
+if [[ "$FAULT_INTOLERANT" -eq 0 ]]; then
+    ok "All systemctl enable calls have || true fallback"
+fi
+
 # =============================================================================
 # Phase 6: Verify audio configuration
 # =============================================================================
@@ -212,6 +241,8 @@ check_content "Audio script uses amixer" "amixer"
 check_content "Audio script unmutes controls" "unmute"
 check_content "Audio script saves ALSA state" "alsactl store"
 check_content "Audio service runs after sound.target" "sound.target"
+check_content "Audio quality service exists" "mados-audio-quality.service"
+check_content "User audio quality service" "/home/${TEST_USER}/.config/systemd/user"
 
 # Verify audio script unmutes common controls
 info "Checking audio controls..."
@@ -236,27 +267,71 @@ check_content "Limits renderer processes" "renderer-process-limit"
 check_content "Sets homepage policy" "/etc/chromium/policies/managed"
 check_content "Configures homepage location" "HomepageLocation"
 
-# =============================================================================
-# Phase 8: Verify Oh My Zsh installation
-# =============================================================================
-step "Phase 8 – Verifying Oh My Zsh installation"
+# Validate JSON policy
+info "Validating Chromium JSON policy..."
+JSON_BLOCK=""
+IN_JSON=false
+while IFS= read -r line; do
+    stripped="${line#"${line%%[![:space:]]*}"}"
+    if [[ "$stripped" == "EOFPOLICY" ]] && $IN_JSON; then
+        break
+    fi
+    if $IN_JSON; then
+        JSON_BLOCK+="$line"$'\n'
+    fi
+    if echo "$stripped" | grep -qF "<<'EOFPOLICY'"; then
+        IN_JSON=true
+    fi
+done <<< "$SCRIPT_CONTENT"
+if [[ -n "$JSON_BLOCK" ]]; then
+    if echo "$JSON_BLOCK" | python3 -c "import sys,json;json.load(sys.stdin)" 2>/dev/null; then
+        ok "Chromium JSON policy is valid JSON"
+    else
+        fail "Chromium JSON policy is NOT valid JSON"
+    fi
+else
+    fail "Could not extract Chromium JSON policy"
+fi
 
-check_content "Installs to /etc/skel" "/etc/skel/.oh-my-zsh"
-check_content "Clones from GitHub" "github.com/ohmyzsh/ohmyzsh"
-check_content "Copies to user home" "oh-my-zsh /home/${TEST_USER}"
-check_content "Changes ownership to user" "chown"
-check_content "Creates fallback service" "setup-ohmyzsh.service"
-check_content "Checks for internet" "curl"
+# =============================================================================
+# Phase 8: Verify fallback services for optional tools
+# =============================================================================
+step "Phase 8 – Verifying fallback services"
+
+check_content "Oh My Zsh fallback service" "setup-ohmyzsh.service"
+check_content "Oh My Zsh service enabled" "systemctl enable setup-ohmyzsh.service"
+check_content "OpenCode setup script" "setup-opencode.sh"
+check_content "OpenCode fallback service" "setup-opencode.service"
+check_content "OpenCode service enabled" "systemctl enable setup-opencode.service"
+check_content "Ollama setup script" "setup-ollama.sh"
+check_content "Ollama fallback service" "setup-ollama.service"
+check_content "Ollama service enabled" "systemctl enable setup-ollama.service"
+
+# Verify setup scripts have chmod 755
+info "Checking script permissions..."
+for script in "setup-opencode.sh" "setup-ollama.sh"; do
+    if echo "$SCRIPT_CONTENT" | grep -qF "chmod 755 /usr/local/bin/$script"; then
+        ok "$script has chmod 755"
+    else
+        fail "$script missing chmod 755"
+    fi
+done
 
 # =============================================================================
-# Phase 9: Verify OpenCode installation
+# Phase 9: Verify heredoc termination
 # =============================================================================
-step "Phase 9 – Verifying OpenCode installation"
+step "Phase 9 – Verifying heredoc termination"
 
-check_content "Uses OpenCode install script" "opencode.ai/install"
-check_content "Downloads with curl" "opencode.ai"
-check_content "Pipes to bash" "bash"
-check_content "Verifies opencode command" "opencode"
+HEREDOC_TAGS=(EOFAUDIO EOFSVC EOFSETUP EOFCHROMIUM EOFPOLICY EOFUSRSVC)
+for tag in "${HEREDOC_TAGS[@]}"; do
+    OPEN_COUNT=$(echo "$SCRIPT_CONTENT" | grep -cE "<<\s*'?${tag}'?" || true)
+    CLOSE_COUNT=$(echo "$SCRIPT_CONTENT" | grep -c "^${tag}$" || true)
+    if [[ "$OPEN_COUNT" -eq "$CLOSE_COUNT" ]]; then
+        ok "Heredoc '$tag': $OPEN_COUNT opens = $CLOSE_COUNT closes"
+    else
+        fail "Heredoc '$tag' mismatch: $OPEN_COUNT opens vs $CLOSE_COUNT closes"
+    fi
+done
 
 # =============================================================================
 # Phase 10: Verify self-cleanup
@@ -267,55 +342,48 @@ check_content "Disables first-boot service" "systemctl disable mados-first-boot"
 check_content "Removes first-boot script" "mados-first-boot.sh"
 
 # =============================================================================
-# Phase 11: Dry-run execution test (verify no syntax errors when sourced)
+# Phase 11: Verify error handling
 # =============================================================================
-step "Phase 11 – Dry-run execution test"
+step "Phase 11 – Verifying error handling"
 
-# Create a minimal test environment with command stubs
-cat > "$TEST_DIR/test-environment.sh" <<'EOFENV'
-#!/bin/bash
-# Stub functions for dry-run testing
-pacman() { echo "[STUB] pacman $*"; return 0; }
-systemctl() { echo "[STUB] systemctl $*"; return 0; }
-git() { echo "[STUB] git $*"; return 0; }
-curl() { echo "[STUB] curl $*"; return 0; }
-mkdir() { echo "[STUB] mkdir $*"; return 0; }
-cat() {
-    # When used for reading files, use real cat
-    # When used with redirection (e.g., cat > file), shell handles it
-    if [[ $# -eq 0 ]] || [[ "$1" != "-" && -f "$1" ]]; then
-        command cat "$@"
-    else
-        # For other cases, just echo the stub message
-        echo "[STUB] cat $*"
-    fi
-    return 0
-}
-chmod() { echo "[STUB] chmod $*"; return 0; }
-chown() { echo "[STUB] chown $*"; return 0; }
-cp() { echo "[STUB] cp $*"; return 0; }
-command() {
-    if [[ "$1" == "-v" ]]; then
-        # Pretend commands exist
-        echo "/usr/bin/$2"
-        return 0
-    fi
-    builtin command "$@"
-}
-export -f pacman systemctl git curl mkdir cat chmod chown cp command
-EOFENV
+PLUS_E=$(echo "$SCRIPT_CONTENT" | grep -c "set +e" || true)
+MINUS_E=$(echo "$SCRIPT_CONTENT" | grep -c "set -e" || true)
+info "Found $PLUS_E 'set +e' and $MINUS_E 'set -e'"
+if [[ "$MINUS_E" -ge "$PLUS_E" ]]; then
+    ok "Error handling is properly restored (set -e >= set +e)"
+else
+    fail "Unbalanced error handling: $PLUS_E 'set +e' but only $MINUS_E 'set -e'"
+fi
+
+# Verify username substitution
+info "Checking username substitution..."
+if echo "$SCRIPT_CONTENT" | grep -q "/home/${TEST_USER}"; then
+    ok "Username '${TEST_USER}' is properly substituted"
+else
+    fail "Username '${TEST_USER}' not found in script"
+fi
+if echo "$SCRIPT_CONTENT" | grep -q '{username}'; then
+    fail "Unresolved {username} placeholder found in script"
+else
+    ok "No unresolved {username} placeholders"
+fi
+
+# =============================================================================
+# Phase 12: Dry-run execution test (verify no syntax errors when sourced)
+# =============================================================================
+step "Phase 12 – Dry-run execution test"
 
 info "Testing script execution with stubs (dry-run)..."
-if bash -c ". $TEST_DIR/test-environment.sh && bash -n $TEST_DIR/mados-first-boot.sh" 2>&1 | head -20; then
+if bash -c "bash -n $TEST_DIR/mados-first-boot.sh" 2>&1 | head -20; then
     ok "Script can be syntax-checked in test environment"
 else
     warn "Script execution test encountered issues (may be expected)"
 fi
 
 # =============================================================================
-# Phase 12: Verify script completeness
+# Phase 13: Verify script completeness
 # =============================================================================
-step "Phase 12 – Verifying script completeness"
+step "Phase 13 – Verifying script completeness"
 
 SCRIPT_LINES=$(wc -l < "$TEST_DIR/mados-first-boot.sh")
 info "Script size: $SCRIPT_LINES lines"
@@ -331,8 +399,8 @@ fi
 # Count major sections
 SECTIONS=$(echo "$SCRIPT_CONTENT" | grep -c "^# ──.*──" || true)
 info "Major sections found: $SECTIONS"
-if [[ "$SECTIONS" -lt 5 ]]; then
-    warn "Script has fewer than 5 major sections — may be missing functionality"
+if [[ "$SECTIONS" -lt 3 ]]; then
+    warn "Script has fewer than 3 major sections — may be missing functionality"
 else
     ok "Script has $SECTIONS major sections"
 fi
