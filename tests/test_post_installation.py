@@ -747,6 +747,55 @@ class TestLiveISOCleanup(unittest.TestCase):
             f"{result.stderr}",
         )
 
+    def test_removes_archiso_root_scripts(self):
+        """Config script must remove archiso-specific scripts from /root/."""
+        self.assertIn(
+            "/root/.automated_script.sh",
+            self.content,
+            "Config script must remove archiso .automated_script.sh from /root",
+        )
+        self.assertIn(
+            "/root/.zlogin",
+            self.content,
+            "Config script must remove archiso .zlogin from /root",
+        )
+
+    def test_creates_sway_pacman_hook(self):
+        """Config script must create sway pacman hook for upgrade protection.
+
+        The sway hook is removed during ISO build (has 'remove from airootfs!'
+        marker).  The installed system needs it so future sway upgrades keep
+        the madOS session script in sway.desktop.
+        """
+        self.assertIn(
+            "sway-desktop-override.hook",
+            self.content,
+            "Config script must create sway pacman hook for session file "
+            "protection on upgrades",
+        )
+
+    def test_creates_hyprland_pacman_hook(self):
+        """Config script must ensure hyprland pacman hook exists."""
+        self.assertIn(
+            "hyprland-desktop-override.hook",
+            self.content,
+            "Config script must create hyprland pacman hook for session file "
+            "protection on upgrades",
+        )
+
+    def test_pacman_hooks_have_correct_exec(self):
+        """Pacman hooks must point to the madOS session scripts."""
+        self.assertIn(
+            "Exec=/usr/local/bin/sway-session",
+            self.content.replace("\\", ""),
+            "Sway hook must set Exec to /usr/local/bin/sway-session",
+        )
+        self.assertIn(
+            "Exec=/usr/local/bin/hyprland-session",
+            self.content.replace("\\", ""),
+            "Hyprland hook must set Exec to /usr/local/bin/hyprland-session",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Sudoers configuration

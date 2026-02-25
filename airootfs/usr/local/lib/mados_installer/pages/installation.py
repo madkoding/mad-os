@@ -1666,6 +1666,43 @@ MIN_FREE_SPACE_MB=512
 EOFVENTOY
 chmod 644 /etc/mados/ventoy-persist.conf
 
+# ── Clean up archiso root directory artifacts ───────────────────────────
+# These files are archiso-specific and should not be on the installed system
+rm -f /root/.automated_script.sh /root/.zlogin
+
+# ── Pacman hooks for session file protection ────────────────────────────
+# The sway hook was removed during ISO build by the "remove from airootfs!"
+# mechanism; recreate it so future sway upgrades keep the madOS session script.
+mkdir -p /etc/pacman.d/hooks
+cat > /etc/pacman.d/hooks/sway-desktop-override.hook <<'EOFHOOK'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = sway
+
+[Action]
+Description = Customizing Sway session for madOS...
+When = PostTransaction
+Depends = sed
+Exec = /usr/bin/sed -i -e 's|^Exec=.*|Exec=/usr/local/bin/sway-session|' -e 's|^Comment=.*|Comment=madOS Sway session with hardware detection|' /usr/share/wayland-sessions/sway.desktop
+EOFHOOK
+
+# Ensure the hyprland hook also exists (may have been copied by rsync)
+cat > /etc/pacman.d/hooks/hyprland-desktop-override.hook <<'EOFHOOK2'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = hyprland
+
+[Action]
+Description = Customizing Hyprland session for madOS...
+When = PostTransaction
+Depends = sed
+Exec = /usr/bin/sed -i -e 's|^Exec=.*|Exec=/usr/local/bin/hyprland-session|' -e 's|^Comment=.*|Comment=madOS Hyprland session|' /usr/share/wayland-sessions/hyprland.desktop
+EOFHOOK2
+
 # ── Graphical environment verification ──────────────────────────────────
 # Verify graphical environment components and set up TTY fallbacks.
 # All packages, scripts, and configs are already installed via rsync + chroot.
