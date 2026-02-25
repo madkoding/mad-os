@@ -1243,11 +1243,12 @@ fi
 rm -f /etc/sudoers.d/99-opencode-nopasswd
 
 # User
-useradd -m -G wheel,audio,video,storage -s /bin/zsh {username}
+useradd -m -G wheel,audio,video,storage -s /usr/bin/zsh {username}
 echo '{username}:{_escape_shell(data["password"])}' | chpasswd
 
 # Sudo
 echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
+chmod 440 /etc/sudoers.d/wheel
 echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/opencode,/usr/local/bin/opencode,/usr/local/bin/ollama,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/opencode-nopasswd
 chmod 440 /etc/sudoers.d/opencode-nopasswd
 
@@ -1618,9 +1619,10 @@ After=getty@tty1.service
 EOFOVERRIDE
 
 # Copy configs to user home
-su - {username} -c "mkdir -p ~/.config/{{sway,hypr,waybar,foot,wofi,gtk-3.0,gtk-4.0}}"
-su - {username} -c "mkdir -p ~/{{Documents,Downloads,Music,Videos,Desktop,Templates,Public}}"
-su - {username} -c "mkdir -p ~/Pictures/{{Wallpapers,Screenshots}}"
+# Use /bin/sh to avoid sourcing .zshrc (Oh My Zsh may not be installed yet)
+install -d -o {username} -g {username} /home/{username}/.config/{{sway,hypr,waybar,foot,wofi,gtk-3.0,gtk-4.0}}
+install -d -o {username} -g {username} /home/{username}/{{Documents,Downloads,Music,Videos,Desktop,Templates,Public}}
+install -d -o {username} -g {username} /home/{username}/Pictures/{{Wallpapers,Screenshots}}
 cp -r /etc/skel/.config/* /home/{username}/.config/ 2>/dev/null || true
 cp -r /etc/skel/Pictures/* /home/{username}/Pictures/ 2>/dev/null || true
 cp /etc/skel/.gtkrc-2.0 /home/{username}/.gtkrc-2.0 2>/dev/null || true
