@@ -41,8 +41,8 @@ detect_legacy_cpu() {
     fi
     
     # Detectar CPUs muy antiguas por familia/modelo
-    local cpu_family=$(grep -m1 "cpu family" /proc/cpuinfo | awk '{print $4}')
-    local model=$(grep -m1 "model\s" /proc/cpuinfo | awk '{print $3}')
+    local cpu_family=$(grep -m1 "^cpu family" /proc/cpuinfo | awk '{print $4}')
+    local model=$(grep -m1 "^model[[:space:]]" /proc/cpuinfo | awk '{print $3}')
     
     # Intel Core antiguo (antes de Sandy Bridge - familia 6, modelo < 42)
     if [ "$cpu_family" = "6" ] && [ "$model" -lt "42" ] 2>/dev/null; then

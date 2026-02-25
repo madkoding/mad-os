@@ -227,6 +227,50 @@ class TestLegacyGPUDetection(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Legacy CPU detection - model regex
+# ═══════════════════════════════════════════════════════════════════════════
+class TestLegacyCPUDetection(unittest.TestCase):
+    """Verify legacy CPU detection uses anchored regex for /proc/cpuinfo model."""
+
+    def setUp(self):
+        self.script_path = os.path.join(BIN_DIR, "detect-legacy-hardware")
+        if not os.path.isfile(self.script_path):
+            self.skipTest("detect-legacy-hardware script not found")
+        with open(self.script_path) as f:
+            self.content = f.read()
+
+    def test_model_grep_is_anchored(self):
+        """The grep for 'model' must be anchored to avoid matching 'model name'.
+
+        Regression test: unanchored 'model\\s' grep matches 'model name' line
+        first (depending on /proc/cpuinfo field order), causing awk to extract
+        the CPU name string instead of the numeric model number, which then
+        breaks the integer comparison.
+        """
+        # Must use ^model (start-of-line anchor) to avoid matching "model name"
+        self.assertRegex(
+            self.content,
+            r'grep.*"\^model',
+            "model grep must be anchored with ^ to avoid matching 'model name'",
+        )
+
+    def test_cpu_family_grep_is_anchored(self):
+        """The grep for 'cpu family' must be anchored to start of line."""
+        self.assertRegex(
+            self.content,
+            r'grep.*"\^cpu family',
+            "cpu family grep must be anchored with ^",
+        )
+
+    def test_has_legacy_cpu_function(self):
+        """Script must define detect_legacy_cpu function."""
+        self.assertIn(
+            "detect_legacy_cpu", self.content,
+            "Must have detect_legacy_cpu function",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # select-compositor script
 # ═══════════════════════════════════════════════════════════════════════════
 class TestSelectCompositor(unittest.TestCase):

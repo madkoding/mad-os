@@ -304,9 +304,18 @@ def _step_mount_filesystems(app, boot_part, root_part, home_part, separate_home)
 
 
 def _copy_item(src, dst):
-    """Copy file or directory if it exists."""
-    if os.path.exists(src):
-        subprocess.run(["cp", "-a", src, dst], check=False)
+    """Copy file or directory if it exists.
+
+    Prints a warning when the source is missing or the copy command
+    fails, so installation issues are visible in stdout/stderr rather
+    than silently swallowed.
+    """
+    if not os.path.exists(src):
+        print(f"  WARNING: {src} not found, skipping copy")
+        return
+    result = subprocess.run(["cp", "-a", src, dst], capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"  WARNING: failed to copy {src} → {dst}: {result.stderr.strip()}")
 
 
 def _ensure_kernel_in_target(app):
@@ -433,7 +442,7 @@ def _step_copy_scripts(app):
     for lib in ["mados_photo_viewer", "mados_pdf_viewer", "mados_equalizer"]:
         _copy_item(f"/usr/local/lib/{lib}", "/mnt/usr/local/lib/")
 
-    for script in scripts[1:] + [
+    for script in scripts + [
         "mados-photo-viewer",
         "mados-pdf-viewer",
         "mados-equalizer",
@@ -696,8 +705,12 @@ def _rsync_rootfs_with_progress(app):
 
     proc.wait()
     if proc.returncode not in (0, 24):
-        # 24 = "vanished source files" which is normal on a live system
         raise subprocess.CalledProcessError(proc.returncode, "rsync")
+    if proc.returncode == 24:
+        log_message(
+            app,
+            "  WARNING: rsync reported vanished source files (normal on live system)",
+        )
 
     log_message(app, "  System files copied successfully")
 
@@ -1060,6 +1073,19 @@ def _run_chroot_with_progress(app):
     # Progress range: 0.55 to 0.90 for chroot configuration
     progress_start = 0.55
     progress_end = 0.90
+
+    # Validate that configure.sh was written before executing
+    script_path = "/mnt/root/configure.sh"
+    if not os.path.isfile(script_path):
+        raise FileNotFoundError(
+            f"Configuration script not found at {script_path} — "
+            "disk may be full or write failed"
+        )
+    if os.path.getsize(script_path) == 0:
+        raise ValueError(
+            f"Configuration script at {script_path} is empty — "
+            "write may have failed"
+        )
 
     proc = subprocess.Popen(
         ["arch-chroot", "/mnt", "/root/configure.sh"],
@@ -1596,11 +1622,13 @@ EOFFIRSTBOOT
 chmod 755 /usr/local/bin/mados-first-boot.sh
 
 # Create the systemd service for Phase 2 first-boot setup
+# Phase 2 is 100% offline — no network dependency needed
+# Must run before greetd so graphical config is ready before login screen
 cat > /etc/systemd/system/mados-first-boot.service <<'EOFSVC'
 [Unit]
-Description=madOS First Boot Setup (Phase 2) - Install packages and configure system
-After=network-online.target
-Wants=network-online.target
+Description=madOS First Boot Setup (Phase 2) - Configure services (offline)
+After=local-fs.target
+Before=greetd.service
 ConditionPathExists=/usr/local/bin/mados-first-boot.sh
 
 [Service]
@@ -1609,7 +1637,7 @@ RemainAfterExit=yes
 ExecStart=/usr/local/bin/mados-first-boot.sh
 StandardOutput=journal+console
 StandardError=journal+console
-TimeoutStartSec=1800
+TimeoutStartSec=600
 
 [Install]
 WantedBy=multi-user.target
@@ -1635,10 +1663,18 @@ def _build_first_boot_script(data):
 # All packages and tools from the ISO are already installed (copied via
 # rsync during Phase 1).  This script is 100% offline — it only configures
 # services and creates fallback services, then disables itself.
-set -euo pipefail
 
+# Use -e for initial setup, then switch to +e for non-critical operations
+set -e
+
+LOG_FILE="/var/log/mados-first-boot.log"
 LOG_TAG="mados-first-boot"
-log() {{ echo "[Phase 2] $1"; systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/dev/null || true; }}
+log() {{
+    local msg="[Phase 2] $1"
+    echo "$msg"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') $msg" >> "$LOG_FILE" 2>/dev/null || true
+    systemd-cat -t "$LOG_TAG" printf "%s\\n" "$1" 2>/dev/null || true
+}}
 
 log "Starting madOS Phase 2 setup..."
 
@@ -1813,6 +1849,8 @@ ConditionPathExists=!/etc/skel/.oh-my-zsh
 [Service]
 Type=oneshot
 RemainAfterExit=yes
+Environment=HOME=/root
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 ExecStart=/usr/local/bin/setup-ohmyzsh.sh
 StandardOutput=journal+console
 StandardError=journal+console
@@ -1930,12 +1968,98 @@ TimeoutStartSec=300
 WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-ollama.service 2>/dev/null || true
-set -e
 
-# ── Step 5: Cleanup ─────────────────────────────────────────────────────
+# ── Step 5: Verify graphical environment components ─────────────────────
+log "Verifying graphical environment components..."
+GRAPHICAL_OK=1
+for bin in cage regreet sway; do
+    if command -v "$bin" &>/dev/null; then
+        log "  ✓ $bin found: $(command -v "$bin")"
+    else
+        log "  ✗ $bin NOT found — graphical login may fail"
+        GRAPHICAL_OK=0
+    fi
+done
+
+for script in /usr/local/bin/cage-greeter /usr/local/bin/sway-session /usr/local/bin/hyprland-session /usr/local/bin/start-hyprland /usr/local/bin/select-compositor; do
+    if [ -x "$script" ]; then
+        log "  ✓ $script is executable"
+    elif [ -f "$script" ]; then
+        log "  ✗ $script exists but is not executable — fixing..."
+        chmod +x "$script"
+    else
+        log "  ✗ $script NOT found — graphical login may fail"
+        GRAPHICAL_OK=0
+    fi
+done
+
+if [ -f /etc/greetd/config.toml ]; then
+    log "  ✓ greetd config exists"
+else
+    log "  ✗ greetd config NOT found — graphical login may fail"
+    GRAPHICAL_OK=0
+fi
+
+if [ -f /etc/greetd/regreet.toml ]; then
+    log "  ✓ regreet config exists"
+else
+    log "  ✗ regreet.toml NOT found — greeter UI may fail"
+    GRAPHICAL_OK=0
+fi
+
+# Verify .desktop session files exist and point to madOS session scripts
+for session_file in /usr/share/wayland-sessions/sway.desktop /usr/share/wayland-sessions/hyprland.desktop; do
+    if [ -f "$session_file" ]; then
+        if grep -q "/usr/local/bin/" "$session_file"; then
+            log "  ✓ $session_file has madOS session script"
+        else
+            log "  ⚠ $session_file exists but Exec= may not point to madOS script — fixing..."
+            session_name=$(basename "$session_file" .desktop)
+            if [ -x "/usr/local/bin/${{session_name}}-session" ]; then
+                sed -i "s|^Exec=.*|Exec=/usr/local/bin/${{session_name}}-session|" "$session_file"
+                log "    Fixed: Exec=/usr/local/bin/${{session_name}}-session"
+            fi
+        fi
+    else
+        log "  ✗ $session_file NOT found — session may not appear in greeter"
+    fi
+done
+
+if systemctl is-enabled greetd.service &>/dev/null; then
+    log "  ✓ greetd.service is enabled"
+else
+    log "  ✗ greetd.service is NOT enabled — enabling..."
+    systemctl enable greetd.service 2>/dev/null || true
+fi
+
+# Safety fallback: ensure getty@tty2 is available so users can always log in
+# even if greetd/cage fails to start the graphical environment
+systemctl enable getty@tty2.service 2>/dev/null || true
+
+if [ "$GRAPHICAL_OK" -eq 0 ]; then
+    log "  ⚠ Some graphical components are missing. Enabling getty@tty1 as fallback..."
+    systemctl enable getty@tty1.service 2>/dev/null || true
+fi
+
+# ── Step 6: Verify Ollama and OpenCode status ───────────────────────────
+log "Checking Ollama and OpenCode status..."
+if command -v ollama &>/dev/null; then
+    log "  ✓ Ollama binary found: $(command -v ollama)"
+else
+    log "  ⚠ Ollama not found — fallback service will attempt install on next boot with network"
+fi
+
+if command -v opencode &>/dev/null; then
+    log "  ✓ OpenCode binary found: $(command -v opencode)"
+else
+    log "  ⚠ OpenCode not found — fallback service will attempt install on next boot with network"
+fi
+
+# ── Step 7: Cleanup ─────────────────────────────────────────────────────
 log "Phase 2 setup complete! Disabling first-boot service..."
 systemctl disable mados-first-boot.service 2>/dev/null || true
 rm -f /usr/local/bin/mados-first-boot.sh
 
 log "madOS is fully configured. Enjoy!"
+log "Log saved to: $LOG_FILE"
 """

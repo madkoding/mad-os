@@ -398,6 +398,35 @@ class TestInstallerScripts(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Script copy and permissions
+# ═══════════════════════════════════════════════════════════════════════════
+class TestScriptCopyPermissions(unittest.TestCase):
+    """Verify all copied scripts are made executable."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_chmod_loop_includes_all_scripts(self):
+        """The chmod +x loop must cover all scripts, not skip the first one.
+
+        Regression test: previously scripts[1:] was used in the chmod loop,
+        which skipped the first script (setup-ohmyzsh.sh).
+        """
+        # The chmod loop should iterate over `scripts + [launchers]`
+        # and NOT `scripts[1:]` which would skip setup-ohmyzsh.sh.
+        self.assertNotIn(
+            "scripts[1:]", self.content,
+            "Must not use scripts[1:] — that skips the first script's chmod +x",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Post-install service enablement
 # ═══════════════════════════════════════════════════════════════════════════
 class TestPostInstallServices(unittest.TestCase):
@@ -765,3 +794,108 @@ class TestAudioQualityPostInstall(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# _copy_item error reporting
+# ═══════════════════════════════════════════════════════════════════════════
+class TestCopyItemErrorReporting(unittest.TestCase):
+    """Verify _copy_item reports errors instead of silently swallowing them."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_copy_item_checks_source_exists(self):
+        """_copy_item must check if source file exists before copying."""
+        self.assertIn(
+            "os.path.exists(src)", self.content,
+            "_copy_item must check os.path.exists(src)",
+        )
+
+    def test_copy_item_warns_on_missing_source(self):
+        """_copy_item must print a warning when source doesn't exist."""
+        # Find the _copy_item function body
+        func_match = re.search(
+            r'def _copy_item\(.*?\n(.*?)(?=\ndef |\nclass |\Z)',
+            self.content, re.DOTALL,
+        )
+        self.assertIsNotNone(func_match, "Must find _copy_item function")
+        func_body = func_match.group(1)
+        self.assertIn(
+            "WARNING", func_body,
+            "_copy_item must warn when source is missing",
+        )
+
+    def test_copy_item_captures_cp_output(self):
+        """_copy_item must capture cp errors instead of silently ignoring."""
+        func_match = re.search(
+            r'def _copy_item\(.*?\n(.*?)(?=\ndef |\nclass |\Z)',
+            self.content, re.DOTALL,
+        )
+        self.assertIsNotNone(func_match, "Must find _copy_item function")
+        func_body = func_match.group(1)
+        self.assertIn(
+            "capture_output", func_body,
+            "_copy_item must capture cp output to detect failures",
+        )
+
+    def test_copy_item_checks_returncode(self):
+        """_copy_item must check cp return code for failures."""
+        func_match = re.search(
+            r'def _copy_item\(.*?\n(.*?)(?=\ndef |\nclass |\Z)',
+            self.content, re.DOTALL,
+        )
+        self.assertIsNotNone(func_match, "Must find _copy_item function")
+        func_body = func_match.group(1)
+        self.assertIn(
+            "returncode", func_body,
+            "_copy_item must check subprocess returncode",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# _run_chroot_with_progress validation
+# ═══════════════════════════════════════════════════════════════════════════
+class TestChrootValidation(unittest.TestCase):
+    """Verify arch-chroot validates configure.sh before executing."""
+
+    def setUp(self):
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        if not os.path.isfile(install_py):
+            self.skipTest("installation.py not found")
+        with open(install_py) as f:
+            self.content = f.read()
+
+    def test_validates_script_exists_before_chroot(self):
+        """Must check configure.sh exists before running arch-chroot."""
+        func_match = re.search(
+            r'def _run_chroot_with_progress\(.*?\n(.*?)(?=\ndef |\nclass |\Z)',
+            self.content, re.DOTALL,
+        )
+        self.assertIsNotNone(func_match, "Must find _run_chroot_with_progress")
+        func_body = func_match.group(1)
+        self.assertIn(
+            "os.path.isfile", func_body,
+            "Must validate configure.sh exists before arch-chroot",
+        )
+
+    def test_validates_script_not_empty(self):
+        """Must check configure.sh is not empty before running arch-chroot."""
+        func_match = re.search(
+            r'def _run_chroot_with_progress\(.*?\n(.*?)(?=\ndef |\nclass |\Z)',
+            self.content, re.DOTALL,
+        )
+        self.assertIsNotNone(func_match, "Must find _run_chroot_with_progress")
+        func_body = func_match.group(1)
+        self.assertIn(
+            "getsize", func_body,
+            "Must check configure.sh is not empty (getsize > 0)",
+        )

@@ -76,11 +76,11 @@ class TestBootScriptSyntax(unittest.TestCase):
     def test_boot_scripts_use_strict_mode(self):
         """Boot scripts should use set -euo pipefail for safety.
 
-        Exception: setup-opencode.sh intentionally avoids strict mode
-        because it must never crash the systemd service – it uses its own
-        graceful error handling and always exits 0.
+        Exception: setup scripts that run as systemd services intentionally
+        avoid strict mode because they must never crash the service – they
+        use their own graceful error handling and always exit 0.
         """
-        STRICT_MODE_EXCEPTIONS = {"setup-opencode.sh", "setup-ollama.sh"}
+        STRICT_MODE_EXCEPTIONS = {"setup-opencode.sh", "setup-ollama.sh", "setup-ohmyzsh.sh"}
         for script in self.BOOT_SCRIPTS:
             if script in STRICT_MODE_EXCEPTIONS:
                 continue
@@ -190,6 +190,15 @@ class TestSetupOhmyzsh(unittest.TestCase):
             "/root/.oh-my-zsh", self.content,
             "Script must handle root user's Oh My Zsh installation",
         )
+
+    def test_no_strict_mode(self):
+        """setup-ohmyzsh.sh must NOT use set -euo pipefail (must never crash service)."""
+        self.assertNotIn("set -euo pipefail", self.content)
+
+    def test_always_exits_zero_on_failure(self):
+        """setup-ohmyzsh.sh must exit 0 on failure to not crash the systemd service."""
+        # Check that the git clone failure handler exits 0
+        self.assertIn("exit 0", self.content)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -345,6 +354,29 @@ class TestSystemdServices(unittest.TestCase):
                 self.assertIn(
                     "TimeoutStartSec=", content,
                     f"{service} must have a TimeoutStartSec",
+                )
+
+    def test_service_has_home_and_path(self):
+        """Boot setup services must set HOME and PATH environment variables.
+
+        Without these, tools like git (for ohmyzsh) and curl may fail because
+        HOME is unset in early-boot systemd services. PATH must include
+        /usr/local/bin where ollama and opencode are installed.
+        """
+        for service in self.SERVICES:
+            path = os.path.join(SYSTEMD_DIR, service)
+            if not os.path.isfile(path):
+                continue
+            with self.subTest(service=service):
+                with open(path) as f:
+                    content = f.read()
+                self.assertIn(
+                    "Environment=HOME=", content,
+                    f"{service} must set HOME environment",
+                )
+                self.assertIn(
+                    "Environment=PATH=", content,
+                    f"{service} must set PATH environment",
                 )
 
 
