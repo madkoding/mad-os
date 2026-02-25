@@ -8,6 +8,17 @@ madOS Installer - Configuration constants
 DEMO_MODE = False
 # ================================
 
+# Minimum disk size in GB required for installation.
+# The live ISO rootfs (all packages from packages.x86_64) occupies ~5-6 GB
+# after rsync.  The system also needs space for pacman operations, GRUB,
+# initramfs, first-boot updates, and user data.  20 GB is the practical
+# minimum for a comfortable installation.
+MIN_DISK_SIZE_GB = 20
+
+# EFI System Partition size.  512 MB is the standard recommendation for
+# single-OS installs and is used by most Linux distributions.
+EFI_SIZE_MB = 512
+
 # Language to locale mapping
 LOCALE_MAP = {
     'English': 'en_US.UTF-8',

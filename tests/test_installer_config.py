@@ -42,6 +42,8 @@ from mados_installer.config import (
     GPU_COMPUTE_PACKAGES,
     RSYNC_EXCLUDES,
     LOCALE_KB_MAP,
+    MIN_DISK_SIZE_GB,
+    EFI_SIZE_MB,
 )
 from mados_installer.translations import TRANSLATIONS
 from mados_installer.utils import random_suffix
@@ -58,6 +60,44 @@ class TestDemoMode(unittest.TestCase):
 
     def test_demo_mode_default(self):
         self.assertFalse(DEMO_MODE, "DEMO_MODE should be False for production builds")
+
+
+class TestDiskSizeConstants(unittest.TestCase):
+    """Verify disk size constants are reasonable."""
+
+    def test_min_disk_size_is_int(self):
+        self.assertIsInstance(MIN_DISK_SIZE_GB, int)
+
+    def test_min_disk_size_at_least_20(self):
+        """Minimum disk must be at least 20 GB for the full ISO rootfs + updates."""
+        self.assertGreaterEqual(
+            MIN_DISK_SIZE_GB, 20,
+            "MIN_DISK_SIZE_GB must be at least 20 for the full system",
+        )
+
+    def test_min_disk_size_less_than_separate_home(self):
+        """Minimum disk for all-in-root must be less than the separate /home minimum (52 GB)."""
+        self.assertLess(
+            MIN_DISK_SIZE_GB, 52,
+            "MIN_DISK_SIZE_GB should be less than 52 (separate /home minimum)",
+        )
+
+    def test_efi_size_is_int(self):
+        self.assertIsInstance(EFI_SIZE_MB, int)
+
+    def test_efi_size_at_least_256(self):
+        """EFI partition must be at least 256 MB (UEFI spec minimum)."""
+        self.assertGreaterEqual(
+            EFI_SIZE_MB, 256,
+            "EFI_SIZE_MB must be at least 256 MB per UEFI specification",
+        )
+
+    def test_efi_size_at_most_1024(self):
+        """EFI partition should not exceed 1024 MB."""
+        self.assertLessEqual(
+            EFI_SIZE_MB, 1024,
+            "EFI_SIZE_MB should be at most 1024 MB",
+        )
 
 
 class TestLocaleMap(unittest.TestCase):

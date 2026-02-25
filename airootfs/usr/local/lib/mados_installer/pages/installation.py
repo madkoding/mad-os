@@ -23,6 +23,7 @@ from ..config import (
     LOCALE_KB_MAP,
     TIMEZONES,
     LOCALE_MAP,
+    EFI_SIZE_MB,
 )
 from ..utils import log_message, set_progress, show_error, save_log_to_file, LOG_FILE
 
@@ -161,6 +162,8 @@ def _step_partition_disk(app, disk, separate_home, disk_size_gb):
     set_progress(app, 0.05, "Partitioning disk...")
     log_message(app, f"Partitioning {disk}...")
 
+    efi_end = f"{EFI_SIZE_MB + 2}MiB"  # +2 for the BIOS boot partition at 1-2 MiB
+
     if DEMO_MODE:
         for msg in [
             "unmount/swapoff",
@@ -191,7 +194,8 @@ def _step_partition_disk(app, disk, separate_home, disk_size_gb):
             ["parted", "-s", disk, "set", "1", "bios_grub", "on"], check=True
         )
         subprocess.run(
-            ["parted", "-s", disk, "mkpart", "EFI", "fat32", "2MiB", "1GiB"], check=True
+            ["parted", "-s", disk, "mkpart", "EFI", "fat32", "2MiB", efi_end],
+            check=True,
         )
         subprocess.run(["parted", "-s", disk, "set", "2", "esp", "on"], check=True)
 
@@ -215,16 +219,18 @@ def _step_partition_disk(app, disk, separate_home, disk_size_gb):
 
 def _create_root_partition(app, disk, separate_home, disk_size_gb):
     """Create root (and optionally home) partition."""
+    root_start = f"{EFI_SIZE_MB + 2}MiB"  # starts right after EFI partition
+
     if separate_home:
         root_end = "51GiB" if disk_size_gb < 128 else "61GiB"
         if DEMO_MODE:
-            log_message(app, f"[DEMO] Simulating parted mkpart root 1GiB-{root_end}...")
+            log_message(app, f"[DEMO] Simulating parted mkpart root {root_start}-{root_end}...")
             time.sleep(0.5)
             log_message(app, "[DEMO] Simulating parted mkpart home...")
             time.sleep(0.5)
         else:
             subprocess.run(
-                ["parted", "-s", disk, "mkpart", "root", "ext4", "1GiB", root_end],
+                ["parted", "-s", disk, "mkpart", "root", "ext4", root_start, root_end],
                 check=True,
             )
             subprocess.run(
@@ -233,11 +239,11 @@ def _create_root_partition(app, disk, separate_home, disk_size_gb):
             )
     else:
         if DEMO_MODE:
-            log_message(app, "[DEMO] Simulating parted mkpart root 1GiB-100%...")
+            log_message(app, f"[DEMO] Simulating parted mkpart root {root_start}-100%...")
             time.sleep(0.5)
         else:
             subprocess.run(
-                ["parted", "-s", disk, "mkpart", "root", "ext4", "1GiB", "100%"],
+                ["parted", "-s", disk, "mkpart", "root", "ext4", root_start, "100%"],
                 check=True,
             )
 
@@ -712,6 +718,15 @@ def _rsync_rootfs_with_progress(app):
         + list(ARCHISO_PACKAGES),
         capture_output=True,
     )
+
+    # Free disk space: clean any stale pacman cache and sync databases
+    # that may have been copied from the live system.
+    log_message(app, "Cleaning copied pacman cache to free disk space...")
+    subprocess.run(
+        ["arch-chroot", "/mnt", "pacman", "-Scc", "--noconfirm"],
+        capture_output=True,
+    )
+
     # Ensure machine-id is regenerated on first boot
     machine_id = "/mnt/etc/machine-id"
     try:
@@ -1662,11 +1677,17 @@ log "Starting madOS Phase 2 setup..."
 # ── Step 0: Refresh package databases and update system ─────────────────
 # --- Package/download operations: failures are warnings, not blockers ---
 set +e
+
+# Free disk space BEFORE updating: remove any stale cached packages
+# to ensure enough room for downloading updated packages.
+log "Cleaning pacman cache to free disk space before update..."
+pacman -Scc --noconfirm 2>&1 || true
+
 log "Refreshing package databases and updating system..."
 pacman -Syu --noconfirm 2>&1 || log "Warning: system update returned non-zero (may be OK)"
 
-# Free disk space: remove cached package files no longer installed
-log "Cleaning pacman cache to free disk space..."
+# Free disk space again after update
+log "Cleaning pacman cache after update..."
 pacman -Sc --noconfirm 2>&1 || true
 
 # ── Step 1: Install GPU compute drivers (only for supported hardware) ───

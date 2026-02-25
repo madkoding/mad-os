@@ -88,9 +88,9 @@ wipefs -a -f "$LOOP_DEV"
 parted -s "$LOOP_DEV" mklabel gpt
 parted -s "$LOOP_DEV" mkpart bios_boot 1MiB 2MiB
 parted -s "$LOOP_DEV" set 1 bios_grub on
-parted -s "$LOOP_DEV" mkpart EFI fat32 2MiB 1GiB
+parted -s "$LOOP_DEV" mkpart EFI fat32 2MiB 514MiB
 parted -s "$LOOP_DEV" set 2 esp on
-parted -s "$LOOP_DEV" mkpart root ext4 1GiB 51GiB
+parted -s "$LOOP_DEV" mkpart root ext4 514MiB 51GiB
 parted -s "$LOOP_DEV" mkpart home ext4 51GiB 100%
 
 # In containers, partprobe is unreliable for loop devices because udev may not

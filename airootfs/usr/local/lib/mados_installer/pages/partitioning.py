@@ -5,7 +5,8 @@ madOS Installer - Partitioning scheme page
 from gi.repository import Gtk, GLib
 
 from ..config import (
-    NORD_POLAR_NIGHT, NORD_SNOW_STORM, NORD_AURORA
+    NORD_POLAR_NIGHT, NORD_SNOW_STORM, NORD_AURORA,
+    MIN_DISK_SIZE_GB, EFI_SIZE_MB,
 )
 from ..utils import show_error
 from .base import create_page_header, create_nav_buttons
@@ -68,13 +69,14 @@ def create_partitioning_page(app):
 
     # Partition bar
     root_size = '50GB' if app.install_data["disk_size_gb"] < 128 else '60GB'
+    efi_label = f'{EFI_SIZE_MB}M'
     bar1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
     bar1.set_margin_start(28)
     bar1.set_margin_end(8)
     bar1.set_margin_top(4)
 
     efi_bar = Gtk.Label()
-    efi_bar.set_markup(f'<span size="8000" foreground="{NORD_POLAR_NIGHT["nord0"]}"> EFI 1G </span>')
+    efi_bar.set_markup(f'<span size="8000" foreground="{NORD_POLAR_NIGHT["nord0"]}"> EFI {efi_label} </span>')
     efi_bar.get_style_context().add_class('partition-bar-efi')
     bar1.pack_start(efi_bar, False, False, 0)
 
@@ -124,7 +126,7 @@ def create_partitioning_page(app):
     bar2.set_margin_top(6)
 
     efi_bar2 = Gtk.Label()
-    efi_bar2.set_markup(f'<span size="8000" foreground="{NORD_POLAR_NIGHT["nord0"]}"> EFI 1G </span>')
+    efi_bar2.set_markup(f'<span size="8000" foreground="{NORD_POLAR_NIGHT["nord0"]}"> EFI {efi_label} </span>')
     efi_bar2.get_style_context().add_class('partition-bar-efi')
     bar2.pack_start(efi_bar2, False, False, 0)
 
@@ -156,13 +158,27 @@ def _on_partitioning_next(app):
     """Save partitioning choice and advance"""
     app.install_data['separate_home'] = app.radio_separate.get_active()
 
-    # Validate minimum disk size for separate /home
-    if app.install_data['separate_home'] and app.install_data['disk_size_gb'] < 52:
+    disk_size = app.install_data['disk_size_gb']
+
+    # Validate minimum disk size for any installation mode
+    if disk_size < MIN_DISK_SIZE_GB:
         show_error(
             app,
             "Disk Too Small",
-            f"Separate /home requires at least 52 GB (1 GB EFI + 50 GB root + home). "
-            f"Your disk is {app.install_data['disk_size_gb']} GB. "
+            f"madOS requires at least {MIN_DISK_SIZE_GB} GB "
+            f"({EFI_SIZE_MB} MB EFI + system files + space for updates). "
+            f"Your disk is {disk_size} GB. "
+            f"Please use a larger disk."
+        )
+        return
+
+    # Validate minimum disk size for separate /home
+    if app.install_data['separate_home'] and disk_size < 52:
+        show_error(
+            app,
+            "Disk Too Small",
+            f"Separate /home requires at least 52 GB ({EFI_SIZE_MB} MB EFI + 50 GB root + home). "
+            f"Your disk is {disk_size} GB. "
             f"Please select 'All in root' or use a larger disk."
         )
         return
