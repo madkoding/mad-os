@@ -1308,5 +1308,106 @@ class TestVMPerformanceOptimizations(unittest.TestCase):
                        "vm-performance.conf must explain auto-population")
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# VMware rendering fallback (vmwgfx, sway retry, hyprland legacy detection)
+# ═══════════════════════════════════════════════════════════════════════════
+class TestVMwareRenderingFallback(unittest.TestCase):
+    """Verify VMware/legacy rendering fallback behaviour.
+
+    vmwgfx should NOT be treated as auto-3D-capable, sway-session must have
+    software-rendering retry logic, and hyprland-session must detect legacy
+    hardware and fall back to sway-session.
+    """
+
+    # --- vmwgfx must NOT auto-return 0 in detect-legacy-hardware ----------
+
+    def test_vmwgfx_case_has_no_return_0(self):
+        """vmwgfx case in detect-legacy-hardware must NOT return 0."""
+        path = os.path.join(BIN_DIR, "detect-legacy-hardware")
+        if not os.path.isfile(path):
+            self.skipTest("detect-legacy-hardware script not found")
+        with open(path) as f:
+            content = f.read()
+        # Extract the text between "vmwgfx)" and the next case pattern
+        # "virtio-gpu|virgl|vboxvideo)" to inspect only the vmwgfx case body.
+        match = re.search(
+            r"vmwgfx\)(.*?)(?:virtio-gpu\|virgl\|vboxvideo\))",
+            content,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(match,
+                             "detect-legacy-hardware must contain vmwgfx case")
+        vmwgfx_body = match.group(1)
+        self.assertNotIn("return 0", vmwgfx_body,
+                          "vmwgfx case must NOT return 0 — "
+                          "vmwgfx presence alone does not guarantee 3D")
+
+    # --- sway-session software rendering fallback retry -------------------
+
+    def test_sway_session_has_apply_software_rendering_function(self):
+        """sway-session must define an apply_software_rendering function."""
+        path = os.path.join(BIN_DIR, "sway-session")
+        if not os.path.isfile(path):
+            self.skipTest("sway-session not found")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("apply_software_rendering", content,
+                       "sway-session must contain apply_software_rendering function")
+
+    def test_sway_session_has_software_rendering_retry_logic(self):
+        """sway-session must retry with software rendering on failure."""
+        path = os.path.join(BIN_DIR, "sway-session")
+        if not os.path.isfile(path):
+            self.skipTest("sway-session not found")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("retrying with software rendering", content,
+                       "sway-session must contain retry logic message "
+                       "'retrying with software rendering'")
+
+    def test_sway_session_still_execs_sway(self):
+        """sway-session must still exec sway in the fallback path."""
+        path = os.path.join(BIN_DIR, "sway-session")
+        if not os.path.isfile(path):
+            self.skipTest("sway-session not found")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("exec sway", content,
+                       "sway-session must exec sway for the fallback path")
+
+    # --- hyprland-session legacy hardware detection -----------------------
+
+    def test_hyprland_session_calls_detect_legacy_hardware(self):
+        """hyprland-session must invoke detect-legacy-hardware."""
+        path = os.path.join(BIN_DIR, "hyprland-session")
+        if not os.path.isfile(path):
+            self.skipTest("hyprland-session not found")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("detect-legacy-hardware", content,
+                       "hyprland-session must call detect-legacy-hardware")
+
+    def test_hyprland_session_falls_back_to_sway_session(self):
+        """hyprland-session must fall back to sway-session on legacy hardware."""
+        path = os.path.join(BIN_DIR, "hyprland-session")
+        if not os.path.isfile(path):
+            self.skipTest("hyprland-session not found")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("sway-session", content,
+                       "hyprland-session must reference sway-session as fallback")
+
+    def test_hyprland_session_still_execs_start_hyprland(self):
+        """hyprland-session must exec start-hyprland for the non-legacy path."""
+        path = os.path.join(BIN_DIR, "hyprland-session")
+        if not os.path.isfile(path):
+            self.skipTest("hyprland-session not found")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn("exec start-hyprland", content,
+                       "hyprland-session must exec start-hyprland "
+                       "for non-legacy hardware")
+
+
 if __name__ == "__main__":
     unittest.main()

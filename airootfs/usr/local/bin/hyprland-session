@@ -6,5 +6,14 @@ export MOZ_ENABLE_WAYLAND=1
 # Use systemd-logind as the seat management backend (madOS uses systemd)
 export LIBSEAT_BACKEND=logind
 
+# Hyprland requires GPU acceleration.  On legacy / no-3D hardware, fall
+# back to sway-session which supports pixman software rendering.
+if [ -x /usr/local/bin/detect-legacy-hardware ]; then
+    if /usr/local/bin/detect-legacy-hardware >/dev/null 2>&1; then
+        logger -p user.warning -t mados-hyprland "Legacy hardware detected, falling back to sway-session"
+        exec /usr/local/bin/sway-session
+    fi
+fi
+
 logger -p user.info -t mados-hyprland "Launching Hyprland compositor"
 exec start-hyprland
