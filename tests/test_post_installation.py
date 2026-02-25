@@ -464,6 +464,72 @@ class TestPostInstallServices(unittest.TestCase):
             "Installer must enable greetd for graphical login",
         )
 
+    def test_enables_plymouth_quit_wait(self):
+        """Installer must enable plymouth-quit-wait.service so Plymouth exits at boot."""
+        self.assertIn(
+            "plymouth-quit-wait", self.content,
+            "Installer must enable plymouth-quit-wait.service to prevent Plymouth freeze",
+        )
+
+    def test_greetd_ordered_after_plymouth_quit(self):
+        """greetd override must order After plymouth-quit-wait.service."""
+        self.assertIn(
+            "plymouth-quit-wait.service", self.content,
+            "greetd override must include After=plymouth-quit-wait.service",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Profile scripts safety
+# ═══════════════════════════════════════════════════════════════════════════
+class TestProfileScriptsSafety(unittest.TestCase):
+    """Verify /etc/profile.d scripts use 'return' not 'exit' (they are sourced)."""
+
+    def test_welcome_script_uses_return_not_exit(self):
+        """mados-welcome.sh must use 'return' not 'exit' since it is sourced."""
+        path = os.path.join(AIROOTFS, "etc", "profile.d", "mados-welcome.sh")
+        with open(path) as f:
+            content = f.read()
+        # 'exit' inside a sourced script kills the calling shell
+        self.assertNotIn(
+            "exit 0", content,
+            "mados-welcome.sh must use 'return 0' instead of 'exit 0' — "
+            "scripts in /etc/profile.d/ are sourced, so 'exit' kills the login shell",
+        )
+
+    def test_welcome_script_has_return(self):
+        """mados-welcome.sh should use 'return 0' for early exit."""
+        path = os.path.join(AIROOTFS, "etc", "profile.d", "mados-welcome.sh")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn(
+            "return 0", content,
+            "mados-welcome.sh should use 'return 0' for safe early exit",
+        )
+
+    def test_all_profile_scripts_avoid_exit(self):
+        """No /etc/profile.d/ script should use bare 'exit' (they are all sourced)."""
+        profile_dir = os.path.join(AIROOTFS, "etc", "profile.d")
+        if not os.path.isdir(profile_dir):
+            self.skipTest("profile.d directory not found")
+        for fname in os.listdir(profile_dir):
+            if not fname.endswith(".sh"):
+                continue
+            fpath = os.path.join(profile_dir, fname)
+            with open(fpath) as f:
+                content = f.read()
+            with self.subTest(script=fname):
+                # Check for bare 'exit' statements that would kill the sourcing shell
+                for i, line in enumerate(content.splitlines(), 1):
+                    stripped = line.strip()
+                    if stripped.startswith("#"):
+                        continue
+                    self.assertNotRegex(
+                        stripped, r'\bexit\b',
+                        f"{fname}:{i} uses 'exit' — must use 'return' instead "
+                        f"(scripts in /etc/profile.d/ are sourced, not executed)",
+                    )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Initramfs / mkinitcpio preset restoration
@@ -692,6 +758,35 @@ class TestLiveISOCleanup(unittest.TestCase):
             "before the new user is created",
         )
 
+    def test_useradd_uses_usr_bin_zsh(self):
+        """useradd must use /usr/bin/zsh (Arch Linux canonical path)."""
+        self.assertIn(
+            "/usr/bin/zsh", self.content,
+            "useradd must use /usr/bin/zsh — Arch Linux installs zsh at "
+            "/usr/bin/zsh, not /bin/zsh",
+        )
+        self.assertNotRegex(
+            self.content, r"useradd.*-s /bin/zsh",
+            "useradd must NOT use /bin/zsh — use /usr/bin/zsh instead",
+        )
+
+    def test_no_su_login_shell_for_mkdir(self):
+        """Config script must not use 'su -' for directory creation in chroot.
+
+        'su - user' sources the user's login shell profile (.zshrc), which
+        may fail if Oh My Zsh is not yet installed, silently preventing
+        directory creation.
+        """
+        # Ensure we don't use su - for mkdir commands
+        import re
+        su_mkdirs = re.findall(r'su - .* -c "mkdir', self.content)
+        self.assertEqual(
+            len(su_mkdirs), 0,
+            "Config script must not use 'su - user -c mkdir' — "
+            "zsh login profile may fail if Oh My Zsh is not yet installed. "
+            "Use 'install -d -o user' instead.",
+        )
+
     def test_config_script_valid_bash_syntax(self):
         """Generated config script must pass bash -n syntax check."""
         from mados_installer.pages.installation import _build_config_script
@@ -901,6 +996,20 @@ class TestSudoersConfig(unittest.TestCase):
             "mados user must have NOPASSWD sudo access",
         )
 
+    def test_wheel_sudoers_has_chmod_440(self):
+        """Installer must chmod 440 the wheel sudoers file (sudo ignores bad perms)."""
+        install_py = os.path.join(
+            LIB_DIR, "mados_installer", "pages", "installation.py"
+        )
+        with open(install_py) as f:
+            content = f.read()
+        self.assertIn(
+            "chmod 440 /etc/sudoers.d/wheel",
+            content,
+            "Installer must chmod 440 /etc/sudoers.d/wheel — "
+            "sudo refuses to parse sudoers files with incorrect permissions",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Compositor selection (Hyprland / Sway)
@@ -924,6 +1033,22 @@ class TestCompositorSelection(unittest.TestCase):
             content = f.read()
         self.assertIn("select-compositor", content,
                        ".bash_profile must use select-compositor script")
+
+    def test_bash_profile_only_autostart_on_live_iso(self):
+        """bash_profile must only auto-start compositor on live ISO, not installed system.
+
+        On the installed system greetd manages VT1.  If .bash_profile also
+        tries to exec sway/hyprland on TTY1, it conflicts with greetd.
+        The auto-start must be guarded by /run/archiso existence check.
+        """
+        path = os.path.join(AIROOTFS, "etc", "skel", ".bash_profile")
+        with open(path) as f:
+            content = f.read()
+        self.assertIn(
+            "/run/archiso", content,
+            ".bash_profile auto-start compositor must be guarded by "
+            "/run/archiso check — on installed system greetd manages VT1",
+        )
 
     def test_bash_profile_supports_both_compositors(self):
         """bash_profile should handle both Sway and Hyprland."""
