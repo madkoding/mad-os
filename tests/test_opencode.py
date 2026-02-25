@@ -115,9 +115,9 @@ class TestLiveUSBOpenCodeScript(unittest.TestCase):
 class TestPostInstallOpenCode(unittest.TestCase):
     """Verify the installer configures OpenCode for the installed system.
 
-    Phase 2 is 100% offline — it does NOT download OpenCode.  Instead it
-    creates a setup script for manual installation when the binary
-    wasn't already on the live USB.
+    Phase 2 creates a setup script and attempts to install OpenCode as a
+    program on first boot.  The setup script remains for manual retry
+    if network was unavailable during first boot.
     """
 
     def setUp(self):
@@ -130,7 +130,7 @@ class TestPostInstallOpenCode(unittest.TestCase):
             self.content = f.read()
 
     def test_installer_creates_setup_script(self):
-        """Installer must create setup-opencode.sh for manual retry."""
+        """Installer must create setup-opencode.sh for install and manual retry."""
         self.assertIn(
             "setup-opencode.sh", self.content,
             "Installer must create setup-opencode.sh on the installed system",
@@ -152,6 +152,14 @@ class TestPostInstallOpenCode(unittest.TestCase):
         self.assertIn(
             "/usr/local/bin/opencode", self.content,
             "Installer sudoers must include /usr/local/bin/opencode path",
+        )
+
+    def test_installer_attempts_opencode_install(self):
+        """Installer must attempt to install OpenCode on first boot."""
+        self.assertIn(
+            "Attempting to install OpenCode",
+            self.content,
+            "Installer must attempt to run setup-opencode.sh on first boot",
         )
 
     def test_no_inline_opencode_download(self):

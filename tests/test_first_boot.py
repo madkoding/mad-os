@@ -3,12 +3,13 @@
 Tests for madOS first-boot post-installation configuration.
 
 Validates the first-boot script that runs after installation on the first reboot.
-This script is responsible for service configuration and post-install setup
-(audio, Chromium, fallback services for optional tools).
+This script is responsible for service configuration, post-install setup
+(audio, Chromium, Oh My Zsh fallback service), and installing programs
+(Ollama, OpenCode) via their setup scripts.
 
 Phase 2 is 100% offline — all packages and tools are already present from
-the ISO (copied via rsync during Phase 1).  Phase 2 only configures
-services and creates fallback systemd services for optional tools.
+the ISO (copied via rsync during Phase 1).  Phase 2 configures services,
+creates setup scripts, and installs programs (Ollama, OpenCode).
 
 These tests verify:
 1. The first-boot service and script are properly created during installation
@@ -652,10 +653,10 @@ class TestGraphicalEnvironmentVerification(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Ollama and OpenCode status verification
+# Ollama and OpenCode installation as programs
 # ═══════════════════════════════════════════════════════════════════════════
 class TestToolStatusVerification(unittest.TestCase):
-    """Verify Phase 2 checks Ollama and OpenCode binary status."""
+    """Verify Phase 2 installs Ollama and OpenCode as programs."""
 
     def setUp(self):
         install_py = os.path.join(
@@ -678,6 +679,27 @@ class TestToolStatusVerification(unittest.TestCase):
         self.assertIn(
             "command -v opencode", self.content,
             "Phase 2 must check OpenCode binary availability",
+        )
+
+    def test_runs_ollama_setup_script(self):
+        """Phase 2 must attempt to install Ollama by running setup-ollama.sh."""
+        self.assertIn(
+            "setup-ollama.sh", self.content,
+            "Phase 2 must run setup-ollama.sh to install Ollama as a program",
+        )
+
+    def test_runs_opencode_setup_script(self):
+        """Phase 2 must attempt to install OpenCode by running setup-opencode.sh."""
+        self.assertIn(
+            "setup-opencode.sh", self.content,
+            "Phase 2 must run setup-opencode.sh to install OpenCode as a program",
+        )
+
+    def test_no_fallback_service_references(self):
+        """Phase 2 must NOT reference 'fallback service' for ollama/opencode."""
+        self.assertNotIn(
+            "fallback service", self.content,
+            "Phase 2 must not reference 'fallback service' — ollama/opencode are programs",
         )
 
 
@@ -1013,6 +1035,21 @@ class TestPhase2ScriptGeneration(unittest.TestCase):
                        "Phase 2 must create setup-ollama.sh")
         self.assertNotIn("setup-ollama.service", self.script,
                          "Phase 2 must NOT create setup-ollama.service — ollama is a program, not a service")
+
+    # ── Programs are installed on first boot ─────────────────────────────
+    def test_ollama_install_attempted_on_first_boot(self):
+        """Phase 2 must attempt to install Ollama by running setup-ollama.sh."""
+        self.assertIn("setup-ollama.sh", self.script,
+                       "Phase 2 must run setup-ollama.sh to install Ollama")
+        self.assertIn("Attempting to install Ollama", self.script,
+                       "Phase 2 must log the Ollama install attempt")
+
+    def test_opencode_install_attempted_on_first_boot(self):
+        """Phase 2 must attempt to install OpenCode by running setup-opencode.sh."""
+        self.assertIn("setup-opencode.sh", self.script,
+                       "Phase 2 must run setup-opencode.sh to install OpenCode")
+        self.assertIn("Attempting to install OpenCode", self.script,
+                       "Phase 2 must log the OpenCode install attempt")
 
     # ── Audio init script ───────────────────────────────────────────────
     def test_audio_init_script_is_valid_bash(self):

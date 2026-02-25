@@ -124,9 +124,9 @@ class TestLiveUSBOllamaScript(unittest.TestCase):
 class TestPostInstallOllama(unittest.TestCase):
     """Verify the installer configures Ollama for the installed system.
 
-    Phase 2 is 100% offline — it does NOT download Ollama.  Instead it
-    creates a setup script for manual installation when the binary
-    wasn't already on the live USB.
+    Phase 2 creates a setup script and attempts to install Ollama as a
+    program on first boot.  The setup script remains for manual retry
+    if network was unavailable during first boot.
     """
 
     def setUp(self):
@@ -139,7 +139,7 @@ class TestPostInstallOllama(unittest.TestCase):
             self.content = f.read()
 
     def test_installer_creates_setup_script(self):
-        """Installer must create setup-ollama.sh for manual retry."""
+        """Installer must create setup-ollama.sh for install and manual retry."""
         self.assertIn(
             "setup-ollama.sh",
             self.content,
@@ -174,6 +174,14 @@ class TestPostInstallOllama(unittest.TestCase):
             self.content,
             pattern,
             "Installer must include /usr/local/bin/ollama in sudoers NOPASSWD line",
+        )
+
+    def test_installer_attempts_ollama_install(self):
+        """Installer must attempt to install Ollama on first boot."""
+        self.assertIn(
+            "Attempting to install Ollama",
+            self.content,
+            "Installer must attempt to run setup-ollama.sh on first boot",
         )
 
     def test_no_inline_ollama_download(self):

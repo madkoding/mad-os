@@ -10,7 +10,7 @@
 #   2. The script has valid bash syntax
 #   3. The script is 100% offline (no internet downloads)
 #   4. Services are enabled appropriately
-#   5. Audio, Chromium, and fallback services are configured correctly
+#   5. Audio, Chromium, setup scripts, and program installation are configured correctly
 #   6. All heredocs are properly terminated
 #   7. The script cleans up after itself
 #
@@ -294,9 +294,9 @@ else
 fi
 
 # =============================================================================
-# Phase 8: Verify fallback services for optional tools
+# Phase 8: Verify setup scripts and program installation
 # =============================================================================
-step "Phase 8 – Verifying fallback services"
+step "Phase 8 – Verifying setup scripts and program installation"
 
 check_content "Oh My Zsh fallback service" "setup-ohmyzsh.service"
 check_content "Oh My Zsh service enabled" "systemctl enable setup-ohmyzsh.service"
@@ -304,6 +304,10 @@ check_content "OpenCode setup script" "setup-opencode.sh"
 check_not_content "OpenCode service file" "setup-opencode.service"
 check_content "Ollama setup script" "setup-ollama.sh"
 check_not_content "Ollama service file" "setup-ollama.service"
+
+# Verify setup scripts are executed during first boot to install programs
+check_content "Ollama install attempted" "Attempting to install Ollama"
+check_content "OpenCode install attempted" "Attempting to install OpenCode"
 
 # Verify setup scripts have chmod 755
 info "Checking script permissions..."

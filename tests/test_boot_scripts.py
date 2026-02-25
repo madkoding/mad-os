@@ -240,11 +240,11 @@ class TestSetupClaudeCode(unittest.TestCase):
         self.assertIn("--unsafe-perm", self.content)
 
     def test_no_strict_mode(self):
-        """setup-opencode.sh must NOT use set -euo pipefail (must never crash service)."""
+        """setup-opencode.sh must NOT use set -euo pipefail (could prevent graceful exit)."""
         self.assertNotIn("set -euo pipefail", self.content)
 
     def test_always_exits_zero(self):
-        """setup-opencode.sh must always exit 0 to not crash the systemd service."""
+        """setup-opencode.sh must always exit 0 for graceful failure handling."""
         # All exit statements in the script should be exit 0
         import re
         exits = re.findall(r'exit\s+(\d+)', self.content)

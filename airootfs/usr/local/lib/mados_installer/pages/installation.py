@@ -1860,7 +1860,8 @@ EOFPOLICY
 
 # ── Step 4: Create fallback service and setup scripts for optional tools ──
 # Oh My Zsh uses a fallback systemd service. OpenCode and Ollama are
-# programs (not services) — their setup scripts are provided for manual use.
+# programs (not services) — their setup scripts are used to install them
+# on first boot and can also be re-run manually if needed.
 log "Creating fallback services and setup scripts for optional tools..."
 
 # Oh My Zsh fallback service
@@ -1886,7 +1887,7 @@ WantedBy=multi-user.target
 EOFSVC
 systemctl enable setup-ohmyzsh.service 2>/dev/null || true
 
-# OpenCode: setup script for manual install/retry
+# OpenCode: setup script for first-boot install and manual retry
 cat > /usr/local/bin/setup-opencode.sh <<'EOFSETUP'
 #!/bin/bash
 OPENCODE_CMD="opencode"
@@ -1923,7 +1924,7 @@ exit 0
 EOFSETUP
 chmod 755 /usr/local/bin/setup-opencode.sh
 
-# Ollama: setup script for manual install/retry
+# Ollama: setup script for first-boot install and manual retry
 cat > /usr/local/bin/setup-ollama.sh <<'EOFSETUP'
 #!/bin/bash
 OLLAMA_CMD="ollama"
@@ -2022,18 +2023,29 @@ if [ "$GRAPHICAL_OK" -eq 0 ]; then
     systemctl enable getty@tty1.service 2>/dev/null || true
 fi
 
-# ── Step 6: Verify Ollama and OpenCode status ───────────────────────────
-log "Checking Ollama and OpenCode status..."
+# ── Step 6: Install Ollama and OpenCode as programs ─────────────────────
+log "Installing Ollama and OpenCode..."
+
 if command -v ollama &>/dev/null; then
-    log "  ✓ Ollama binary found: $(command -v ollama)"
+    log "  ✓ Ollama already installed: $(command -v ollama)"
 else
-    log "  ⚠ Ollama not found — fallback service will attempt install on next boot with network"
+    log "  → Attempting to install Ollama..."
+    if /usr/local/bin/setup-ollama.sh 2>&1 | while IFS= read -r line; do log "    $line"; done && command -v ollama &>/dev/null; then
+        log "  ✓ Ollama installed successfully"
+    else
+        log "  ⚠ Ollama not installed — run setup-ollama.sh manually when network is available"
+    fi
 fi
 
 if command -v opencode &>/dev/null; then
-    log "  ✓ OpenCode binary found: $(command -v opencode)"
+    log "  ✓ OpenCode already installed: $(command -v opencode)"
 else
-    log "  ⚠ OpenCode not found — fallback service will attempt install on next boot with network"
+    log "  → Attempting to install OpenCode..."
+    if /usr/local/bin/setup-opencode.sh 2>&1 | while IFS= read -r line; do log "    $line"; done && command -v opencode &>/dev/null; then
+        log "  ✓ OpenCode installed successfully"
+    else
+        log "  ⚠ OpenCode not installed — run setup-opencode.sh manually when network is available"
+    fi
 fi
 
 # ── Step 7: Cleanup ─────────────────────────────────────────────────────
