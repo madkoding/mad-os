@@ -1241,7 +1241,7 @@ for svc in \
 done
 
 # Remove any dangling symlinks left in systemd .wants directories
-find /etc/systemd/system -type l ! -exec test -e {{}} \; -delete 2>/dev/null || true
+find /etc/systemd/system -type l ! -exec test -e {{}} \\; -delete 2>/dev/null || true
 
 # Remove the live ISO user (mados) — the installer creates a fresh user below
 if id mados &>/dev/null; then
