@@ -296,7 +296,10 @@ hwclock()                      { stub "hwclock $*"; }
 sbctl()                        { stub "sbctl $*"; }
 passwd()                       { stub "passwd $*"; }
 npm()                          { stub "npm $*"; }
-export -f stub grub-install grub-mkconfig mkinitcpio systemctl plymouth-set-default-theme hwclock sbctl passwd npm
+# pacman-key is stubbed because pacstrap already initialises the keyring;
+# re-initialising inside the chroot is only needed for rsync-based installs.
+pacman-key()                   { stub "pacman-key $*"; }
+export -f stub grub-install grub-mkconfig mkinitcpio systemctl plymouth-set-default-theme hwclock sbctl passwd npm pacman-key
 CIEOF
 
 # Append the real config script (it will use our stubs for skipped commands)
