@@ -1183,6 +1183,16 @@ def _build_config_script(data):
     return f'''#!/bin/bash
 set -e
 
+# ── Initialize pacman keyring ────────────────────────────────────────────────
+# Must run BEFORE any pacman invocation in this script.
+# The rsync copy may have included the live ISO keyring from a tmpfs, which is
+# incomplete or incompatible with the standalone installed system.
+echo '  Initializing pacman keyring...'
+[ -d /etc/pacman.d/gnupg ] && rm -rf /etc/pacman.d/gnupg
+pacman-key --init
+pacman-key --populate archlinux
+echo '  Pacman keyring initialized'
+
 echo "[PROGRESS 1/8] Setting timezone and locale..."
 # Timezone
 ln -sf /usr/share/zoneinfo/{timezone} /etc/localtime
@@ -1231,7 +1241,7 @@ for svc in \
 done
 
 # Remove any dangling symlinks left in systemd .wants directories
-find /etc/systemd/system -type l ! -exec test -e {{}} \; -delete 2>/dev/null || true
+find /etc/systemd/system -type l ! -exec test -e {{}} \\; -delete 2>/dev/null || true
 
 # Remove the live ISO user (mados) — the installer creates a fresh user below
 if id mados &>/dev/null; then
