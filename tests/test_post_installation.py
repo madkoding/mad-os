@@ -741,6 +741,48 @@ class TestLiveISOCleanup(unittest.TestCase):
                     f"service: {svc}",
                 )
 
+    def test_initializes_pacman_keyring_in_chroot(self):
+        """Config script must reinitialize the pacman keyring inside the chroot.
+
+        The rsync copy may include the live ISO keyring from a tmpfs, which is
+        incomplete or incompatible with the standalone installed system.  Running
+        pacman-key --init and --populate archlinux inside the chroot ensures the
+        installed system can verify and install packages after reboot.
+        """
+        self.assertIn(
+            "pacman-key --init",
+            self.content,
+            "Config script must run 'pacman-key --init' in chroot to initialize keyring",
+        )
+        self.assertIn(
+            "pacman-key --populate archlinux",
+            self.content,
+            "Config script must run 'pacman-key --populate archlinux' to import packager keys",
+        )
+        self.assertRegex(
+            self.content,
+            r"\[ -d /etc/pacman\.d/gnupg \] && rm -rf /etc/pacman\.d/gnupg",
+            "Config script must conditionally remove stale live keyring before re-initializing",
+        )
+
+    def test_keyring_init_before_services(self):
+        """Keyring initialization must happen before systemctl enable commands.
+
+        pacman-key --init generates entropy and can be slow.  It must complete
+        before any package operations so the installed system is usable immediately
+        after first boot.
+        """
+        import re
+        keyring_pos = self.content.find("pacman-key --init")
+        # Find the first 'systemctl enable' in the script
+        m = re.search(r"systemctl enable \w", self.content)
+        self.assertNotEqual(keyring_pos, -1, "pacman-key --init not found in config script")
+        self.assertIsNotNone(m, "no 'systemctl enable' found in config script")
+        self.assertLess(
+            keyring_pos, m.start(),
+            "pacman-key --init must appear before systemctl enable",
+        )
+
     def test_live_cleanup_before_useradd(self):
         """Live user cleanup (userdel) must happen BEFORE useradd.
 
