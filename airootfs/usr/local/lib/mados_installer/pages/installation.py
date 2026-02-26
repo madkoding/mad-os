@@ -1183,6 +1183,16 @@ def _build_config_script(data):
     return f'''#!/bin/bash
 set -e
 
+# ── Initialize pacman keyring ────────────────────────────────────────────────
+# Must run BEFORE any pacman invocation in this script.
+# The rsync copy may have included the live ISO keyring from a tmpfs, which is
+# incomplete or incompatible with the standalone installed system.
+echo '  Initializing pacman keyring...'
+[ -d /etc/pacman.d/gnupg ] && rm -rf /etc/pacman.d/gnupg
+pacman-key --init
+pacman-key --populate archlinux
+echo '  Pacman keyring initialized'
+
 echo "[PROGRESS 1/8] Setting timezone and locale..."
 # Timezone
 ln -sf /usr/share/zoneinfo/{timezone} /etc/localtime
@@ -1499,16 +1509,6 @@ fi
 mkinitcpio -P
 
 echo '[PROGRESS 7/8] Enabling essential services...'
-# Initialize pacman keyring for the installed system.
-# The rsync copy may have included the live ISO keyring from a tmpfs, which
-# is incomplete or incompatible with the standalone installed system.
-# Re-initializing here ensures pacman can verify and install packages after reboot.
-echo '  Initializing pacman keyring...'
-[ -d /etc/pacman.d/gnupg ] && rm -rf /etc/pacman.d/gnupg
-pacman-key --init
-pacman-key --populate archlinux
-echo '  Pacman keyring initialized'
-
 # Lock root account (security: users should use sudo)
 passwd -l root
 

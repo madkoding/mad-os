@@ -748,40 +748,98 @@ class TestLiveISOCleanup(unittest.TestCase):
         incomplete or incompatible with the standalone installed system.  Running
         pacman-key --init and --populate archlinux inside the chroot ensures the
         installed system can verify and install packages after reboot.
+
+        Assert against the generated script (not installation.py source text) to
+        avoid false positives from the _prepare_pacman() function which also
+        contains pacman-key calls.
         """
+        from mados_installer.pages.installation import _build_config_script
+
+        script = _build_config_script({
+            "disk": "/dev/sda",
+            "disk_size_gb": 60,
+            "separate_home": True,
+            "username": "testuser",
+            "password": "TestPass123!",  # NOSONAR - test fixture, not a real credential
+            "hostname": "mados-test",
+            "timezone": "America/New_York",
+            "locale": "en_US.UTF-8",
+        })
         self.assertIn(
             "pacman-key --init",
-            self.content,
+            script,
             "Config script must run 'pacman-key --init' in chroot to initialize keyring",
         )
         self.assertIn(
             "pacman-key --populate archlinux",
-            self.content,
+            script,
             "Config script must run 'pacman-key --populate archlinux' to import packager keys",
         )
         self.assertRegex(
-            self.content,
+            script,
             r"\[ -d /etc/pacman\.d/gnupg \] && rm -rf /etc/pacman\.d/gnupg",
             "Config script must conditionally remove stale live keyring before re-initializing",
         )
 
     def test_keyring_init_before_services(self):
-        """Keyring initialization must happen before systemctl enable commands.
+        """Keyring initialization must appear before systemctl enable in the config script.
 
-        pacman-key --init generates entropy and can be slow.  It must complete
-        before any package operations so the installed system is usable immediately
-        after first boot.
+        Assert against the generated script (not installation.py source text) to
+        avoid false positives from the _prepare_pacman() function which also
+        contains pacman-key --init.
         """
         import re
-        keyring_pos = self.content.find("pacman-key --init")
-        # Find the first 'systemctl enable' in the script
-        m = re.search(r"systemctl enable \w", self.content)
+        from mados_installer.pages.installation import _build_config_script
+
+        script = _build_config_script({
+            "disk": "/dev/sda",
+            "disk_size_gb": 60,
+            "separate_home": True,
+            "username": "testuser",
+            "password": "TestPass123!",  # NOSONAR - test fixture, not a real credential
+            "hostname": "mados-test",
+            "timezone": "America/New_York",
+            "locale": "en_US.UTF-8",
+        })
+        keyring_pos = script.find("pacman-key --init")
+        m = re.search(r"systemctl enable \w", script)
         self.assertNotEqual(keyring_pos, -1, "pacman-key --init not found in config script")
         self.assertIsNotNone(m, "no 'systemctl enable' found in config script")
         self.assertLess(
             keyring_pos, m.start(),
-            "pacman-key --init must appear before systemctl enable",
+            "pacman-key --init must appear before systemctl enable in the config script",
         )
+
+    def test_keyring_init_before_pacman_calls(self):
+        """Keyring init must precede all pacman invocations in the config script.
+
+        Kernel recovery paths may call 'pacman -Sy' before the keyring is ready
+        if it is initialized too late.  Placing keyring init at the top of the
+        script ensures it runs before any pacman invocation.
+        """
+        import re
+        from mados_installer.pages.installation import _build_config_script
+
+        script = _build_config_script({
+            "disk": "/dev/sda",
+            "disk_size_gb": 60,
+            "separate_home": True,
+            "username": "testuser",
+            "password": "TestPass123!",  # NOSONAR - test fixture, not a real credential
+            "hostname": "mados-test",
+            "timezone": "America/New_York",
+            "locale": "en_US.UTF-8",
+        })
+        keyring_pos = script.find("pacman-key --init")
+        self.assertNotEqual(keyring_pos, -1, "pacman-key --init not found in config script")
+        # Find the first bare 'pacman ' invocation (not 'pacman-key')
+        m = re.search(r"\bpacman\s+-", script)
+        if m:
+            self.assertLess(
+                keyring_pos, m.start(),
+                "pacman-key --init must appear before the first 'pacman' invocation "
+                "in the config script",
+            )
 
     def test_live_cleanup_before_useradd(self):
         """Live user cleanup (userdel) must happen BEFORE useradd.
