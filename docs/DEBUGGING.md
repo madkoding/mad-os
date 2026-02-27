@@ -34,7 +34,6 @@ journalctl -f
 
 # Logs from a specific unit
 journalctl -u NetworkManager
-journalctl -u setup-opencode.service
 
 # Kernel messages
 journalctl -k

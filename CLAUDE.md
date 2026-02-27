@@ -309,27 +309,10 @@ OpenCode has passwordless sudo access for seamless system orchestration.
 
 ### Installation in Live ISO
 
-OpenCode is automatically installed in the live ISO environment via systemd service:
+OpenCode is pre-installed during the ISO build in `airootfs/root/customize_airootfs.sh`:
 
-- **Service**: `airootfs/etc/systemd/system/setup-opencode.service` - Runs at boot
-- **Script**: `airootfs/usr/local/bin/setup-opencode.sh` - Installation script
-- **Requirements**: Network connectivity (curl, npm)
-
-**How it works:**
-1. Service runs after `network-online.target` and `pacman-init.service`
-2. Checks if `opencode` binary exists (skips if present)
-3. Verifies npm is available and network is accessible
-4. Installs via `npm install -g opencode-ai`
-5. Exits gracefully if network unavailable (can be run manually later)
-
-**Manual installation:**
-```bash
-# If auto-install didn't run (no network at boot)
-sudo setup-opencode.sh
-
-# Verify installation
-opencode --version
-```
+- Binary location: `/usr/local/bin/opencode`
+- Available immediately in the live environment without network at boot
 
 ### Installation in Installed System
 
