@@ -419,7 +419,6 @@ def _step_copy_scripts(app):
     subprocess.run(["mkdir", "-p", "/mnt/usr/local/bin"], check=False)
 
     scripts = [
-        "setup-ohmyzsh.sh",
         "detect-legacy-hardware",
         "cage-greeter",
         "sway-session",
@@ -1233,7 +1232,6 @@ for svc in \
     mados-persist-sync.service \
     mados-ventoy-setup.service \
     setup-meli-demo.service \
-    setup-ohmyzsh.service \
     mados-timezone.service \
     mados-installer-autostart.service; do
     systemctl disable "$svc" 2>/dev/null || true
@@ -1256,10 +1254,12 @@ rm -f /etc/sudoers.d/99-opencode-nopasswd
 useradd -m -G wheel,audio,video,storage -s /usr/bin/zsh {username}
 echo '{username}:{_escape_shell(data["password"])}' | chpasswd
 
-# Sudo
+# Sudo - allow user-level npm/node via nvm without sudo
 echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
 chmod 440 /etc/sudoers.d/wheel
-echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/bin/npm,/usr/bin/node,/usr/bin/opencode,/usr/local/bin/opencode,/usr/local/bin/ollama,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/opencode-nopasswd
+
+# User can run npm/node (via nvm) and system tools without password
+echo "{username} ALL=(ALL:ALL) NOPASSWD: /usr/local/bin/opencode,/usr/local/bin/ollama,/usr/bin/pacman,/usr/bin/systemctl" > /etc/sudoers.d/opencode-nopasswd
 chmod 440 /etc/sudoers.d/opencode-nopasswd
 
 # Ensure kernel image exists at /boot/vmlinuz-linux BEFORE GRUB and mkinitcpio.
