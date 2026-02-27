@@ -60,3 +60,14 @@ Welcome to madOS Live Environment!
 EOF
     fi
 fi
+
+# NVM (Node Version Manager) - para npm a nivel de usuario
+export NVM_DIR="$HOME/.nvm"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$NVM_DIR/nvm.sh"
+    # Set default node version
+    if command -v nvm &>/dev/null; then
+        nvm alias default system 2>/dev/null || true
+    fi
+fi
