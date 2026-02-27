@@ -41,8 +41,6 @@ lxappearance
 plymouth
 
 # Herramientas de desarrollo (para OpenCode)
-nodejs
-npm
 git
 openssh
 sqlite
