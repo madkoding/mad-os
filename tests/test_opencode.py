@@ -68,46 +68,8 @@ class TestLiveUSBOpenCodeNoService(unittest.TestCase):
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Live USB – setup-opencode.sh script correctness
-# ═══════════════════════════════════════════════════════════════════════════
-class TestLiveUSBOpenCodeScript(unittest.TestCase):
-    """Verify setup-opencode.sh will install opencode correctly."""
-
-    def setUp(self):
-        self.script_path = os.path.join(BIN_DIR, "setup-opencode.sh")
-        with open(self.script_path) as f:
-            self.content = f.read()
-
-    def test_installs_to_usr_local_bin(self):
-        """OpenCode should be installed to /usr/local/bin (in PATH)."""
-        self.assertIn(
-            "/usr/local/bin", self.content,
-            "setup-opencode.sh must install to /usr/local/bin so the "
-            "binary is in PATH",
-        )
-
-    def test_curl_method_before_npm_fallback(self):
-        """Curl install method must appear before npm fallback."""
-        curl_pos = self.content.find("opencode.ai/install")
-        npm_pos = self.content.find("npm install")
-        self.assertNotEqual(curl_pos, -1, "Must have curl install method")
-        self.assertNotEqual(npm_pos, -1, "Must have npm fallback method")
-        self.assertLess(
-            curl_pos, npm_pos,
-            "Curl install must be tried before npm fallback",
-        )
-
-    def test_verifies_opencode_after_install(self):
-        """Script should verify opencode is available after each install method."""
-        # The script uses $OPENCODE_CMD variable (set to "opencode") with command -v
-        checks = re.findall(r'command -v.*(?:opencode|\$OPENCODE_CMD)', self.content)
-        self.assertGreaterEqual(
-            len(checks), 2,
-            "Script must verify opencode availability after both "
-            "curl and npm install methods",
-        )
-
+# Live USB – OpenCode is pre-installed during ISO build
+# No setup script needed
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Post-installation – OpenCode is copied by rsync from live USB
@@ -182,15 +144,6 @@ class TestLiveUSBOpenCodeDependencies(unittest.TestCase):
     def test_curl_included(self):
         """Live ISO must include curl (needed for opencode.ai/install)."""
         self.assertIn("curl", self._read_packages())
-
-    def test_npm_included(self):
-        """Live ISO must include npm (needed for npm fallback install)."""
-        packages = self._read_packages()
-        has_npm = "npm" in packages or "nodejs" in packages
-        self.assertTrue(
-            has_npm,
-            "Live ISO must include npm or nodejs for OpenCode npm fallback",
-        )
 
 
 if __name__ == "__main__":

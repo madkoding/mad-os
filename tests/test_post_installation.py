@@ -165,15 +165,6 @@ class TestLiveISOPackages(unittest.TestCase):
         """Live ISO must include git (needed by setup-ohmyzsh.sh)."""
         self.assertIn("git", self._read_packages())
 
-    def test_nodejs_or_npm_included(self):
-        """Live ISO must include nodejs (needed by setup-opencode.sh)."""
-        packages = self._read_packages()
-        has_node = "nodejs" in packages or "npm" in packages
-        self.assertTrue(
-            has_node,
-            "Live ISO must include nodejs or npm for OpenCode setup",
-        )
-
     def test_sway_included(self):
         """Live ISO must include sway compositor."""
         self.assertIn("sway", self._read_packages())
@@ -1002,20 +993,6 @@ class TestLiveISOCleanup(unittest.TestCase):
             self.content,
             "Config script must remove mados-timezone.service "
             "(overrides user-selected timezone on every boot)",
-        )
-
-    def test_removes_ohmyzsh_service(self):
-        """Config script must remove setup-ohmyzsh.service.
-
-        On the installed system Oh My Zsh is already pre-installed to
-        /etc/skel/.oh-my-zsh.  The service depends on the removed
-        pacman-init.service and is unnecessary.
-        """
-        self.assertIn(
-            "setup-ohmyzsh.service",
-            self.content,
-            "Config script must remove setup-ohmyzsh.service "
-            "(unnecessary on installed system, depends on removed pacman-init)",
         )
 
     def test_disable_before_rm(self):

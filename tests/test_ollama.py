@@ -60,63 +60,8 @@ class TestLiveUSBOllamaNoService(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Live USB – setup-ollama.sh script correctness
-# ═══════════════════════════════════════════════════════════════════════════
-class TestLiveUSBOllamaScript(unittest.TestCase):
-    """Verify setup-ollama.sh will install ollama correctly."""
-
-    def setUp(self):
-        self.script_path = os.path.join(BIN_DIR, "setup-ollama.sh")
-        with open(self.script_path) as f:
-            self.content = f.read()
-
-    def test_script_exists(self):
-        """setup-ollama.sh must exist."""
-        self.assertTrue(os.path.isfile(self.script_path))
-
-    def test_uses_official_install_script(self):
-        """Script must use official Ollama install URL."""
-        self.assertIn(
-            "ollama.com/install.sh",
-            self.content,
-            "setup-ollama.sh must use official ollama.com/install.sh",
-        )
-
-    def test_checks_connectivity(self):
-        """Script should check internet before attempting install."""
-        self.assertIn("curl", self.content)
-
-    def test_graceful_exit_on_no_network(self):
-        """Script should exit 0 (not fail) when network is unavailable."""
-        self.assertIn("exit 0", self.content)
-
-    def test_verifies_ollama_after_install(self):
-        """Script should verify ollama is available after install."""
-        checks = re.findall(r"command -v.*(?:ollama|\$OLLAMA_CMD)", self.content)
-        self.assertGreaterEqual(
-            len(checks),
-            2,
-            "Script must verify ollama availability after install "
-            "and at the start to skip if already installed",
-        )
-
-    def test_no_strict_mode(self):
-        """setup-ollama.sh must NOT use set -euo pipefail."""
-        self.assertNotIn("set -euo pipefail", self.content)
-
-    def test_always_exits_zero(self):
-        """setup-ollama.sh must always exit 0."""
-        exits = re.findall(r"exit\s+(\d+)", self.content)
-        for code in exits:
-            self.assertEqual(code, "0", "All exit codes in setup-ollama.sh must be 0")
-
-    def test_has_shebang(self):
-        """setup-ollama.sh must start with a bash shebang."""
-        with open(self.script_path) as f:
-            first_line = f.readline().strip()
-        self.assertTrue(first_line.startswith("#!"))
-        self.assertIn("bash", first_line)
-
+# Live USB – Ollama is pre-installed during ISO build
+# No setup script needed
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Post-installation – Ollama is copied by rsync from live USB

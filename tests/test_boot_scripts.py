@@ -34,11 +34,7 @@ SYSUSERS_DIR = os.path.join(AIROOTFS, "etc", "sysusers.d")
 class TestBootScriptSyntax(unittest.TestCase):
     """Verify all boot scripts have valid bash syntax."""
 
-    BOOT_SCRIPTS = [
-        "setup-ohmyzsh.sh",
-        "setup-opencode.sh",
-        "setup-ollama.sh",
-    ]
+    BOOT_SCRIPTS = []
 
     def test_all_boot_scripts_valid_syntax(self):
         """Every boot script should pass bash -n (syntax check)."""
@@ -81,7 +77,7 @@ class TestBootScriptSyntax(unittest.TestCase):
         avoid strict mode because they must never crash the service – they
         use their own graceful error handling and always exit 0.
         """
-        STRICT_MODE_EXCEPTIONS = {"setup-opencode.sh", "setup-ollama.sh", "setup-ohmyzsh.sh"}
+        STRICT_MODE_EXCEPTIONS = set()  # No setup scripts needed - programs are pre-installed
         for script in self.BOOT_SCRIPTS:
             if script in STRICT_MODE_EXCEPTIONS:
                 continue
@@ -98,173 +94,13 @@ class TestBootScriptSyntax(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# setup-ohmyzsh.sh – the script that had the chown bug
-# ═══════════════════════════════════════════════════════════════════════════
-class TestSetupOhmyzsh(unittest.TestCase):
-    """Verify setup-ohmyzsh.sh handles user/group ownership correctly."""
-
-    def setUp(self):
-        self.script_path = os.path.join(BIN_DIR, "setup-ohmyzsh.sh")
-        with open(self.script_path) as f:
-            self.content = f.read()
-
-    def test_script_exists(self):
-        """setup-ohmyzsh.sh must exist."""
-        self.assertTrue(os.path.isfile(self.script_path))
-
-    def test_chown_uses_gid_not_username_as_group(self):
-        """chown must use the numeric GID variable, not $username as group.
-
-        This is the regression test for the bug:
-          chown: invalid group: 'mados:mados'
-
-        The fix reads the GID field from /etc/passwd and uses it:
-          chown -R "$username:$gid"
-        instead of the broken:
-          chown -R "$username:$username"
-        """
-        # The script must NOT use $username:$username in chown
-        self.assertNotRegex(
-            self.content,
-            r'chown.*\$username:\$username',
-            "chown must NOT use $username as the group name "
-            "(causes 'invalid group' error when no matching group exists)",
-        )
-
-        # The script SHOULD use $gid in the chown command
-        self.assertRegex(
-            self.content,
-            r'chown.*\$gid',
-            "chown should use the $gid variable from /etc/passwd",
-        )
-
-    def test_passwd_read_captures_gid_field(self):
-        """The while-read loop must capture the GID field from /etc/passwd.
-
-        /etc/passwd format: username:x:uid:gid:gecos:home:shell
-        The read command must assign field 4 to a variable (not skip it).
-        """
-        # Look for the IFS=: read line that parses /etc/passwd
-        read_match = re.search(
-            r'IFS=:\s+read\s+-r\s+(.*?)\s*;', self.content
-        )
-        self.assertIsNotNone(
-            read_match,
-            "Script must contain an IFS=: read -r ... line to parse /etc/passwd",
-        )
-
-        fields = read_match.group(1).split()
-        # /etc/passwd fields: username:password:uid:gid:gecos:home:shell
-        # Position 3 (0-indexed) should be the GID field
-        self.assertGreaterEqual(
-            len(fields), 4,
-            "read command must capture at least 4 fields from /etc/passwd",
-        )
-
-        gid_field = fields[3]
-        self.assertNotEqual(
-            gid_field, "_",
-            "GID field (position 4 in /etc/passwd) must NOT be discarded with _",
-        )
-
-    def test_checks_internet_before_clone(self):
-        """Script should check connectivity before attempting git clone."""
-        curl_pos = self.content.find("curl")
-        clone_pos = self.content.find("git clone")
-        self.assertNotEqual(curl_pos, -1, "Script must check connectivity")
-        self.assertNotEqual(clone_pos, -1, "Script must clone Oh My Zsh")
-        self.assertLess(
-            curl_pos, clone_pos,
-            "Connectivity check must come before git clone",
-        )
-
-    def test_copies_to_etc_skel(self):
-        """Script should install Oh My Zsh to /etc/skel first."""
-        self.assertIn(
-            "/etc/skel/.oh-my-zsh", self.content,
-            "Script must install to /etc/skel/.oh-my-zsh",
-        )
-
-    def test_handles_root_user(self):
-        """Script should handle the root user separately."""
-        self.assertIn(
-            "/root/.oh-my-zsh", self.content,
-            "Script must handle root user's Oh My Zsh installation",
-        )
-
-    def test_no_strict_mode(self):
-        """setup-ohmyzsh.sh must NOT use set -euo pipefail (must never crash service)."""
-        self.assertNotIn("set -euo pipefail", self.content)
-
-    def test_always_exits_zero_on_failure(self):
-        """setup-ohmyzsh.sh must exit 0 on failure to not crash the systemd service."""
-        # Check that the git clone failure handler exits 0
-        self.assertIn("exit 0", self.content)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# setup-opencode.sh
-# ═══════════════════════════════════════════════════════════════════════════
-class TestSetupClaudeCode(unittest.TestCase):
-    """Verify setup-opencode.sh is properly configured."""
-
-    def setUp(self):
-        self.script_path = os.path.join(BIN_DIR, "setup-opencode.sh")
-        if os.path.isfile(self.script_path):
-            with open(self.script_path) as f:
-                self.content = f.read()
-
-    def test_script_exists(self):
-        """setup-opencode.sh must exist."""
-        self.assertTrue(os.path.isfile(self.script_path))
-
-    def test_checks_npm_availability(self):
-        """Script should verify npm is available before installing."""
-        self.assertIn("npm", self.content)
-
-    def test_checks_connectivity(self):
-        """Script should check internet before attempting install."""
-        self.assertIn("curl", self.content)
-
-    def test_graceful_exit_on_no_network(self):
-        """Script should exit 0 (not fail) when network is unavailable."""
-        # After the connectivity check, script should exit 0
-        self.assertIn("exit 0", self.content)
-
-    def test_uses_curl_install_method(self):
-        """Script should use curl install (opencode.ai/install) as primary method."""
-        self.assertIn("opencode.ai/install", self.content)
-
-    def test_npm_uses_unsafe_perm(self):
-        """npm install must use --unsafe-perm to allow postinstall scripts as root."""
-        self.assertIn("--unsafe-perm", self.content)
-
-    def test_no_strict_mode(self):
-        """setup-opencode.sh must NOT use set -euo pipefail (could prevent graceful exit)."""
-        self.assertNotIn("set -euo pipefail", self.content)
-
-    def test_always_exits_zero(self):
-        """setup-opencode.sh must always exit 0 for graceful failure handling."""
-        # All exit statements in the script should be exit 0
-        import re
-        exits = re.findall(r'exit\s+(\d+)', self.content)
-        for code in exits:
-            self.assertEqual(code, "0",
-                             "All exit codes in setup-opencode.sh must be 0")
-
-
-# ═══════════════════════════════════════════════════════════════════════════
 # Systemd service files
 # ═══════════════════════════════════════════════════════════════════════════
 class TestSystemdServices(unittest.TestCase):
     """Verify systemd service files for boot scripts are correct."""
 
     SERVICES = {
-        "setup-ohmyzsh.service": {
-            "exec": "/usr/local/bin/setup-ohmyzsh.sh",
-            "after": "network-online.target",
-            "type": "oneshot",
-        },
+        # No setup scripts needed - programs are pre-installed during ISO build
     }
 
     def test_service_files_exist(self):
@@ -543,9 +379,8 @@ class TestCustomizeAirootfs(unittest.TestCase):
         self.assertIn("opencode", self.content)
 
     def test_has_npm_fallback_for_opencode(self):
-        """Script must have npm fallback for OpenCode installation."""
-        self.assertIn("npm", self.content)
-        self.assertIn("opencode-ai", self.content)
+        """Script must install OpenCode via curl (no npm fallback needed)."""
+        self.assertIn("opencode.ai/install", self.content)
 
     def test_copies_ohmyzsh_to_mados_user(self):
         """Script must copy Oh My Zsh to /home/mados."""

@@ -216,29 +216,6 @@ class TestChromiumConfiguration(unittest.TestCase):
                        "Chromium policy must contain HomepageLocation")
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Oh My Zsh fallback service — pre-installed on live USB
-# ═══════════════════════════════════════════════════════════════════════════
-class TestOhMyZshFallbackService(unittest.TestCase):
-    """Verify the Oh My Zsh fallback service is pre-installed on the live USB."""
-
-    def test_service_file_exists(self):
-        """setup-ohmyzsh.service must exist on the live USB."""
-        service = os.path.join(REPO_DIR, "airootfs", "etc", "systemd",
-                               "system", "setup-ohmyzsh.service")
-        self.assertTrue(os.path.isfile(service),
-                        "setup-ohmyzsh.service must be pre-installed on live USB")
-
-    def test_service_is_enabled(self):
-        """setup-ohmyzsh.service must be enabled via symlink on live USB."""
-        symlink = os.path.join(REPO_DIR, "airootfs", "etc", "systemd",
-                               "system", "multi-user.target.wants",
-                               "setup-ohmyzsh.service")
-        self.assertTrue(os.path.islink(symlink),
-                        "setup-ohmyzsh.service must be enabled on live USB")
-
-
-# ═══════════════════════════════════════════════════════════════════════════
 # No redundant setup scripts for pre-installed programs
 # ═══════════════════════════════════════════════════════════════════════════
 class TestNoRedundantSetupScripts(unittest.TestCase):
@@ -258,13 +235,6 @@ class TestNoRedundantSetupScripts(unittest.TestCase):
         self.assertNotIn(
             "setup-opencode.service", self.content,
             "Must NOT create setup-opencode.service — opencode is a program, not a service",
-        )
-
-    def test_no_ollama_service(self):
-        """Must NOT create setup-ollama.service (ollama is a program)."""
-        self.assertNotIn(
-            "setup-ollama.service", self.content,
-            "Must NOT create setup-ollama.service — ollama is a program, not a service",
         )
 
 
