@@ -73,13 +73,23 @@ install_nvm() {
 install_node_user() {
     local user_home="$1"
     local user_nvm_dir="$user_home/.nvm"
+    local user
+    
+    # Extract username from home path (e.g., /home/mados -> mados)
+    user=$(basename "$user_home")
+    
+    # Skip if user doesn't exist on the system
+    if ! id "$user" &>/dev/null; then
+        echo "  Skipping NVM install for $user (user does not exist)"
+        return 0
+    fi
     
     if [[ -d "$user_nvm_dir" ]]; then
         echo "  ✓ NVM already installed for user"
         return 0
     fi
     
-    echo "  Installing NVM for user..."
+    echo "  Installing NVM for user $user..."
     sudo -u "$user" curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | NVM_DIR="$user_nvm_dir" HOME="$user_home" bash 2>&1 || return 1
     
     if [[ -d "$user_nvm_dir" ]]; then
@@ -123,9 +133,6 @@ if install_nvm; then
     if id mados &>/dev/null; then
         install_node_user /home/mados
     fi
-    
-    # Install node for skel (will be available for new users)
-    install_node_user /etc/skel
 fi
 
 # ── Oh My Zsh ────────────────────────────────────────────────────────────
