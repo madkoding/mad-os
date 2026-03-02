@@ -442,9 +442,15 @@ jobs:
               echo 'nameserver ${{ env.DNS_SECONDARY }}' >> /etc/resolv.conf
               pacman-key --init
               pacman-key --populate
-              pacman -Syu --noconfirm archiso mkinitcpio-nfs-utils nbd
+              pacman -Syu --noconfirm archiso
               cd /build
+              echo '=== Starting mkarchiso ==='
               mkarchiso -v -w /tmp/work -o /build/out .
+              echo '=== mkarchiso finished ==='
+              echo '=== Checking output directory ==='
+              ls -la /build/out/ || echo 'Output directory does not exist!'
+              echo '=== Checking work directory ==='
+              ls -la /tmp/work/ || echo 'Work directory does not exist!'
               cd /build/out
               sha256sum *.iso > SHA256SUMS
               chmod -R 777 /build/out
