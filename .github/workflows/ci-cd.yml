@@ -442,7 +442,7 @@ jobs:
               echo 'nameserver ${{ env.DNS_SECONDARY }}' >> /etc/resolv.conf
               pacman-key --init
               pacman-key --populate
-              pacman -Syu --noconfirm archiso
+              pacman -Syu --noconfirm archiso mkinitcpio-nfs-utils nbd
               cd /build
               mkarchiso -v -w /tmp/work -o /build/out .
               cd /build/out
