@@ -434,10 +434,12 @@ jobs:
 
       - name: Build ISO in Arch container
         run: |
+          set -x
           docker run --privileged --rm \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
             -v ${{ github.workspace }}:/build \
             ${{ env.ARCHLINUX_IMAGE }} bash -c "
+              set -e
               echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
               echo 'nameserver ${{ env.DNS_SECONDARY }}' >> /etc/resolv.conf
               pacman-key --init
@@ -445,12 +447,9 @@ jobs:
               pacman -Syu --noconfirm archiso
               cd /build
               echo '=== Starting mkarchiso ==='
-              mkarchiso -v -w /tmp/work -o /build/out .
+              mkarchiso -v -w /tmp/work -o /build/out . || { echo 'mkarchiso failed!'; ls -la /tmp/work/; exit 1; }
               echo '=== mkarchiso finished ==='
-              echo '=== Checking output directory ==='
-              ls -la /build/out/ || echo 'Output directory does not exist!'
-              echo '=== Checking work directory ==='
-              ls -la /tmp/work/ || echo 'Work directory does not exist!'
+              ls -la /build/out/
               cd /build/out
               sha256sum *.iso > SHA256SUMS
               chmod -R 777 /build/out
