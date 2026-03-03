@@ -1,0 +1,235 @@
+name: Build
+
+on:
+  workflow_run:
+    workflows: ["Validate"]
+    types: [completed]
+    branches: [main, develop]
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DNS_PRIMARY: "8.8.8.8"
+  DNS_SECONDARY: "8.8.4.4"
+  ARCHLINUX_IMAGE: archlinux:latest
+
+jobs:
+  auto-tag:
+    name: "Auto Tag"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    outputs:
+      new_tag: ${{ steps.create_tag.outputs.new_tag }}
+      version: ${{ steps.create_tag.outputs.version }}
+      is_release: ${{ steps.create_tag.outputs.is_release }}
+      is_prerelease: ${{ steps.create_tag.outputs.is_prerelease }}
+      release_type: ${{ steps.create_tag.outputs.release_type }}
+      version_bump: ${{ steps.create_tag.outputs.version_bump }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create version tag
+        id: create_tag
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+
+          if [[ "$BRANCH" == "develop" ]]; then
+            LAST_TAG=$(git tag -l --sort=-version:refname 'v*' | head -1)
+            LAST_TAG="${LAST_TAG:-v0.0.0}"
+            BASE_VERSION=$(echo "$LAST_TAG" | sed 's/^v//; s/-.*$//')
+            MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
+            MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
+            PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
+
+            if git rev-parse "$LAST_TAG" >/dev/null 2>&1; then
+              COMMITS=$(git log "${LAST_TAG}..HEAD" --pretty=format:"%s" 2>/dev/null || echo "")
+            else
+              COMMITS=$(git log --pretty=format:"%s")
+            fi
+
+            HAS_BREAKING=false; HAS_FEATURE=false; HAS_FIX=false
+            if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-zA-Z0-9]+!:"; then HAS_BREAKING=true; fi
+            if echo "$COMMITS" | grep -qiE "^feat(\(|:)"; then HAS_FEATURE=true; fi
+            if echo "$COMMITS" | grep -qiE "^fix(\(|:)|^hotfix(\(|:)"; then HAS_FIX=true; fi
+
+            if [ "$HAS_BREAKING" = "true" ]; then MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+            elif [ "$HAS_FEATURE" = "true" ]; then MINOR=$((MINOR + 1)); PATCH=0
+            elif [ "$HAS_FIX" = "true" ]; then PATCH=$((PATCH + 1))
+            else MINOR=$((MINOR + 1)); PATCH=0; fi
+
+            NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}-beta"
+            VERSION="${MAJOR}.${MINOR}.${PATCH}-beta"
+            echo "version_bump=beta" >> "$GITHUB_OUTPUT"
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "release_type=beta" >> "$GITHUB_OUTPUT"
+
+          elif [[ "$BRANCH" == "main" ]]; then
+            LAST_BETA_TAG=$(git tag -l --sort=-version:refname 'v*-beta' | head -1)
+            if [ -n "$LAST_BETA_TAG" ]; then
+              VERSION=$(echo "$LAST_BETA_TAG" | sed 's/^v//; s/-beta$//')
+              NEW_TAG="v${VERSION}"
+            else
+              LAST_STABLE_TAG=$(git tag -l --sort=-version:refname 'v*' | grep -v '-' | head -1)
+              LAST_STABLE_TAG="${LAST_STABLE_TAG:-v0.0.0}"
+              BASE_VERSION=$(echo "$LAST_STABLE_TAG" | sed 's/^v//')
+              MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
+              MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
+              PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
+
+              if git rev-parse "$LAST_STABLE_TAG" >/dev/null 2>&1; then
+                COMMITS=$(git log "${LAST_STABLE_TAG}..HEAD" --pretty=format:"%s" 2>/dev/null || echo "")
+              else
+                COMMITS=$(git log --pretty=format:"%s")
+              fi
+
+              HAS_BREAKING=false; HAS_FEATURE=false; HAS_FIX=false
+              if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-zA-Z0-9]+!:"; then HAS_BREAKING=true; fi
+              if echo "$COMMITS" | grep -qiE "^feat(\(|:)"; then HAS_FEATURE=true; fi
+              if echo "$COMMITS" | grep -qiE "^fix(\(|:)|^hotfix(\(|:)"; then HAS_FIX=true; fi
+
+              if [ "$HAS_BREAKING" = "true" ]; then MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+              elif [ "$HAS_FEATURE" = "true" ]; then MINOR=$((MINOR + 1)); PATCH=0
+              elif [ "$HAS_FIX" = "true" ]; then PATCH=$((PATCH + 1))
+              else MINOR=$((MINOR + 1)); PATCH=0; fi
+
+              NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+              VERSION="${MAJOR}.${MINOR}.${PATCH}"
+            fi
+            echo "version_bump=stable" >> "$GITHUB_OUTPUT"
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "release_type=stable" >> "$GITHUB_OUTPUT"
+          fi
+
+          if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
+            echo "::warning::Tag $NEW_TAG already exists"
+            echo "new_tag=" >> "$GITHUB_OUTPUT"
+            echo "version=" >> "$GITHUB_OUTPUT"
+          else
+            echo "Creating tag $NEW_TAG"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "$NEW_TAG" -m "Auto-generated tag $NEW_TAG"
+            git push origin "$NEW_TAG"
+            echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: "Build ISO"
+    needs: auto-tag
+    runs-on: ubuntu-latest
+    if: |
+      always() && !cancelled() && (
+        (needs.auto-tag.result == 'success' && needs.auto-tag.outputs.new_tag != '') ||
+        (needs.auto-tag.result == 'skipped' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')) ||
+        github.event_name == 'workflow_dispatch'
+      )
+    outputs:
+      iso_file: ${{ steps.iso_info.outputs.iso_file }}
+      iso_name: ${{ steps.iso_info.outputs.iso_name }}
+      version: ${{ steps.iso_info.outputs.version }}
+      build_date: ${{ steps.iso_info.outputs.build_date }}
+      iso_size_mb: ${{ steps.iso_info.outputs.iso_size_mb }}
+      short_sha: ${{ steps.iso_info.outputs.short_sha }}
+      is_release: ${{ steps.build_type.outputs.is_release }}
+      is_prerelease: ${{ steps.build_type.outputs.is_prerelease }}
+      release_type: ${{ steps.build_type.outputs.release_type }}
+      auto_tag: ${{ steps.build_type.outputs.auto_tag }}
+      triggered_by: ${{ github.event_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine build type
+        id: build_type
+        run: |
+          AUTO_TAG="${{ needs.auto-tag.outputs.new_tag }}"
+          AUTO_VERSION="${{ needs.auto-tag.outputs.version }}"
+
+          if [ -n "$AUTO_TAG" ]; then
+            echo "Using auto-tag: $AUTO_TAG"
+            echo "is_release=${{ needs.auto-tag.outputs.is_release }}" >> "$GITHUB_OUTPUT"
+            echo "is_prerelease=${{ needs.auto-tag.outputs.is_prerelease }}" >> "$GITHUB_OUTPUT"
+            echo "release_type=${{ needs.auto-tag.outputs.release_type }}" >> "$GITHUB_OUTPUT"
+            echo "auto_tag=$AUTO_TAG" >> "$GITHUB_OUTPUT"
+            echo "VERSION=$AUTO_VERSION" >> "$GITHUB_ENV"
+
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta$ ]]; then
+              echo "is_release=false" >> "$GITHUB_OUTPUT"; echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+              echo "release_type=beta" >> "$GITHUB_OUTPUT"
+            elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha$ ]]; then
+              echo "is_release=false" >> "$GITHUB_OUTPUT"; echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+              echo "release_type=alpha" >> "$GITHUB_OUTPUT"
+            elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "is_release=true" >> "$GITHUB_OUTPUT"; echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+              echo "release_type=stable" >> "$GITHUB_OUTPUT"
+            else
+              echo "is_release=false" >> "$GITHUB_OUTPUT"; echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+              echo "release_type=dev" >> "$GITHUB_OUTPUT"
+            fi
+            echo "auto_tag=" >> "$GITHUB_OUTPUT"
+            echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+          else
+            echo "is_release=false" >> "$GITHUB_OUTPUT"; echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "release_type=dev" >> "$GITHUB_OUTPUT"
+            echo "auto_tag=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build ISO
+        run: |
+          docker run --privileged --rm \
+            --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
+            -v ${{ github.workspace }}:/build \
+            ${{ env.ARCHLINUX_IMAGE }} bash -c "
+              set -e
+              echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
+              echo 'nameserver ${{ env.DNS_SECONDARY }}' >> /etc/resolv.conf
+              pacman-key --init && pacman-key --populate
+              pacman -Syu --noconfirm archiso
+              cd /build
+              mkarchiso -v -w /tmp/work -o /build/out .
+              sha256sum out/*.iso > out/SHA256SUMS
+              chmod -R 777 /build/out
+            "
+
+      - name: Extract metadata
+        id: iso_info
+        run: |
+          ISO_FILE=$(ls out/*.iso | head -1)
+          ISO_NAME=$(basename "$ISO_FILE")
+          [ -n "$VERSION" ] || VERSION="${GITHUB_REF_NAME#v}"
+          [ -n "$VERSION" ] || VERSION="dev-$(date +%Y%m%d)"
+          BUILD_DATE=$(date +%Y.%m.%d)
+          ISO_SIZE=$(stat --format=%s "$ISO_FILE")
+          ISO_SIZE_MB=$((ISO_SIZE / 1024 / 1024))
+          SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+          echo "iso_file=$ISO_FILE" >> "$GITHUB_OUTPUT"
+          echo "iso_name=$ISO_NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
+          echo "iso_size_mb=$ISO_SIZE_MB" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: mados-iso
+          path: out/*.iso out/SHA256SUMS
+          retention-days: 7
