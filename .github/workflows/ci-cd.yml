@@ -336,21 +336,23 @@ jobs:
           echo "=== ISO files ==="
           ls -la out/*.iso 2>/dev/null || echo "No ISO files found"
           
-          if [ ! -f out/*.iso ]; then
+          ISO_FILES=(out/*.iso)
+          if [ ! -f "${ISO_FILES[0]}" ]; then
             echo "ERROR: No ISO file generated"
             exit 1
           fi
           
           echo "=== Generating SHA256SUMS ==="
-          sha256sum out/*.iso > out/SHA256SUMS || echo "sha256sum failed"
+          sha256sum out/*.iso > out/SHA256SUMS || true
           chmod 777 out/*
           ISO_FILE=$(ls out/*.iso | head -1)
+          echo "ISO_FILE: $ISO_FILE"
           ISO_NAME=$(basename "$ISO_FILE")
           VERSION="${{ needs.auto-tag.outputs.version }}"
           [ -n "$VERSION" ] || VERSION="${GITHUB_REF_NAME#v}"
           [ -n "$VERSION" ] || VERSION="dev-$(date +%Y%m%d)"
           BUILD_DATE=$(date +%Y.%m.%d)
-          ISO_SIZE=$(stat --format=%s "$ISO_FILE")
+          ISO_SIZE=$(stat --format=%s "$ISO_FILE" 2>/dev/null || echo 0)
           ISO_SIZE_MB=$((ISO_SIZE / 1024 / 1024))
           SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
           echo "iso_name=$ISO_NAME" >> $GITHUB_OUTPUT
@@ -358,6 +360,7 @@ jobs:
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
           echo "iso_size_mb=$ISO_SIZE_MB" >> $GITHUB_OUTPUT
           echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "=== Build completed successfully ==="
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
