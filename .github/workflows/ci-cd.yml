@@ -1,8 +1,0 @@
-# NOTE: This file is kept for reference only.
-# The CI/CD pipeline is now split into separate workflows:
-# - tests.yml      -> Code quality, unit & integration tests
-# - validate.yml   -> Installer validation (runs after tests)
-# - build.yml      -> ISO build (runs after validate)
-# - release.yml    -> Archive upload, GitHub release, website update (runs after build)
-#
-# Each workflow triggers the next via workflow_run, creating the same pipeline chain.
