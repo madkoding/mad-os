@@ -139,7 +139,7 @@ jobs:
     if: |
       always() && !cancelled() && (
         (needs.auto-tag.result == 'success' && needs.auto-tag.outputs.new_tag != '') ||
-        (needs.auto-tag.result == 'skipped' && startsWith(github.ref, 'refs/tags/v')) ||
+        (needs.auto-tag.result == 'skipped' && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')) ||
         github.event_name == 'workflow_dispatch'
       )
     outputs:
@@ -153,6 +153,7 @@ jobs:
       is_prerelease: ${{ steps.build_type.outputs.is_prerelease }}
       release_type: ${{ steps.build_type.outputs.release_type }}
       auto_tag: ${{ steps.build_type.outputs.auto_tag }}
+      triggered_by: ${{ github.event_name }}
 
     steps:
       - name: Checkout

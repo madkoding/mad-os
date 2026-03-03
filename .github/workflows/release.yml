@@ -22,6 +22,8 @@ jobs:
     outputs:
       download_url: ${{ steps.upload_ia.outputs.download_url }}
       identifier: ${{ steps.upload_ia.outputs.identifier }}
+      version: ${{ github.event.workflow_run.outputs.version }}
+      release_type: ${{ github.event.workflow_run.outputs.release_type }}
 
     steps:
       - name: Download ISO
@@ -40,9 +42,9 @@ jobs:
           IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
         run: |
           ISO_NAME=$(ls out/*.iso | head -1 | xargs basename)
-          VERSION="${{ github.event.workflow_run.outputs.version }}"
-          BUILD_DATE="${{ github.event.workflow_run.outputs.build_date }}"
-          RELEASE_TYPE="${{ github.event.workflow_run.outputs.release_type }}"
+          VERSION="${{ github.event.workflow_run.outputs.version || 'dev' }}"
+          BUILD_DATE="${{ github.event.workflow_run.outputs.build_date || '2024-01-01' }}"
+          RELEASE_TYPE="${{ github.event.workflow_run.outputs.release_type || 'dev' }}"
 
           mkdir -p ~/.config/internetarchive
           cat > ~/.config/internetarchive/ia.ini <<EOF
@@ -56,7 +58,7 @@ jobs:
             IDENTIFIER="mados-${VERSION}"
             TITLE="madOS ${VERSION}"
           else
-            SHORT_SHA="${{ github.event.workflow_run.outputs.short_sha }}"
+            SHORT_SHA="${{ github.event.workflow_run.outputs.short_sha || '0000000' }}"
             IDENTIFIER="mados-${RELEASE_TYPE}-${VERSION}-${SHORT_SHA}"
             TITLE="madOS ${RELEASE_TYPE^} ${VERSION}"
           fi
@@ -80,7 +82,7 @@ jobs:
   release:
     name: "🚀 GitHub Release"
     needs: upload-archive
-    if: needs.upload-archive.result == 'success' && github.event.workflow_run.outputs.is_release == 'true'
+    if: needs.upload-archive.result == 'success' && (github.event.workflow_run.outputs.is_release == 'true' || github.event.workflow_run.outputs.triggered_by == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: write
