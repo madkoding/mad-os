@@ -314,18 +314,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Prepare output directory
+        run: mkdir -p out
+
       - name: Build ISO
         run: |
           docker run --privileged --rm \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
-            -v ${{ github.workspace }}:/build \
+            -v ${{ github.workspace }}/out:/build/out \
+            -w /build \
             ${{ env.ARCHLINUX_IMAGE }} bash -c "
               set -e
               echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
               echo 'nameserver ${{ env.DNS_SECONDARY }}' >> /etc/resolv.conf
               pacman-key --init && pacman-key --populate
               pacman -Syu --noconfirm archiso
-              cd /build
               mkarchiso -v -w /tmp/work -o /build/out .
               sha256sum out/*.iso > out/SHA256SUMS
               chmod -R 777 /build/out
