@@ -320,27 +320,25 @@ jobs:
       - name: Build ISO
         id: build
         run: |
-          CONTAINER_ID=$(docker run --privileged -d \
+          docker run --privileged --rm \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
             -v ${{ github.workspace }}:/build \
-            -v ${{ github.workspace }}/out:/out \
-            ${{ env.ARCHLINUX_IMAGE }} bash -c "sleep infinity")
+            -v mados-build-out:/out \
+            ${{ env.ARCHLINUX_IMAGE }} bash -c "
+              set -e
+              echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
+              echo 'nameserver ${{ env.DNS_SECONDARY }}' >> /etc/resolv.conf
+              pacman-key --init && pacman-key --populate
+              pacman -Syu --noconfirm archiso
+              cd /build
+              mkdir -p /out
+              mkarchiso -v -w /tmp/work -o /out .
+              sha256sum /out/*.iso > /out/SHA256SUMS
+              chmod -R 777 /out
+            "
           
-          docker exec $CONTAINER_ID bash -c "
-            set -e
-            echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
-            echo 'nameserver ${{ env.DNS_SECONDARY }}' >> /etc/resolv.conf
-            pacman-key --init && pacman-key --populate
-            pacman -Syu --noconfirm archiso
-            cd /build
-            mkdir -p /out
-            mkarchiso -v -w /tmp/work -o /out .
-            sha256sum /out/*.iso > /out/SHA256SUMS
-            chmod -R 777 /out
-          "
-          
-          docker stop $CONTAINER_ID
-          docker rm $CONTAINER_ID
+          docker run --rm -v mados-build-out:/out -v ${{ github.workspace }}/out:/host-out busybox cp -r /out/. /host-out/
+          docker volume rm mados-build-out 2>/dev/null || true
           
           ls -la out/
           ISO_FILE=$(ls out/*.iso | head -1)
