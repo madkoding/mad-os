@@ -321,8 +321,7 @@ jobs:
         run: |
           docker run --privileged --rm \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
-            -v ${{ github.workspace }}:/build:ro \
-            -v ${{ github.workspace }}/out:/build/out \
+            -v ${{ github.workspace }}:/build \
             -w /build \
             ${{ env.ARCHLINUX_IMAGE }} bash -c "
               set -e
@@ -330,10 +329,12 @@ jobs:
               echo 'nameserver ${{ env.DNS_SECONDARY }}' >> /etc/resolv.conf
               pacman-key --init && pacman-key --populate
               pacman -Syu --noconfirm archiso
+              mkdir -p out
               mkarchiso -v -w /tmp/work -o /build/out .
               sha256sum out/*.iso > out/SHA256SUMS
               chmod -R 777 /build/out
             "
+          ls -la out/
 
       - name: Extract metadata
         id: iso_info
