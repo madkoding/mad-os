@@ -318,23 +318,31 @@ jobs:
         run: mkdir -p out
 
       - name: Build ISO
+        id: build
         run: |
-          docker run --privileged --rm \
+          CONTAINER_ID=$(docker run --privileged -d \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
             -v ${{ github.workspace }}:/build \
             -v ${{ github.workspace }}/out:/out \
-            ${{ env.ARCHLINUX_IMAGE }} bash -c "
-              set -e
-              echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
-              echo 'nameserver ${{ env.DNS_SECONDARY }}' >> /etc/resolv.conf
-              pacman-key --init && pacman-key --populate
-              pacman -Syu --noconfirm archiso
-              cd /build
-              mkdir -p /out
-              mkarchiso -v -w /tmp/work -o /out .
-              sha256sum /out/*.iso > /out/SHA256SUMS
-              chmod -R 777 /out
-            "
+            ${{ env.ARCHLINUX_IMAGE }} bash -c "sleep infinity")
+          
+          docker exec $CONTAINER_ID bash -c "
+            set -e
+            echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
+            echo 'nameserver ${{ env.DNS_SECONDARY }}' >> /etc/resolv.conf
+            pacman-key --init && pacman-key --populate
+            pacman -Syu --noconfirm archiso
+            cd /build
+            mkdir -p /out
+            mkarchiso -v -w /tmp/work -o /out .
+            sha256sum /out/*.iso > /out/SHA256SUMS
+            chmod -R 777 /out
+          "
+          
+          docker stop $CONTAINER_ID
+          docker rm $CONTAINER_ID
+          
+          ls -la out/
           ISO_FILE=$(ls out/*.iso | head -1)
           ISO_NAME=$(basename "$ISO_FILE")
           VERSION="${{ needs.auto-tag.outputs.version }}"
