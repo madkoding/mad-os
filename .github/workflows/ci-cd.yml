@@ -190,44 +190,55 @@ jobs:
         id: create_tag
         run: |
           BRANCH="${GITHUB_REF#refs/heads/}"
+          echo "Branch: $BRANCH"
 
           if [[ "$BRANCH" == "develop" ]]; then
             LAST_TAG=$(git tag -l --sort=-version:refname 'v*' | head -1)
+            echo "Last tag: $LAST_TAG"
             LAST_TAG="${LAST_TAG:-v0.0.0}"
             BASE_VERSION=$(echo "$LAST_TAG" | sed 's/^v//; s/-.*$//')
+            echo "Base version: $BASE_VERSION"
             MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
             MINOR=$(echo "$BASE_VERSION" | cut -d. -f2)
             PATCH=$(echo "$BASE_VERSION" | cut -d. -f3)
+            echo "Major: $MAJOR, Minor: $MINOR, Patch: $PATCH"
 
             if git rev-parse "$LAST_TAG" >/dev/null 2>&1; then
               COMMITS=$(git log "${LAST_TAG}..HEAD" --pretty=format:"%s" 2>/dev/null || echo "")
             else
               COMMITS=$(git log --pretty=format:"%s")
             fi
+            echo "Commits: $COMMITS"
 
             HAS_BREAKING=false; HAS_FEATURE=false; HAS_FIX=false
             if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-zA-Z0-9]+!:"; then HAS_BREAKING=true; fi
             if echo "$COMMITS" | grep -qiE "^feat(\(|:)"; then HAS_FEATURE=true; fi
             if echo "$COMMITS" | grep -qiE "^fix(\(|:)|^hotfix(\(|:)"; then HAS_FIX=true; fi
+            echo "Breaking: $HAS_BREAKING, Feature: $HAS_FEATURE, Fix: $HAS_FIX"
 
             if [ "$HAS_BREAKING" = "true" ]; then MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
             elif [ "$HAS_FEATURE" = "true" ]; then MINOR=$((MINOR + 1)); PATCH=0
             elif [ "$HAS_FIX" = "true" ]; then PATCH=$((PATCH + 1))
             else MINOR=$((MINOR + 1)); PATCH=0; fi
+            echo "New version: $MAJOR.$MINOR.$PATCH"
 
             NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}-beta"
             VERSION="${MAJOR}.${MINOR}.${PATCH}-beta"
+            echo "New tag: $NEW_TAG"
             echo "is_release=false" >> "$GITHUB_OUTPUT"
             echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
             echo "release_type=beta" >> "$GITHUB_OUTPUT"
 
           elif [[ "$BRANCH" == "main" ]]; then
             LAST_BETA_TAG=$(git tag -l --sort=-version:refname 'v*-beta' | head -1)
+            echo "Last beta tag: $LAST_BETA_TAG"
             if [ -n "$LAST_BETA_TAG" ]; then
               VERSION=$(echo "$LAST_BETA_TAG" | sed 's/^v//; s/-beta$//')
               NEW_TAG="v${VERSION}"
+              echo "Using existing beta version: $VERSION"
             else
               LAST_STABLE_TAG=$(git tag -l --sort=-version:refname 'v*' | grep -v '-' | head -1)
+              echo "Last stable tag: $LAST_STABLE_TAG"
               LAST_STABLE_TAG="${LAST_STABLE_TAG:-v0.0.0}"
               BASE_VERSION=$(echo "$LAST_STABLE_TAG" | sed 's/^v//')
               MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
@@ -244,19 +255,24 @@ jobs:
               if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-zA-Z0-9]+!:"; then HAS_BREAKING=true; fi
               if echo "$COMMITS" | grep -qiE "^feat(\(|:)"; then HAS_FEATURE=true; fi
               if echo "$COMMITS" | grep -qiE "^fix(\(|:)|^hotfix(\(|:)"; then HAS_FIX=true; fi
+              echo "Breaking: $HAS_BREAKING, Feature: $HAS_FEATURE, Fix: $HAS_FIX"
 
               if [ "$HAS_BREAKING" = "true" ]; then MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
               elif [ "$HAS_FEATURE" = "true" ]; then MINOR=$((MINOR + 1)); PATCH=0
               elif [ "$HAS_FIX" = "true" ]; then PATCH=$((PATCH + 1))
               else MINOR=$((MINOR + 1)); PATCH=0; fi
+              echo "New version: $MAJOR.$MINOR.$PATCH"
 
               NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
               VERSION="${MAJOR}.${MINOR}.${PATCH}"
             fi
+            echo "Final tag: $NEW_TAG"
             echo "is_release=true" >> "$GITHUB_OUTPUT"
             echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
             echo "release_type=stable" >> "$GITHUB_OUTPUT"
           fi
+
+          echo "Final new_tag: $NEW_TAG, version: $VERSION"
 
           if git rev-parse "$NEW_TAG" >/dev/null 2>&1; then
             echo "::warning::Tag $NEW_TAG already exists"
