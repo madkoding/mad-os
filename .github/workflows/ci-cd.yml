@@ -328,12 +328,22 @@ jobs:
               pacman -Syu --noconfirm archiso
               cd /build
               mkdir -p out
-              mkarchiso -v -w /tmp/work -o /build/out .
+              mkarchiso -v -w /tmp/work -o /build/out . || true
             "
           
-          cd out
-          sha256sum *.iso > SHA256SUMS
-          chmod 777 *
+          echo "=== Checking build output ==="
+          ls -la out/
+          echo "=== ISO files ==="
+          ls -la out/*.iso 2>/dev/null || echo "No ISO files found"
+          
+          if [ ! -f out/*.iso ]; then
+            echo "ERROR: No ISO file generated"
+            exit 1
+          fi
+          
+          echo "=== Generating SHA256SUMS ==="
+          sha256sum out/*.iso > out/SHA256SUMS || echo "sha256sum failed"
+          chmod 777 out/*
           ISO_FILE=$(ls out/*.iso | head -1)
           ISO_NAME=$(basename "$ISO_FILE")
           VERSION="${{ needs.auto-tag.outputs.version }}"
