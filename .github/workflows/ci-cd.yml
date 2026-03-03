@@ -320,7 +320,6 @@ jobs:
           docker run --privileged --rm \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
             -v ${{ github.workspace }}:/build \
-            -v mados-build-out:/out \
             ${{ env.ARCHLINUX_IMAGE }} bash -c "
               set -e
               echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
@@ -328,15 +327,13 @@ jobs:
               pacman-key --init && pacman-key --populate
               pacman -Syu --noconfirm archiso
               cd /build
-              mkdir -p /out
-              mkarchiso -v -w /tmp/work -o /out .
-              sha256sum /out/*.iso > /out/SHA256SUMS
-              chmod -R 777 /out
-              cp /out/*.iso /build/out/
-              cp /out/SHA256SUMS /build/out/
+              mkdir -p out
+              mkarchiso -v -w /tmp/work -o /build/out .
             "
           
-          ls -la out/
+          cd out
+          sha256sum *.iso > SHA256SUMS
+          chmod 777 *
           ISO_FILE=$(ls out/*.iso | head -1)
           ISO_NAME=$(basename "$ISO_FILE")
           VERSION="${{ needs.auto-tag.outputs.version }}"
