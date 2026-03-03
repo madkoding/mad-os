@@ -1,8 +1,8 @@
-name: "✅ Validation"
+name: "Validate"
 
 on:
   workflow_run:
-    workflows: ["🧪 Tests"]
+    workflows: ["Tests"]
     types: [completed]
     branches: [main, develop]
   workflow_dispatch:

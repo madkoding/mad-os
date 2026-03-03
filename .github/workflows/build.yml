@@ -1,8 +1,8 @@
-name: "🏗️ Build"
+name: "Build"
 
 on:
   workflow_run:
-    workflows: ["✅ Validation"]
+    workflows: ["Validate"]
     types: [completed]
     branches: [main, develop]
   push:
