@@ -518,6 +518,12 @@ jobs:
           VERSION="${{ needs.build.outputs.version }}"
           DOWNLOAD_URL="${{ needs.upload-archive.outputs.download_url }}"
           RELEASE_TYPE="${{ needs.build.outputs.release_type }}"
+          SHORT_SHA="${{ needs.build.outputs.short_sha }}"
+
+          echo "VERSION: $VERSION"
+          echo "DOWNLOAD_URL: $DOWNLOAD_URL"
+          echo "RELEASE_TYPE: $RELEASE_TYPE"
+          echo "SHORT_SHA: $SHORT_SHA"
 
           [[ "$RELEASE_TYPE" == "stable" ]] && CHANNEL="stable" || CHANNEL="beta"
 
