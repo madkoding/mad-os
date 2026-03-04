@@ -318,11 +318,14 @@ jobs:
         id: build
         run: |
           WORKSPACE="${{ github.workspace }}"
-          echo "Workspace: $WORKSPACE"
+          RUNNER_UID=$(id -u)
+          RUNNER_GID=$(id -g)
+          echo "Workspace: $WORKSPACE, UID: $RUNNER_UID, GID: $RUNNER_GID"
           
           docker run --privileged --rm \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
             -v "$WORKSPACE:/build" \
+            --user "$RUNNER_UID:$RUNNER_GID" \
             ${{ env.ARCHLINUX_IMAGE }} bash -c "
               set -e
               echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
@@ -346,7 +349,6 @@ jobs:
           
           echo "ISO_FILE: $ISO_FILE"
           sha256sum out/*.iso > out/SHA256SUMS || true
-          chmod 644 out/* || true
           
           ISO_NAME=$(basename "$ISO_FILE")
           VERSION="${{ needs.auto-tag.outputs.version }}"
