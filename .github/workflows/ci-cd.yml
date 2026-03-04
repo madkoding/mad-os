@@ -317,6 +317,9 @@ jobs:
       - name: Build ISO
         id: build
         run: |
+          RUNNER_UID=$(id -u)
+          RUNNER_GID=$(id -g)
+          
           CONTAINER_ID=$(docker run -d --privileged \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
             -v ${{ github.workspace }}:/build \
@@ -326,6 +329,7 @@ jobs:
               pacman-key --init && pacman-key --populate
               pacman -Syu --noconfirm archiso
               cd /build
+              rm -rf out/
               mkdir -p out
               mkarchiso -v -w /tmp/work -o /build/out .
               
@@ -362,14 +366,17 @@ jobs:
           echo "Waiting for container $CONTAINER_ID to complete..."
           docker wait "$CONTAINER_ID"
           
-          echo "Container completed. Cleaning up old files..."
-          rm -rf out/ || true
-          mkdir -p out/
-          
-          echo "Copying files from container..."
-          docker cp "$CONTAINER_ID:/build/out/." "${{ github.workspace }}/out/"
+          echo "Container completed."
+          docker cp "$CONTAINER_ID:/build/out/" "${{ github.workspace }}/"
           docker cp "$CONTAINER_ID:/build/gha_output.txt" "${{ github.workspace }}/gha_output.txt" || true
           docker rm "$CONTAINER_ID"
+          
+          if [ -f gha_output.txt ]; then
+            cat gha_output.txt >> $GITHUB_OUTPUT
+            rm gha_output.txt
+          fi
+          
+          ls -la out/
           
           if [ -f gha_output.txt ]; then
             cat gha_output.txt >> $GITHUB_OUTPUT
