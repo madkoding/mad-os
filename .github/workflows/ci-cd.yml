@@ -532,7 +532,11 @@ jobs:
 
           sed -i "/data-channel=\"$CHANNEL\"/s|href=\"\"|href=\"$DOWNLOAD_URL\"|g" docs/index.html
           sed -i "/data-channel=\"$CHANNEL\"/s|data-version=\"[^\"]*\"|data-version=\"$VERSION\"|g" docs/index.html
-          sed -i "/data-channel=\"$CHANNEL\"/s|<span>Download v[^<]*</span>|<span>Download v$VERSION</span>|g" docs/index.html
+          if [[ "$CHANNEL" == "beta" ]]; then
+            sed -i "s|<span id=\"beta-version-text\">Download v[^<]*</span>|<span id=\"beta-version-text\">Download v$VERSION</span>|g" docs/index.html
+          else
+            sed -i "s|<span id=\"stable-version-text\">Download v[^<]*</span>|<span id=\"stable-version-text\">Download v$VERSION</span>|g" docs/index.html
+          fi
 
           if git diff --quiet docs/index.html; then
             echo "No changes needed in website"
