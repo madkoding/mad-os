@@ -320,12 +320,8 @@ jobs:
           WORKSPACE="${{ github.workspace }}"
           echo "Workspace: $WORKSPACE"
           
-          # Clean up out directory and create fresh with runner permissions
-          rm -rf out/ 2>/dev/null || true
-          mkdir -p out/
-          chmod 777 out/
-          
-          docker run --privileged --rm \
+          # Run build in detached container
+          CONTAINER_ID=$(docker run -d --privileged \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
             -v "$WORKSPACE:/build" \
             ${{ env.ARCHLINUX_IMAGE }} bash -c "
@@ -335,12 +331,26 @@ jobs:
               pacman-key --init && pacman-key --populate
               pacman -Syu --noconfirm archiso
               cd /build
+              rm -rf out/
+              mkdir -p out
               mkarchiso -v -w /tmp/work -o out .
               chmod -R 777 out/
-            "
+            ")
+          
+          echo "Waiting for build to complete..."
+          docker wait "$CONTAINER_ID"
+          
+          # Copy files to host
+          mkdir -p "$WORKSPACE/out_from_docker"
+          docker cp "$CONTAINER_ID:/build/out/." "$WORKSPACE/out_from_docker/"
+          docker rm -f "$CONTAINER_ID"
+          
+          # Move files to correct location
+          rm -rf "$WORKSPACE/out/"
+          mv "$WORKSPACE/out_from_docker" "$WORKSPACE/out"
           
           echo "Build completed. Checking output..."
-          ls -la out/ || true
+          ls -la out/
           
           ISO_FILE=$(ls out/*.iso 2>/dev/null | head -1)
           if [ -z "$ISO_FILE" ]; then
