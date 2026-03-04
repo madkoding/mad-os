@@ -317,13 +317,14 @@ jobs:
       - name: Build ISO
         id: build
         run: |
-          RUNNER_UID=$(id -u)
-          RUNNER_GID=$(id -g)
+          docker volume create mados-out || true
           
-          CONTAINER_ID=$(docker run -d --privileged \
+          docker run --privileged --rm \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
             -v ${{ github.workspace }}:/build \
+            -v mados-out:/output \
             ${{ env.ARCHLINUX_IMAGE }} bash -c "
+              set -e
               echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
               echo 'nameserver ${{ env.DNS_SECONDARY }}' >> /etc/resolv.conf
               pacman-key --init && pacman-key --populate
@@ -333,7 +334,6 @@ jobs:
               mkdir -p out
               mkarchiso -v -w /tmp/work -o /build/out .
               
-              echo '=== Checking build output ==='
               ls -la out/
               
               ISO_FILES=(out/*.iso)
@@ -342,46 +342,32 @@ jobs:
                 exit 1
               fi
               
-              echo '=== Generating SHA256SUMS ==='
               sha256sum out/*.iso > out/SHA256SUMS
-              chmod 644 out/*
-              
-              ISO_FILE=\$(ls out/*.iso | head -1)
-              ISO_NAME=\$(basename \"\$ISO_FILE\")
-              VERSION=\"${{ needs.auto-tag.outputs.version }}\"
-              [ -n \"\$VERSION\" ] || VERSION=\"dev-\$(date +%Y%m%d)\"
-              BUILD_DATE=\$(date +%Y.%m.%d)
-              ISO_SIZE=\$(stat --format=%s \"\$ISO_FILE\")
-              ISO_SIZE_MB=\$((ISO_SIZE / 1024 / 1024))
-              SHORT_SHA=\$(echo '${{ github.sha }}' | cut -c1-7)
-              
-              echo \"iso_name=\$ISO_NAME\" >> /build/gha_output.txt
-              echo \"version=\$VERSION\" >> /build/gha_output.txt
-              echo \"build_date=\$BUILD_DATE\" >> /build/gha_output.txt
-              echo \"iso_size_mb=\$ISO_SIZE_MB\" >> /build/gha_output.txt
-              echo \"short_sha=\$SHORT_SHA\" >> /build/gha_output.txt
-              echo '=== Build completed successfully ==='
-            ")
+              cp out/* /output/
+            "
           
-          echo "Waiting for container $CONTAINER_ID to complete..."
-          docker wait "$CONTAINER_ID"
+          echo "Copying from volume..."
+          docker run --rm -v mados-out:/output -v ${{ github.workspace }}:/workspace alpine cp /output/* /workspace/out/ || \
+            docker run --rm -v mados-out:/output -v ${{ github.workspace }}:/workspace archlinux:latest cp /output/* /workspace/out/
           
-          echo "Container completed."
-          docker cp "$CONTAINER_ID:/build/out/" "${{ github.workspace }}/"
-          docker cp "$CONTAINER_ID:/build/gha_output.txt" "${{ github.workspace }}/gha_output.txt" || true
-          docker rm "$CONTAINER_ID"
-          
-          if [ -f gha_output.txt ]; then
-            cat gha_output.txt >> $GITHUB_OUTPUT
-            rm gha_output.txt
-          fi
+          docker volume rm mados-out || true
           
           ls -la out/
           
-          if [ -f gha_output.txt ]; then
-            cat gha_output.txt >> $GITHUB_OUTPUT
-            rm gha_output.txt
-          fi
+          ISO_FILE=$(ls out/*.iso | head -1)
+          ISO_NAME=$(basename "$ISO_FILE")
+          VERSION="${{ needs.auto-tag.outputs.version }}"
+          [ -n "$VERSION" ] || VERSION="${GITHUB_REF_NAME#v}"
+          [ -n "$VERSION" ] || VERSION="dev-$(date +%Y%m%d)"
+          BUILD_DATE=$(date +%Y.%m.%d)
+          ISO_SIZE=$(stat --format=%s "$ISO_FILE" 2>/dev/null || echo 0)
+          ISO_SIZE_MB=$((ISO_SIZE / 1024 / 1024))
+          SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+          echo "iso_name=$ISO_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
+          echo "iso_size_mb=$ISO_SIZE_MB" >> $GITHUB_OUTPUT
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
           
           ls -la out/
 
