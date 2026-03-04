@@ -365,6 +365,8 @@ jobs:
             cat gha_output.txt >> $GITHUB_OUTPUT
             rm gha_output.txt
           fi
+          
+          ls -la out/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
