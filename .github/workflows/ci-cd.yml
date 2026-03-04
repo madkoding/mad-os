@@ -319,10 +319,14 @@ jobs:
         run: |
           WORKSPACE="${{ github.workspace }}"
           echo "Workspace: $WORKSPACE"
+          echo "Current directory: $(pwd)"
+          echo "Home: $HOME"
           
           # Create output directory BEFORE starting the container
-          mkdir -p "$WORKSPACE/out"
-          chmod 777 "$WORKSPACE/out"
+          rm -rf out/ 2>/dev/null || true
+          mkdir -p out
+          chmod 777 out
+          ls -la out/
           
           # Run build - output directly to host-mounted directory
           docker run --privileged --rm \
@@ -335,12 +339,16 @@ jobs:
               pacman-key --init && pacman-key --populate
               pacman -Syu --noconfirm archiso
               cd /build
+              ls -la
+              ls -la out/
               rm -rf out/*
               mkarchiso -v -w /tmp/work -o out .
+              ls -la out/
             "
           
-          echo "Build completed. Checking output..."
-          ls -la out/
+          echo "Docker finished. Checking output..."
+          ls -la out/ || echo "out/ does not exist"
+          ls -la || echo "current dir listing failed"
           
           ISO_FILE=$(ls out/*.iso 2>/dev/null | head -1)
           if [ -z "$ISO_FILE" ]; then
@@ -375,7 +383,8 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: mados-iso
-          path: out/*.iso out/SHA256SUMS
+          path: |
+            out/
           retention-days: 7
 
   # ================================================================
