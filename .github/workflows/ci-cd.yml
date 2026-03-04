@@ -298,11 +298,11 @@ jobs:
     needs: auto-tag
     if: always() && !cancelled() && (needs.auto-tag.result == 'success' || needs.auto-tag.result == 'skipped')
     outputs:
-      iso_name: ${{ steps.iso_info.outputs.iso_name }}
-      version: ${{ steps.iso_info.outputs.version }}
-      build_date: ${{ steps.iso_info.outputs.build_date }}
-      iso_size_mb: ${{ steps.iso_info.outputs.iso_size_mb }}
-      short_sha: ${{ steps.iso_info.outputs.short_sha }}
+      iso_name: ${{ steps.build.outputs.iso_name }}
+      version: ${{ steps.build.outputs.version }}
+      build_date: ${{ steps.build.outputs.build_date }}
+      iso_size_mb: ${{ steps.build.outputs.iso_size_mb }}
+      short_sha: ${{ steps.build.outputs.short_sha }}
       is_release: ${{ needs.auto-tag.outputs.is_release }}
       is_prerelease: ${{ needs.auto-tag.outputs.is_prerelease }}
       release_type: ${{ needs.auto-tag.outputs.release_type }}
