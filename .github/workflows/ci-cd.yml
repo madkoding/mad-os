@@ -317,12 +317,12 @@ jobs:
       - name: Build ISO
         id: build
         run: |
-          docker volume create mados-out || true
+          WORKSPACE="${{ github.workspace }}"
+          echo "Workspace: $WORKSPACE"
           
           docker run --privileged --rm \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
-            -v ${{ github.workspace }}:/build \
-            -v mados-out:/output \
+            -v "$WORKSPACE:/build" \
             ${{ env.ARCHLINUX_IMAGE }} bash -c "
               set -e
               echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
@@ -332,29 +332,22 @@ jobs:
               cd /build
               rm -rf out/
               mkdir -p out
-              mkarchiso -v -w /tmp/work -o /build/out .
-              
-              ls -la out/
-              
-              ISO_FILES=(out/*.iso)
-              if [ ! -f \"\${ISO_FILES[0]}\" ]; then
-                echo 'ERROR: No ISO file generated'
-                exit 1
-              fi
-              
-              sha256sum out/*.iso > out/SHA256SUMS
-              cp out/* /output/
+              mkarchiso -v -w /tmp/work -o out .
             "
           
-          echo "Copying from volume..."
-          docker run --rm -v mados-out:/output -v ${{ github.workspace }}:/workspace alpine cp /output/* /workspace/out/ || \
-            docker run --rm -v mados-out:/output -v ${{ github.workspace }}:/workspace archlinux:latest cp /output/* /workspace/out/
+          echo "Build completed. Checking output..."
+          ls -la out/ || true
           
-          docker volume rm mados-out || true
+          ISO_FILE=$(ls out/*.iso 2>/dev/null | head -1)
+          if [ -z "$ISO_FILE" ]; then
+            echo "ERROR: No ISO file found"
+            exit 1
+          fi
           
-          ls -la out/
+          echo "ISO_FILE: $ISO_FILE"
+          sha256sum out/*.iso > out/SHA256SUMS || true
+          chmod 644 out/* || true
           
-          ISO_FILE=$(ls out/*.iso | head -1)
           ISO_NAME=$(basename "$ISO_FILE")
           VERSION="${{ needs.auto-tag.outputs.version }}"
           [ -n "$VERSION" ] || VERSION="${GITHUB_REF_NAME#v}"
@@ -363,11 +356,14 @@ jobs:
           ISO_SIZE=$(stat --format=%s "$ISO_FILE" 2>/dev/null || echo 0)
           ISO_SIZE_MB=$((ISO_SIZE / 1024 / 1024))
           SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+          
           echo "iso_name=$ISO_NAME" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
           echo "iso_size_mb=$ISO_SIZE_MB" >> $GITHUB_OUTPUT
           echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          
+          echo "Build successful!"
           
           ls -la out/
 
