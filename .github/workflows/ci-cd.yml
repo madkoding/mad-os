@@ -318,14 +318,16 @@ jobs:
         id: build
         run: |
           WORKSPACE="${{ github.workspace }}"
-          RUNNER_UID=$(id -u)
-          RUNNER_GID=$(id -g)
-          echo "Workspace: $WORKSPACE, UID: $RUNNER_UID, GID: $RUNNER_GID"
+          echo "Workspace: $WORKSPACE"
+          
+          # Clean up out directory and create fresh with runner permissions
+          rm -rf out/ 2>/dev/null || true
+          mkdir -p out/
+          chmod 777 out/
           
           docker run --privileged --rm \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
             -v "$WORKSPACE:/build" \
-            --user "$RUNNER_UID:$RUNNER_GID" \
             ${{ env.ARCHLINUX_IMAGE }} bash -c "
               set -e
               echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
@@ -333,8 +335,6 @@ jobs:
               pacman-key --init && pacman-key --populate
               pacman -Syu --noconfirm archiso
               cd /build
-              rm -rf out/
-              mkdir -p out
               mkarchiso -v -w /tmp/work -o out .
             "
           
@@ -348,6 +348,7 @@ jobs:
           fi
           
           echo "ISO_FILE: $ISO_FILE"
+          
           sha256sum out/*.iso > out/SHA256SUMS || true
           
           ISO_NAME=$(basename "$ISO_FILE")
