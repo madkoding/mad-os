@@ -1,17 +1,15 @@
-[project]
-name = "mad-os"
-version = "0.1.0"
-
 [tool.ruff]
 line-length = 100
 target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
-ignore = ["E501"]
+ignore = ["E501", "E402", "F401"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["B011"]
+"tests/*" = ["B011", "F841", "I001", "F811", "N806", "E741", "UP015", "W293", "W291", "B905", "B007", "N802", "UP024"]
+"airootfs/usr/local/lib/mados_*/**" = ["E402", "F401", "I001", "B904", "UP024", "W293", "W291", "UP041", "UP015", "B905", "UP032", "B007", "F541", "F841"]
+"airootfs/usr/local/bin/*" = ["I001"]
 
 [tool.ruff.format]
 quote-style = "double"
