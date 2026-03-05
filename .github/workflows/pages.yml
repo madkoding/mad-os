@@ -76,3 +76,5 @@ jobs:
           single-commit: true
           git-config-name: github-actions[bot]
           git-config-email: github-actions[bot]@users.noreply.github.com
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
