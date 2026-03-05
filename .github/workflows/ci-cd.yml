@@ -369,6 +369,13 @@ jobs:
           IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
         run: |
           ISO_FILE=$(ls out/*.iso | head -1)
+          
+          if [ -z "$ISO_FILE" ]; then
+            echo "ERROR: No ISO file found in out/"
+            ls -la out/
+            exit 1
+          fi
+          
           ISO_NAME=$(basename "$ISO_FILE")
           VERSION="${{ needs.build.outputs.version }}"
           BUILD_DATE="${{ needs.build.outputs.build_date }}"
@@ -376,11 +383,13 @@ jobs:
 
           if [[ "$RELEASE_TYPE" == "stable" ]]; then
             TARGET="madOS Release/${ISO_NAME}"
-            IDENTIFIER="madOS Project"
+            IDENTIFIER="madOS%20Project"
           else
             TARGET="madOS Beta/${ISO_NAME}"
-            IDENTIFIER="madOS Project"
+            IDENTIFIER="madOS%20Project"
           fi
+
+          echo "Uploading ${ISO_NAME} to ${IDENTIFIER}/${TARGET}"
 
           # Upload ISO using S3 API (for subfolder support)
           curl -v -X PUT \
@@ -401,7 +410,7 @@ jobs:
             --upload-file out/SHA256SUMS \
             "https://s3.us.archive.org/${IDENTIFIER}/${TARGET}/SHA256SUMS"
 
-          echo "download_url=https://archive.org/download/${IDENTIFIER}/${TARGET}" >> "$GITHUB_OUTPUT"
+          echo "download_url=https://archive.org/download/madOS%20Project/${TARGET}" >> "$GITHUB_OUTPUT"
           echo "identifier=${IDENTIFIER}" >> "$GITHUB_OUTPUT"
           echo "iso_name=${TARGET}" >> "$GITHUB_OUTPUT"
 
