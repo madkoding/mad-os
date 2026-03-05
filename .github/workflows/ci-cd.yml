@@ -453,6 +453,87 @@ jobs:
 
           echo "download_url=https://archive.org/download/${IDENTIFIER}/${ISO_NAME}" >> "$GITHUB_OUTPUT"
           echo "identifier=$IDENTIFIER" >> "$GITHUB_OUTPUT"
+          echo "iso_name=$ISO_NAME" >> "$GITHUB_OUTPUT"
+
+  # ================================================================
+  # Stage 5: Update Download Info (develop beta / main stable)
+  # ================================================================
+  update-download-info:
+    name: "Update Download Info"
+    runs-on: ubuntu-latest
+    needs: [build, upload-archive]
+    if: needs.build.result == 'success' && (github.ref == 'refs/heads/develop' || needs.build.outputs.is_release == 'true')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Update download-info.json
+        env:
+          DOWNLOAD_URL: ${{ needs.upload-archive.outputs.download_url }}
+          ISO_NAME: ${{ needs.upload-archive.outputs.iso_name }}
+          VERSION: ${{ needs.build.outputs.version }}
+          RELEASE_TYPE: ${{ needs.build.outputs.release_type }}
+          BUILD_DATE: ${{ needs.build.outputs.build_date }}
+        run: |
+          # Read current JSON
+          cat docs/download-info.json
+
+          # Determine channel
+          if [[ "$RELEASE_TYPE" == "stable" ]]; then
+            CHANNEL="stable"
+          else
+            CHANNEL="beta"
+          fi
+
+          # Use Python to update JSON
+          python3 << EOF
+          import json
+          import os
+
+          with open('docs/download-info.json', 'r') as f:
+              data = json.load(f)
+
+          download_url = os.environ.get('DOWNLOAD_URL', '')
+          iso_name = os.environ.get('ISO_NAME', '')
+          version = os.environ.get('VERSION', '')
+          build_date = os.environ.get('BUILD_DATE', '')
+
+          if version and download_url:
+              data['${CHANNEL}'] = {
+                  'version': version,
+                  'url': download_url,
+                  'date': build_date
+              }
+
+              with open('docs/download-info.json', 'w') as f:
+                  json.dump(data, f, indent=2)
+              print(f"Updated ${CHANNEL}: v{version}")
+          else:
+              print("Missing required env vars, skipping update")
+              exit(0)
+          EOF
+
+      - name: Commit and Push
+        run: |
+          if git diff --quiet docs/download-info.json; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          git add docs/download-info.json
+          git commit -m "ci: update download links to ${{ needs.build.outputs.version }}"
+          
+          # Push to the current branch
+          git push
 
   # ================================================================
   # Stage 5: GitHub Release (only stable)

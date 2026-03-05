@@ -130,4 +130,35 @@
     const style = document.createElement('style');
     style.textContent = '@keyframes rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }';
     document.head.appendChild(style);
+
+    // ============================================
+    // Download Links — Load from JSON
+    // ============================================
+    async function updateDownloadLinks() {
+        try {
+            const response = await fetch('download-info.json');
+            if (!response.ok) return;
+            const info = await response.json();
+
+            // Update Beta
+            const betaLink = document.getElementById('beta-download-link');
+            const betaVersion = document.getElementById('beta-version-text');
+            if (betaLink && betaVersion && info.beta) {
+                betaLink.href = info.beta.url;
+                betaVersion.textContent = `Download v${info.beta.version}`;
+            }
+
+            // Update Stable
+            const stableLink = document.getElementById('stable-download-link');
+            const stableVersion = document.getElementById('stable-version-text');
+            if (stableLink && stableVersion && info.stable) {
+                stableLink.href = info.stable.url;
+                stableVersion.textContent = `Download v${info.stable.version}`;
+            }
+        } catch (e) {
+            console.log('Using default download links');
+        }
+    }
+
+    updateDownloadLinks();
 })();
