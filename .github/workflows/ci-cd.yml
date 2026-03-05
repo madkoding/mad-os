@@ -486,34 +486,55 @@ jobs:
 
           # Determine channel
           if [[ "$RELEASE_TYPE" == "stable" ]]; then
-            CHANNEL="stable"
+            export CHANNEL="stable"
           else
-            CHANNEL="beta"
+            export CHANNEL="beta"
           fi
 
-          # Use Python to update JSON
-          python3 << EOF
+          # Use Python to update JSON (preserve front matter for Jekyll)
+          python3 << 'EOF'
           import json
           import os
 
+          FRONT_MATTER = "---\nlayout: null\n---\n"
+
           with open('docs/download-info.json', 'r') as f:
-              data = json.load(f)
+              content = f.read()
+          
+          # Check if front matter exists
+          if content.startswith('---'):
+              # Extract JSON part
+              parts = content.split('---', 2)
+              json_str = parts[2] if len(parts) > 2 else content
+              data = json.loads(json_str)
+          else:
+              data = json.loads(content)
 
           download_url = os.environ.get('DOWNLOAD_URL', '')
           iso_name = os.environ.get('ISO_NAME', '')
           version = os.environ.get('VERSION', '')
           build_date = os.environ.get('BUILD_DATE', '')
 
+          channel = os.environ.get('CHANNEL', 'beta')
+
           if version and download_url:
-              data['${CHANNEL}'] = {
+              data[channel] = {
                   'version': version,
                   'url': download_url,
                   'date': build_date
               }
 
+              json_str = json.dumps(data, indent=2)
+              
+              # Preserve front matter
+              if content.startswith('---'):
+                  full_content = FRONT_MATTER + json_str
+              else:
+                  full_content = json_str
+              
               with open('docs/download-info.json', 'w') as f:
-                  json.dump(data, f, indent=2)
-              print(f"Updated ${CHANNEL}: v{version}")
+                  f.write(full_content)
+              print("Updated " + channel + ": v" + version)
           else:
               print("Missing required env vars, skipping update")
               exit(0)
