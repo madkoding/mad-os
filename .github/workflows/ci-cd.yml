@@ -375,9 +375,11 @@ jobs:
           RELEASE_TYPE="${{ needs.build.outputs.release_type }}"
 
           if [[ "$RELEASE_TYPE" == "stable" ]]; then
-            TARGET="release/${ISO_NAME}"
+            TARGET="madOS Release/${ISO_NAME}"
+            IDENTIFIER="madOS Project"
           else
-            TARGET="beta/${ISO_NAME}"
+            TARGET="madOS Beta/${ISO_NAME}"
+            IDENTIFIER="madOS Project"
           fi
 
           # Upload ISO using S3 API (for subfolder support)
@@ -391,17 +393,17 @@ jobs:
             -H "x-archive-meta-creator:madOS Project" \
             -H "x-archive-meta-date:${BUILD_DATE}" \
             --upload-file "$ISO_FILE" \
-            "https://s3.us.archive.org/mados/${TARGET}"
+            "https://s3.us.archive.org/${IDENTIFIER}/${TARGET}"
 
           # Upload SHA256SUMS
           curl -v -X PUT \
             -H "x-amz-acl: public-read" \
             --upload-file out/SHA256SUMS \
-            "https://s3.us.archive.org/mados/${TARGET}/SHA256SUMS"
+            "https://s3.us.archive.org/${IDENTIFIER}/${TARGET}/SHA256SUMS"
 
-          echo "download_url=https://archive.org/download/mados/${TARGET}" >> "$GITHUB_OUTPUT"
-          echo "identifier=mados" >> "$GITHUB_OUTPUT"
-          echo "iso_name=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "download_url=https://archive.org/download/${IDENTIFIER}/${TARGET}" >> "$GITHUB_OUTPUT"
+          echo "identifier=${IDENTIFIER}" >> "$GITHUB_OUTPUT"
+          echo "iso_name=${TARGET}" >> "$GITHUB_OUTPUT"
 
   # ================================================================
   # Stage 5: Update Download Info & Website
