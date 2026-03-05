@@ -58,27 +58,10 @@ jobs:
     needs: build
     permissions:
       pages: write
-      id-token: write
       contents: write
+      id-token: write
     if: github.ref == 'refs/heads/develop'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: develop
-          fetch-depth: 0
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-        with:
-          static_site_generator: jekyll
-
-      - name: Build with Jekyll
-        uses: actions/jekyll-build-pages@v1
-        with:
-          source: ./docs
-          destination: ./_site
-
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
