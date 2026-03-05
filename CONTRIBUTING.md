@@ -1,51 +1,72 @@
-# Contributing
+# Contributing to madOS
 
-¡Gracias por tu interés en contribuir!
+Thank you for your interest in contributing to madOS! This document provides guidelines for contributing to the project.
 
-## Cómo Contribuir
+## Getting Started
 
-### Reportar Bugs
+1. **Fork** the repository
+2. **Clone** your fork: `git clone https://github.com/YOUR_USERNAME/mad-os.git`
+3. Create a **feature branch**: `git checkout -b feature/your-feature-name`
 
-1. Busca en los issues existentes para evitar duplicados
-2. Crea un nuevo issue con:
-   - Título claro y descriptivo
-   - Pasos para reproducir el bug
-   - Comportamiento esperado vs actual
-   - Versión del software y entorno
+## Development Workflow
 
-### Sugerir Features
+### Branches
+- `main` - Stable releases only
+- `develop` - Beta/development builds
+- Feature branches: `feature/`, `fix/`, `hotfix/`
 
-1. Busca issues relacionados primero
-2. Crea un issue con:
-   - Descripción clara del feature
-   - Casos de uso
-   - Alternativas consideradas (si aplica)
+### Commit Messages
 
-### Pull Requests
+We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-1. Fork el repositorio
-2. Crea una branch: `feature/nombre` o `fix/nombre`
-3. Haz tus cambios siguiendo el estilo del proyecto
-4. Asegúrate que los tests pasen
-5. Actualiza la documentación si es necesario
-6. Submit PR con descripción clara
+```
+<type>(<scope>): <description>
 
-## Estilo de Código
+[optional body]
+[optional footer]
+```
 
-- Sigue las convenciones del lenguaje
-- Usa nombres descriptivos
-- Comenta código complejo
-- Agrega tests para nuevas funcionalidades
+**Types:**
+- `feat` - New feature
+- `fix` - Bug fix
+- `hotfix` - Critical production fix
+- `docs` - Documentation only
+- `refactor` - Code refactoring
+- `test` - Adding/updating tests
+- `ci` - CI/CD changes
 
-## Commits
+**Examples:**
+```
+feat(audio): add equalizer presets for headphones
+fix(installer): correct disk partitioning on UEFI
+hotfix(boot): fix kernel panic on AMD GPUs
+docs: update build instructions
+```
 
-Usa mensajes de commit claros:
-- `feat: agregar nuevo feature`
-- `fix: corregir bug`
-- `docs: actualizar documentación`
-- `test: agregar tests`
-- `refactor: refactorizar código`
+### Pull Request Process
 
-## Licencia
+1. Update documentation if needed
+2. Ensure all tests pass
+3. Update the CHANGELOG if applicable
+4. Submit a PR targeting `develop` (for features) or `main` (for hotfixes)
+5. Fill out the PR template completely
 
-Al contribuir, aceptas que tus contribuciones serán licenciadas bajo MIT.
+## Building the ISO
+
+```bash
+# Install dependencies
+sudo pacman -Syu --needed archiso
+
+# Build
+sudo mkarchiso -v -w /tmp/work -o out .
+```
+
+## Code Standards
+
+- Shell scripts: Use ShellCheck
+- Python: Follow PEP 8, use type hints
+- Configuration: YAML for configs, JSON for data files
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the project's license.
