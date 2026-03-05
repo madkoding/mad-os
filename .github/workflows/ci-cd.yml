@@ -397,10 +397,10 @@ jobs:
           RELEASE_TYPE="${{ needs.build.outputs.release_type }}"
 
           if [[ "$RELEASE_TYPE" == "stable" ]]; then
-            TARGET="madOS Release/${ISO_NAME}"
+            TARGET="madOS%20Release/${ISO_NAME}"
             IDENTIFIER="mados-project"
           else
-            TARGET="madOS Beta/${ISO_NAME}"
+            TARGET="madOS%20Beta/${ISO_NAME}"
             IDENTIFIER="mados-project"
           fi
 
