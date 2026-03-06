@@ -281,23 +281,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Cache pacman packages
-        uses: actions/cache@v4
-        with:
-          path: pacman_cache
-          key: pacman-${{ runner.os }}-${{ hashFiles('packages.x86_64') }}
-          restore-keys: |
-            pacman-${{ runner.os }}-
-
-      - name: Cache SFS (squashfs)
-        id: cache-sfs
-        uses: actions/cache@v4
-        with:
-          path: sfs_cache/airootfs.sfs
-          key: airootfs-sfs-${{ hashFiles('packages.x86_64') }}-${{ hashFiles('profiledef.sh') }}
-          restore-keys: |
-            airootfs-sfs-
-
       - name: Build ISO
         id: build
         run: |
@@ -307,24 +290,9 @@ jobs:
           mkdir -p out
           chmod 777 out
           
-          # Copy cached packages if exists (only if not empty)
-          if [ -d "pacman_cache" ] && [ "$(ls -A pacman_cache 2>/dev/null)" ]; then
-            echo "Restoring pacman cache..."
-            mkdir -p "$WORKSPACE/pacman_cache"
-          fi
-          
-          # Mount SFS cache if it exists (actions/cache restores to sfs_cache/)
-          SFS_CACHE_MOUNT=""
-          if [ -f "sfs_cache/airootfs.sfs" ]; then
-            echo "SFS cache found, will use it..."
-            SFS_CACHE_MOUNT="-v $WORKSPACE/sfs_cache:/sfs_cache"
-          fi
-          
           docker run --privileged --rm \
             --dns ${{ env.DNS_PRIMARY }} --dns ${{ env.DNS_SECONDARY }} \
             -v "$WORKSPACE:/build" \
-            -v "$WORKSPACE/pacman_cache:/var/cache/pacman/pkg" \
-            $SFS_CACHE_MOUNT \
             ${{ env.ARCHLINUX_IMAGE }} bash -c "
               set -e
               echo 'nameserver ${{ env.DNS_PRIMARY }}' > /etc/resolv.conf
@@ -334,20 +302,7 @@ jobs:
               cd /build
               rm -rf out/*
               
-              # Restore SFS cache if exists (actions/cache restores to sfs_cache/)
-              if [ -f 'sfs_cache/airootfs.sfs' ] && [ ! -f '/tmp/work/iso/arch/x86_64/airootfs.sfs' ]; then
-                echo 'Using cached SFS...'
-                mkdir -p /tmp/work/iso/arch/x86_64
-                cp sfs_cache/airootfs.sfs /tmp/work/iso/arch/x86_64/
-              fi
-              
               mkarchiso -v -w /tmp/work -o out .
-              
-              # Save SFS cache for next build (only if it was newly created)
-              if [ -f '/tmp/work/iso/arch/x86_64/airootfs.sfs' ] && [ ! -f 'sfs_cache/airootfs.sfs' ]; then
-                mkdir -p sfs_cache
-                cp /tmp/work/iso/arch/x86_64/airootfs.sfs sfs_cache/
-              fi
             "
           
           ISO_FILE=$(ls out/*.iso 2>/dev/null | head -1)
