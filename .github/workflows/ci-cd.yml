@@ -437,6 +437,22 @@ jobs:
             exit 1
           fi
           
+          # Verify ISO is a file, not a directory
+          if [ ! -f "$ISO_FILE" ]; then
+            echo "ERROR: $ISO_FILE is not a file, it's a directory!"
+            ls -la "$ISO_FILE"
+            exit 1
+          fi
+          
+          ISO_SIZE=$(stat --format=%s "$ISO_FILE" 2>/dev/null || echo 0)
+          if [ "$ISO_SIZE" -lt 1000000 ]; then
+            echo "ERROR: ISO file too small ($ISO_SIZE bytes), something is wrong"
+            ls -la "$ISO_FILE"
+            exit 1
+          fi
+          
+          echo "ISO file: $ISO_FILE ($(($ISO_SIZE / 1024 / 1024)) MB)"
+          
           ISO_NAME=$(basename "$ISO_FILE")
           VERSION="${{ needs.build.outputs.version }}"
           BUILD_DATE="${{ needs.build.outputs.build_date }}"
@@ -453,6 +469,9 @@ jobs:
           echo "Uploading ${ISO_NAME} to ${IDENTIFIER}/${TARGET}"
 
           # Upload ISO using S3 API
+          echo "Uploading ISO: $ISO_FILE (size: $(stat --format=%s "$ISO_FILE") bytes)"
+          ls -la "$ISO_FILE"
+          
           ISO_RESPONSE=$(curl -s -w "%{http_code}" -X PUT \
             -H "Authorization: LOW ${IAS3_ACCESS_KEY}:${IAS3_SECRET_KEY}" \
             -H "x-amz-acl: public-read" \
