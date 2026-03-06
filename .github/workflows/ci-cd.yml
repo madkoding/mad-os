@@ -384,13 +384,6 @@ jobs:
           
           echo "Build successful!"
 
-      - name: Upload ISO artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: mados-iso
-          path: out/
-          retention-days: 1
-
       - name: Install IA CLI & dependencies
         run: pip install internetarchive requests
 
@@ -603,11 +596,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download ISO
-        uses: actions/download-artifact@v4
-        with:
-          name: mados-iso
-          path: out
+      - name: Download SHA256SUMS from Internet Archive
+        run: |
+          IDENTIFIER="${{ needs.build.outputs.identifier }}"
+          mkdir -p out
+          curl -L "https://archive.org/download/${IDENTIFIER}/SHA256SUMS" -o out/SHA256SUMS
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
