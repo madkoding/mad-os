@@ -89,35 +89,44 @@ install_via_curl() {
         mkdir -p "$target_dir"
     fi
 
-    # Create temp directory for installation
-    local temp_dir
-    temp_dir=$(mktemp -d)
-    cd "$temp_dir"
+    # The opencode installer puts binary in ~/.opencode/bin/opencode
+    # We need to install it and then copy/symlink to our target
+    local opencode_install_dir="$HOME/.opencode"
     
-    if curl -fsSL https://opencode.ai/install | INSTALL_DIR="$temp_dir" bash 2>&1; then
-        # Find the installed binary
-        local opencode_binary
-        opencode_binary=$(find "$temp_dir" -name "opencode" -type f -executable 2>/dev/null | head -1 || true)
+    # Clean up any previous failed install
+    rm -rf "$opencode_install_dir"
+    
+    # Run the official installer
+    if curl -fsSL https://opencode.ai/install | bash 2>&1; then
+        # Find where it was installed (usually ~/.opencode/bin/opencode)
+        local opencode_binary=""
+        
+        if [[ -x "$HOME/.opencode/bin/opencode" ]]; then
+            opencode_binary="$HOME/.opencode/bin/opencode"
+        else
+            # Search in common locations
+            opencode_binary=$(find "$HOME" -name "opencode" -type f -executable 2>/dev/null | head -1 || true)
+        fi
         
         if [[ -n "$opencode_binary" ]]; then
-            # Copy to target location
-            cp "$opencode_binary" "$target_dir/$OPENCODE_CMD"
-            chmod +x "$target_dir/$OPENCODE_CMD"
-            
-            # Clean up temp dir
-            rm -rf "$temp_dir"
+            # Copy to target location (or symlink if same filesystem)
+            if [[ "$using_persistence" == true ]]; then
+                cp "$opencode_binary" "$target_dir/$OPENCODE_CMD"
+                chmod +x "$target_dir/$OPENCODE_CMD"
+                ln -sf "$target_dir/$OPENCODE_CMD" "$INSTALL_DIR/$OPENCODE_CMD" 2>/dev/null || true
+            else
+                cp "$opencode_binary" "$INSTALL_DIR/$OPENCODE_CMD"
+                chmod +x "$INSTALL_DIR/$OPENCODE_CMD"
+            fi
             
             log_ok "OpenCode instalado via curl"
-
-            if [[ "$using_persistence" == true ]]; then
-                ln -sf "$target_dir/$OPENCODE_CMD" "$INSTALL_DIR/$OPENCODE_CMD" 2>/dev/null || true
-            fi
             return 0
+        else
+            log_warn "Instalador completado pero no se encontró el binario"
+            return 1
         fi
     fi
     
-    # Clean up on failure
-    rm -rf "$temp_dir"
     return 1
 }
 
