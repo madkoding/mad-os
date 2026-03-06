@@ -1192,7 +1192,7 @@ for svc in \
     mados-persistence-detect.service \
     mados-persist-sync.service \
     mados-ventoy-setup.service \
-    setup-meli-demo.service \
+    mados-ventoy-setup.service \
     mados-timezone.service \
     mados-installer-autostart.service; do
     systemctl disable "$svc" 2>/dev/null || true
