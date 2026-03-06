@@ -127,7 +127,13 @@ class PlayerEngine:
             return
 
         # Try gtksink first (best for Wayland/GTK integration)
-        gtksink = Gst.ElementFactory.make("gtksink", "videosink")
+        gtksink = None
+        try:
+            gtksink = Gst.ElementFactory.make("gtksink", "videosink")
+        except (Exception, Gst.MissingPluginError) as e:
+            print(f"gtksink not available: {e}")
+            gtksink = None
+
         if gtksink is not None:
             self._pipeline.set_property("video-sink", gtksink)
             self._video_widget = gtksink.get_property("widget")

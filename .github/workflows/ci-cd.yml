@@ -336,6 +336,7 @@ jobs:
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
           echo "iso_size_mb=$ISO_SIZE_MB" >> $GITHUB_OUTPUT
           echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "release_type=${{ needs.auto-tag.outputs.release_type }}" >> $GITHUB_OUTPUT
           
           echo "Build successful!"
 
