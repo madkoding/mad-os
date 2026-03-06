@@ -78,9 +78,7 @@ file_permissions=(
   ["/usr/local/bin/mados-timezone-detect.sh"]="0:0:755"
   ["/usr/local/bin/mados-gamepad-wm"]="0:0:755"
   ["/usr/local/bin/mados-squeekboard"]="0:0:755"
-  ["/usr/local/bin/mados-meli-demo"]="0:0:755"
-  ["/usr/local/bin/setup-meli-demo.sh"]="0:0:755"
-  ["/usr/local/lib/mados_meli_demo/"]="0:0:755"
+
   ["/etc/mados/"]="0:0:755"
   ["/etc/mados/ventoy-persist.conf"]="0:0:644"
 )
