@@ -503,7 +503,8 @@ jobs:
             exit 1
           fi
 
-          echo "download_url=https://archive.org/download/${IDENTIFIER}/${TARGET}" >> "$GITHUB_OUTPUT"
+          DOWNLOAD_URL="https://archive.org/download/${IDENTIFIER}/$(echo "$TARGET" | sed 's/ /%20/g')"
+          echo "download_url=${DOWNLOAD_URL}" >> "$GITHUB_OUTPUT"
           echo "identifier=${IDENTIFIER}" >> "$GITHUB_OUTPUT"
           echo "iso_name=${TARGET}" >> "$GITHUB_OUTPUT"
 
@@ -579,13 +580,14 @@ jobs:
               print("Updated " + channel + ": v" + version)
           EOF
 
-          # Update index.html
-          sed -i "s|<a id=\"${CHANNEL}-download-link\" href=\"[^\"]*\"|<a id=\"${CHANNEL}-download-link\" href=\"$DOWNLOAD_URL\"|g" docs/index.html
-          sed -i "s|data-version=\"[^\"]*\"|data-version=\"$VERSION\"|g" docs/index.html
-          
+          # Update index.html - specific to each channel
           if [[ "$CHANNEL" == "beta" ]]; then
+            sed -i "s|id=\"beta-download-link\" href=\"[^\"]*\"|id=\"beta-download-link\" href=\"$DOWNLOAD_URL\"|g" docs/index.html
+            sed -i "s|id=\"beta-download-link\" data-version=\"[^\"]*\"|id=\"beta-download-link\" data-version=\"$VERSION\"|g" docs/index.html
             sed -i "s|<span id=\"beta-version-text\">Download v[^<]*</span>|<span id=\"beta-version-text\">Download v$VERSION</span>|g" docs/index.html
           else
+            sed -i "s|id=\"stable-download-link\" href=\"[^\"]*\"|id=\"stable-download-link\" href=\"$DOWNLOAD_URL\"|g" docs/index.html
+            sed -i "s|id=\"stable-download-link\" data-version=\"[^\"]*\"|id=\"stable-download-link\" data-version=\"$VERSION\"|g" docs/index.html
             sed -i "s|<span id=\"stable-version-text\">Download v[^<]*</span>|<span id=\"stable-version-text\">Download v$VERSION</span>|g" docs/index.html
           fi
 
@@ -622,6 +624,9 @@ jobs:
         with:
           ref: develop
 
+      - name: Pull latest changes
+        run: git pull origin develop
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
@@ -646,8 +651,8 @@ jobs:
   # ================================================================
   deploy-website-stable:
     name: "Deploy Stable Website"
-    needs: release
-    if: needs.release.result == 'success'
+    needs: [update-download-info, release]
+    if: needs.update-download-info.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -659,6 +664,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
+
+      - name: Pull latest changes
+        run: git pull origin main
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -683,7 +691,7 @@ jobs:
   # ================================================================
   release:
     name: "GitHub Release"
-    needs: upload-archive
+    needs: [upload-archive, build]
     if: needs.upload-archive.result == 'success' && needs.build.outputs.is_release == 'true'
     runs-on: ubuntu-latest
     permissions:
