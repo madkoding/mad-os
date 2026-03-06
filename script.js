@@ -26,21 +26,8 @@
         });
     });
 
-    // Smooth Scroll for Navigation Links
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) {
-                const navHeight = document.querySelector('.navbar').offsetHeight;
-                const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - navHeight;
-                window.scrollTo({
-                    top: targetPosition,
-                    behavior: 'smooth'
-                });
-            }
-        });
-    });
+    // Note: Smooth scroll with navbar offset is handled by CSS scroll-padding-top
+    // No JavaScript needed - CSS handles it better
 
     // Navbar scroll effect
     const navbar = document.querySelector('.navbar');
