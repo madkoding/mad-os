@@ -1224,7 +1224,6 @@ kbd.brand-key svg {
 
 .download-hero {
     margin-bottom: var(--s8);
-    scroll-margin-top: 80px;
 }
 
 .download-grid {
@@ -1311,10 +1310,7 @@ kbd.brand-key svg {
     margin-top: var(--s2);
 }
 
-/* Fix anchor scroll offset - accounts for fixed navbar */
-#download {
-    scroll-margin-top: 80px;
-}
+
 
 .btn-download {
     padding: 1rem 2.5rem;
