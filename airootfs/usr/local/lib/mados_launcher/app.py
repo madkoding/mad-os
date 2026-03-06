@@ -597,6 +597,7 @@ class LauncherApp:
         # Alignment para centrar el icono de 48px
         align = Gtk.Alignment(xalign=0.5, yalign=0.5, xscale=0, yscale=0)
         align.set_size_request(48, 48)
+        align.set_above_child(True)  # Let button receive events
 
         btn = Gtk.Button()
         btn.get_style_context().add_class("launcher-icon")
@@ -636,6 +637,7 @@ class LauncherApp:
         # Alignment para centrar el icono
         align = Gtk.Alignment(xalign=0.5, yalign=0.5, xscale=0, yscale=0)
         align.set_size_request(48, 48)
+        align.set_above_child(True)  # Let button receive events
 
         btn = Gtk.Button()
         btn.get_style_context().add_class("launcher-icon")
