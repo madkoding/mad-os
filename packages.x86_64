@@ -103,6 +103,7 @@ pavucontrol
 
 # Reproductores multimedia
 mpv
+cava
 
 # Build tools
 make

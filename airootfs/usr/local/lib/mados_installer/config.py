@@ -182,6 +182,7 @@ PACKAGES_PHASE2 = [
     "rsync",
     # Reproductores multimedia
     "mpv",
+    "cava",
     # madOS Native Apps Dependencies
     "python-pillow",
     "poppler-glib",
