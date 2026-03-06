@@ -1,0 +1,171 @@
+// ============================================
+// madOS — Site Scripts
+// ============================================
+
+(function () {
+    'use strict';
+
+    // Mobile Menu Toggle
+    const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
+    const navMenu = document.querySelector('.nav-menu');
+
+    if (mobileMenuToggle) {
+        mobileMenuToggle.addEventListener('click', () => {
+            navMenu.classList.toggle('active');
+            mobileMenuToggle.classList.toggle('active');
+        });
+    }
+
+    // Close mobile menu on link click
+    document.querySelectorAll('.nav-menu a[href^="#"]').forEach(link => {
+        link.addEventListener('click', () => {
+            if (navMenu.classList.contains('active')) {
+                navMenu.classList.remove('active');
+                mobileMenuToggle.classList.remove('active');
+            }
+        });
+    });
+
+    // Smooth Scroll for Navigation Links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                const navHeight = document.querySelector('.navbar').offsetHeight;
+                const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - navHeight;
+                window.scrollTo({
+                    top: targetPosition,
+                    behavior: 'smooth'
+                });
+            }
+        });
+    });
+
+    // Navbar scroll effect
+    const navbar = document.querySelector('.navbar');
+    window.addEventListener('scroll', () => {
+        if (window.pageYOffset > 50) {
+            navbar.classList.add('scrolled');
+        } else {
+            navbar.classList.remove('scrolled');
+        }
+    }, { passive: true });
+
+    // Intersection Observer — reveal animations
+    const revealElements = document.querySelectorAll(
+        '.feature-card, .spec-item, .app-group, .step, .preview-frame, .system-monitor, .download-card, .roadmap-pillar, .roadmap-item, .roadmap-matrix'
+    );
+
+    const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                revealObserver.unobserve(entry.target);
+            }
+        });
+    }, {
+        threshold: 0.1,
+        rootMargin: '0px 0px -40px 0px'
+    });
+
+    revealElements.forEach((el, i) => {
+        el.classList.add('reveal');
+        el.style.transitionDelay = `${Math.min(i % 6, 4) * 0.08}s`;
+        revealObserver.observe(el);
+    });
+
+    // Copy to clipboard for code blocks
+    document.querySelectorAll('.step-content code, .installer-command code').forEach(block => {
+        block.style.cursor = 'pointer';
+        block.setAttribute('title', 'Click to copy');
+
+        block.addEventListener('click', () => {
+            navigator.clipboard.writeText(block.textContent.trim()).then(() => {
+                const originalText = block.textContent;
+                const copyText = 'Copied!';
+                block.textContent = copyText;
+                block.style.color = 'var(--neon-cyan, #00fff5)';
+                setTimeout(() => {
+                    block.textContent = originalText;
+                    block.style.color = '';
+                }, 1500);
+            });
+        });
+    });
+
+    // Bindings Tabs
+    document.querySelectorAll('.bindings-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = tab.dataset.tab;
+            document.querySelectorAll('.bindings-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.bindings-panel').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            const panel = document.getElementById('tab-' + target);
+            if (panel) panel.classList.add('active');
+        });
+    });
+
+    // Console branding
+    console.log('%cmadOS', 'font-size: 24px; font-weight: bold; color: #88c0d0; text-shadow: 0 0 10px #88c0d0;');
+    console.log('%cNordic Cyberpunk // AI-Orchestrated Arch Linux', 'font-size: 12px; color: #b48ead;');
+    console.log('%chttps://github.com/madkoding/mad-os', 'font-size: 11px; color: #a3be8c;');
+
+    // Konami Easter Egg
+    let konamiCode = [];
+    const konamiSequence = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+
+    document.addEventListener('keydown', (e) => {
+        konamiCode.push(e.key);
+        konamiCode = konamiCode.slice(-10);
+
+        if (konamiCode.join(',') === konamiSequence.join(',')) {
+            document.body.style.animation = 'rainbow 2s infinite';
+            setTimeout(() => {
+                document.body.style.animation = '';
+            }, 5000);
+        }
+    });
+
+    const style = document.createElement('style');
+    style.textContent = '@keyframes rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }';
+    document.head.appendChild(style);
+
+    // ============================================
+    // Download Links — Load from JSON
+    // ============================================
+    async function updateDownloadLinks() {
+        try {
+            const response = await fetch('download-info.json');
+            if (!response.ok) {
+                const htmlResponse = await fetch('download-info.html');
+                if (!htmlResponse.ok) return;
+                const info = await htmlResponse.json();
+                updateLinks(info);
+                return;
+            }
+            const info = await response.json();
+            updateLinks(info);
+        } catch (e) {
+            console.log('Using default download links');
+        }
+    }
+
+    function updateLinks(info) {
+        const betaLink = document.getElementById('beta-download-link');
+        const betaVersion = document.getElementById('beta-version-text');
+        if (betaLink && betaVersion && info.beta) {
+            betaLink.href = info.beta.url;
+            betaVersion.textContent = 'Download v' + info.beta.version;
+        }
+
+        const stableLink = document.getElementById('stable-download-link');
+        const stableVersion = document.getElementById('stable-version-text');
+        if (stableLink && stableVersion && info.stable) {
+            stableLink.href = info.stable.url;
+            stableVersion.textContent = 'Download v' + info.stable.version;
+        }
+    }
+
+    updateDownloadLinks();
+})();
