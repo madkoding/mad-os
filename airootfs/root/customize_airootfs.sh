@@ -107,11 +107,15 @@ else
     echo "Installing OpenCode..."
     
     # Install via curl (official method - binary)
-    if curl -fsSL https://opencode.ai/install | INSTALL_DIR="$INSTALL_DIR" bash; then
-        if [[ -x "$INSTALL_DIR/$OPENCODE_CMD" ]] || command -v "$OPENCODE_CMD" &>/dev/null; then
+    # The installer puts it in ~/.opencode/bin/opencode
+    if curl -fsSL https://opencode.ai/install | bash; then
+        # Find and copy the installed binary
+        if [[ -x "$HOME/.opencode/bin/opencode" ]]; then
+            cp "$HOME/.opencode/bin/opencode" "$INSTALL_DIR/$OPENCODE_CMD"
+            chmod +x "$INSTALL_DIR/$OPENCODE_CMD"
             echo "✓ OpenCode installed"
         else
-            echo "⚠ curl install completed but opencode not found"
+            echo "⚠ OpenCode binary not found in ~/.opencode/bin/"
         fi
     else
         echo "⚠ OpenCode install failed"
