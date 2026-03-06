@@ -158,6 +158,10 @@ gst-plugins-bad
 gst-libav
 gst-python
 python-pillow
+librsvg
+libwebp
+libheif
+libjxl
 
 # madOS PDF Viewer - PDF rendering and annotations
 poppler-glib

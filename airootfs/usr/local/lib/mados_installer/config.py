@@ -193,6 +193,10 @@ PACKAGES_PHASE2 = [
     "gst-plugins-bad",
     "gst-libav",
     "gst-python",
+    "librsvg",
+    "libwebp",
+    "libheif",
+    "libjxl",
 ]
 
 # Combined package list (all ISO packages in both categories)
