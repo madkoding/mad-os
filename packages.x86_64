@@ -100,6 +100,7 @@ pipewire-alsa
 wireplumber
 alsa-utils
 pavucontrol
+flac
 
 # Reproductores multimedia
 mpv
