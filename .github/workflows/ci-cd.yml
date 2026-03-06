@@ -322,12 +322,10 @@ jobs:
             mkdir -p "$WORKSPACE/pacman_cache"
           fi
           
-          # Check if SFS cache exists and copy to workspace
+          # Mount SFS cache if it exists (actions/cache restores to sfs_cache/)
           SFS_CACHE_MOUNT=""
           if [ -f "sfs_cache/airootfs.sfs" ]; then
-            echo "Restoring SFS cache..."
-            mkdir -p "$WORKSPACE/sfs_cache"
-            cp sfs_cache/airootfs.sfs "$WORKSPACE/sfs_cache/"
+            echo "SFS cache found, will use it..."
             SFS_CACHE_MOUNT="-v $WORKSPACE/sfs_cache:/sfs_cache"
           fi
           
@@ -345,26 +343,21 @@ jobs:
               cd /build
               rm -rf out/*
               
-              # Restore SFS cache if exists
-              if [ -f '/sfs_cache/airootfs.sfs' ]; then
+              # Restore SFS cache if exists (actions/cache restores to sfs_cache/)
+              if [ -f 'sfs_cache/airootfs.sfs' ] && [ ! -f '/tmp/work/iso/arch/x86_64/airootfs.sfs' ]; then
                 echo 'Using cached SFS...'
                 mkdir -p /tmp/work/iso/arch/x86_64
-                cp /sfs_cache/airootfs.sfs /tmp/work/iso/arch/x86_64/
+                cp sfs_cache/airootfs.sfs /tmp/work/iso/arch/x86_64/
               fi
               
               mkarchiso -v -w /tmp/work -o out .
               
-              # Save SFS cache for next build
-              if [ -f '/tmp/work/iso/arch/x86_64/airootfs.sfs' ]; then
-                mkdir -p /build/sfs_cache
-                cp /tmp/work/iso/arch/x86_64/airootfs.sfs /build/sfs_cache/
+              # Save SFS cache for next build (only if it was newly created)
+              if [ -f '/tmp/work/iso/arch/x86_64/airootfs.sfs' ] && [ ! -f 'sfs_cache/airootfs.sfs' ]; then
+                mkdir -p sfs_cache
+                cp /tmp/work/iso/arch/x86_64/airootfs.sfs sfs_cache/
               fi
             "
-          
-          # Save SFS cache for next build
-          if [ -d "sfs_cache" ]; then
-            echo "sfs_cache_restored=true" >> $GITHUB_OUTPUT
-          fi
           
           ISO_FILE=$(ls out/*.iso 2>/dev/null | head -1)
           if [ -z "$ISO_FILE" ]; then
