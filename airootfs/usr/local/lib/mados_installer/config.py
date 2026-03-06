@@ -140,7 +140,7 @@ PACKAGES_PHASE2 = [
     "waybar",
     "wofi",
     "mako",
-    "epiphany",
+    "firefox",
     "code",
     "vim",
     "nano",

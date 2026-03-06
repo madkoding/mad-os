@@ -28,7 +28,7 @@ xdg-desktop-portal-hyprland
 
 # Aplicaciones principales
 foot
-epiphany
+firefox
 vim
 nano
 pcmanfm

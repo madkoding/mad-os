@@ -204,7 +204,7 @@ class TestPackageLists(unittest.TestCase):
                 self.assertIn(pkg, PACKAGES_PHASE1)
 
     def test_essential_phase2_packages(self):
-        essential = ["epiphany", "code", "git", "pipewire", "bluez"]
+        essential = ["firefox", "code", "git", "pipewire", "bluez"]
         for pkg in essential:
             with self.subTest(package=pkg):
                 self.assertIn(pkg, PACKAGES_PHASE2)
