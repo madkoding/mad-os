@@ -275,17 +275,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: auto-tag
     if: always() && !cancelled() && (needs.auto-tag.result == 'success' || needs.auto-tag.result == 'skipped')
-    outputs:
-      iso_name: ${{ steps.build.outputs.iso_name }}
-      version: ${{ steps.build.outputs.version }}
-      build_date: ${{ steps.build.outputs.build_date }}
-      iso_size_mb: ${{ steps.build.outputs.iso_size_mb }}
-      short_sha: ${{ steps.build.outputs.short_sha }}
-      is_release: ${{ needs.auto-tag.outputs.is_release }}
-      is_prerelease: ${{ needs.auto-tag.outputs.is_prerelease }}
-      release_type: ${{ needs.auto-tag.outputs.release_type }}
-      auto_tag: ${{ needs.auto-tag.outputs.new_tag }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -402,30 +391,10 @@ jobs:
           path: out/
           retention-days: 1
 
-  # ================================================================
-  # Stage 4: Upload to Internet Archive
-  # ================================================================
-  upload-archive:
-    name: "Upload to Archive"
-    runs-on: ubuntu-latest
-    needs: build
-    if: needs.build.result == 'success'
-
-    outputs:
-      download_url: ${{ steps.upload_ia.outputs.download_url }}
-      identifier: ${{ steps.upload_ia.outputs.identifier }}
-
-    steps:
-      - name: Download ISO
-        uses: actions/download-artifact@v4
-        with:
-          name: mados-iso
-          path: out
-
       - name: Install IA CLI & dependencies
         run: pip install internetarchive requests
 
-      - name: Upload to Archive
+      - name: Upload to Internet Archive
         id: upload_ia
         env:
           IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
@@ -456,19 +425,18 @@ jobs:
           echo "ISO file: $ISO_FILE ($(($ISO_SIZE / 1024 / 1024)) MB)"
           
           ISO_NAME=$(basename "$ISO_FILE")
-          VERSION="${{ needs.build.outputs.version }}"
-          BUILD_DATE="${{ needs.build.outputs.build_date }}"
-          RELEASE_TYPE="${{ needs.build.outputs.release_type }}"
+          VERSION="${{ steps.build.outputs.version }}"
+          BUILD_DATE="${{ steps.build.outputs.build_date }}"
+          RELEASE_TYPE="${{ steps.build.outputs.release_type }}"
 
+          # Set identifier based on release type
           if [[ "$RELEASE_TYPE" == "stable" ]]; then
-            TARGET="madOS%20Release/${ISO_NAME}"
-            IDENTIFIER="mados-project"
+            IDENTIFIER="mados-stable"
           else
-            TARGET="madOS%20Beta/${ISO_NAME}"
-            IDENTIFIER="mados-project"
+            IDENTIFIER="mados-beta"
           fi
 
-          echo "Uploading ${ISO_NAME} to ${IDENTIFIER}/${TARGET}"
+          echo "Uploading ${ISO_NAME} to ${IDENTIFIER}"
 
           # Upload ISO using S3 API
           echo "Uploading ISO: $ISO_FILE (size: $(stat --format=%s "$ISO_FILE") bytes)"
@@ -486,7 +454,7 @@ jobs:
             -H "x-archive-meta-creator:madOS Project" \
             -H "x-archive-meta-date:${BUILD_DATE}" \
             --upload-file "$ISO_FILE" \
-            "https://s3.us.archive.org/${IDENTIFIER}/${TARGET}")
+            "https://s3.us.archive.org/${IDENTIFIER}/${ISO_NAME}")
 
           if [ "$ISO_RESPONSE" != "200" ] && [ "$ISO_RESPONSE" != "201" ]; then
             echo "ERROR: ISO upload failed with HTTP $ISO_RESPONSE"
@@ -498,26 +466,39 @@ jobs:
             -H "Authorization: LOW ${IAS3_ACCESS_KEY}:${IAS3_SECRET_KEY}" \
             -H "x-amz-acl: public-read" \
             --upload-file out/SHA256SUMS \
-            "https://s3.us.archive.org/${IDENTIFIER}/${TARGET}/SHA256SUMS")
+            "https://s3.us.archive.org/${IDENTIFIER}/SHA256SUMS")
 
           if [ "$SHA_RESPONSE" != "200" ] && [ "$SHA_RESPONSE" != "201" ]; then
             echo "ERROR: SHA256SUMS upload failed with HTTP $SHA_RESPONSE"
             exit 1
           fi
 
-          DOWNLOAD_URL="https://archive.org/download/${IDENTIFIER}/$(echo "$TARGET" | sed 's/ /%20/g')"
+          DOWNLOAD_URL="https://archive.org/download/${IDENTIFIER}/${ISO_NAME}"
           echo "download_url=${DOWNLOAD_URL}" >> "$GITHUB_OUTPUT"
           echo "identifier=${IDENTIFIER}" >> "$GITHUB_OUTPUT"
-          echo "iso_name=${TARGET}" >> "$GITHUB_OUTPUT"
+          echo "iso_name=${ISO_NAME}" >> "$GITHUB_OUTPUT"
+
+    outputs:
+      iso_name: ${{ steps.build.outputs.iso_name }}
+      version: ${{ steps.build.outputs.version }}
+      build_date: ${{ steps.build.outputs.build_date }}
+      iso_size_mb: ${{ steps.build.outputs.iso_size_mb }}
+      short_sha: ${{ steps.build.outputs.short_sha }}
+      is_release: ${{ needs.auto-tag.outputs.is_release }}
+      is_prerelease: ${{ needs.auto-tag.outputs.is_prerelease }}
+      release_type: ${{ needs.auto-tag.outputs.release_type }}
+      auto_tag: ${{ needs.auto-tag.outputs.new_tag }}
+      download_url: ${{ steps.upload_ia.outputs.download_url }}
+      identifier: ${{ steps.upload_ia.outputs.identifier }}
 
   # ================================================================  
-  # Stage 5: Update Download Info & Website (direct to gh-pages)
+  # Stage 4: Update Download Info & Website (direct to gh-pages)
   # ================================================================
   update-download-info:
     name: "Update Download Info"
     runs-on: ubuntu-latest
-    needs: [build, upload-archive]
-    if: needs.build.result == 'success' && needs.upload-archive.result == 'success' && (github.ref == 'refs/heads/develop' || needs.build.outputs.is_release == 'true')
+    needs: build
+    if: needs.build.result == 'success' && (github.ref == 'refs/heads/develop' || needs.build.outputs.is_release == 'true')
     permissions:
       contents: write
 
@@ -530,7 +511,7 @@ jobs:
 
       - name: Update download links
         env:
-          DOWNLOAD_URL: ${{ needs.upload-archive.outputs.download_url }}
+          DOWNLOAD_URL: ${{ needs.build.outputs.download_url }}
           VERSION: ${{ needs.build.outputs.version }}
           RELEASE_TYPE: ${{ needs.build.outputs.release_type }}
           BUILD_DATE: ${{ needs.build.outputs.build_date }}
@@ -612,8 +593,8 @@ jobs:
   # ================================================================
   release:
     name: "GitHub Release"
-    needs: [upload-archive, build]
-    if: needs.upload-archive.result == 'success' && needs.build.outputs.is_release == 'true'
+    needs: build
+    if: needs.build.result == 'success' && needs.build.outputs.is_release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -642,7 +623,7 @@ jobs:
 
             ### Download
 
-            **[Download from Internet Archive](${{ needs.upload-archive.outputs.download_url }})**
+            **[Download from Internet Archive](${{ needs.build.outputs.download_url }})**
 
             ### Verification
 
