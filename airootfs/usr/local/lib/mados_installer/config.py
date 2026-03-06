@@ -182,14 +182,6 @@ PACKAGES_PHASE2 = [
     "rsync",
     # Reproductores multimedia
     "mpv",
-    "fftw",
-    "chafa",
-    "taglib",
-    "faad2",
-    "opus",
-    "opusfile",
-    "libvorbis",
-    "libogg",
     # madOS Native Apps Dependencies
     "python-pillow",
     "poppler-glib",
@@ -197,10 +189,6 @@ PACKAGES_PHASE2 = [
     "gst-plugins-base",
     "gst-plugins-good",
     "gst-python",
-    "gst-plugins-ugly",
-    "gst-plugins-bad",
-    "gst-libav",
-    "gst-plugin-gtk",
 ]
 
 # Combined package list (all ISO packages in both categories)
