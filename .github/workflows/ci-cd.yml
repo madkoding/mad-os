@@ -58,6 +58,15 @@ jobs:
             python3 -m py_compile "$script"
           done
 
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Run ruff check
+        run: ruff check airootfs tests || true
+
+      - name: Run ruff format check
+        run: ruff format --check airootfs tests || true
+
   test-unit:
     name: "Unit: ${{ matrix.category }}"
     runs-on: ubuntu-latest
