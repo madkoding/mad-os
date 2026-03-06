@@ -374,12 +374,21 @@ jobs:
           
           sha256sum out/*.iso > out/SHA256SUMS || true
           
-          ISO_NAME=$(basename "$ISO_FILE")
+          # Rename ISO to use version for predictable naming
           VERSION="${{ needs.auto-tag.outputs.version }}"
           [ -n "$VERSION" ] || VERSION="${GITHUB_REF_NAME#v}"
           [ -n "$VERSION" ] || VERSION="dev-$(date +%Y%m%d)"
+          
+          ISO_FILE=$(ls out/*.iso | head -1)
+          NEW_ISO_NAME="madOS-${VERSION}-x86_64.iso"
+          mv "$ISO_FILE" "out/${NEW_ISO_NAME}"
+          
+          # Update SHA256SUMS with new name
+          sed -i "s/$(basename "$ISO_FILE")/${NEW_ISO_NAME}/g" out/SHA256SUMS
+          
+          ISO_NAME="$NEW_ISO_NAME"
           BUILD_DATE=$(date +%Y.%m.%d)
-          ISO_SIZE=$(stat --format=%s "$ISO_FILE" 2>/dev/null || echo 0)
+          ISO_SIZE=$(stat --format=%s "out/${ISO_NAME}" 2>/dev/null || echo 0)
           ISO_SIZE_MB=$((ISO_SIZE / 1024 / 1024))
           SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
           
