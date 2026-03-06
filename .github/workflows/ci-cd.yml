@@ -187,10 +187,16 @@ jobs:
       - name: Create version tag
         id: create_tag
         run: |
+          set -x
           BRANCH="${GITHUB_REF#refs/heads/}"
+          echo "Branch: $BRANCH"
+          echo "All tags:"
+          git tag -l | sort -V
 
           if [[ "$BRANCH" == "develop" ]]; then
-            LAST_TAG=$(git tag -l --sort=-version:refname 'v*' | head -1)
+            # Get last tag excluding betas, sort by version
+            LAST_TAG=$(git tag -l 'v*' | grep -v '\-beta' | sort -Vr | head -1)
+            echo "Last stable tag (for develop base): $LAST_TAG"
             LAST_TAG="${LAST_TAG:-v0.0.0}"
             BASE_VERSION=$(echo "$LAST_TAG" | sed 's/^v//; s/-.*$//')
             MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
@@ -220,12 +226,16 @@ jobs:
             echo "release_type=beta" >> "$GITHUB_OUTPUT"
 
           elif [[ "$BRANCH" == "main" ]]; then
-            LAST_BETA_TAG=$(git tag -l --sort=-version:refname 'v*-beta' | head -1)
+            # Get last beta tag, sort by version
+            LAST_BETA_TAG=$(git tag -l 'v*-beta' | sort -Vr | head -1)
+            echo "Last beta tag: $LAST_BETA_TAG"
             if [ -n "$LAST_BETA_TAG" ]; then
               VERSION=$(echo "$LAST_BETA_TAG" | sed 's/^v//; s/-beta$//')
               NEW_TAG="v${VERSION}"
+              echo "Derived stable version from beta: $VERSION"
             else
-              LAST_STABLE_TAG=$(git tag -l --sort=-version:refname 'v*' | grep -v '-' | head -1)
+                # Get last stable tag, sort by version
+              LAST_STABLE_TAG=$(git tag -l 'v*' | grep -v '\-' | sort -Vr | head -1)
               LAST_STABLE_TAG="${LAST_STABLE_TAG:-v0.0.0}"
               BASE_VERSION=$(echo "$LAST_STABLE_TAG" | sed 's/^v//')
               MAJOR=$(echo "$BASE_VERSION" | cut -d. -f1)
@@ -373,9 +383,9 @@ jobs:
           echo "ISO file: $ISO_FILE ($(($ISO_SIZE / 1024 / 1024)) MB)"
           
           ISO_NAME=$(basename "$ISO_FILE")
-          VERSION="${{ steps.build.outputs.version }}"
+          VERSION="${{ needs.auto-tag.outputs.version }}"
           BUILD_DATE="${{ steps.build.outputs.build_date }}"
-          RELEASE_TYPE="${{ steps.build.outputs.release_type }}"
+          RELEASE_TYPE="${{ needs.auto-tag.outputs.release_type }}"
 
           # Set identifier based on release type
           if [[ "$RELEASE_TYPE" == "stable" ]]; then
@@ -469,6 +479,8 @@ jobs:
           else
             CHANNEL="beta"
           fi
+          echo "CHANNEL=$CHANNEL"
+          export CHANNEL
 
           # Update download-info.html (JSON)
           python3 << EOF
@@ -542,7 +554,7 @@ jobs:
   release:
     name: "GitHub Release"
     needs: build
-    if: needs.build.result == 'success' && needs.build.outputs.is_release == 'true'
+    if: needs.build.result == 'success' && needs.build.outputs.auto_tag != '' && needs.build.outputs.is_release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -550,6 +562,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Download SHA256SUMS from Internet Archive
         run: |
