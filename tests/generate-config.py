@@ -2,7 +2,7 @@
 """
 Generate the madOS chroot configuration script using the real installer code.
 
-This script mocks GTK/GI dependencies so _build_config_script() can run in a
+This script mocks GTK/GI dependencies so build_config_script() can run in a
 headless CI environment.  Output goes to stdout; the caller (test-installation.sh)
 captures it to validate bash syntax and run it inside an arch-chroot.
 """
@@ -26,7 +26,7 @@ install_gtk_mocks()
 
 sys.path.insert(0, sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("-") else ".")
 
-from mados_installer.pages.installation import _build_config_script  # noqa: E402
+from mados_installer.modules.config_generator import build_config_script  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Generate and print the script.
@@ -54,4 +54,4 @@ data = {
     "locale": args.locale,
 }
 
-print(_build_config_script(data))
+print(build_config_script(data))

@@ -121,7 +121,7 @@ sys.modules["gi"] = gi_mock
 sys.modules["gi.repository"] = repo_mock
 
 # Import the installer
-from mados_installer.pages.installation import _build_config_script
+from mados_installer.modules.config_generator import build_config_script
 
 # Generate script with test data
 data = {
@@ -133,7 +133,7 @@ data = {
     'hostname': 'mados-test',
 }
 
-script = _build_config_script(data)
+script = build_config_script(data)
 print(script)
 EOFPYTHON
 

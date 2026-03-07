@@ -771,9 +771,9 @@ class TestLiveISOCleanup(unittest.TestCase):
         avoid false positives from the _prepare_pacman() function which also
         contains pacman-key calls.
         """
-        from mados_installer.pages.installation import _build_config_script
+        from mados_installer.modules.config_generator import build_config_script
 
-        script = _build_config_script(
+        script = build_config_script(
             {
                 "disk": "/dev/sda",
                 "disk_size_gb": 60,
@@ -809,9 +809,9 @@ class TestLiveISOCleanup(unittest.TestCase):
         contains pacman-key --init.
         """
         import re
-        from mados_installer.pages.installation import _build_config_script
+        from mados_installer.modules.config_generator import build_config_script
 
-        script = _build_config_script(
+        script = build_config_script(
             {
                 "disk": "/dev/sda",
                 "disk_size_gb": 60,
@@ -841,9 +841,9 @@ class TestLiveISOCleanup(unittest.TestCase):
         script ensures it runs before any pacman invocation.
         """
         import re
-        from mados_installer.pages.installation import _build_config_script
+        from mados_installer.modules.config_generator import build_config_script
 
-        script = _build_config_script(
+        script = build_config_script(
             {
                 "disk": "/dev/sda",
                 "disk_size_gb": 60,
@@ -919,7 +919,7 @@ class TestLiveISOCleanup(unittest.TestCase):
 
     def test_config_script_valid_bash_syntax(self):
         """Generated config script must pass bash -n syntax check."""
-        from mados_installer.pages.installation import _build_config_script
+        from mados_installer.modules.config_generator import build_config_script
 
         data = {
             "disk": "/dev/sda",
@@ -931,7 +931,7 @@ class TestLiveISOCleanup(unittest.TestCase):
             "timezone": "America/New_York",
             "locale": "en_US.UTF-8",
         }
-        script = _build_config_script(data)
+        script = build_config_script(data)
         result = subprocess.run(
             ["bash", "-n"],
             input=script,
@@ -951,7 +951,7 @@ class TestLiveISOCleanup(unittest.TestCase):
         (userdel mados → useradd mados) must still produce syntactically
         valid bash.
         """
-        from mados_installer.pages.installation import _build_config_script
+        from mados_installer.modules.config_generator import build_config_script
 
         data = {
             "disk": "/dev/sda",
@@ -963,7 +963,7 @@ class TestLiveISOCleanup(unittest.TestCase):
             "timezone": "America/New_York",
             "locale": "en_US.UTF-8",
         }
-        script = _build_config_script(data)
+        script = build_config_script(data)
         result = subprocess.run(
             ["bash", "-n"],
             input=script,
@@ -1044,7 +1044,7 @@ class TestLiveISOCleanup(unittest.TestCase):
         know which .wants/ symlinks to remove.  If the file is deleted
         first, the symlinks become dangling.
         """
-        from mados_installer.pages.installation import _build_config_script
+        from mados_installer.modules.config_generator import build_config_script
 
         data = {
             "disk": "/dev/sda",
@@ -1056,7 +1056,7 @@ class TestLiveISOCleanup(unittest.TestCase):
             "timezone": "America/New_York",
             "locale": "en_US.UTF-8",
         }
-        script = _build_config_script(data)
+        script = build_config_script(data)
         disable_pos = script.find("systemctl disable")
         rm_pos = script.find('rm -f "/etc/systemd/system/$svc"')
         self.assertNotEqual(disable_pos, -1, "systemctl disable not found in script")

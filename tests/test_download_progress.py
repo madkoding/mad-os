@@ -29,7 +29,7 @@ install_gtk_mocks()
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "airootfs", "usr", "local", "lib"))
 
-from mados_installer.pages.installation import (
+from mados_installer.modules.packages import (
     _download_packages_with_progress,
     _run_pacstrap_with_progress,
     _run_single_pacstrap,

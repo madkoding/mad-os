@@ -2,7 +2,7 @@
 """
 Unit tests for the rsync-based installation flow.
 
-Validates that ``_rsync_rootfs_with_progress()`` correctly invokes rsync to
+Validates that ``rsync_rootfs_with_progress()`` correctly invokes rsync to
 copy the live rootfs to /mnt, cleans up archiso artifacts, installs extra
 packages, and reports progress through the expected range (0.21 → 0.48).
 
@@ -29,9 +29,9 @@ install_gtk_mocks()
 # ---------------------------------------------------------------------------
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "airootfs", "usr", "local", "lib"))
 
-from mados_installer.pages.installation import _rsync_rootfs_with_progress
-from mados_installer.pages.installation import _post_rsync_cleanup
-from mados_installer.pages.installation import _ensure_kernel_in_target
+from mados_installer.modules.packages import rsync_rootfs_with_progress
+from mados_installer.modules.packages import post_rsync_cleanup
+from mados_installer.modules.file_copier import ensure_kernel_in_target
 from mados_installer.config import RSYNC_EXCLUDES, POST_COPY_CLEANUP
 
 # ---------------------------------------------------------------------------
@@ -112,7 +112,7 @@ def _patched_rsync_run(
         patch(f"{_MOD}.os.remove", **(os_remove_kw or {})),
         open_patch,
     ):
-        _rsync_rootfs_with_progress(app)
+        rsync_rootfs_with_progress(app)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -386,7 +386,7 @@ class TestRsyncExitCodes(unittest.TestCase):
 # Kernel placement in target
 # ═══════════════════════════════════════════════════════════════════════════
 class TestKernelPlacement(unittest.TestCase):
-    """Verify ``_ensure_kernel_in_target()`` places the kernel correctly."""
+    """Verify ``ensure_kernel_in_target()`` places the kernel correctly."""
 
     def setUp(self):
         self.app = MockApp()
@@ -407,7 +407,7 @@ class TestKernelPlacement(unittest.TestCase):
         mock_log,
     ):
         """When /mnt/boot/vmlinuz-linux exists and is readable, no copy occurs."""
-        _ensure_kernel_in_target(self.app)
+        ensure_kernel_in_target(self.app)
 
         mock_run.assert_not_called()
         # Should not log anything about copying
@@ -436,7 +436,7 @@ class TestKernelPlacement(unittest.TestCase):
         mock_log,
     ):
         """When kernel is missing, copy from /usr/lib/modules/*/vmlinuz (newest first)."""
-        _ensure_kernel_in_target(self.app)
+        ensure_kernel_in_target(self.app)
 
         mock_run.assert_called_once_with(
             ["cp", "/usr/lib/modules/6.12.1-arch1/vmlinuz", "/mnt/boot/vmlinuz-linux"],
@@ -477,7 +477,7 @@ class TestKernelPlacement(unittest.TestCase):
         mock_isfile.side_effect = isfile_side_effect
         mock_access.side_effect = access_side_effect
 
-        _ensure_kernel_in_target(self.app)
+        ensure_kernel_in_target(self.app)
 
         mock_run.assert_called_once_with(
             ["cp", "/boot/vmlinuz-linux", "/mnt/boot/vmlinuz-linux"],
@@ -538,7 +538,7 @@ class TestPostCopyCleanup(unittest.TestCase):
             patch(f"{_MOD}.subprocess.run", side_effect=capture_run),
             patch(f"{_MOD}.log_message"),
         ):
-            _post_rsync_cleanup(app)
+            post_rsync_cleanup(app)
 
         rm_calls = [c for c in run_calls if c[:2] == ["rm", "-rf"]]
         self.assertTrue(
@@ -560,7 +560,7 @@ class TestPostCopyCleanup(unittest.TestCase):
             patch(f"{_MOD}.subprocess.run", side_effect=capture_run),
             patch(f"{_MOD}.log_message"),
         ):
-            _post_rsync_cleanup(app)
+            post_rsync_cleanup(app)
 
         find_calls = [c for c in run_calls if c[0] == "find"]
         self.assertEqual(len(find_calls), 1, "Must run exactly one find command")
@@ -587,7 +587,7 @@ class TestPostCopyCleanup(unittest.TestCase):
             patch(f"{_MOD}.os.remove"),
             patch("builtins.open", MagicMock()),
         ):
-            _rsync_rootfs_with_progress(app)
+            rsync_rootfs_with_progress(app)
 
         self.assertTrue(cleanup_called[0], "_post_rsync_cleanup must be called")
 
