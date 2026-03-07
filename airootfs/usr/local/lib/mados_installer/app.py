@@ -21,6 +21,7 @@ from .pages import (
     create_partitioning_page,
     create_user_page,
     create_locale_page,
+    PackageSelectionPage,
     create_summary_page,
     create_installation_page,
     create_completion_page,
@@ -127,6 +128,7 @@ class MadOSInstaller(Gtk.Window):
         create_partitioning_page(self)
         create_user_page(self)
         create_locale_page(self)
+        PackageSelectionPage(self, self.content_box)
         create_summary_page(self)
         create_installation_page(self)
         create_completion_page(self)

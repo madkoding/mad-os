@@ -156,8 +156,25 @@ def update_summary(app):
     sw_title.set_halign(Gtk.Align.START)
     sw_card.pack_start(sw_title, False, False, 0)
 
+    # Base software
+    sw_text = f'<span size="9000">{app.t("software_list")}</span>'
+    
+    # Add selected packages if any
+    if hasattr(app, 'package_selection') and app.package_selection:
+        pkg_count = len(app.package_selection)
+        sw_text += f'\n\n<span weight="bold" foreground="{NORD_FROST["nord8"]}">Additional Packages:</span>\n'
+        sw_text += f'<span size="9000">{pkg_count} packages selected</span>\n'
+        
+        # Group packages by category for display
+        from .packages import PACKAGE_GROUPS
+        for group_id, group_data in PACKAGE_GROUPS.items():
+            group_packages = [p["id"] for p in group_data["packages"]]
+            selected_in_group = [p for p in app.package_selection if p in group_packages]
+            if selected_in_group:
+                sw_text += f'<span size="9000" foreground="{NORD_SNOW_STORM["nord5"]}">  {group_data["icon"]} {group_data["name"]}: {len(selected_in_group)} packages</span>\n'
+
     sw_info = Gtk.Label()
-    sw_info.set_markup(f'<span size="9000">{app.t("software_list")}</span>')
+    sw_info.set_markup(sw_text)
     sw_info.set_halign(Gtk.Align.START)
     sw_info.set_line_wrap(True)
     sw_card.pack_start(sw_info, False, False, 0)
