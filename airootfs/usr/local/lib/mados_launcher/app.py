@@ -4,6 +4,7 @@ import json
 import math
 import os
 
+import cairo
 import gi
 
 gi.require_version("Gtk", "3.0")
@@ -215,15 +216,17 @@ class LauncherApp:
         self._revealer_x = TAB_WIDTH  # 14px en lugar de 28px
 
         # Capa 2 visual: fondo gris de 50px centrado verticalmente (margen de 50px arriba y abajo)
-        self._visual_bg = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        self._visual_bg = Gtk.DrawingArea()
         self._visual_bg.set_name("dock-bg")
         self._visual_bg.set_size_request(-1, 50)
+        self._visual_bg.connect("draw", self._on_draw_visual_bg)
         self._fixed.put(self._visual_bg, 0, 50)
 
         # Fondo gris detras de los iconos (mismo tamaño que el grip, centrado verticalmente)
-        self._icons_bg = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        self._icons_bg = Gtk.DrawingArea()
         self._icons_bg.set_name("icons-bg")
         self._icons_bg.set_size_request(-1, 50)
+        self._icons_bg.connect("draw", self._on_draw_icons_bg)
         self._fixed.put(self._icons_bg, self._revealer_x, 50)
 
         # Capa 3: caja de iconos (150px de alto)
@@ -296,6 +299,68 @@ class LauncherApp:
         cr.set_operator(2)  # cairo.OPERATOR_OVER
         return False  # Continue to draw child widgets
 
+    def _on_draw_visual_bg(self, widget, cr):
+        """Draw gradient background with border for dock-bg."""
+        alloc = widget.get_allocation()
+        w, h = alloc.width, alloc.height
+
+        # Create gradient (nord1 to #333333)
+        gradient = cairo.LinearGradient(0, 0, 0, h)
+        gradient.add_color_stop_rgba(0, *_hex_to_rgb(NORD["nord1"]), 1.0)
+        gradient.add_color_stop_rgba(1, 0.2, 0.2, 0.2, 1.0)
+        cr.set_source(gradient)
+        cr.rectangle(0, 0, w, h)
+        cr.fill()
+
+        # Draw border relief
+        border_color = _hex_to_rgb(NORD["nord8"])
+        cr.set_source_rgba(*border_color, 0.15)
+        cr.set_line_width(1.5)
+        # Top border
+        cr.move_to(0, 0.75)
+        cr.line_to(w - 8, 0.75)
+        cr.stroke()
+        # Right border (rounded)
+        cr.new_path()
+        cr.move_to(w - 0.75, 8)
+        cr.arc(w - 8, 8, 7.25, -math.pi / 2, 0)
+        cr.line_to(w - 0.75, h - 8)
+        cr.stroke()
+        # Bottom border
+        cr.move_to(0, h - 0.75)
+        cr.line_to(w - 8, h - 0.75)
+        cr.stroke()
+
+        return False
+
+    def _on_draw_icons_bg(self, widget, cr):
+        """Draw gradient background with border for icons-bg."""
+        alloc = widget.get_allocation()
+        w, h = alloc.width, alloc.height
+
+        # Create gradient (nord1 to #333333)
+        gradient = cairo.LinearGradient(0, 0, 0, h)
+        gradient.add_color_stop_rgba(0, *_hex_to_rgb(NORD["nord1"]), 1.0)
+        gradient.add_color_stop_rgba(1, 0.2, 0.2, 0.2, 1.0)
+        cr.set_source(gradient)
+        cr.rectangle(0, 0, w, h)
+        cr.fill()
+
+        # Draw border relief
+        border_color = _hex_to_rgb(NORD["nord8"])
+        cr.set_source_rgba(*border_color, 0.2)
+        cr.set_line_width(1.5)
+        # Top border
+        cr.move_to(0, 0.75)
+        cr.line_to(w, 0.75)
+        cr.stroke()
+        # Bottom border
+        cr.move_to(0, h - 0.75)
+        cr.line_to(w, h - 0.75)
+        cr.stroke()
+
+        return False
+
     # ------------------------------------------------------------------ #
     # Cairo drawing for the grip tab
     # ------------------------------------------------------------------ #
@@ -316,10 +381,43 @@ class LauncherApp:
         cr.line_to(0, h)
         cr.close_path()
 
-        # Fill with nord1, or nord2 if hovered
-        bg = _hex_to_rgb(NORD["nord1"])
-        cr.set_source_rgb(*bg)
+        # Create gradient background (nord2 to #333333)
+        gradient = cairo.LinearGradient(0, 0, 0, h)
+        gradient.add_color_stop_rgba(0, *_hex_to_rgb(NORD["nord2"]), 0.95)
+        gradient.add_color_stop_rgba(1, 0.2, 0.2, 0.2, 0.98)
+        cr.set_source(gradient)
         cr.fill()
+
+        # Draw border relief (top, right, bottom)
+        cr.save()
+        cr.new_path()
+        cr.move_to(0, 0)
+        cr.line_to(w - radius, 0)
+        cr.arc(w - radius, radius, radius, -math.pi / 2, 0)
+        cr.line_to(w, h - radius)
+        cr.arc(w - radius, h - radius, radius, 0, math.pi / 2)
+        cr.line_to(0, h)
+        cr.close_path()
+        cr.clip()
+
+        border_color = _hex_to_rgb(NORD["nord8"])
+        cr.set_source_rgba(*border_color, 0.15)
+        cr.set_line_width(1.5)
+        # Top border
+        cr.move_to(0, 0.75)
+        cr.line_to(w - radius, 0.75)
+        cr.stroke()
+        # Right border
+        cr.new_path()
+        cr.move_to(w - 0.75, radius)
+        cr.arc(w - radius, radius, radius - 0.75, -math.pi / 2, 0)
+        cr.line_to(w - 0.75, h - radius)
+        cr.stroke()
+        # Bottom border
+        cr.move_to(0, h - 0.75)
+        cr.line_to(w - radius, h - 0.75)
+        cr.stroke()
+        cr.restore()
 
         # Draw grip dots (centered vertically)
         dot_color = _hex_to_rgb(NORD["nord3"])
@@ -495,9 +593,25 @@ class LauncherApp:
         cr.rectangle(0, 0, w, h)
         cr.close_path()
 
-        bg = _hex_to_rgb(NORD["nord1"])
-        cr.set_source_rgb(*bg)
+        # Create gradient background (nord2 to #333333)
+        gradient = cairo.LinearGradient(0, 0, 0, h)
+        gradient.add_color_stop_rgba(0, *_hex_to_rgb(NORD["nord2"]), 0.95)
+        gradient.add_color_stop_rgba(1, 0.2, 0.2, 0.2, 0.98)
+        cr.set_source(gradient)
         cr.fill()
+
+        # Draw border relief (top, bottom)
+        border_color = _hex_to_rgb(NORD["nord8"])
+        cr.set_source_rgba(*border_color, 0.15)
+        cr.set_line_width(1.5)
+        # Top border
+        cr.move_to(0, 0.75)
+        cr.line_to(w, 0.75)
+        cr.stroke()
+        # Bottom border
+        cr.move_to(0, h - 0.75)
+        cr.line_to(w, h - 0.75)
+        cr.stroke()
 
         # Draw grip dots (same pattern as right tab)
         dot_color = _hex_to_rgb(NORD["nord3"])

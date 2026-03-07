@@ -2,11 +2,32 @@
 madOS Installer - Welcome page
 """
 
+import subprocess
+
 from gi.repository import Gtk
 
 from ..config import NORD_POLAR_NIGHT, NORD_SNOW_STORM, NORD_FROST
 from ..translations import TRANSLATIONS
 from ..utils import load_logo
+
+
+def _has_internet():
+    """Check if there is a working internet connection"""
+    try:
+        result = subprocess.run(
+            ["ping", "-c", "1", "-W", "3", "google.com"], capture_output=True, timeout=5
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def _on_start_install(app):
+    """Handle start install button - skip WiFi if internet is available"""
+    if _has_internet():
+        app.notebook.set_current_page(2)
+    else:
+        app.notebook.next_page()
 
 
 def create_welcome_page(app):
@@ -109,7 +130,7 @@ def create_welcome_page(app):
 
     start_btn = Gtk.Button(label=app.t("start_install"))
     start_btn.get_style_context().add_class("start-button")
-    start_btn.connect("clicked", lambda x: app.notebook.next_page())
+    start_btn.connect("clicked", lambda x: _on_start_install(app))
     btn_box.pack_start(start_btn, False, False, 0)
 
     exit_btn = Gtk.Button(label=app.t("exit"))

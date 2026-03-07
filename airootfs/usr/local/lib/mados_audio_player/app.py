@@ -50,9 +50,9 @@ class AudioPlayerApp:
         self._marquee_timer_id = None
 
         # Initialize backend, playlist, and spectrum analyzer
-        self.backend = MpvBackend()
         self.playlist = Playlist()
         self.spectrum = SpectrumAnalyzer()
+        self.backend = MpvBackend()
 
         # Apply theme
         apply_theme()
@@ -61,14 +61,23 @@ class AudioPlayerApp:
         self._build_window()
         self._build_ui()
 
-        # Start mpv backend
+        # Start spectrum analyzer first to create virtual sink
+        self.spectrum.start()
+
+        # Start mpv backend with virtual sink (falls back to default sink on failure)
         try:
-            self.backend.start()
+            sink_name = self.spectrum._sink_name if self.spectrum._sink_created else None
+            success, error = self.backend.start(sink_name=sink_name, fallback_to_default=True)
+            if not success:
+                raise RuntimeError(error or "Unknown error")
         except RuntimeError as e:
             self._show_error(str(e))
 
-        # Start spectrum analyzer (non-fatal if cava unavailable)
-        self.spectrum.start()
+        # Warn if virtual sink failed
+        if not self.spectrum._sink_created:
+            print(
+                "Nota: No se pudo crear el sink virtual. El espectro mostrará todo el audio del sistema."
+            )
 
         # Add files from command line
         if files:
@@ -216,7 +225,7 @@ class AudioPlayerApp:
         # Animation timer (~33ms / 30 FPS to match cava framerate)
         self._tick_count = 0
         self._marquee_timer_id = GLib.timeout_add(33, self._on_marquee_tick)
-        
+
         # Connect to window resize for dynamic spectrum bars
         self.window.connect("size-allocate", self._on_window_resized)
 
@@ -912,7 +921,7 @@ class AudioPlayerApp:
     def _on_window_resized(self, window, allocation):
         """Handle window resize to adjust number of spectrum bars."""
         width = allocation.width
-        
+
         # Dynamic bars based on window width
         if width < 400:
             target_bars = 24
@@ -926,9 +935,9 @@ class AudioPlayerApp:
             target_bars = 196
         else:
             target_bars = 196
-        
+
         # Only update if bars changed
-        if hasattr(self, 'spectrum') and self.spectrum.num_bars != target_bars:
+        if hasattr(self, "spectrum") and self.spectrum.num_bars != target_bars:
             # Restart spectrum with new bar count
             self.spectrum.stop()
             self.spectrum = SpectrumAnalyzer(num_bars=target_bars)
