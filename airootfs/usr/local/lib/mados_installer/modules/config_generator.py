@@ -12,6 +12,7 @@ import subprocess
 from gi.repository import Gtk
 
 from ..config import TIMEZONES, LOCALE_MAP, LOCALE_KB_MAP, SCRIPTS_DIR
+from ..utils import log_message, set_progress
 
 
 def build_config_script(data):
