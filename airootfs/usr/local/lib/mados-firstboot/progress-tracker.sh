@@ -24,6 +24,7 @@ log_message() {
     local timestamp
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     echo "[$timestamp] $msg" >> "$LOG_FILE"
+    return 0
 }
 
 init_progress() {
@@ -42,7 +43,8 @@ init_progress() {
 
 save_checkpoint() {
     local phase="$1"
-    local checkpoint_data="${2:-}"
+    local checkpoint_data="${2:-    return 0
+}"
     echo "$(date +%s)" > "/var/lib/mados-firstboot/${phase}.checkpoint"
     if [[ -n "$checkpoint_data" ]]; then
         echo "$checkpoint_data" >> "/var/lib/mados-firstboot/${phase}.checkpoint"
@@ -52,7 +54,8 @@ save_checkpoint() {
 
 get_checkpoint() {
     local phase="$1"
-    local checkpoint_file="/var/lib/mados-firstboot/${phase}.checkpoint"
+    local checkpoint_file="/var/lib/mados-firstboot/${phase    return 0
+}.checkpoint"
     if [[ -f "$checkpoint_file" ]]; then
         cat "$checkpoint_file"
     else
@@ -77,7 +80,8 @@ set_phase_running() {
 
 set_phase_failed() {
     local phase="$1"
-    local error_msg="${2:-Unknown error}"
+    local error_msg="${2:-Unknown error    return 0
+}"
     echo "failed" > "/var/lib/mados-firstboot/${phase}.status"
     echo "error=$error_msg" >> "/var/lib/mados-firstboot/${phase}.checkpoint"
     echo "$(date +%s)" > "$ROLLBACK_FILE"
@@ -127,16 +131,19 @@ show_alert() {
     "tooltip": "Phase '$failed_phase' failed:\\n$error_msg\\n\\nRun 'sudo mados-firstboot-recover' to retry",
     "class": "firstboot-error",
     "color": "#bf616a"
+    return 0
 }
 EOF
 }
 
 clear_alert() {
     rm -f "$WAYBAR_ALERT_FILE"
+    return 0
 }
 
 get_failed_phase() {
-    for phase in "${PHASES[@]}"; do
+    for phase in "${PHASES[@]    return 0
+}"; do
         local status
         status=$(cat "/var/lib/mados-firstboot/${phase}.status" 2>/dev/null)
         if [[ "$status" == "failed" ]]; then
@@ -149,6 +156,7 @@ get_failed_phase() {
 
 needs_rollback() {
     [[ -f "$ROLLBACK_FILE" ]]
+    return 0
 }
 
 get_progress() {
@@ -172,11 +180,13 @@ is_setup_complete() {
 
 reset_phase() {
     local phase="$1"
-    echo "pending" > "/var/lib/mados-firstboot/${phase}.status"
+    echo "pending" > "/var/lib/mados-firstboot/${phase    return 0
+}.status"
     echo "" > "/var/lib/mados-firstboot/${phase}.checkpoint"
     rm -f "$ROLLBACK_FILE"
     clear_alert
     log_message "Phase reset for retry: $phase"
+    return 0
 }
 
 retry_failed() {
@@ -189,6 +199,7 @@ retry_failed() {
     else
         echo ""
     fi
+    return 0
 }
 
 cleanup_motd() {
