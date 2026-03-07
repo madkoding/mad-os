@@ -1,0 +1,314 @@
+# madOS Developer Profile
+# Complete development environment with AI tools
+# Target: ~4.5GB ISO
+
+# Include all standard packages
+base
+linux
+linux-firmware
+mkinitcpio-archiso
+intel-ucode
+amd-ucode
+grub
+efibootmgr
+os-prober
+sbctl
+syslinux
+sudo
+zsh
+
+# Compositores Wayland (Hyprland para hardware moderno, Sway para software rendering)
+hyprland
+sway
+swaybg
+swayidle
+swaylock
+swww
+waybar
+wofi
+mako
+xorg-xwayland
+xdg-desktop-portal-hyprland
+
+# Aplicaciones principales
+foot
+firefox
+vim
+nano
+pcmanfm
+gvfs
+tumbler
+ffmpegthumbnailer
+lxappearance
+plymouth
+
+# Herramientas de desarrollo COMPLETAS
+git
+openssh
+sqlite
+python
+python-pip
+python-gobject
+python-cairo
+python-pillow
+python-dotenv
+python-pydantic
+python-requests
+python-aiohttp
+python-fastapi
+python-uvicorn
+python-black
+python-ruff
+python-pytest
+gtk3
+gtk4
+libadwaita
+gtk-layer-shell
+gdk-pixbuf2
+xdg-desktop-portal-gtk
+gtksourceview4
+gtksourceview5
+
+# Build tools completas
+base-devel
+make
+cmake
+pkgconf
+gcc
+clang
+llvm
+gdb
+valgrind
+strace
+ltrace
+
+# Desarrollo Web
+nodejs
+npm
+yarn
+pnpm
+
+# Contenedores y virtualización
+docker
+docker-compose
+podman
+kubevirt
+virt-manager
+qemu-full
+edk2-ovmf
+dnsmasq
+iptables
+bridge-utils
+
+# Bases de datos
+postgresql
+postgres
+mysql-python
+mariadb-clients
+sqlitebrowser
+redis
+mongodb-tools
+
+# Herramientas DevOps
+kubectl
+helm
+terraform
+ansible
+jq
+yq
+httpie
+insomnia
+postman-bin
+wireshark-qt
+nmap
+net-tools
+sshfs
+rsync
+rclone
+
+# IDEs y editores
+neovim
+code
+cursor-bin
+zed-editor
+
+# IA/ML Tools
+ollama
+opencode
+python-transformers
+python-pytorch
+python-tensorflow
+python-scikit-learn
+python-matplotlib
+python-jupyter
+python-notebook
+jupyterlab
+
+# Control de versiones avanzado
+git-delta
+git-lfs
+gh
+
+# Terminal mejorada
+alacritty
+kitty
+zsh-autosuggestions
+zsh-syntax-highlighting
+fzf
+ripgrep
+bat
+exa
+eza
+fd
+trash-cli
+bottom
+nvtop
+
+# Directorios XDG de usuario
+xdg-user-dirs
+
+# Utilidades del sistema
+htop
+wget
+curl
+socat
+networkmanager
+iwd
+wireless_tools
+
+# Screenshots Wayland
+grim
+slurp
+wl-clipboard
+xdg-desktop-portal-wlr
+brightnessctl
+
+# Optimizaciones RAM
+earlyoom
+zram-generator
+
+# Drivers de video (multi-GPU)
+intel-media-driver
+vulkan-intel
+libva-intel-driver
+xf86-video-amdgpu
+vulkan-radeon
+xf86-video-nouveau
+mesa
+mesa-utils
+vulkan-tools
+spirv-tools
+
+# Bluetooth
+bluez
+bluez-utils
+blueman
+
+# WiFi/Bluetooth tray applets
+network-manager-applet
+
+# Audio
+pipewire
+pipewire-pulse
+pipewire-alsa
+wireplumber
+alsa-utils
+pavucontrol
+flac
+
+# Reproductores multimedia
+mpv
+cava
+
+# Tema GTK
+nordic-theme
+
+# Fuentes
+ttf-jetbrains-mono-nerd
+ttf-fira-code
+ttf-hack-nerd
+otf-font-awesome
+
+# Información del sistema
+fastfetch
+neofetch
+inxi
+hwinfo
+lshw
+usbutils
+pciutils
+
+# Herramientas de instalación
+arch-install-scripts
+gptfdisk
+parted
+
+# Utilidades de red
+dhcpcd
+wpa_supplicant
+
+# Sistema de archivos
+dosfstools
+e2fsprogs
+ntfs-3g
+unzip
+p7zip
+unar
+zip
+
+# Soporte VM
+virtualbox-guest-utils
+open-vm-tools
+
+# Login manager
+greetd
+greetd-regreet
+cage
+
+# Gamepad/Steam Deck support
+python-evdev
+
+# On-screen virtual keyboard
+squeekboard
+
+# madOS Native Apps Dependencies
+gstreamer
+gst-plugins-base
+gst-plugins-good
+gst-plugins-ugly
+gst-plugins-bad
+gst-libav
+gst-python
+gst-plugin-gtk
+python-pillow
+librsvg
+libwebp
+libheif
+libjxl
+
+# madOS PDF Viewer
+poppler-glib
+
+# Desarrollo de drivers
+libdrm
+libva
+libvdpau
+
+# Documentación
+man-pages
+texinfo
+
+# Seguridad
+nftables
+firewalld
+gnupg
+pass
+oath-toolkit
+libqrencode
+
+# Monitoring
+glances
+bpytop
+lm_sensors
+smartmontools
+inotify-tools
