@@ -316,6 +316,11 @@ class TestPostInstallServices(unittest.TestCase):
 class TestCopyItemErrorReporting(unittest.TestCase):
     """Verify _copy_item function has proper error reporting."""
 
+    def setUp(self):
+        import sys
+        sys.modules['gi'] = MagicMock()
+        sys.modules['gi.repository'] = MagicMock()
+
     def test_copy_item_checks_source_exists(self):
         """copy_item must check if source file exists before copying."""
         from mados_installer.modules.file_copier import copy_item
@@ -366,6 +371,11 @@ class TestCopyItemErrorReporting(unittest.TestCase):
 # ═══════════════════════════════════════════════════════════════════════════
 class TestChrootValidation(unittest.TestCase):
     """Verify chroot script validation before execution."""
+
+    def setUp(self):
+        import sys
+        sys.modules['gi'] = MagicMock()
+        sys.modules['gi.repository'] = MagicMock()
 
     def test_validates_script_exists_before_chroot(self):
         """Installer must validate config script exists before chroot."""
