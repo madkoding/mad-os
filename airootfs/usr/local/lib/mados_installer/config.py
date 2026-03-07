@@ -261,3 +261,9 @@ LOCALE_KB_MAP = {
     "zh_CN.UTF-8": "us",
     "ja_JP.UTF-8": "jp",
 }
+
+
+# Installation paths
+SCRIPTS_DIR = "/usr/local/lib/mados_installer/scripts"
+MNT_USR_LOCAL_BIN = "/mnt/usr/local/bin/"
+SKEL_DIR = "/mnt/etc/skel/"
