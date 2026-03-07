@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""
+madOS Update Notifier for Waybar
+
+This script is called by Waybar's custom/json module to display
+update availability status.
+"""
+
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime
+
+CACHE_DIR = "/var/cache/mados-updates"
+VERSION_FILE = "/etc/mados/version"
+NOTIFICATION_CACHE = os.path.expanduser("~/.cache/mados/update_notification")
+
+
+def get_current_version() -> str:
+    """Get current madOS version."""
+    try:
+        if os.path.isfile(VERSION_FILE):
+            with open(VERSION_FILE) as f:
+                return f.read().strip()
+    except Exception:
+        pass
+    return "unknown"
+
+
+def check_update_available() -> tuple[bool, str]:
+    """
+    Check if an update is available.
+    
+    Returns:
+        Tuple of (is_available, latest_version)
+    """
+    try:
+        # Check if mados-update reports available update
+        result = subprocess.run(
+            ["/usr/local/bin/mados-update", "check"],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        # Exit code 2 means update available
+        if result.returncode == 2:
+            # Parse output for version
+            for line in result.stdout.split('\n'):
+                if 'New version available' in line:
+                    version = line.split(':')[-1].strip()
+                    return (True, version)
+        
+        return (False, "")
+        
+    except Exception as e:
+        # Silently fail - don't break waybar
+        return (False, "")
+
+
+def check_downloaded_update() -> tuple[bool, str]:
+    """Check if an update has been downloaded."""
+    try:
+        version_file = os.path.join(CACHE_DIR, "downloaded_version")
+        if os.path.isfile(version_file):
+            with open(version_file) as f:
+                version = f.read().strip()
+            return (True, version)
+    except Exception:
+        pass
+    
+    return (False, "")
+
+
+def main():
+    """Generate Waybar JSON output."""
+    
+    current_version = get_current_version()
+    update_available, latest_version = check_update_available()
+    downloaded, downloaded_version = check_downloaded_update()
+    
+    # Determine status and styling
+    if downloaded:
+        text = "🔄"
+        tooltip = f"Update {downloaded_version} downloaded\nReady to install"
+        css_class = "update-downloaded"
+    elif update_available:
+        text = "⬆️"
+        tooltip = f"Update available: {latest_version}\nCurrent: {current_version}\nRun: mados-update update"
+        css_class = "update-available"
+    else:
+        text = "✓"
+        tooltip = f"System up to date\nmadOS {current_version}"
+        css_class = "update-uptodate"
+    
+    # Output JSON for Waybar
+    output = {
+        "text": text,
+        "tooltip": tooltip,
+        "class": css_class,
+        "version": current_version,
+        "update_available": update_available,
+        "downloaded": downloaded,
+    }
+    
+    print(json.dumps(output))
+
+
+if __name__ == "__main__":
+    main()

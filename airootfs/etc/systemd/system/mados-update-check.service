@@ -1,0 +1,18 @@
+[Unit]
+Description=madOS OTA Update Checker
+Documentation=https://github.com/madkoding/mad-os
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/mados-update check
+StandardOutput=journal
+StandardError=journal
+
+# Run as root to access all files
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
