@@ -1,0 +1,229 @@
+#!/bin/bash
+# madOS First-Boot Recovery Script
+# Retries failed phases from checkpoint
+
+set -e
+
+TRACKER="/usr/local/lib/mados-firstboot/progress-tracker.sh"
+LOG_FILE="/var/log/mados-firstboot.log"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log_message() {
+    local msg="$1"
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] [RECOVERY] $msg" >> "$LOG_FILE"
+}
+
+print_step() {
+    echo -e "${BLUE}┌─────────────────────────────────────────────────────────${NC}"
+    echo -e "${BLUE}│${NC} $1"
+    echo -e "${BLUE}└─────────────────────────────────────────────────────────${NC}"
+}
+
+print_success() {
+    echo -e "  ${GREEN}✓${NC} $1"
+}
+
+print_error() {
+    echo -e "  ${RED}✗${NC} $1"
+}
+
+check_root() {
+    if [[ $EUID -ne 0 ]]; then
+        echo -e "${RED}This script must be run as root${NC}"
+        echo "Usage: sudo mados-firstboot-recover"
+        exit 1
+    fi
+}
+
+recover_phase() {
+    local phase="$1"
+    
+    case "$phase" in
+        "package-update")
+            print_step "Recovering: Package Update"
+            if pacman -Sy --noconfirm 2>&1 | tee -a "$LOG_FILE"; then
+                print_success "Package databases synchronized"
+                return 0
+            else
+                print_error "Failed to sync package databases"
+                return 1
+            fi
+            ;;
+        "package-install")
+            print_step "Recovering: Package Installation"
+            if [[ -f /var/lib/mados-firstboot/packages-list ]]; then
+                local packages
+                packages=$(cat /var/lib/mados-firstboot/packages-list)
+                if pacman -S --noconfirm --needed $packages 2>&1 | tee -a "$LOG_FILE"; then
+                    print_success "Packages installed successfully"
+                    return 0
+                else
+                    print_error "Failed to install packages"
+                    return 1
+                fi
+            else
+                print_error "No package list found"
+                return 1
+            fi
+            ;;
+        "user-config")
+            print_step "Recovering: User Configuration"
+            local username
+            username=$(logname 2>/dev/null || echo "${SUDO_USER:-root}")
+            
+            if id "$username" &>/dev/null; then
+                print_success "User $username exists"
+                if ! groups "$username" | grep -q "wheel"; then
+                    usermod -aG wheel "$username" 2>&1 | tee -a "$LOG_FILE"
+                    print_success "Added user to wheel group"
+                fi
+                return 0
+            else
+                print_error "User $username not found"
+                return 1
+            fi
+            ;;
+        "desktop-config")
+            print_step "Recovering: Desktop Configuration"
+            local username
+            username=$(logname 2>/dev/null || echo "${SUDO_USER:-root}")
+            
+            if [[ -d /home/"$username"/.config ]]; then
+                print_success "User config directory exists"
+            else
+                mkdir -p /home/"$username"/.config 2>&1 | tee -a "$LOG_FILE"
+                print_success "Created user config directory"
+            fi
+            
+            if [[ -f /etc/greetd/config.toml ]]; then
+                print_success "greetd configuration exists"
+                return 0
+            else
+                print_error "greetd configuration missing"
+                return 1
+            fi
+            ;;
+        "services-enable")
+            print_step "Recovering: Services Enable"
+            local services=(
+                "NetworkManager"
+                "systemd-resolved"
+                "greetd"
+                "bluetooth"
+                "earlyoom"
+            )
+            
+            local failed=0
+            for service in "${services[@]}"; do
+                if systemctl is-enabled --quiet "$service" 2>/dev/null; then
+                    print_success "$service is enabled"
+                else
+                    if systemctl enable "$service" 2>&1 | tee -a "$LOG_FILE"; then
+                        print_success "$service enabled"
+                    else
+                        print_error "Failed to enable $service"
+                        ((failed++))
+                    fi
+                fi
+            done
+            
+            [[ $failed -eq 0 ]]
+            ;;
+        "cleanup")
+            print_step "Recovering: Cleanup"
+            if [[ -f /var/lib/mados-firstboot/progress ]]; then
+                rm -rf /var/cache/pacman/pkg/*.part 2>/dev/null || true
+                print_success "Temporary files cleaned"
+            fi
+            
+            rm -f "$WAYBAR_ALERT_FILE"
+            print_success "Alerts cleared"
+            return 0
+            ;;
+        *)
+            print_error "Unknown phase: $phase"
+            return 1
+            ;;
+    esac
+}
+
+main() {
+    check_root
+    
+    echo -e "${BLUE}═══════════════════════════════════════════════════════${NC}"
+    echo -e "${BLUE}  madOS First-Boot Recovery${NC}"
+    echo -e "${BLUE}═══════════════════════════════════════════════════════${NC}"
+    echo ""
+    
+    if [[ ! -f /var/lib/mados-firstboot/progress ]]; then
+        echo -e "${YELLOW}No first-boot progress found. System may not have started setup.${NC}"
+        echo ""
+        echo "To start first-boot setup manually, run:"
+        echo "  sudo /usr/local/lib/mados-firstboot/firstboot-setup.sh"
+        exit 0
+    fi
+    
+    local failed_phase
+    failed_phase=$("$TRACKER" failed-phase)
+    
+    if [[ -z "$failed_phase" ]]; then
+        echo -e "${GREEN}✓ No failed phases detected${NC}"
+        echo ""
+        
+        local progress
+        progress=$("$TRACKER" progress)
+        if [[ "$progress" -ge 100 ]]; then
+            echo -e "${GREEN}✓ First-boot setup is complete (${progress}%)${NC}"
+        else
+            echo -e "${YELLOW}⚠ First-boot setup is in progress (${progress}%)${NC}"
+            echo "  No failures detected, setup may still be running"
+        fi
+        exit 0
+    fi
+    
+    echo -e "${RED}✗ Failed phase detected: ${YELLOW}$failed_phase${NC}"
+    echo ""
+    
+    local current_progress
+    current_progress=$("$TRACKER" progress)
+    echo "Current progress: ${current_progress}%"
+    echo ""
+    
+    echo -e "${YELLOW}Attempting recovery...${NC}"
+    echo ""
+    
+    if recover_phase "$failed_phase"; then
+        echo ""
+        echo -e "${GREEN}✓ Recovery successful!${NC}"
+        echo ""
+        
+        "$TRACKER" reset "$failed_phase"
+        "$TRACKER" clear-alert
+        
+        echo "Phase '$failed_phase' has been reset and is ready to retry"
+        echo ""
+        echo "The first-boot setup will continue from this checkpoint"
+        
+        log_message "Recovery successful for phase: $failed_phase"
+    else
+        echo ""
+        echo -e "${RED}✗ Recovery failed for phase: $failed_phase${NC}"
+        echo ""
+        echo "Manual intervention may be required"
+        echo ""
+        echo "Check the log file for details:"
+        echo "  $LOG_FILE"
+        
+        log_message "Recovery failed for phase: $failed_phase"
+        exit 1
+    fi
+}
+
+main "$@"

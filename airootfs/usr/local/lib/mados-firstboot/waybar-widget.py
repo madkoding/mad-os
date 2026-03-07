@@ -71,7 +71,24 @@ def format_tooltip(phase_status):
     return "\n".join(lines)
 
 
+def check_alert():
+    """Check for error alert"""
+    alert_file = Path("/tmp/mados-firstboot-alert")
+    if alert_file.exists():
+        try:
+            return json.loads(alert_file.read_text())
+        except (json.JSONDecodeError, IOError):
+            pass
+    return None
+
+
 def main():
+    alert = check_alert()
+    
+    if alert:
+        print(json.dumps(alert))
+        return
+    
     progress = get_progress()
     
     if progress is None:
