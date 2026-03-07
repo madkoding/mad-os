@@ -45,6 +45,7 @@ sqlite
 python
 python-gobject
 python-cairo
+python-yaml
 gtk3
 gtk-layer-shell
 gdk-pixbuf2

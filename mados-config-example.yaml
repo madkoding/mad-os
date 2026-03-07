@@ -1,0 +1,133 @@
+# madOS Automated Provisioning Configuration
+# This file allows unattended installations with predefined settings
+# Save as mados-config.yaml and select during installation
+
+# =============================================================================
+# DISK CONFIGURATION
+# =============================================================================
+disk:
+  # Target disk device (e.g., /dev/sda, /dev/nvme0n1)
+  # Use "auto" to select first non-removable disk
+  device: auto
+  
+  # Partitioning scheme
+  # Options: "auto" (single partition), "separate_home" (dedicated /home)
+  partitioning: auto
+  
+  # Filesystem type
+  # Options: ext4, btrfs, xfs
+  filesystem: ext4
+
+# =============================================================================
+# USER CONFIGURATION
+# =============================================================================
+user:
+  # Primary username (required)
+  username: maduser
+  
+  # Full name (optional, defaults to username)
+  fullname: "madOS User"
+  
+  # Password (required, or use password_hash for encrypted)
+  password: changeme
+  
+  # Alternative: Use password hash (mkpasswd -m sha-512)
+  # password_hash: "$6$rounds=5000$salt$hashed_value"
+  
+  # User groups (optional, defaults shown)
+  # groups:
+  #   - wheel
+  #   - audio
+  #   - video
+  #   - storage
+  
+  # Shell (optional, defaults to /usr/bin/zsh)
+  # shell: /usr/bin/zsh
+
+# =============================================================================
+# SYSTEM CONFIGURATION
+# =============================================================================
+system:
+  # Hostname (required)
+  hostname: mados-system
+  
+  # Timezone (required, e.g., "America/New_York", "Europe/Madrid")
+  timezone: UTC
+  
+  # Locale (required, e.g., "en_US.UTF-8", "es_ES.UTF-8")
+  locale: en_US.UTF-8
+  
+  # Keyboard layout (optional, defaults to "us")
+  # keyboard_layout: us
+  
+  # Enable SSH server (default: false)
+  # enable_ssh: true
+  
+  # SSH port (default: 22)
+  # ssh_port: 22
+
+# =============================================================================
+# PACKAGE SELECTION
+# =============================================================================
+packages:
+  # Install development tools (default: false)
+  dev_tools: true
+  
+  # Install AI/ML tools (default: false)
+  ai_ml: true
+  
+  # Install multimedia tools (default: false)
+  multimedia: false
+  
+  # Additional packages (optional)
+  # extra:
+  #   - vim
+  #   - htop
+  #   - git
+
+# =============================================================================
+# POST-INSTALL SCRIPTS
+# =============================================================================
+post_install:
+  # Run commands after installation (optional)
+  # Commands are executed in chroot environment
+  
+  # Example: Enable additional services
+  # commands:
+  #   - systemctl enable sshd
+  #   - systemctl enable docker
+  
+  # Example: Install AUR packages (requires yay/paru already installed)
+  # commands:
+  #   - su - maduser -c "yay -S visual-studio-code-bin"
+  
+  # Example: Copy configuration files
+  # commands:
+  #   - cp /mnt/root/.config/user_settings.conf /home/maduser/.config/
+  #   - chown -R maduser:maduser /home/maduser/.config
+
+# =============================================================================
+# ADVANCED OPTIONS
+# =============================================================================
+advanced:
+  # Enable encryption (LUKS) for root partition (default: false)
+  # encryption:
+  #   enabled: true
+  #   password: "encryption_password"
+  #   #或使用 password_hash
+  #   # password_hash: "$6$..."
+  
+  # Bootloader options (default: grub)
+  # bootloader: grub
+  # bootloader: systemd-boot  # UEFI only
+  
+  # Kernel selection (default: linux)
+  # kernel: linux
+  # kernel: linux-lts
+  # kernel: linux-zen
+  
+  # Enable microcode updates (default: true)
+  # enable_microcode: true
+  
+  # Enable plymouth boot splash (default: true)
+  # enable_plymouth: true
