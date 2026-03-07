@@ -3,8 +3,10 @@ madOS Video Player - Main Application Window
 ==============================================
 
 VLC-inspired video player window with Nord theme, GStreamer playback,
-menu bar, transport controls, seek bar, volume control, and playlist
-sidebar. Supports keyboard shortcuts, drag-and-drop, and fullscreen.
+compact controls, seek bar, volume control, and playlist sidebar.
+Supports keyboard shortcuts, drag-and-drop, and fullscreen.
+
+Compact design: always uses hamburger menu for file operations.
 """
 
 import os
@@ -27,10 +29,10 @@ if GST_AVAILABLE:
 
 
 class VideoPlayerApp(Gtk.Window):
-    """Main video player application window."""
+    """Main video player application window with compact design."""
 
-    PLAYLIST_WIDTH = 280
-    MIN_WINDOW_WIDTH = 400
+    PLAYLIST_WIDTH = 200
+    MIN_WINDOW_WIDTH = 200
 
     def __init__(self, initial_files=None):
         """Initialize the video player application.
@@ -43,10 +45,9 @@ class VideoPlayerApp(Gtk.Window):
         self._language = detect_system_language()
         self._fullscreen_active = False
         self._playlist_visible = False
-        self._controls_visible = True
-        self._hide_controls_id = None
         self._programmatic_seek_update = False
         self._seek_debounce_id = None
+        self._menu_popover = None
 
         # Apply Nord theme
         apply_theme()
@@ -64,6 +65,10 @@ class VideoPlayerApp(Gtk.Window):
 
         # Window setup
         self.set_default_size(640, 400)
+        geometry = Gdk.Geometry()
+        geometry.min_width = self.MIN_WINDOW_WIDTH
+        geometry.min_height = 150
+        self.set_geometry_hints(None, geometry, Gdk.WindowHints.MIN_SIZE)
         self.set_wmclass(__app_id__, __app_name__)
         self.set_icon_name("multimedia-video-player")
         self.connect("destroy", self._on_destroy)
@@ -115,10 +120,6 @@ class VideoPlayerApp(Gtk.Window):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.add(vbox)
 
-        # Menu bar
-        self._menu_bar = self._build_menu_bar()
-        vbox.pack_start(self._menu_bar, False, False, 0)
-
         # Main content: video + playlist
         self._content_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         vbox.pack_start(self._content_paned, True, True, 0)
@@ -153,10 +154,10 @@ class VideoPlayerApp(Gtk.Window):
         self._video_event.set_above_child(False)
         self._video_event.connect("button-press-event", self._on_video_click)
 
-        # Seek bar
+        # Seek bar (compact)
         self._build_seek_bar(video_box)
 
-        # Transport controls
+        # Transport controls (compact)
         self._build_controls(video_box)
 
         # Playlist sidebar
@@ -167,187 +168,17 @@ class VideoPlayerApp(Gtk.Window):
         # Status bar
         self._build_status_bar(vbox)
 
-    def _build_menu_bar(self):
-        """Build the menu bar."""
-        menu_bar = Gtk.MenuBar()
-
-        # --- File menu ---
-        file_menu = Gtk.Menu()
-        file_item = Gtk.MenuItem(label=self._t("file"))
-        file_item.set_submenu(file_menu)
-
-        open_item = Gtk.MenuItem(label=self._t("open_file"))
-        open_item.connect("activate", self._on_open_file)
-        file_menu.append(open_item)
-
-        open_dir_item = Gtk.MenuItem(label=self._t("open_directory"))
-        open_dir_item.connect("activate", self._on_open_directory)
-        file_menu.append(open_dir_item)
-
-        file_menu.append(Gtk.SeparatorMenuItem())
-
-        save_pl_item = Gtk.MenuItem(label=self._t("save_playlist"))
-        save_pl_item.connect("activate", lambda w: self._on_save_playlist_dialog())
-        file_menu.append(save_pl_item)
-
-        load_pl_item = Gtk.MenuItem(label=self._t("load_playlist"))
-        load_pl_item.connect("activate", lambda w: self._on_load_playlist_dialog())
-        file_menu.append(load_pl_item)
-
-        manage_pl_item = Gtk.MenuItem(label=self._t("manage_playlists"))
-        manage_pl_item.connect("activate", lambda w: self._on_manage_playlists_dialog())
-        file_menu.append(manage_pl_item)
-
-        file_menu.append(Gtk.SeparatorMenuItem())
-
-        quit_item = Gtk.MenuItem(label=self._t("quit"))
-        quit_item.connect("activate", lambda w: self._on_destroy(w))
-        file_menu.append(quit_item)
-
-        menu_bar.append(file_item)
-
-        # --- Playback menu ---
-        playback_menu = Gtk.Menu()
-        playback_item = Gtk.MenuItem(label=self._t("playback"))
-        playback_item.set_submenu(playback_menu)
-
-        play_item = Gtk.MenuItem(label=self._t("play") + " / " + self._t("pause"))
-        play_item.connect("activate", lambda w: self._engine.toggle_play_pause())
-        playback_menu.append(play_item)
-
-        stop_item = Gtk.MenuItem(label=self._t("stop"))
-        stop_item.connect("activate", lambda w: self._engine.stop())
-        playback_menu.append(stop_item)
-
-        playback_menu.append(Gtk.SeparatorMenuItem())
-
-        next_item = Gtk.MenuItem(label=self._t("next_track"))
-        next_item.connect("activate", lambda w: self._on_next())
-        playback_menu.append(next_item)
-
-        prev_item = Gtk.MenuItem(label=self._t("prev_track"))
-        prev_item.connect("activate", lambda w: self._on_previous())
-        playback_menu.append(prev_item)
-
-        playback_menu.append(Gtk.SeparatorMenuItem())
-
-        fwd10_item = Gtk.MenuItem(label=self._t("forward_10"))
-        fwd10_item.connect("activate", lambda w: self._seek_relative(10))
-        playback_menu.append(fwd10_item)
-
-        bwd10_item = Gtk.MenuItem(label=self._t("backward_10"))
-        bwd10_item.connect("activate", lambda w: self._seek_relative(-10))
-        playback_menu.append(bwd10_item)
-
-        playback_menu.append(Gtk.SeparatorMenuItem())
-
-        speed_up_item = Gtk.MenuItem(label=self._t("speed_up"))
-        speed_up_item.connect("activate", lambda w: self._on_speed_up())
-        playback_menu.append(speed_up_item)
-
-        speed_down_item = Gtk.MenuItem(label=self._t("speed_down"))
-        speed_down_item.connect("activate", lambda w: self._on_speed_down())
-        playback_menu.append(speed_down_item)
-
-        normal_speed_item = Gtk.MenuItem(label=self._t("normal_speed"))
-        normal_speed_item.connect("activate", lambda w: self._on_reset_speed())
-        playback_menu.append(normal_speed_item)
-
-        menu_bar.append(playback_item)
-
-        # --- Audio menu ---
-        audio_menu = Gtk.Menu()
-        audio_item = Gtk.MenuItem(label=self._t("audio"))
-        audio_item.set_submenu(audio_menu)
-
-        mute_item = Gtk.MenuItem(label=self._t("mute"))
-        mute_item.connect("activate", lambda w: self._on_toggle_mute())
-        audio_menu.append(mute_item)
-
-        vol_up_item = Gtk.MenuItem(label=self._t("volume_up"))
-        vol_up_item.connect("activate", lambda w: self._adjust_volume(0.1))
-        audio_menu.append(vol_up_item)
-
-        vol_down_item = Gtk.MenuItem(label=self._t("volume_down"))
-        vol_down_item.connect("activate", lambda w: self._adjust_volume(-0.1))
-        audio_menu.append(vol_down_item)
-
-        menu_bar.append(audio_item)
-
-        # --- Video menu ---
-        video_menu = Gtk.Menu()
-        video_item = Gtk.MenuItem(label=self._t("video"))
-        video_item.set_submenu(video_menu)
-
-        fullscreen_item = Gtk.MenuItem(label=self._t("fullscreen"))
-        fullscreen_item.connect("activate", lambda w: self._toggle_fullscreen())
-        video_menu.append(fullscreen_item)
-
-        menu_bar.append(video_item)
-
-        # --- Subtitle menu ---
-        sub_menu = Gtk.Menu()
-        sub_item = Gtk.MenuItem(label=self._t("subtitle"))
-        sub_item.set_submenu(sub_menu)
-
-        open_sub_item = Gtk.MenuItem(label=self._t("open_subtitle"))
-        open_sub_item.connect("activate", self._on_open_subtitle)
-        sub_menu.append(open_sub_item)
-
-        menu_bar.append(sub_item)
-
-        # --- View menu ---
-        view_menu = Gtk.Menu()
-        view_item = Gtk.MenuItem(label=self._t("view"))
-        view_item.set_submenu(view_menu)
-
-        playlist_toggle_item = Gtk.MenuItem(label=self._t("show_playlist"))
-        playlist_toggle_item.connect("activate", lambda w: self._toggle_playlist())
-        self._playlist_menu_item = playlist_toggle_item
-        view_menu.append(playlist_toggle_item)
-
-        menu_bar.append(view_item)
-
-        # --- Help menu ---
-        help_menu = Gtk.Menu()
-        help_item = Gtk.MenuItem(label=self._t("help"))
-        help_item.set_submenu(help_menu)
-
-        about_item = Gtk.MenuItem(label=self._t("about"))
-        about_item.connect("activate", self._on_about)
-        help_menu.append(about_item)
-
-        menu_bar.append(help_item)
-
-        return menu_bar
-
-    def _build_placeholder(self):
-        """Build the placeholder overlay shown when no video is loaded."""
-        overlay_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        overlay_box.set_halign(Gtk.Align.CENTER)
-        overlay_box.set_valign(Gtk.Align.CENTER)
-        overlay_box.get_style_context().add_class("video-placeholder")
-
-        icon = Gtk.Label(label="\u25b6")
-        icon.get_style_context().add_class("placeholder-icon")
-        overlay_box.pack_start(icon, False, False, 0)
-
-        text = Gtk.Label(label=self._t("drop_files_here"))
-        text.get_style_context().add_class("placeholder-text")
-        overlay_box.pack_start(text, False, False, 0)
-        self._placeholder_text = text
-
-        return overlay_box
-
     def _build_seek_bar(self, parent):
-        """Build the seek bar area."""
-        seek_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        """Build the compact seek bar area."""
+        seek_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         seek_box.get_style_context().add_class("seek-bar")
+        seek_box.set_margin_start(4)
+        seek_box.set_margin_end(4)
 
         # Current time
         self._time_label = Gtk.Label(label="00:00")
-        self._time_label.get_style_context().add_class("time-label")
-        self._time_label.set_width_chars(8)
+        self._time_label.get_style_context().add_class("compact-time")
+        self._time_label.set_width_chars(6)
         seek_box.pack_start(self._time_label, False, False, 0)
 
         # Seek slider
@@ -360,17 +191,27 @@ class VideoPlayerApp(Gtk.Window):
 
         # Duration
         self._duration_label = Gtk.Label(label="00:00")
-        self._duration_label.get_style_context().add_class("time-label")
-        self._duration_label.set_width_chars(8)
+        self._duration_label.get_style_context().add_class("compact-time")
+        self._duration_label.set_width_chars(6)
         seek_box.pack_start(self._duration_label, False, False, 0)
 
         parent.pack_start(seek_box, False, False, 0)
 
     def _build_controls(self, parent):
-        """Build the transport control bar."""
-        controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        """Build the compact transport control bar with hamburger menu."""
+        controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
         controls.get_style_context().add_class("control-bar")
-        self._controls_bar = controls
+        controls.set_margin_start(4)
+        controls.set_margin_end(4)
+        controls.set_margin_top(2)
+        controls.set_margin_bottom(2)
+
+        # Hamburger menu button
+        self._menu_btn = Gtk.Button()
+        self._menu_btn.set_image(Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON))
+        self._menu_btn.set_tooltip_text("Menu")
+        self._menu_btn.connect("clicked", self._on_menu_clicked)
+        controls.pack_start(self._menu_btn, False, False, 0)
 
         # Previous
         prev_btn = Gtk.Button(label="\u23ee")
@@ -401,40 +242,21 @@ class VideoPlayerApp(Gtk.Window):
         next_btn.connect("clicked", lambda w: self._on_next())
         controls.pack_start(next_btn, False, False, 0)
 
-        # Separator
-        controls.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
-
         # Now playing label
         self._now_playing_label = Gtk.Label(label=self._t("no_file"))
         self._now_playing_label.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
         self._now_playing_label.set_hexpand(True)
         self._now_playing_label.set_xalign(0.0)
         self._now_playing_label.get_style_context().add_class("title-label")
-        controls.pack_start(self._now_playing_label, True, True, 4)
+        self._now_playing_label.set_margin_start(4)
+        self._now_playing_label.set_margin_end(4)
+        controls.pack_start(self._now_playing_label, True, True, 0)
 
         # Speed label
         self._speed_label = Gtk.Label(label="1.0x")
         self._speed_label.get_style_context().add_class("speed-label")
-        self._speed_label.set_width_chars(5)
+        self._speed_label.set_width_chars(4)
         controls.pack_start(self._speed_label, False, False, 0)
-
-        # Separator
-        controls.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
-
-        # Shuffle button
-        self._shuffle_btn = Gtk.ToggleButton(label="\u21c6")
-        self._shuffle_btn.set_tooltip_text(self._t("shuffle"))
-        self._shuffle_btn.connect("toggled", self._on_shuffle_toggled)
-        controls.pack_start(self._shuffle_btn, False, False, 0)
-
-        # Repeat button
-        self._repeat_btn = Gtk.Button(label="\u21bb")
-        self._repeat_btn.set_tooltip_text(self._t("repeat_off"))
-        self._repeat_btn.connect("clicked", self._on_repeat_clicked)
-        controls.pack_start(self._repeat_btn, False, False, 0)
-
-        # Separator
-        controls.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
 
         # Volume mute button
         self._mute_btn = Gtk.Button(label="\U0001f50a")
@@ -442,24 +264,14 @@ class VideoPlayerApp(Gtk.Window):
         self._mute_btn.connect("clicked", lambda w: self._on_toggle_mute())
         controls.pack_start(self._mute_btn, False, False, 0)
 
-        # Volume slider
+        # Volume slider (compact)
         self._volume_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
         self._volume_scale.set_draw_value(False)
         self._volume_scale.set_value(80)
-        self._volume_scale.set_size_request(100, -1)
+        self._volume_scale.set_size_request(50, -1)
         self._volume_scale.get_style_context().add_class("volume-slider")
         self._volume_scale.connect("value-changed", self._on_volume_changed)
         controls.pack_start(self._volume_scale, False, False, 0)
-
-        # Separator
-        controls.pack_start(Gtk.Separator(orientation=Gtk.Orientation.VERTICAL), False, False, 4)
-
-        # Playlist toggle
-        self._playlist_btn = Gtk.ToggleButton(label="\u2261")
-        self._playlist_btn.set_tooltip_text(self._t("playlist"))
-        self._playlist_btn.set_active(False)
-        self._playlist_btn.connect("toggled", self._on_playlist_toggled)
-        controls.pack_start(self._playlist_btn, False, False, 0)
 
         # Fullscreen
         fs_btn = Gtk.Button(label="\u2922")
@@ -469,11 +281,109 @@ class VideoPlayerApp(Gtk.Window):
 
         parent.pack_start(controls, False, False, 0)
 
+    def _build_menu_popover(self):
+        """Build the popover menu for hamburger button."""
+        popover = Gtk.Popover()
+        popover.set_relative_to(self._menu_btn)
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        vbox.set_margin_start(8)
+        vbox.set_margin_end(8)
+        vbox.set_margin_top(8)
+        vbox.set_margin_bottom(8)
+
+        # Open file
+        open_btn = Gtk.Button(label=self._t("open_file"))
+        open_btn.connect("clicked", lambda w: (self._menu_popover.hide(), self._on_open_file()))
+        vbox.pack_start(open_btn, False, False, 0)
+
+        # Open directory
+        open_dir_btn = Gtk.Button(label=self._t("open_directory"))
+        open_dir_btn.connect("clicked", lambda w: (self._menu_popover.hide(), self._on_open_directory()))
+        vbox.pack_start(open_dir_btn, False, False, 0)
+
+        # Separator
+        vbox.pack_start(Gtk.Separator(), False, False, 4)
+
+        # Speed controls
+        speed_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        speed_down_btn = Gtk.Button(label="-")
+        speed_down_btn.set_tooltip_text(self._t("speed_down"))
+        speed_down_btn.connect("clicked", lambda w: (self._menu_popover.hide(), self._on_speed_down()))
+        speed_box.pack_start(speed_down_btn, False, False, 0)
+        
+        speed_reset_btn = Gtk.Button(label="1.0x")
+        speed_reset_btn.set_tooltip_text(self._t("normal_speed"))
+        speed_reset_btn.connect("clicked", lambda w: (self._menu_popover.hide(), self._on_reset_speed()))
+        speed_box.pack_start(speed_reset_btn, True, True, 0)
+        
+        speed_up_btn = Gtk.Button(label="+")
+        speed_up_btn.set_tooltip_text(self._t("speed_up"))
+        speed_up_btn.connect("clicked", lambda w: (self._menu_popover.hide(), self._on_speed_up()))
+        speed_box.pack_start(speed_up_btn, False, False, 0)
+        
+        vbox.pack_start(speed_box, False, False, 0)
+
+        # Separator
+        vbox.pack_start(Gtk.Separator(), False, False, 4)
+
+        # Playlist toggle
+        playlist_btn = Gtk.Button(label=self._t("show_playlist"))
+        playlist_btn.connect("clicked", lambda w: (self._menu_popover.hide(), self._toggle_playlist()))
+        vbox.pack_start(playlist_btn, False, False, 0)
+
+        # Separator
+        vbox.pack_start(Gtk.Separator(), False, False, 4)
+
+        # Shuffle toggle
+        shuffle_btn = Gtk.ToggleButton(label=self._t("shuffle"))
+        shuffle_btn.connect("toggled", lambda w: (self._menu_popover.hide(), self._on_shuffle_toggled(w)))
+        vbox.pack_start(shuffle_btn, False, False, 0)
+
+        # Repeat button
+        repeat_btn = Gtk.Button(label=self._t("repeat_off"))
+        repeat_btn.connect("clicked", lambda w: (self._menu_popover.hide(), self._on_repeat_clicked(w)))
+        vbox.pack_start(repeat_btn, False, False, 0)
+
+        # Separator
+        vbox.pack_start(Gtk.Separator(), False, False, 4)
+
+        # Fullscreen
+        fs_btn = Gtk.Button(label=self._t("fullscreen"))
+        fs_btn.connect("clicked", lambda w: (self._menu_popover.hide(), self._toggle_fullscreen()))
+        vbox.pack_start(fs_btn, False, False, 0)
+
+        # About
+        about_btn = Gtk.Button(label=self._t("about"))
+        about_btn.connect("clicked", lambda w: (self._menu_popover.hide(), self._on_about()))
+        vbox.pack_start(about_btn, False, False, 0)
+
+        # Separator
+        vbox.pack_start(Gtk.Separator(), False, False, 4)
+
+        # Quit
+        quit_btn = Gtk.Button(label=self._t("quit"))
+        quit_btn.connect("clicked", lambda w: self._on_destroy(w))
+        vbox.pack_start(quit_btn, False, False, 0)
+
+        popover.add(vbox)
+        self._menu_popover = popover
+
+    def _on_menu_clicked(self, button):
+        """Show/hide the hamburger menu popover."""
+        if self._menu_popover is None:
+            self._build_menu_popover()
+
+        if self._menu_popover.is_visible():
+            self._menu_popover.hide()
+        else:
+            self._menu_popover.show_all()
+            self._menu_popover.popup()
+
     def _build_playlist_panel(self):
         """Build the playlist sidebar panel."""
         panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         panel.get_style_context().add_class("playlist-panel")
-        panel.set_size_request(self.PLAYLIST_WIDTH, -1)
 
         # Header
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
@@ -512,7 +422,7 @@ class VideoPlayerApp(Gtk.Window):
         # Playing indicator column
         renderer_icon = Gtk.CellRendererText()
         col_icon = Gtk.TreeViewColumn("", renderer_icon, text=2)
-        col_icon.set_fixed_width(24)
+        col_icon.set_fixed_width(20)
         col_icon.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         self._playlist_view.append_column(col_icon)
 
@@ -914,14 +824,12 @@ class VideoPlayerApp(Gtk.Window):
         """Toggle fullscreen mode."""
         if self._fullscreen_active:
             self.unfullscreen()
-            self._menu_bar.set_visible(True)
             self._status_bar.set_visible(True)
             if self._playlist_visible:
                 self._playlist_panel.set_visible(True)
             self._fullscreen_active = False
         else:
             self.fullscreen()
-            self._menu_bar.set_visible(False)
             self._status_bar.set_visible(False)
             self._playlist_panel.set_visible(False)
             self._fullscreen_active = True
@@ -962,7 +870,6 @@ class VideoPlayerApp(Gtk.Window):
         """Handle language change."""
         self._language = language
         self._update_title()
-        self._placeholder_text.set_text(self._t("drop_files_here"))
         self._playlist_title_label.set_text(self._t("playlist"))
         if not self._engine.is_playing and self._playlist.is_empty:
             self._now_playing_label.set_text(self._t("no_file"))
@@ -972,7 +879,7 @@ class VideoPlayerApp(Gtk.Window):
     # About dialog
     # ------------------------------------------------------------------
 
-    def _on_about(self, widget):
+    def _on_about(self, widget=None):
         """Show about dialog."""
         dialog = Gtk.MessageDialog(
             parent=self,
@@ -1379,12 +1286,11 @@ class VideoPlayerApp(Gtk.Window):
         dialog.destroy()
 
     # ------------------------------------------------------------------
-    # Cleanup
+    # Window Lifecycle
     # ------------------------------------------------------------------
 
     def _on_destroy(self, widget):
-        """Clean up and quit."""
+        """Handle window destroy: save session and quit."""
         self._save_session()
-        self._db.close()
         self._engine.cleanup()
         Gtk.main_quit()

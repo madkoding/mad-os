@@ -158,13 +158,30 @@ togglebutton:checked, .toggle:checked {
 
 /* Toolbars */
 toolbar, .toolbar {
-    background-color: """
-    + NORD["nord1"]
-    + """;
-    border-bottom: 1px solid """
-    + NORD["nord2"]
-    + """;
+    background-color: #434c5e;
+    padding: 2px;
+}
+
+toolbutton {
+    padding: 2px;
+}
+
+toolbar button {
     padding: 2px 4px;
+    min-height: 24px;
+    min-width: 24px;
+}
+
+/* Menú overflow del toolbar */
+toolbar > menuitem {
+    color: #d8dee9;
+    padding: 4px 8px;
+    min-height: 20px;
+}
+
+toolbar > menuitem:hover {
+    background-color: #5e81ac;
+    color: #eceff4;
 }
 
 /* Box used as toolbar */
@@ -526,6 +543,20 @@ progressbar progress {
     + NORD["nord2"]
     + """;
     padding: 6px 8px;
+}
+
+/* Compact video player mode */
+.compact-time {
+    font-size: 10px;
+    color: """
+    + NORD["nord3"]
+    + """;
+}
+
+video-player button {
+    padding: 2px 6px;
+    min-height: 18px;
+    min-width: 24px;
 }
 """
 )

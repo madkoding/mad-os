@@ -131,7 +131,7 @@ headerbar .title {
 .time-display {
     color: #ff3366;
     font-family: "DSEG7 Classic", "JetBrainsMono Nerd Font", monospace;
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 700;
     letter-spacing: 1.5px;
     text-shadow:
@@ -246,9 +246,11 @@ headerbar .title {
     + NORD["nord3"]
     + """;
     border-radius: 3px;
-    padding: 4px 8px;
-    min-width: 32px;
-    min-height: 32px;    font-family: "JetBrainsMono Nerd Font", "Symbols Nerd Font", monospace;    font-size: 16px;
+    padding: 2px 6px;
+    min-width: 22px;
+    min-height: 24px;
+    font-family: "JetBrainsMono Nerd Font", "Symbols Nerd Font", monospace;
+    font-size: 18px;
 }
 .transport-btn:hover {
     background-color: """
@@ -301,11 +303,11 @@ headerbar .title {
     + """;
     border: 1px solid transparent;
     border-radius: 3px;
-    padding: 2px 6px;
-    min-width: 24px;
-    min-height: 24px;
+    padding: 1px 2px;
+    min-width: 18px;
+    min-height: 22px;
     font-family: "JetBrainsMono Nerd Font", "Symbols Nerd Font", monospace;
-    font-size: 14px;
+    font-size: 16px;
 }
 .mode-btn:hover {
     color: """

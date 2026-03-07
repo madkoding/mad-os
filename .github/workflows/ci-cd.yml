@@ -45,12 +45,9 @@ jobs:
 
       - name: Run ShellCheck
         run: |
-          find airootfs/usr/local/bin -type f -executable | while read -r script; do
-            if head -1 "$script" | grep -qE "(bash|sh)$"; then
-              shellcheck "$script" || true
-            fi
+          find airootfs/usr/local/bin airootfs/usr/local/lib/mados_installer/scripts -type f \( -name "*.sh" -o -executable \) | while read -r script; do
+            shellcheck -s bash -e SC2034,SC2317,SC1090,SC2155 "$script"
           done
-        continue-on-error: true
 
       - name: Validate Python syntax
         run: |

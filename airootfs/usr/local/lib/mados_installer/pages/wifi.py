@@ -101,7 +101,7 @@ def _parse_network_line(line):
 
 
 def _scan_networks(interface):
-    """Scan for available WiFi networks using iwd (iwctl)"""
+    """Scan for available WiFi networks using nmcli or iwd"""
     if DEMO_MODE:
         return [
             {"ssid": "Home-WiFi-5G", "signal": "****", "security": "WPA2"},
@@ -111,12 +111,46 @@ def _scan_networks(interface):
         ]
 
     networks = []
+
+    # Try nmcli first (NetworkManager)
     try:
+        subprocess.run(["nmcli", "dev", "wifi", "rescan"], capture_output=True, timeout=10)
+        time.sleep(2)
+
+        result = subprocess.run(
+            ["nmcli", "-t", "-f", "SSID,SECURITY,SIGNAL", "dev", "wifi", "list"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        for line in result.stdout.splitlines():
+            parts = line.strip().split(":")
+            if len(parts) >= 3:
+                ssid = parts[0]
+                security = parts[1] if parts[1] else "Open"
+                signal_num = parts[2]
+                # Convert signal number to bars
+                signal_bars = min(4, int(signal_num) // 25 + 1)
+                signal = "*" * signal_bars
+
+                if ssid:
+                    networks.append({"ssid": ssid, "signal": signal, "security": security})
+
+        if networks:
+            return networks
+    except Exception:
+        pass
+
+    # Fallback to iwd
+    try:
+        subprocess.run(["systemctl", "start", "iwd"], capture_output=True, timeout=5)
+
         subprocess.run(["iwctl", "station", interface, "scan"], capture_output=True, timeout=10)
         time.sleep(3)
 
         result = subprocess.run(
-            ["iwctl", "station", interface, "get-networks"],
+            ["iwctl", "--terse", "station", interface, "get-networks"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -124,7 +158,7 @@ def _scan_networks(interface):
 
         for line in result.stdout.splitlines():
             line_stripped = line.strip()
-            if not line_stripped or "---" in line_stripped or "Available" in line_stripped:
+            if not line_stripped:
                 continue
             network = _parse_network_line(line_stripped)
             if network:
@@ -262,8 +296,13 @@ def create_wifi_page(app):
     app.wifi_interface = None
     app.wifi_connected = False
 
-    # Initial scan on page creation
-    GLib.idle_add(_init_wifi_page, app)
+    # Check if already has internet - skip page if connected
+    if _has_internet():
+        current_page = app.notebook.page_num(page)
+        app.notebook.set_current_page(current_page + 1)
+    else:
+        # Initial scan on page creation
+        GLib.idle_add(_init_wifi_page, app)
 
 
 def _init_wifi_page(app):
@@ -413,8 +452,8 @@ def _on_network_selected(app, row):
 
 
 def _do_connect(app):
-    """Connect to the selected network"""
-    if not app.wifi_selected_ssid or not app.wifi_interface:
+    """Connect to the selected network using nmcli"""
+    if not app.wifi_selected_ssid:
         return
 
     ssid = app.wifi_selected_ssid
@@ -439,9 +478,10 @@ def _do_connect(app):
             success = True
         else:
             try:
+                # Use nmcli for connection
                 if is_open:
                     result = subprocess.run(
-                        ["iwctl", "station", app.wifi_interface, "connect", ssid],
+                        ["nmcli", "dev", "wifi", "connect", ssid],
                         capture_output=True,
                         text=True,
                         timeout=30,
@@ -449,20 +489,20 @@ def _do_connect(app):
                 else:
                     result = subprocess.run(
                         [
-                            "iwctl",
-                            "--passphrase",
-                            password,
-                            "station",
-                            app.wifi_interface,
+                            "nmcli",
+                            "dev",
+                            "wifi",
                             "connect",
                             ssid,
+                            "password",
+                            password,
                         ],
                         capture_output=True,
                         text=True,
                         timeout=30,
                     )
+
                 if result.returncode == 0:
-                    # Wait a moment for DHCP
                     time.sleep(3)
                     success = _has_internet()
             except Exception:

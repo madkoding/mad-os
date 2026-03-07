@@ -111,55 +111,86 @@ class MpvBackend:
             pass
         return "alsa"
 
-    def start(self):
-        """Start the mpv process with JSON IPC socket."""
+    def start(self, sink_name=None, fallback_to_default=True):
+        """Start the mpv process with JSON IPC socket.
+
+        Args:
+            sink_name: Optional PipeWire/PulseAudio sink name to use for output.
+            fallback_to_default: If True and sink fails, try with default audio output.
+        """
         if self._process and self._process.poll() is None:
             return
 
-        # Clean up old socket
-        if os.path.exists(self._socket_path):
+        def _try_start(audio_device):
+            # Clean up old socket
+            if os.path.exists(self._socket_path):
+                try:
+                    os.unlink(self._socket_path)
+                except OSError:
+                    pass
+
+            cmd = [
+                "mpv",
+                "--idle=yes",
+                "--no-video",
+                "--no-terminal",
+                "--really-quiet",
+                f"--input-ipc-server={self._socket_path}",
+                "--volume=100",
+                "--audio-display=no",
+                f"--ao={audio_device}",
+                # Audio buffer: 1 second to prevent choppy playback on slow CPUs
+                "--audio-buffer=1.0",
+                # Demuxer readahead: 5 seconds of data buffered ahead
+                "--demuxer-max-bytes=512KiB",
+                "--demuxer-readahead-secs=5",
+                # Enable gapless audio for smooth track transitions
+                "--gapless-audio=yes",
+                # Set application name for PipeWire/PulseAudio identification
+                "--title=madOS Audio Player",
+            ]
+
             try:
-                os.unlink(self._socket_path)
-            except OSError:
-                pass
+                self._process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                self._running = True
 
-        cmd = [
-            "mpv",
-            "--idle=yes",
-            "--no-video",
-            "--no-terminal",
-            "--really-quiet",
-            f"--input-ipc-server={self._socket_path}",
-            "--volume=100",
-            "--audio-display=no",
-            f"--ao={self._detect_audio_output()}",
-            # Audio buffer: 1 second to prevent choppy playback on slow CPUs
-            "--audio-buffer=1.0",
-            # Demuxer readahead: 5 seconds of data buffered ahead
-            "--demuxer-max-bytes=512KiB",
-            "--demuxer-readahead-secs=5",
-            # Enable gapless audio for smooth track transitions
-            "--gapless-audio=yes",
-        ]
+                # Wait for socket to become available
+                for _ in range(50):
+                    if os.path.exists(self._socket_path):
+                        break
+                    time.sleep(0.1)
+                else:
+                    if self._process.poll() is not None:
+                        _, stderr = self._process.communicate()
+                        return False, stderr.decode()
 
-        try:
-            self._process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            self._running = True
+                self._connect()
+                return True, None
+            except FileNotFoundError:
+                self._running = False
+                raise RuntimeError("mpv not found. Please install mpv.")
 
-            # Wait for socket to become available
-            for _ in range(50):
-                if os.path.exists(self._socket_path):
-                    break
-                time.sleep(0.1)
+        audio_output = self._detect_audio_output()
+        if sink_name:
+            if audio_output == "pulse":
+                audio_device = f"pulse:device={sink_name}"
+            elif audio_output == "pipewire":
+                audio_device = f"pipewire:device={sink_name}"
+            else:
+                audio_device = audio_output
+        else:
+            audio_device = audio_output
 
-            self._connect()
-        except FileNotFoundError:
-            self._running = False
-            raise RuntimeError("mpv not found. Please install mpv.")
+        # Try with specified sink
+        success, error = _try_start(audio_device)
+        if not success and fallback_to_default:
+            # Fallback to default audio output
+            return _try_start(audio_output)
+        return success, error
 
     def _connect(self):
         """Connect to the mpv IPC socket."""

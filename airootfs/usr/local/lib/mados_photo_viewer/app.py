@@ -116,6 +116,8 @@ class PhotoViewerApp(Gtk.Window):
         btn = Gtk.ToolButton()
         btn.set_icon_name(icon_name)
         btn.set_tooltip_text(self._t(tooltip_key))
+        btn.set_label(self._t(tooltip_key))  # Para que se vea en el menú overflow
+        btn.set_is_important(True)  # Forzar que se muestre etiqueta cuando haya espacio
         btn.connect("clicked", callback)
         toolbar.insert(btn, -1)
         return btn
@@ -178,6 +180,8 @@ class PhotoViewerApp(Gtk.Window):
             btn = Gtk.ToggleToolButton()
             btn.set_icon_name(icon_name)
             btn.set_tooltip_text(self._t(tooltip_key))
+            btn.set_label(self._t(tooltip_key))  # Para menú overflow
+            btn.set_is_important(True)
             btn.connect("toggled", self._on_tool_toggled, tool_id)
             toolbar.insert(btn, -1)
             self._tool_buttons[tool_id] = btn

@@ -112,13 +112,13 @@ button:disabled {{
     border-color: {nord2};
 }}
 
-/* Transport button (play/pause/stop) */
+/* Transport button (play/pause/stop) - Compact */
 .transport-btn {{
-    font-size: 22px;
-    min-width: 44px;
-    min-height: 44px;
+    font-size: 18px;
+    min-width: 28px;
+    min-height: 28px;
     border-radius: 4px;
-    padding: 4px;
+    padding: 2px;
 }}
 
 .transport-btn.play-btn {{
@@ -135,7 +135,7 @@ button:disabled {{
 .control-bar {{
     background-color: {nord1};
     border-top: 1px solid {nord2};
-    padding: 4px 8px;
+    padding: 2px 4px;
 }}
 
 /* Seek bar area */
@@ -156,6 +156,13 @@ label {{
     font-size: 14px;
     text-shadow: 0 0 6px rgba(136, 192, 208, 0.7), 0 0 12px rgba(136, 192, 208, 0.4);
     letter-spacing: 1px;
+}}
+
+.compact-time {{
+    font-size: 11px;
+    color: {nord8};
+    font-family: "DSEG7 Classic", "DSEG7 Modern", "Digital-7", monospace;
+    text-shadow: 0 0 4px rgba(136, 192, 208, 0.8), 0 0 8px rgba(136, 192, 208, 0.5);
 }}
 
 .title-label {{
@@ -353,6 +360,26 @@ messagedialog .titlebar {{
     background-color: rgba(46, 52, 64, 0.85);
     border-radius: 8px;
     padding: 8px 16px;
+}}
+
+/* Compact mode controls */
+.compact-controls {{
+    background-color: {nord1};
+    border-top: 1px solid {nord2};
+    padding: 2px 4px;
+}}
+
+.compact-time {{
+    font-size: 11px;
+    color: {nord8};
+    font-family: "DSEG7 Classic", "DSEG7 Modern", "Digital-7", monospace;
+    text-shadow: 0 0 4px rgba(136, 192, 208, 0.8), 0 0 8px rgba(136, 192, 208, 0.5);
+}}
+
+.compact-controls button {{
+    padding: 2px 6px;
+    min-height: 20px;
+    min-width: 24px;
 }}
 """.format(**NORD)
 

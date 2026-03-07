@@ -25,41 +25,58 @@ THEME_CSS = f"""
 }}
 
 #dock-bg {{
-    background-color: {NORD["nord0"]};
+    background: linear-gradient(to bottom, rgba(52, 59, 73, 0.95), rgba(46, 52, 64, 0.98));
     border-radius: 0 8px 8px 0;
     border-left: none;
-    border-top: 1px solid {NORD["nord3"]};
-    border-right: 1px solid {NORD["nord3"]};
-    border-bottom: 1px solid {NORD["nord3"]};
+    border-top: 1px solid rgba(136, 192, 208, 0.15);
+    border-right: 1px solid rgba(136, 192, 208, 0.15);
+    border-bottom: 1px solid rgba(136, 192, 208, 0.15);
+    box-shadow: inset 0 0 1px rgba(236, 239, 244, 0.1);
 }}
 
 #icons-bg {{
-    background-color: {NORD["nord0"]};
+    background: linear-gradient(to bottom, rgba(52, 59, 73, 0.95), rgba(46, 52, 64, 0.98));
+    border-top: 1px solid rgba(136, 192, 208, 0.2);
+    border-bottom: 1px solid rgba(136, 192, 208, 0.2);
+    border-right: 1px solid rgba(136, 192, 208, 0.15);
+    box-shadow: inset 0 0 1px rgba(236, 239, 244, 0.08);
 }}
 
 /* ===== Grip Tab ===== */
 #grip-tab {{
-    background-color: {NORD["nord1"]};
+    background: linear-gradient(to bottom, rgba(67, 76, 94, 0.95), rgba(59, 66, 82, 0.98));
     border-radius: 0 7px 7px 0;
     min-width: 14px;
     padding: 0;
-    transition: background-color 200ms ease;
+    transition: background 200ms ease;
+    border-top: 1px solid rgba(136, 192, 208, 0.12);
+    border-right: 1px solid rgba(136, 192, 208, 0.12);
+    border-bottom: 1px solid rgba(136, 192, 208, 0.12);
+    box-shadow: inset 0 0 1px rgba(236, 239, 244, 0.08);
 }}
 
 #grip-tab:hover {{
-    background-color: {NORD["nord2"]};
+    background: linear-gradient(to bottom, rgba(76, 86, 106, 0.95), rgba(67, 76, 94, 0.98));
+    border-top: 1px solid rgba(136, 192, 208, 0.2);
+    border-right: 1px solid rgba(136, 192, 208, 0.2);
+    border-bottom: 1px solid rgba(136, 192, 208, 0.2);
 }}
 
 /* ===== Left Grip ===== */
 #left-grip {{
-    background-color: {NORD["nord1"]};
+    background: linear-gradient(to bottom, rgba(67, 76, 94, 0.95), rgba(59, 66, 82, 0.98));
     min-width: 14px;
     padding: 0;
-    transition: background-color 200ms ease;
+    transition: background 200ms ease;
+    border-top: 1px solid rgba(136, 192, 208, 0.12);
+    border-bottom: 1px solid rgba(136, 192, 208, 0.12);
+    box-shadow: inset 0 0 1px rgba(236, 239, 244, 0.08);
 }}
 
 #left-grip:hover {{
-    background-color: {NORD["nord2"]};
+    background: linear-gradient(to bottom, rgba(76, 86, 106, 0.95), rgba(67, 76, 94, 0.98));
+    border-top: 1px solid rgba(136, 192, 208, 0.2);
+    border-bottom: 1px solid rgba(136, 192, 208, 0.2);
 }}
 
 /* ===== Icons Scroll Area ===== */

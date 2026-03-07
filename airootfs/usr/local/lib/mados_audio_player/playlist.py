@@ -546,14 +546,11 @@ def format_time(seconds):
         seconds: Number of seconds.
 
     Returns:
-        Formatted string like '3:45' or '1:02:30'.
+        Formatted string like '003:45' (MMM:SS format).
     """
     if seconds <= 0 or math.isnan(seconds):
-        return "0:00"
+        return "000:00"
     seconds = int(seconds)
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
+    total_minutes = seconds // 60
     secs = seconds % 60
-    if hours > 0:
-        return f"{hours}:{minutes:02d}:{secs:02d}"
-    return f"{minutes}:{secs:02d}"
+    return f"{total_minutes:03d}:{secs:02d}"

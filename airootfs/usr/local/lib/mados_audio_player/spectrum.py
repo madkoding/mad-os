@@ -52,6 +52,8 @@ class SpectrumAnalyzer:
         self._reader_thread = None
         self._running = False
         self._lock = threading.Lock()
+        self._sink_name = "mados_audio_player_sink"
+        self._sink_created = False
 
     def start(self):
         """Start the cava spectrum analyzer subprocess."""
@@ -63,6 +65,7 @@ class SpectrumAnalyzer:
             return
 
         try:
+            self._create_virtual_sink()
             self._setup_fifo()
             self._write_config()
             self._start_cava()
@@ -137,6 +140,85 @@ class SpectrumAnalyzer:
         except Exception:
             return False
 
+    def _create_virtual_sink(self):
+        """Create a virtual sink in PipeWire/PulseAudio for isolated audio capture."""
+        if self._sink_created:
+            return True
+
+        try:
+            # Try PipeWire first
+            result = subprocess.run(
+                [
+                    "pw-cli",
+                    "create-node",
+                    "libpipewire-module-null-sink",
+                    "audio.position=FL,FR",
+                    f"node.name={self._sink_name}",
+                    f"node.description=madOS Audio Player",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=3,
+            )
+            if result.returncode == 0:
+                self._sink_created = True
+                return True
+        except Exception:
+            pass
+
+        # Fallback to PulseAudio
+        try:
+            result = subprocess.run(
+                [
+                    "pactl",
+                    "load-module",
+                    "module-null-sink",
+                    f"sink_name={self._sink_name}",
+                    "sink_properties=device.description=madOS_Audio_Player",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=3,
+            )
+            if result.returncode == 0:
+                self._sink_created = True
+                return True
+        except Exception:
+            pass
+
+        return False
+
+    def _remove_virtual_sink(self):
+        """Remove the virtual sink."""
+        if not self._sink_created:
+            return
+
+        try:
+            # Try PipeWire
+            result = subprocess.run(
+                ["pw-cli", "destroy-node", self._sink_name],
+                capture_output=True,
+                timeout=3,
+            )
+            if result.returncode == 0:
+                self._sink_created = False
+                return
+        except Exception:
+            pass
+
+        # Fallback to PulseAudio
+        try:
+            result = subprocess.run(
+                ["pactl", "unload-module", self._sink_name],
+                capture_output=True,
+                text=True,
+                timeout=3,
+            )
+            if result.returncode == 0:
+                self._sink_created = False
+        except Exception:
+            pass
+
     def _setup_fifo(self):
         """Create a named pipe (FIFO) for cava output."""
         tmp_dir = tempfile.mkdtemp(prefix="mados-spectrum-")
@@ -164,10 +246,17 @@ class SpectrumAnalyzer:
         # Fallback to ALSA
         return "alsa"
 
+    def _get_sink_monitor(self):
+        """Get the monitor source name for the virtual sink."""
+        return f"{self._sink_name}.monitor"
+
     def _write_config(self):
         """Write cava configuration for raw output mode."""
+        if not self._fifo_path:
+            return
         self._config_path = os.path.join(os.path.dirname(self._fifo_path), "cava.conf")
         audio_method = self._detect_audio_method()
+        source = self._get_sink_monitor()
         config = f"""
 [general]
 bars = {self.num_bars}
@@ -179,7 +268,7 @@ higher_cutoff_freq = 16000
 
 [input]
 method = {audio_method}
-source = auto
+source = {source}
 
 [output]
 method = raw
@@ -231,4 +320,5 @@ channels = mono
 
     def cleanup(self):
         """Full cleanup — alias for stop()."""
+        self._remove_virtual_sink()
         self.stop()

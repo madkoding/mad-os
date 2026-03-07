@@ -55,7 +55,13 @@ class VideoPlayer(Gtk.Box):
 
     Contains a video display area, play/pause button, seek slider,
     time label, and volume control.
+
+    Supports compact mode when the player size is below a threshold,
+    displaying a hamburger menu instead of full controls.
     """
+
+    COMPACT_WIDTH = 400
+    COMPACT_HEIGHT = 250
 
     def __init__(self):
         """Initialize the video player widget."""
@@ -66,6 +72,7 @@ class VideoPlayer(Gtk.Box):
         self._duration = -1
         self._seeking = False
         self._update_id = None
+        self._compact_mode = False
 
         # Video display area
         self._video_area = Gtk.DrawingArea()
@@ -76,7 +83,50 @@ class VideoPlayer(Gtk.Box):
         self._video_area.connect("draw", self._on_video_draw)
         self.pack_start(self._video_area, True, True, 0)
 
-        # Controls bar
+        # Controls bar container
+        self._controls_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.pack_start(self._controls_container, False, False, 0)
+
+        # Build controls (will be rebuilt on size change)
+        self._controls_bar = None
+        self._menu_btn = None
+        self._menu_popover = None
+        self._play_btn = None
+        self._stop_btn = None
+        self._time_label = None
+        self._duration_label = None
+        self._seek_scale = None
+        self._volume_scale = None
+
+        self._build_controls()
+
+        # Connect to size-allocate to detect compact mode
+        self.connect("size-allocate", self._on_size_allocate)
+
+        # GStreamer pipeline
+        self._pipeline = None
+        self._bus = None
+        self._xid = None
+
+        if GST_AVAILABLE:
+            self._setup_pipeline()
+
+    def _build_controls(self):
+        """Build the control bar based on current mode."""
+        if self._controls_bar is not None:
+            self._controls_container.remove(self._controls_bar)
+        if self._menu_btn is not None:
+            self._controls_container.remove(self._menu_btn)
+
+        if self._compact_mode:
+            self._build_compact_controls()
+        else:
+            self._build_full_controls()
+
+        self._controls_container.show_all()
+
+    def _build_full_controls(self):
+        """Build the full control bar with all buttons visible."""
         controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         controls.get_style_context().add_class("video-controls")
 
@@ -123,15 +173,117 @@ class VideoPlayer(Gtk.Box):
         self._volume_scale.connect("value-changed", self._on_volume_changed)
         controls.pack_start(self._volume_scale, False, False, 0)
 
-        self.pack_start(controls, False, False, 0)
+        self._controls_bar = controls
+        self._controls_container.pack_start(controls, True, True, 0)
 
-        # GStreamer pipeline
-        self._pipeline = None
-        self._bus = None
-        self._xid = None
+    def _build_compact_controls(self):
+        """Build compact control bar with hamburger menu."""
+        menu_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
 
-        if GST_AVAILABLE:
-            self._setup_pipeline()
+        # Hamburger menu button
+        hamburger_btn = Gtk.Button()
+        hamburger_btn.set_image(Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON))
+        hamburger_btn.set_tooltip_text("Menu")
+        hamburger_btn.connect("clicked", self._on_menu_clicked)
+        menu_box.pack_start(hamburger_btn, False, False, 0)
+
+        # Video title/filename in compact mode
+        if self._filepath:
+            import os
+            filename = os.path.basename(self._filepath)
+            title_label = Gtk.Label(label=filename)
+            title_label.set_ellipsize(3)
+            title_label.set_hexpand(True)
+            title_label.set_margin_start(4)
+            title_label.set_margin_end(4)
+            menu_box.pack_start(title_label, True, True, 0)
+
+        # Mini play/pause button in compact mode
+        self._play_btn = Gtk.Button(label="\u25b6")
+        self._play_btn.set_tooltip_text("Play")
+        self._play_btn.connect("clicked", self._on_play_clicked)
+        menu_box.pack_start(self._play_btn, False, False, 0)
+
+        self._controls_container.pack_start(menu_box, True, True, 0)
+
+        # Seek slider in compact mode
+        compact_controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+
+        self._time_label = Gtk.Label(label="00:00")
+        self._time_label.get_style_context().add_class("compact-time")
+        self._time_label.set_width_chars(5)
+        compact_controls.pack_start(self._time_label, False, False, 0)
+
+        self._seek_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
+        self._seek_scale.set_draw_value(False)
+        self._seek_scale.set_hexpand(True)
+        self._seek_scale.connect("button-press-event", self._on_seek_press)
+        self._seek_scale.connect("button-release-event", self._on_seek_release)
+        self._seek_scale.connect("value-changed", self._on_seek_changed)
+        compact_controls.pack_start(self._seek_scale, True, True, 0)
+
+        self._duration_label = Gtk.Label(label="00:00")
+        self._duration_label.get_style_context().add_class("compact-time")
+        self._duration_label.set_width_chars(5)
+        compact_controls.pack_start(self._duration_label, False, False, 0)
+
+        self._controls_bar = compact_controls
+        self._controls_container.pack_start(compact_controls, True, True, 0)
+
+    def _build_menu_popover(self):
+        """Build the popover menu for compact mode."""
+        popover = Gtk.Popover()
+        popover.set_relative_to(self._menu_btn)
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        vbox.set_margin_start(8)
+        vbox.set_margin_end(8)
+        vbox.set_margin_top(8)
+        vbox.set_margin_bottom(8)
+
+        # Stop button
+        stop_btn = Gtk.Button(label="Stop")
+        stop_btn.connect("clicked", self._on_stop_clicked)
+        vbox.pack_start(stop_btn, False, False, 0)
+
+        # Volume control in menu
+        volume_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        vol_label = Gtk.Label(label="Vol:")
+        volume_box.pack_start(vol_label, False, False, 0)
+
+        self._volume_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
+        self._volume_scale.set_draw_value(False)
+        self._volume_scale.set_value(80)
+        self._volume_scale.set_size_request(80, -1)
+        self._volume_scale.connect("value-changed", self._on_volume_changed)
+        volume_box.pack_start(self._volume_scale, True, True, 0)
+
+        vbox.pack_start(volume_box, False, False, 0)
+
+        popover.add(vbox)
+        self._menu_popover = popover
+
+    def _on_menu_clicked(self, button):
+        """Show/hide the hamburger menu popover."""
+        if self._menu_popover is None:
+            self._build_menu_popover()
+        
+        if self._menu_popover.is_visible():
+            self._menu_popover.hide()
+        else:
+            self._menu_popover.show_all()
+            self._menu_popover.popup()
+
+    def _on_size_allocate(self, widget, allocation):
+        """Detect compact mode based on player size."""
+        width = allocation.width
+        height = allocation.height
+
+        was_compact = self._compact_mode
+        self._compact_mode = width < self.COMPACT_WIDTH or height < self.COMPACT_HEIGHT
+
+        if self._compact_mode != was_compact:
+            self._build_controls()
 
     def _setup_pipeline(self):
         """Create the GStreamer playbin pipeline."""
