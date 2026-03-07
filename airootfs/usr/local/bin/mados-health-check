@@ -1,0 +1,297 @@
+#!/bin/bash
+# madOS Health Check Script
+# Verifies system health after installation and first-boot setup
+
+set -e
+
+BOLD='\033[1m'
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+PASSED=0
+WARNINGS=0
+FAILED=0
+
+print_header() {
+    echo -e "\n${BOLD}${BLUE}===========================================================${NC}"
+    echo -e "${BOLD}$1${NC}"
+    echo -e "${BOLD}${BLUE}===========================================================${NC}\n"
+}
+
+print_check() {
+    local name="$1"
+    local status="$2"
+    local message="${3:-}"
+    
+    case "$status" in
+        "pass")
+            echo -e "  ${GREEN}✓${NC} $name"
+            ((PASSED++))
+            ;;
+        "warn")
+            echo -e "  ${YELLOW}⚠${NC} $name"
+            if [[ -n "$message" ]]; then
+                echo -e "    ${YELLOW}└─ $message${NC}"
+            fi
+            ((WARNINGS++))
+            ;;
+        "fail")
+            echo -e "  ${RED}✗${NC} $name"
+            if [[ -n "$message" ]]; then
+                echo -e "    ${RED}└─ $message${NC}"
+            fi
+            ((FAILED++))
+            ;;
+    esac
+}
+
+check_services() {
+    print_header "System Services"
+    
+    local services=(
+        "NetworkManager"
+        "systemd-resolved"
+        "greetd"
+        "bluetooth"
+        "earlyoom"
+        "zram"
+    )
+    
+    for service in "${services[@]}"; do
+        if systemctl is-active --quiet "$service" 2>/dev/null; then
+            print_check "$service" "pass"
+        elif systemctl is-enabled --quiet "$service" 2>/dev/null; then
+            print_check "$service" "warn" "Service is enabled but not running"
+        else
+            print_check "$service" "fail" "Service is not enabled"
+        fi
+    done
+}
+
+check_disk_space() {
+    print_header "Disk Space"
+    
+    local root_usage
+    root_usage=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
+    
+    if [[ "$root_usage" -lt 70 ]]; then
+        print_check "Root partition usage (${root_usage}%)" "pass"
+    elif [[ "$root_usage" -lt 85 ]]; then
+        print_check "Root partition usage (${root_usage}%)" "warn" "Consider cleaning up disk space"
+    else
+        print_check "Root partition usage (${root_usage}%)" "fail" "Critical: Low disk space"
+    fi
+    
+    if mountpoint -q /home 2>/dev/null; then
+        local home_usage
+        home_usage=$(df /home | tail -1 | awk '{print $5}' | sed 's/%//')
+        if [[ "$home_usage" -lt 70 ]]; then
+            print_check "Home partition usage (${home_usage}%)" "pass"
+        elif [[ "$home_usage" -lt 85 ]]; then
+            print_check "Home partition usage (${home_usage}%)" "warn" "Consider cleaning up disk space"
+        else
+            print_check "Home partition usage (${home_usage}%)" "fail" "Critical: Low disk space"
+        fi
+    fi
+}
+
+check_zram() {
+    print_header "ZRAM Configuration"
+    
+    if [[ -b /dev/zram0 ]]; then
+        print_check "ZRAM device exists" "pass"
+        
+        local zram_size
+        zram_size=$(zramctl /dev/zram0 --noheadings --output DISKSIZE 2>/dev/null || echo "0")
+        print_check "ZRAM size: $zram_size" "pass"
+        
+        local zram_algo
+        zram_algo=$(zramctl /dev/zram0 --noheadings --output ALGORITHM 2>/dev/null || echo "unknown")
+        print_check "ZRAM algorithm: $zram_algo" "pass"
+    else
+        print_check "ZRAM device" "fail" "ZRAM not configured"
+    fi
+    
+    if [[ -f /etc/systemd/zram-generator.conf ]]; then
+        print_check "zram-generator config" "pass"
+    else
+        print_check "zram-generator config" "warn" "Configuration file missing"
+    fi
+}
+
+check_network() {
+    print_header "Network Configuration"
+    
+    if nmcli general status &>/dev/null; then
+        local nm_state
+        nm_state=$(nmcli general status | tail -1 | awk '{print $1}')
+        if [[ "$nm_state" == "connected" ]] || [[ "$nm_state" == "connecting" ]]; then
+            print_check "NetworkManager state: $nm_state" "pass"
+        else
+            print_check "NetworkManager state: $nm_state" "warn" "Network not fully connected"
+        fi
+    else
+        print_check "NetworkManager" "fail" "Not running or not installed"
+    fi
+    
+    if ping -c1 -W2 archlinux.org &>/dev/null; then
+        print_check "DNS resolution" "pass"
+    else
+        print_check "DNS resolution" "fail" "Unable to resolve external hosts"
+    fi
+    
+    if grep -q "iwd" /etc/NetworkManager/conf.d/wifi-backend.conf 2>/dev/null; then
+        print_check "iwd Wi-Fi backend" "pass"
+    else
+        print_check "iwd Wi-Fi backend" "warn" "Using default wpa_supplicant"
+    fi
+}
+
+check_gpu() {
+    print_header "GPU Detection"
+    
+    if lspci | grep -qi "vga\|3d\|display" ; then
+        local gpu_name
+        gpu_name=$(lspci | grep -i "vga\|3d\|display" | head -1 | cut -d':' -f3-)
+        print_check "GPU detected: $gpu_name" "pass"
+        
+        if lspci | grep -qi "intel"; then
+            if lsmod | grep -q "i915"; then
+                print_check "Intel GPU driver (i915)" "pass"
+            else
+                print_check "Intel GPU driver" "warn" "i915 module not loaded"
+            fi
+        fi
+        
+        if lspci | grep -qi "amd\|ati"; then
+            if lsmod | grep -q "amdgpu\|radeon"; then
+                print_check "AMD GPU driver" "pass"
+            else
+                print_check "AMD GPU driver" "warn" "AMDGPU/Radeon module not loaded"
+            fi
+        fi
+        
+        if lspci | grep -qi "nvidia"; then
+            if lsmod | grep -q "nvidia"; then
+                print_check "NVIDIA GPU driver" "pass"
+            else
+                print_check "NVIDIA GPU driver" "warn" "NVIDIA module not loaded (may need proprietary drivers)"
+            fi
+        fi
+    else
+        print_check "GPU Hardware" "warn" "No discrete GPU detected (using integrated graphics?)"
+    fi
+    
+    if command -v glxinfo &>/dev/null; then
+        if glxinfo | grep -q "OpenGL renderer"; then
+            local renderer
+            renderer=$(glxinfo | grep "OpenGL renderer" | cut -d':' -f2)
+            print_check "OpenGL renderer:$renderer" "pass"
+        else
+            print_check "OpenGL acceleration" "warn" "Unable to detect OpenGL renderer"
+        fi
+    else
+        print_check "OpenGL tools" "warn" "mesa-utils not installed"
+    fi
+}
+
+check_user_config() {
+    print_header "User Configuration"
+    
+    if groups "$(logname)" | grep -q "wheel"; then
+        print_check "User in wheel group" "pass"
+    else
+        print_check "User in wheel group" "fail" "User cannot use sudo"
+    fi
+    
+    local user_shell
+    user_shell=$(getent passwd "$(logname)" | cut -d: -f7)
+    if [[ "$user_shell" == *"/zsh" ]] || [[ "$user_shell" == *"/bash" ]]; then
+        print_check "User shell: $(basename "$user_shell")" "pass"
+    else
+        print_check "User shell" "warn" "Using non-standard shell: $user_shell"
+    fi
+    
+    if [[ -d /home/"$(logname)"/.oh-my-zsh ]]; then
+        print_check "Oh My Zsh installed" "pass"
+    else
+        print_check "Oh My Zsh" "warn" "Not installed"
+    fi
+}
+
+check_desktop() {
+    print_header "Desktop Environment"
+    
+    if command -v sway &>/dev/null; then
+        print_check "Sway compositor" "pass"
+    else
+        print_check "Sway compositor" "warn" "Not installed"
+    fi
+    
+    if command -v hyprland &>/dev/null; then
+        print_check "Hyprland compositor" "pass"
+    else
+        print_check "Hyprland compositor" "warn" "Not installed"
+    fi
+    
+    if systemctl is-active --quiet greetd 2>/dev/null; then
+        print_check "greetd display manager" "pass"
+    else
+        print_check "greetd display manager" "fail" "Not running"
+    fi
+    
+    if [[ -d /usr/share/plymouth/themes/mados ]]; then
+        print_check "madOS Plymouth theme" "pass"
+    else
+        print_check "Plymouth theme" "warn" "madOS theme not found"
+    fi
+}
+
+print_summary() {
+    print_header "Health Check Summary"
+    
+    echo -e "  ${GREEN}Passed:${NC}   $PASSED"
+    echo -e "  ${YELLOW}Warnings:${NC} $WARNINGS"
+    echo -e "  ${RED}Failed:${NC}   $FAILED"
+    echo ""
+    
+    local total=$((PASSED + WARNINGS + FAILED))
+    local score=$((PASSED * 100 / total))
+    
+    if [[ $FAILED -eq 0 ]] && [[ $WARNINGS -eq 0 ]]; then
+        echo -e "  ${BOLD}${GREEN}System health is excellent!${NC}"
+    elif [[ $FAILED -eq 0 ]]; then
+        echo -e "  ${BOLD}${YELLOW}System is healthy with minor warnings.${NC}"
+    else
+        echo -e "  ${BOLD}${RED}System has critical issues that need attention.${NC}"
+    fi
+    
+    echo ""
+    echo -e "  Health Score: ${BOLD}${score}%${NC}"
+    echo ""
+}
+
+main() {
+    echo -e "${BOLD}madOS Health Check${NC}"
+    echo "Checking system health and configuration..."
+    
+    check_services
+    check_disk_space
+    check_zram
+    check_network
+    check_gpu
+    check_user_config
+    check_desktop
+    
+    print_summary
+    
+    if [[ $FAILED -gt 0 ]]; then
+        exit 1
+    fi
+    exit 0
+}
+
+main "$@"
