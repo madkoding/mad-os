@@ -17,6 +17,7 @@ from .utils import random_suffix, show_error
 from .pages import (
     create_welcome_page,
     create_wifi_page,
+    create_provisioning_page,
     create_disk_page,
     create_partitioning_page,
     create_user_page,
@@ -124,6 +125,7 @@ class MadOSInstaller(Gtk.Window):
         """Create all installer pages in order"""
         create_welcome_page(self)
         create_wifi_page(self)
+        create_provisioning_page(self, self.content_box)
         create_disk_page(self)
         create_partitioning_page(self)
         create_user_page(self)
