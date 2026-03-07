@@ -283,16 +283,37 @@ jobs:
     runs-on: ubuntu-latest
     needs: auto-tag
     if: startsWith(github.ref, 'refs/tags/') && always() && !cancelled() && (needs.auto-tag.result == 'success' || needs.auto-tag.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [standard, minimal, developer, media]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Select package profile
+        id: profile
+        run: |
+          PROFILE="${{ matrix.profile }}"
+          echo "profile=$PROFILE" >> $GITHUB_OUTPUT
+          
+          # Create symlink to use selected profile
+          rm -f packages.x86_64
+          if [ -f "packages-${PROFILE}.x86_64" ]; then
+            cp "packages-${PROFILE}.x86_64" packages.x86_64
+            echo "Using ${PROFILE} profile"
+          else
+            echo "ERROR: Profile ${PROFILE} not found"
+            exit 1
+          fi
+
       - name: Build ISO
         id: build
         run: |
           WORKSPACE="${{ github.workspace }}"
+          PROFILE="${{ steps.profile.outputs.profile }}"
           
           rm -rf out/ 2>/dev/null || true
           mkdir -p out
@@ -321,13 +342,13 @@ jobs:
           
           sha256sum out/*.iso > out/SHA256SUMS || true
           
-          # Rename ISO to use version for predictable naming
+          # Rename ISO to include profile name
           VERSION="${{ needs.auto-tag.outputs.version }}"
           [ -n "$VERSION" ] || VERSION="${GITHUB_REF_NAME#v}"
           [ -n "$VERSION" ] || VERSION="dev-$(date +%Y%m%d)"
           
           ISO_FILE=$(ls out/*.iso | head -1)
-          NEW_ISO_NAME="madOS-${VERSION}-x86_64.iso"
+          NEW_ISO_NAME="madOS-${VERSION}-${PROFILE}-x86_64.iso"
           mv "$ISO_FILE" "out/${NEW_ISO_NAME}"
           
           # Update SHA256SUMS with new name
@@ -341,6 +362,7 @@ jobs:
           
           echo "iso_name=$ISO_NAME" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "profile=$PROFILE" >> $GITHUB_OUTPUT
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
           echo "iso_size_mb=$ISO_SIZE_MB" >> $GITHUB_OUTPUT
           echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
@@ -382,14 +404,15 @@ jobs:
           
           ISO_NAME=$(basename "$ISO_FILE")
           VERSION="${{ needs.auto-tag.outputs.version }}"
+          PROFILE="${{ steps.build.outputs.profile }}"
           BUILD_DATE="${{ steps.build.outputs.build_date }}"
           RELEASE_TYPE="${{ needs.auto-tag.outputs.release_type }}"
 
-          # Set identifier based on release type
+          # Set identifier based on release type and profile
           if [[ "$RELEASE_TYPE" == "stable" ]]; then
-            IDENTIFIER="mados-stable"
+            IDENTIFIER="mados-stable-${PROFILE}"
           else
-            IDENTIFIER="mados-beta"
+            IDENTIFIER="mados-beta-${PROFILE}"
           fi
 
           echo "Uploading ${ISO_NAME} to ${IDENTIFIER}"
@@ -402,11 +425,11 @@ jobs:
             -H "Authorization: LOW ${IAS3_ACCESS_KEY}:${IAS3_SECRET_KEY}" \
             -H "x-amz-acl: public-read" \
             -H "x-archive-auto-make-bucket:1" \
-            -H "x-archive-meta-title:madOS ${RELEASE_TYPE^}" \
+            -H "x-archive-meta-title:madOS ${RELEASE_TYPE^} (${PROFILE^} Edition)" \
             -H "x-archive-meta-mediatype:software" \
             -H "x-archive-meta-collection:opensource" \
-            -H "x-archive-meta-description:madOS - AI-Orchestrated Arch Linux Live ISO" \
-            -H "x-archive-meta-subject:linux;arch;live-iso;open-source" \
+            -H "x-archive-meta-description:madOS ${PROFILE^} Edition - AI-Orchestrated Arch Linux Live ISO" \
+            -H "x-archive-meta-subject:linux;arch;live-iso;open-source;${PROFILE}" \
             -H "x-archive-meta-creator:madOS Project" \
             -H "x-archive-meta-date:${BUILD_DATE}" \
             --upload-file "$ISO_FILE" \
@@ -437,6 +460,7 @@ jobs:
     outputs:
       iso_name: ${{ steps.build.outputs.iso_name }}
       version: ${{ steps.build.outputs.version }}
+      profile: ${{ steps.build.outputs.profile }}
       build_date: ${{ steps.build.outputs.build_date }}
       iso_size_mb: ${{ steps.build.outputs.iso_size_mb }}
       short_sha: ${{ steps.build.outputs.short_sha }}

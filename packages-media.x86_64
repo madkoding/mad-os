@@ -1,0 +1,333 @@
+# madOS Media Profile
+# Multimedia production and content creation
+# Target: ~4GB ISO
+
+# Include all standard packages
+base
+linux
+linux-firmware
+mkinitcpio-archiso
+intel-ucode
+amd-ucode
+grub
+efibootmgr
+os-prober
+sbctl
+syslinux
+sudo
+zsh
+
+# Compositores Wayland (Hyprland para hardware moderno, Sway para software rendering)
+hyprland
+sway
+swaybg
+swayidle
+swaylock
+swww
+waybar
+wofi
+mako
+xorg-xwayland
+xdg-desktop-portal-hyprland
+
+# Aplicaciones principales
+foot
+firefox
+vim
+nano
+pcmanfm
+gvfs
+tumbler
+ffmpegthumbnailer
+lxappearance
+plymouth
+
+# Herramientas de desarrollo
+git
+openssh
+sqlite
+python
+python-gobject
+python-cairo
+python-pillow
+gtk3
+gtk-layer-shell
+gdk-pixbuf2
+xdg-desktop-portal-gtk
+
+# Multimedia - Edición de Video
+kdenlive
+shotcut
+obs-studio
+ffmpeg
+ffmpegthumbnailer
+mkvtoolnix-cli
+handbrake
+mediainfo
+vlc
+
+# Multimedia - Edición de Audio
+audacity
+ardour
+lmms
+hydrogen
+qsynth
+qjackctl
+carla
+helm
+surge-synthesizer
+lxvst
+ calf
+aether
+x42-plugins
+
+# Multimedia - Edición de Imagen
+gimp
+inkscape
+krita
+mypaint
+darktable
+rawtherapee
+digiKam
+photoflare
+color-profiles
+openshot
+blender
+
+# Multimedia - Codecs completos
+gst-plugins-base
+gst-plugins-good
+gst-plugins-ugly
+gst-plugins-bad
+gst-libav
+gst-python
+gst-plugin-gtk
+gstreamer
+lame
+flac
+vorbis-tools
+opus-tools
+faac
+faad2
+x264
+x265
+libdvdcss
+libdvdread
+libdvdnav
+aom
+dav1d
+svt-av1
+vmaf
+ffmpeg-nvenc
+vaapi-intel-gpu
+intel-media-sdk
+libva-utils
+vdpauinfo
+libvdpau-va-gl
+
+# Multimedia - Herramientas profesionales
+darktable
+rawtherapee
+digiKam
+showfoto
+photoflare
+kolourpaint
+pinta
+nomacs
+gThumb
+geeqie
+xviewer
+ristretto
+
+# Audio profesional
+alsa-utils
+pavucontrol
+pulseaudio-utils
+pulseaudio-bluetooth
+pulseaudio-alsa
+pulseaudio-zeroconf
+qpwgraph
+helvum
+patchage
+catia
+claudia
+cadence
+
+# Fuentes para diseño
+ttf-jetbrains-mono-nerd
+ttf-fira-code
+ttf-hack-nerd
+otf-font-awesome
+ttf-dejavu
+gnu-free-fonts
+liberation-fonts
+noto-fonts
+noto-fonts-emoji
+noto-fonts-cjk
+noto-fonts-extra
+adobe-source-fonts
+
+# Scanners y OCR
+simple-scan
+sane
+tesseract
+tesseract-data-eng
+tesseract-data-spa
+gocr
+ocrfeeder
+
+# Impresión
+cups
+cups-pdf
+system-config-printer
+gutenprint
+foomatic
+cups-browsed
+
+# Color management
+dispcalgui
+argyllcms
+icc-profiles-free
+
+# Directorios XDG de usuario
+xdg-user-dirs
+
+# Utilidades del sistema
+htop
+wget
+curl
+jq
+socat
+networkmanager
+iwd
+wireless_tools
+rsync
+
+# Screenshots Wayland
+grim
+slurp
+wl-clipboard
+xdg-desktop-portal-wlr
+brightnessctl
+swappy
+slurp
+
+# Optimizaciones RAM
+earlyoom
+zram-generator
+
+# Drivers de video (multi-GPU)
+intel-media-driver
+vulkan-intel
+libva-intel-driver
+xf86-video-amdgpu
+vulkan-radeon
+xf86-video-nouveau
+mesa
+mesa-utils
+
+# Bluetooth
+bluez
+bluez-utils
+blueman
+
+# WiFi/Bluetooth tray applets
+network-manager-applet
+
+# Audio
+pipewire
+pipewire-pulse
+pipewire-alsa
+wireplumber
+alsa-utils
+pavucontrol
+flac
+
+# Reproductores multimedia
+mpv
+cava
+smplayer
+qmmp
+audacious
+
+# Build tools
+make
+pkgconf
+
+# Información del sistema
+fastfetch
+
+# Herramientas de instalación
+arch-install-scripts
+gptfdisk
+parted
+
+# Utilidades de red
+dhcpcd
+wpa_supplicant
+
+# Sistema de archivos
+dosfstools
+e2fsprogs
+ntfs-3g
+unzip
+p7zip
+
+# Soporte VM
+virtualbox-guest-utils
+open-vm-tools
+
+# Login manager
+greetd
+greetd-regreet
+cage
+
+# Gamepad/Steam Deck support
+python-evdev
+
+# On-screen virtual keyboard
+squeekboard
+
+# madOS PDF Viewer
+poppler-glib
+poppler-data
+
+# Captura de pantalla y video
+obs-studio
+simple-scan
+gnome-screenshot
+flameshot
+
+# Streaming
+obs-studio
+obs-ascii-filter
+obs-gstreamer
+obs-vkcapture
+obs-helvum
+
+# Conversión de formatos
+pandoc
+unar
+unoconv
+calibre
+ebook-tools
+
+# Subtítulos
+subtitleeditor
+gaupol
+subdownloader
+
+# Metadata editing
+kid3
+picard
+kid
+exiv2
+exiftool
+
+# Torrent y descargas
+transmission-gtk
+qbittorrent
+aria2
+wget2
+
+<!--
