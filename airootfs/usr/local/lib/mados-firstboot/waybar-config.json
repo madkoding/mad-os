@@ -1,0 +1,8 @@
+{
+    "firstboot-progress": {
+        "interval": 5,
+        "exec": "/usr/local/lib/mados-firstboot/waybar-widget.py",
+        "tooltip": true,
+        "return-type": "json"
+    }
+}
