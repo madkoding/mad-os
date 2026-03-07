@@ -135,7 +135,7 @@ jobs:
   # Stage 2: Validation (only on push to main/develop after tests pass)
   # ================================================================
   validate:
-    name: "Validate: ${{ matrix.component }}"
+    name: "Validate: ${{ matrix.component.name }}"
     runs-on: ubuntu-latest
     needs: [test-unit, test-integration]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
@@ -144,10 +144,13 @@ jobs:
       matrix:
         component:
           - name: "Python Modules"
+            description: "Validates Python syntax and imports"
             script: "tests/test-installer-python-validation.sh"
           - name: "Config Generation"
+            description: "Tests chroot config script generation"
             script: "tests/test-installer-config-generation.sh"
           - name: "Disk Installation"
+            description: "Full disk install & verification"
             script: "tests/test-installer-disk-install.sh"
 
     steps:
