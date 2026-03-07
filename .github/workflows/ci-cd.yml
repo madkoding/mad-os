@@ -101,6 +101,7 @@ jobs:
         run: |
           for file in ${{ matrix.files }}; do
             if [ -f "$file" ]; then
+              export PYTHONPATH="/home/runner/work/mad-os/mad-os/airootfs/usr/local/lib:$PYTHONPATH"
               python3 -m pytest "$file" -v
             fi
           done
