@@ -15,6 +15,10 @@ class TestConfigScriptStructure(unittest.TestCase):
 
     def setUp(self):
         """Load the configuration script content from modules."""
+        import sys
+        sys.modules['gi'] = MagicMock()
+        sys.modules['gi.repository'] = MagicMock()
+        
         from mados_installer.modules.config_generator import build_config_script
         from mados_installer.config import LOCALE_MAP, TIMEZONES
         
@@ -56,6 +60,11 @@ class TestConfigScriptStructure(unittest.TestCase):
 class TestPartitioningModule(unittest.TestCase):
     """Test the partitioning module."""
 
+    def setUp(self):
+        import sys
+        sys.modules['gi'] = MagicMock()
+        sys.modules['gi.repository'] = MagicMock()
+
     def test_get_partition_prefix_for_sda(self):
         """get_partition_prefix should return /dev/sda for sda"""
         from mados_installer.modules.partitioning import get_partition_prefix
@@ -80,6 +89,11 @@ class TestPartitioningModule(unittest.TestCase):
 
 class TestFileCopierModule(unittest.TestCase):
     """Test the file copier module."""
+
+    def setUp(self):
+        import sys
+        sys.modules['gi'] = MagicMock()
+        sys.modules['gi.repository'] = MagicMock()
 
     def test_ensure_kernel_in_target_exists(self):
         """ensure_kernel_in_target should handle existing kernel"""
@@ -108,6 +122,11 @@ class TestFileCopierModule(unittest.TestCase):
 
 class TestPackagesModule(unittest.TestCase):
     """Test the packages module."""
+
+    def setUp(self):
+        import sys
+        sys.modules['gi'] = MagicMock()
+        sys.modules['gi.repository'] = MagicMock()
 
     def test_prepare_pacman_exists(self):
         """prepare_pacman function should exist"""
