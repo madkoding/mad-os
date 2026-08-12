@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "release_date": "2025-01-15",
+  "system": {
+    "version": "1.0.0",
+    "arch": "x86_64",
+    "base": "Arch Linux",
+    "kernel": "linux-zen"
+  },
+  "apps": {
+    "mados-installer": "1.0.0",
+    "mados-audio-player": "1.0.0",
+    "mados-video-player": "1.0.0",
+    "mados-photo-viewer": "1.0.0",
+    "mados-pdf-viewer": "1.0.0",
+    "mados-launcher": "1.0.0",
+    "mados-equalizer": "1.0.0"
+  },
+  "update_channel": "stable",
+  "last_check": null,
+  "auto_update": false
+}

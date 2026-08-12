@@ -10,16 +10,27 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+try:
+    from packaging import version as pkg_version
+    HAS_PACKAGING = True
+except ImportError:
+    HAS_PACKAGING = False
+
 
 GITHUB_API_URL = "https://api.github.com"
-GITHUB_REPO = "madoslinux/mad-os"
+# Allow repository to be configured via environment or config file
+GITHUB_REPO = os.environ.get("MADOS_UPDATE_REPO", "madoslinux/mad-os")
 BACKUP_DIR = Path("/var/backup/mados")
 TEMP_DIR = Path("/tmp/mados-update")
+HTTP_TIMEOUT = 30  # seconds
+MAX_RETRIES = 3
+RETRY_DELAY = 5  # seconds
 
 
 @dataclass
@@ -60,22 +71,24 @@ class Downloader:
         Returns:
             ReleaseInfo if found, None otherwise
         """
-        if channel == "stable":
-            tags_url = f"{GITHUB_API_URL}/repos/{self.repo}/releases"
-        else:
-            tags_url = f"{GITHUB_API_URL}/repos/{self.repo}/tags"
-
+        # Use consistent endpoint for both channels
+        releases_url = f"{GITHUB_API_URL}/repos/{self.repo}/releases"
+        
         try:
-            with urllib.request.urlopen(tags_url) as response:
+            with urllib.request.urlopen(releases_url, timeout=HTTP_TIMEOUT) as response:
                 data = json.loads(response.read().decode())
 
+            # Filter releases based on channel
+            releases = [r for r in data if not r.get("draft", False)]
+            
             if channel == "stable":
-                releases = [r for r in data if not r.get("draft", False)]
-                if not releases:
-                    return None
-                release = releases[0]
-            else:
-                release = data[0] if data else None
+                # Only include non-prerelease versions for stable
+                releases = [r for r in releases if not r.get("prerelease", False)]
+            
+            if not releases:
+                return None
+            
+            release = releases[0]
 
             if not release:
                 return None
@@ -95,9 +108,12 @@ class Downloader:
                     version_json_url = url
                 elif name.endswith((".tar.gz", ".zip")):
                     download_urls[name] = url
+                elif name.endswith(".sha256"):
+                    # Download checksum file
+                    checksums = self._parse_checksum_file(url)
 
             if version_json_url:
-                with urllib.request.urlopen(version_json_url) as response:
+                with urllib.request.urlopen(version_json_url, timeout=HTTP_TIMEOUT) as response:
                     version_json = json.loads(response.read().decode())
             else:
                 version_json = {}
@@ -114,8 +130,34 @@ class Downloader:
             print(f"Error fetching release: {e}", file=sys.stderr)
             return None
 
+    @staticmethod
+    def _parse_checksum_file(url: str) -> dict[str, str]:
+        """Parse a SHA256 checksum file from URL.
+        
+        Args:
+            url: URL to checksum file
+            
+        Returns:
+            Dictionary mapping filenames to their checksums
+        """
+        checksums = {}
+        try:
+            with urllib.request.urlopen(url, timeout=HTTP_TIMEOUT) as response:
+                content = response.read().decode()
+            
+            for line in content.strip().split("\n"):
+                parts = line.split()
+                if len(parts) >= 2:
+                    hash_value = parts[0]
+                    filename = parts[-1].lstrip("*").lstrip("./")
+                    checksums[filename] = hash_value
+        except Exception as e:
+            print(f"Warning: Could not parse checksum file: {e}", file=sys.stderr)
+        
+        return checksums
+
     def download_file(self, url: str, dest: Path, expected_hash: str | None = None) -> bool:
-        """Download a file from URL.
+        """Download a file from URL with retry support.
 
         Args:
             url: Download URL
@@ -125,25 +167,35 @@ class Downloader:
         Returns:
             True if successful, False otherwise
         """
-        try:
-            print(f"Downloading {dest.name}...")
-            urllib.request.urlretrieve(url, dest)
+        for attempt in range(MAX_RETRIES):
+            try:
+                print(f"Downloading {dest.name}... (attempt {attempt + 1}/{MAX_RETRIES})")
+                urllib.request.urlretrieve(url, dest, timeout=HTTP_TIMEOUT)
 
-            if expected_hash:
-                actual_hash = self._calculate_sha256(dest)
-                if actual_hash != expected_hash:
-                    print(
-                        f"Hash mismatch! Expected: {expected_hash}, Got: {actual_hash}",
-                        file=sys.stderr,
-                    )
-                    dest.unlink()
+                if expected_hash:
+                    actual_hash = self._calculate_sha256(dest)
+                    if actual_hash != expected_hash:
+                        print(
+                            f"Hash mismatch! Expected: {expected_hash}, Got: {actual_hash}",
+                            file=sys.stderr,
+                        )
+                        dest.unlink()
+                        return False
+
+                return True
+
+            except Exception as e:
+                print(f"Download attempt {attempt + 1} failed: {e}", file=sys.stderr)
+                if attempt < MAX_RETRIES - 1:
+                    print(f"Retrying in {RETRY_DELAY} seconds...")
+                    time.sleep(RETRY_DELAY)
+                else:
+                    print(f"Download failed after {MAX_RETRIES} attempts", file=sys.stderr)
+                    if dest.exists():
+                        dest.unlink()
                     return False
-
-            return True
-
-        except Exception as e:
-            print(f"Download failed: {e}", file=sys.stderr)
-            return False
+        
+        return False
 
     def download_update(self, release: ReleaseInfo, dest_dir: Path | None = None) -> Path | None:
         """Download all update files from a release.
@@ -209,8 +261,15 @@ class Downloader:
 
         current_version = current_version_json.get("version", "0.0.0")
 
-        if release.version <= current_version:
-            return None
+        # Use packaging.version for proper semantic version comparison
+        if HAS_PACKAGING:
+            if pkg_version.parse(release.version) <= pkg_version.parse(current_version):
+                return None
+        else:
+            # Fallback to tuple comparison if packaging is not available
+            if not VersionManager._versions_equal(release.version, current_version) and \
+               VersionManager._compare_versions_simple(release.version, current_version) <= 0:
+                return None
 
         system_update = release.version_json.get("system", {}).get(
             "version"
@@ -234,6 +293,31 @@ class Downloader:
             latest_version=release.version,
             release_date=release.version_json.get("release_date", ""),
         )
+
+    @staticmethod
+    def _compare_versions_simple(v1: str, v2: str) -> int:
+        """Simple version comparison fallback.
+        
+        Args:
+            v1: First version string
+            v2: Second version string
+            
+        Returns:
+            -1 if v1 < v2, 0 if equal, 1 if v1 > v2
+        """
+        def parse(v: str) -> tuple:
+            v = v.lstrip("v")
+            parts = v.split("-")[0].split(".")
+            return tuple(int(p) if p.isdigit() else 0 for p in parts)
+        
+        t1 = parse(v1)
+        t2 = parse(v2)
+        
+        if t1 < t2:
+            return -1
+        elif t1 > t2:
+            return 1
+        return 0
 
 
 def main():
