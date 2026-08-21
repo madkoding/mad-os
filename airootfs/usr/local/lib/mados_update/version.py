@@ -88,7 +88,7 @@ class VersionManager:
         return version_data.get("apps", {}).get(app_name, "unknown")
 
     def compare_version(self, other_version: str) -> int:
-        """Compare versions.
+        """Compare versions using semantic versioning.
 
         Args:
             other_version: Version string to compare
@@ -97,11 +97,27 @@ class VersionManager:
             -1 if other < current, 0 if equal, 1 if other > current
         """
         current = self.get_version().get("version", "0.0.0")
-
+        
+        # Use packaging library if available for proper semver comparison
+        try:
+            from packaging import version as pkg_version
+            current_v = pkg_version.parse(current)
+            other_v = pkg_version.parse(other_version.lstrip("v"))
+            
+            if current_v < other_v:
+                return 1
+            elif current_v > other_v:
+                return -1
+            else:
+                return 0
+        except ImportError:
+            # Fallback to simple tuple comparison
+            pass
+        
         def parse_version(v: str) -> tuple:
             v = v.lstrip("v")
             parts = v.split("-")[0].split(".")
-            return tuple(int(p) for p in parts if p.isdigit())
+            return tuple(int(p) if p.isdigit() else 0 for p in parts)
 
         current_tuple = parse_version(current)
         other_tuple = parse_version(other_version)
@@ -112,6 +128,44 @@ class VersionManager:
             return -1
         else:
             return 0
+
+    @staticmethod
+    def _compare_versions_simple(v1: str, v2: str) -> int:
+        """Simple version comparison fallback.
+        
+        Args:
+            v1: First version string
+            v2: Second version string
+            
+        Returns:
+            -1 if v1 < v2, 0 if equal, 1 if v1 > v2
+        """
+        def parse(v: str) -> tuple:
+            v = v.lstrip("v")
+            parts = v.split("-")[0].split(".")
+            return tuple(int(p) if p.isdigit() else 0 for p in parts)
+        
+        t1 = parse(v1)
+        t2 = parse(v2)
+        
+        if t1 < t2:
+            return -1
+        elif t1 > t2:
+            return 1
+        return 0
+    
+    @staticmethod
+    def _versions_equal(v1: str, v2: str) -> bool:
+        """Check if two versions are equal.
+        
+        Args:
+            v1: First version string
+            v2: Second version string
+            
+        Returns:
+            True if versions are equal
+        """
+        return VersionManager._compare_versions_simple(v1, v2) == 0
 
     @staticmethod
     def _default_version() -> dict:
