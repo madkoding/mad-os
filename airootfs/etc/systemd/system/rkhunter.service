@@ -7,6 +7,3 @@ Type=oneshot
 ExecStart=/usr/bin/rkhunter --check --cronjob --report-warnings-only
 StandardOutput=journal
 StandardError=journal
-
-[Install]
-WantedBy=multi-user.target

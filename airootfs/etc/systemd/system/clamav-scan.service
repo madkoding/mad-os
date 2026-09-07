@@ -9,6 +9,3 @@ ExecStartPre=/usr/bin/freshclam --quiet
 ExecStart=/usr/bin/clamscan --recursive --move=/var/quarantine /home
 StandardOutput=journal
 StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
